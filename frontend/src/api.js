@@ -60,7 +60,7 @@ export async function fetchCompanyResearch(company) {
 }
 
 /* ============================================================
-   COVER LETTER TEMPLATES — Phase 2 Actions
+   COVER LETTER TEMPLATES — Phase 2 Actions*/
 
 // ✏️ Edit template
 export const updateTemplate = (id, data) =>
@@ -76,7 +76,7 @@ export const duplicateTemplate = (id) =>
 
 
 /* ============================================================
-   COVER LETTER EXPORT
+   COVER LETTER EXPORT*/
     // === Cover Letter Export ===
     export function exportPDF(payload) {
       return api.post("/api/cover-letter/export/pdf", payload, {
