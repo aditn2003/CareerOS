@@ -1,64 +1,64 @@
 .job-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    padding: 1.2rem;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    width: clamp(350px, 60%, 700px);
-    margin: 0 auto;
-  }
-  
-  .job-form h3 {
-    text-align: center;
-    color: #333;
-  }
-  
-  .job-form input,
-  .job-form select,
-  .job-form textarea {
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    font-size: 1rem;
-  }
-  
-  .job-form textarea {
-    resize: vertical;
-    min-height: 100px;
-  }
-  
-  .salary-group {
-    display: flex;
-    gap: 1rem;
-  }
-  
-  .button-group {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1rem;
-  }
-  
-  .btn-secondary {
-    background: #eee;
-    color: #333;
-  }
-  
-  button {
-    padding: 0.6rem 1.4rem;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    background: #2575fc;
-    color: white;
-    font-weight: 600;
-    transition: background 0.3s ease;
-  }
-  
-  button:hover {
-    background: #1a5edb;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: clamp(350px, 60%, 700px);
+  margin: 0 auto;
+}
+
+.job-form h3 {
+  text-align: center;
+  color: #333;
+}
+
+.job-form input,
+.job-form select,
+.job-form textarea {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+.job-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.salary-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.button-group {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.btn-secondary {
+  background: #eee;
+  color: #333;
+}
+
+button {
+  padding: 0.6rem 1.4rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #2575fc;
+  color: white;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+button:hover {
+  background: #1a5edb;
+}
 /* =========================================================
    🌈 Job Opportunities Section Styling
    ========================================================= */
@@ -179,6 +179,27 @@
   font-weight: 600;
   color: #7c4dff;
 }
+.import-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
 
-  
-  
+.import-btn {
+  padding: 0.5rem 1rem;
+  background: #6a5acd;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.import-btn:hover {
+  background: #5a4abc;
+}
+
+.import-status {
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  color: #666;
+}

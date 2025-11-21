@@ -273,6 +273,37 @@ export default function CoverLetter() {
     navigator.clipboard.writeText(JSON.stringify(exportObj, null, 2));
     alert("Template copied!");
   };
+  
+    // ============= UC-061: Export (PDF, DOCX, TXT) =============
+  const handleExport = async (type) => {
+    if (!selected) return alert("Select a template first!");
+
+    const payload = {
+      content: selected.content,
+      jobTitle: selected.name || "cover_letter",
+      company: selected.industry || "company",
+    };
+
+    try {
+      let res;
+      if (type === "pdf") res = await api.post("/api/cover-letter/export/pdf", payload, { responseType: "blob" });
+      if (type === "docx") res = await api.post("/api/cover-letter/export/docx", payload, { responseType: "blob" });
+      if (type === "txt") res = await api.post("/api/cover-letter/export/text", payload, { responseType: "blob" });
+
+      const blob = new Blob([res.data]);
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${selected.name.replace(/\s+/g, "_")}_cover_letter.${type}`;
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Export failed:", err);
+      alert("Export failed.");
+    }
+  };
 
   // ============= AI GENERATION (UC-058 + UC-059 aware) =============
   const handleGenerateAI = async (e) => {
@@ -642,6 +673,11 @@ export default function CoverLetter() {
               <div className="cl-preview-actions">
                 <button onClick={handleUseTemplate}>Use Template</button>
                 <button onClick={handleShare}>Share JSON</button>
+
+                {/* ===== NEW EXPORT BUTTONS (UC-61) ===== */}
+                <button onClick={() => handleExport("pdf")}>Export PDF</button>
+                <button onClick={() => handleExport("docx")}>Export DOCX</button>
+                <button onClick={() => handleExport("txt")}>Export TXT</button>
               </div>
             </>
           )}
