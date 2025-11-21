@@ -30,12 +30,23 @@ import skillsGapRoutes from "./routes/skillsGap.js";
 import skillProgressRoutes from "./routes/skillProgress.js";
 import interviewInsights from "./routes/interviewInsights.js";
 import salaryResearchRouter from "./routes/salaryResearch.js";
+import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
+import coverLetterAIRoutes from "./routes/coverLetterAI.js";
+import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 
+
+import coverLetterRoutes from "./routes/cover_letter.js";
+import jobImportRoutes from "./routes/jobRoutes.js";
+import puppeteer from "puppeteer";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
 // ===== Initialize =====
 dotenv.config();
+console.log(
+  "🔑 GOOGLE_API_KEY loaded:",
+  process.env.GOOGLE_API_KEY ? "✅ yes" : "❌ no"
+);
 const { Pool } = pkg;
 const app = express();
 
@@ -267,7 +278,25 @@ app.put("/me", auth, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+app.get("/api/test-token", (req, res) => {
+  const h = req.headers.authorization || "";
+  const token = h.startsWith("Bearer ") ? h.split(" ")[1] : null;
 
+  console.log("Raw header:", h);
+  console.log("Extracted token:", token);
+  console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json({ success: true, decoded });
+  } catch (err) {
+    res.status(401).json({
+      error: err.name,
+      message: err.message,
+      token: token?.substring(0, 20) + "...",
+    });
+  }
+});
 // ========== UC-009: Account Deletion ==========
 app.post("/delete", auth, async (req, res) => {
   try {
@@ -344,6 +373,9 @@ app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
 
+app.use("/api/cover-letter", coverLetterTemplatesRouter);
+app.use("/api/cover-letter", coverLetterAIRoutes);
+app.use("/api/cover-letter/export", coverLetterExportRoutes);
 
 
 // ===== Global Error Handler =====
@@ -506,6 +538,8 @@ async function sendDeadlineReminders() {
     console.error("❌ Reminder job failed:", err.message);
   }
 }
+app.use("/api", jobImportRoutes);
+app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);

@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS jobs (
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE TABLE IF NOT EXISTS companies (
+CREATE TABLE IF NOT EXISTS companies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
     size VARCHAR(100),
@@ -156,6 +157,7 @@ CREATE TABLE IF NOT EXISTS companies (
 );
 -- resume_templates table
 CREATE TABLE IF NOT EXISTS resume_templates (
+CREATE TABLE IF NOT EXISTS resume_templates (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -168,6 +170,7 @@ CREATE TABLE IF NOT EXISTS resume_templates (
     is_default BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS resumes (
 CREATE TABLE IF NOT EXISTS resumes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -213,6 +216,7 @@ VALUES (
 
 
 CREATE TABLE IF NOT EXISTS resume_presets (
+CREATE TABLE IF NOT EXISTS resume_presets (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -257,6 +261,72 @@ ADD COLUMN IF NOT EXISTS preview_url TEXT,
 ADD COLUMN IF NOT EXISTS format TEXT DEFAULT 'pdf',
 ADD COLUMN IF NOT EXISTS template_name TEXT,
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+ALTER TABLE public.jobs
+ADD COLUMN IF NOT EXISTS "offerDate" DATE;
+
+CREATE TABLE IF NOT EXISTS match_history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  job_id INTEGER NOT NULL,
+  match_score INTEGER NOT NULL,
+  skills_score INTEGER,
+  experience_score INTEGER,
+  education_score INTEGER,
+  strengths TEXT,
+  gaps TEXT,
+  improvements TEXT,
+  weights JSONB,         -- stores personalized weighting used
+  details JSONB,         -- raw AI response for future use
+  created_at TIMESTAMP DEFAULT NOW()
+);
+-- ======================================
+-- COVER LETTER TEMPLATES (UC-055)
+-- ======================================
+
+CREATE TABLE IF NOT EXISTS cover_letter_templates (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, 
+    name VARCHAR(255) NOT NULL,
+    industry VARCHAR(255),
+    category VARCHAR(50),
+    content TEXT NOT NULL,
+    is_custom BOOLEAN DEFAULT FALSE,
+    view_count INTEGER DEFAULT 0,
+    use_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed global templates (shown to EVERY user)
+INSERT INTO cover_letter_templates 
+    (user_id, name, industry, category, content, is_custom)
+VALUES
+    (
+        NULL,
+        'Formal Software Engineer',
+        'Software Engineering',
+        'Formal',
+        'Dear Hiring Manager,\n\nI am writing to express my interest in the Software Engineer position at {{company}}. With {{years_experience}} years of experience in full-stack development and a strong background in {{skills}}, I am confident in my ability to contribute to your team.\n\nSincerely,\n{{your_name}}',
+        FALSE
+    ),
+    (
+        NULL,
+        'Technical Cybersecurity Analyst',
+        'Cybersecurity',
+        'Technical',
+        'Dear {{company}} Security Team,\n\nAs a cybersecurity enthusiast with hands-on experience in incident response, log analysis, and vulnerability management, I am excited to apply for the Cybersecurity Analyst role. In my recent work, I have used tools such as {{tools}} to detect and remediate threats.\n\nBest regards,\n{{your_name}}',
+        FALSE
+    ),
+    (
+        NULL,
+        'Creative Marketing Cover Letter',
+        'Marketing',
+        'Creative',
+        'Hi {{company}} Team,\n\nI am thrilled to apply for the Marketing position at {{company}}. I love telling stories with data and design, and I have led campaigns that increased engagement by {{metric}}.\n\nCheers,\n{{your_name}}',
+        FALSE
+    )
+ON CONFLICT DO NOTHING;
 
 ALTER TABLE public.jobs
 ADD COLUMN IF NOT EXISTS "offerDate" DATE;

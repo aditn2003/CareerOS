@@ -33,9 +33,6 @@ const UPLOAD_PREVIEW_DIR = path.resolve("uploads/resumes");
 if (!fs.existsSync(UPLOAD_PREVIEW_DIR))
   fs.mkdirSync(UPLOAD_PREVIEW_DIR, { recursive: true });
 
-/* ------------------------------------------------------------------
-   🧩 DOCX fallback loader (lazy import)
------------------------------------------------------------------- */
 let mammoth;
 try {
   const mod = await import("mammoth");
@@ -44,9 +41,6 @@ try {
   console.warn("⚠️ DOCX parsing disabled (mammoth not available)");
 }
 
-/* ------------------------------------------------------------------
-   📄 PDF extraction
------------------------------------------------------------------- */
 async function extractPdfText(buffer) {
   const uint8Array = new Uint8Array(buffer);
   const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
@@ -60,9 +54,6 @@ async function extractPdfText(buffer) {
   return textContent.trim();
 }
 
-/* ------------------------------------------------------------------
-   🧠 Simple fallback parser (if Gemini fails)
------------------------------------------------------------------- */
 function basicSectionParser(text = "") {
   const lines = text
     .split(/\r?\n/)
@@ -83,9 +74,6 @@ function basicSectionParser(text = "") {
   };
 }
 
-/* ------------------------------------------------------------------
-   🧩 Normalize Sections (Fix .map() errors & remove extra fields)
------------------------------------------------------------------- */
 function normalizeSections(sections = {}) {
   const normalized = { ...sections };
   const arrayKeys = [
@@ -138,10 +126,6 @@ function normalizeSections(sections = {}) {
   return normalized;
 }
 
-/* ------------------------------------------------------------------
-   🧰 Helpers for templates
------------------------------------------------------------------- */
-
 // Map UI names to file basenames (just in case)
 function toTemplateFileBase(name = "") {
   const n = (name || "").toLowerCase().trim();
@@ -169,16 +153,10 @@ function flattenForTemplate(sections) {
   };
 }
 
-/* ------------------------------------------------------------------
-   ✅ ROUTE: Quick test
------------------------------------------------------------------- */
 router.get("/test", (_req, res) =>
   res.json({ ok: true, message: "Resume routes reachable ✅" })
 );
 
-/* ------------------------------------------------------------------
-   🔹 TEMPLATE ROUTES
------------------------------------------------------------------- */
 router.get("/templates", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -192,9 +170,6 @@ router.get("/templates", auth, async (req, res) => {
   }
 });
 
-/* ------------------------------------------------------------------
-   🔹 CREATE / SAVE FINALIZED RESUME + PREVIEW
------------------------------------------------------------------- */
 router.post("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -287,12 +262,6 @@ router.get("/preview/:filename", (req, res) => {
   res.sendFile(filePath);
 });
 
-/* ------------------------------------------------------------------
-   🔹 LOAD FROM PROFILE: GET /api/resumes/from-profile
------------------------------------------------------------------- */
-/* ------------------------------------------------------------------
-   🔹 FROM PROFILE
------------------------------------------------------------------- */
 router.get("/from-profile", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -354,9 +323,6 @@ router.get("/from-profile", auth, async (req, res) => {
   }
 });
 
-/* ------------------------------------------------------------------
-   🔹 AI PARSING: POST /api/resumes/import
------------------------------------------------------------------- */
 router.post("/import", auth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded." });
@@ -378,10 +344,6 @@ router.post("/import", auth, upload.single("file"), async (req, res) => {
     }
 
     fs.unlinkSync(filePath);
-    /* ============================================================
-   📝 ENHANCED GEMINI PROMPT FOR RESUME IMPORT
-   Replace the prompt in resumes.js /import route (line 382)
-   ============================================================ */
 
     const prompt = `
 🚨 CRITICAL INSTRUCTIONS:
@@ -539,9 +501,6 @@ ${textContent}
   }
 });
 
-/* ------------------------------------------------------------------
-   🔹 LIST / DELETE
------------------------------------------------------------------- */
 router.get("/", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
