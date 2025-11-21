@@ -32,6 +32,9 @@ import interviewInsights from "./routes/interviewInsights.js";
 import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
+import coverLetterExportRoutes from "./routes/coverLetterExport.js";
+
+
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
 import puppeteer from "puppeteer";
@@ -372,6 +375,8 @@ app.use("/api/salary-research", salaryResearchRouter);
 
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
+app.use("/api/cover-letter/export", coverLetterExportRoutes);
+
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
