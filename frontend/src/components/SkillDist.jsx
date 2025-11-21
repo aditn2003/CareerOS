@@ -2,9 +2,9 @@ import React from "react";
 import "./skillChart.css";
 
 export default function SkillDistributionChart({ data }) {
-  if (!data || data.length === 0) {
-    return <p>No skill data available yet.</p>;
-  }
+  // if (!data || data.length === 0) {
+  //   return <p>No skill data available yet.</p>;
+  // }
 
   // Compute total for percentage bars
   const total = data.reduce((sum, s) => sum + s.count, 0);
@@ -23,8 +23,13 @@ export default function SkillDistributionChart({ data }) {
                   className="bar-fill"
                   style={{
                     width: `${width}%`,
-                    backgroundColor:
-                      ["#6366f1", "#22c55e", "#f97316", "#06b6d4", "#e11d48"][i % 5],
+                    backgroundColor: [
+                      "#6366f1",
+                      "#22c55e",
+                      "#f97316",
+                      "#06b6d4",
+                      "#e11d48",
+                    ][i % 5],
                   }}
                 ></div>
               </div>
