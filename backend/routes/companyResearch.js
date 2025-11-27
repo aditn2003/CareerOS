@@ -335,6 +335,91 @@ function buildSocialLinks(name) {
     youtube: `https://www.youtube.com/results?search_query=${encodeURIComponent(name)}+official`,
   };
 }
+
+/* ------------------------- 💡 Generate Talking Points & Questions (UC-074) ------------------------- */
+async function generateTalkingPointsAndQuestions(companyData) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    // Return fallback talking points if no API key
+    return {
+      talkingPoints: [
+        `Discuss ${companyData.company}'s mission and how it aligns with your values`,
+        `Mention recent news or developments you've researched`,
+        `Reference their products/services and your relevant experience`,
+        `Express interest in their company culture and team collaboration`,
+        `Highlight your skills that match their competitive landscape`
+      ],
+      questionsToAsk: [
+        `What are the biggest challenges your team is currently facing?`,
+        `How does ${companyData.company} approach innovation in ${companyData.basics?.industry || 'this industry'}?`,
+        `What does success look like in this role in the first 90 days?`,
+        `How does the company support professional development?`,
+        `What's the team structure and who would I be working with?`
+      ]
+    };
+  }
+
+  const contextPrompt = `
+Based on this company research, generate personalized talking points and intelligent questions for an interview.
+
+Company: ${companyData.company}
+Industry: ${companyData.basics?.industry || 'N/A'}
+Mission: ${companyData.missionValuesCulture?.mission || 'N/A'}
+Recent News: ${companyData.recentNews?.slice(0, 3).map(n => n.title).join('; ') || 'N/A'}
+Products/Services: ${companyData.productsServices?.join(', ') || 'N/A'}
+Competitors: ${companyData.competitiveLandscape?.join(', ') || 'N/A'}
+
+Return JSON with:
+{
+  "talkingPoints": [5-7 specific talking points that demonstrate knowledge of the company],
+  "questionsToAsk": [7-10 intelligent, role-specific questions to ask the interviewer]
+}
+
+Rules:
+- Talking points should reference specific company details (mission, recent news, products)
+- Questions should be insightful and demonstrate research
+- Mix strategic, cultural, and role-specific questions
+- Avoid generic questions
+- Return valid JSON only
+`;
+
+  try {
+    const { data } = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are an expert interview preparation coach." },
+          { role: "user", content: contextPrompt },
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" },
+      },
+      { headers: { Authorization: `Bearer ${key}` } }
+    );
+
+    const result = JSON.parse(data?.choices?.[0]?.message?.content || "{}");
+    return {
+      talkingPoints: result.talkingPoints || [],
+      questionsToAsk: result.questionsToAsk || []
+    };
+  } catch (err) {
+    console.error("❌ Error generating talking points:", err.message);
+    return {
+      talkingPoints: [
+        `Discuss ${companyData.company}'s mission and values`,
+        `Reference recent company developments`,
+        `Highlight relevant experience and skills`
+      ],
+      questionsToAsk: [
+        `What are the key priorities for this role?`,
+        `How does the team measure success?`,
+        `What's the company culture like?`
+      ]
+    };
+  }
+}
+
 /* ------------------------- 🚀 Main Endpoint ------------------------- */
 router.get("/", async (req, res) => {
   const company = (req.query.company || "").trim();
@@ -377,6 +462,18 @@ router.get("/", async (req, res) => {
       social: buildSocialLinks(company),
     };
 
+    // 🆕 UC-074: Generate talking points and intelligent questions
+    const interviewPrep = await generateTalkingPointsAndQuestions({
+      company,
+      basics: data.basics,
+      missionValuesCulture: data.missionValuesCulture,
+      recentNews: news,
+      productsServices: data.productsServices,
+      competitiveLandscape: data.competitiveLandscape
+    });
+
+    data.interviewPrep = interviewPrep;
+
     console.log(`✅ Completed fresh analysis for ${company}`);
     res.json({ success: true, data });
   } catch (err) {
@@ -384,6 +481,111 @@ router.get("/", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error generating company research.",
+    });
+  }
+});
+
+/* ------------------------- 📥 Export Research Summary (UC-074) ------------------------- */
+router.post("/export", async (req, res) => {
+  try {
+    const { researchData, format } = req.body;
+
+    if (!researchData) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Missing research data" 
+      });
+    }
+
+    const company = researchData.basics?.company || "Company";
+    const exportFormat = format || "json";
+
+    if (exportFormat === "json") {
+      // Export as JSON
+      const filename = `${company.replace(/\s+/g, '_')}_research_${Date.now()}.json`;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.json(researchData);
+    }
+
+    if (exportFormat === "text") {
+      // Export as formatted text
+      const textContent = `
+═══════════════════════════════════════════════════
+  COMPANY RESEARCH REPORT
+  Generated: ${new Date().toLocaleDateString()}
+═══════════════════════════════════════════════════
+
+📊 COMPANY OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Industry: ${researchData.basics?.industry || 'N/A'}
+Headquarters: ${researchData.basics?.headquarters || 'N/A'}
+Company Size: ${researchData.basics?.size || 'N/A'}
+
+🎯 MISSION & VALUES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Mission: ${researchData.missionValuesCulture?.mission || 'N/A'}
+
+Core Values:
+${researchData.missionValuesCulture?.values?.map(v => `  • ${v}`).join('\n') || '  N/A'}
+
+Culture: ${researchData.missionValuesCulture?.culture || 'N/A'}
+
+👥 LEADERSHIP TEAM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.executives?.map(e => `  • ${e.name} - ${e.title}`).join('\n') || '  N/A'}
+
+🛠️ PRODUCTS & SERVICES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.productsServices?.map(p => `  • ${p}`).join('\n') || '  N/A'}
+
+🏆 COMPETITIVE LANDSCAPE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.competitiveLandscape?.map(c => `  • ${c}`).join('\n') || '  N/A'}
+
+📰 RECENT NEWS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.recentNews?.slice(0, 5).map(n => `
+  ${n.title}
+  Source: ${n.source} | ${new Date(n.date).toLocaleDateString()}
+  ${n.summary}
+`).join('\n') || '  N/A'}
+
+💡 INTERVIEW TALKING POINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.interviewPrep?.talkingPoints?.map((tp, i) => `  ${i + 1}. ${tp}`).join('\n') || '  N/A'}
+
+❓ INTELLIGENT QUESTIONS TO ASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${researchData.interviewPrep?.questionsToAsk?.map((q, i) => `  ${i + 1}. ${q}`).join('\n') || '  N/A'}
+
+🔗 SOCIAL & WEB PRESENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Website: ${researchData.social?.website || 'N/A'}
+  LinkedIn: ${researchData.social?.linkedin || 'N/A'}
+  Twitter: ${researchData.social?.twitter || 'N/A'}
+
+═══════════════════════════════════════════════════
+  End of Report
+═══════════════════════════════════════════════════
+`;
+
+      const filename = `${company.replace(/\s+/g, '_')}_research_${Date.now()}.txt`;
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(textContent);
+    }
+
+    return res.status(400).json({ 
+      success: false, 
+      message: "Invalid format. Use 'json' or 'text'" 
+    });
+
+  } catch (err) {
+    console.error("❌ Export Error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Error exporting research summary.",
     });
   }
 });

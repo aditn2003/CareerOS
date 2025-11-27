@@ -326,7 +326,7 @@ router.get("/stats", auth, async (req, res) => {
 router.get("/archived", auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM jobs WHERE user_id = $1 AND "isachived" = true
+      `SELECT * FROM jobs WHERE user_id = $1 AND "isarchived" = true
        ORDER BY status_updated_at DESC`,
       [req.userId]
     );
