@@ -372,7 +372,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-
+app.use("/api/companyResearch", companyResearchRoutes);
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
