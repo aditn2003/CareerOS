@@ -397,10 +397,11 @@ router.get("/questions", async (req, res) => {
 
 /* -----------------------------------------------------
    🆕 UC-075: Track Practiced Questions with Supabase
+   UPDATED: Now accepts questionText and tracks practice_count
 ----------------------------------------------------- */
 router.post("/questions/practice", async (req, res) => {
   try {
-    const { userId, questionId, questionCategory, response } = req.body;
+    const { userId, questionId, questionText, questionCategory, response } = req.body;
 
     if (!userId || !questionId) {
       return res.status(400).json({
@@ -420,6 +421,16 @@ router.post("/questions/practice", async (req, res) => {
 
     // Calculate response length
     const responseLength = response ? response.length : 0;
+    
+    // Get practice count from existing record
+    const { data: existing } = await supabase
+      .from("practiced_questions")
+      .select("practice_count")
+      .eq("user_id", userIdInt)
+      .eq("question_id", questionId)
+      .single();
+    
+    const practiceCount = existing ? (existing.practice_count || 0) + 1 : 1;
 
     // Upsert the practiced question (insert or update if exists)
     const { data, error } = await supabase
@@ -427,9 +438,11 @@ router.post("/questions/practice", async (req, res) => {
       .upsert({
         user_id: userIdInt,
         question_id: questionId,
+        question_text: questionText || null,
         question_category: questionCategory || null,
         response: response || null,
         response_length: responseLength,
+        practice_count: practiceCount,
         practiced_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,question_id'
@@ -446,7 +459,7 @@ router.post("/questions/practice", async (req, res) => {
       });
     }
 
-    console.log(`✅ Marked question ${questionId} as practiced for user ${userIdInt}`);
+    console.log(`✅ Marked question ${questionId} as practiced for user ${userIdInt} (count: ${practiceCount})`);
     
     // Get total practiced count
     const { count } = await supabase
@@ -460,6 +473,7 @@ router.post("/questions/practice", async (req, res) => {
       data: {
         questionId,
         practicedAt: data.practiced_at,
+        practiceCount: practiceCount,
         totalPracticed: count || 0
       }
     });
