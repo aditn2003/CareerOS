@@ -40,6 +40,7 @@ import ResumeFinalReview from "./components/ResumeFinalReview";
 // ---------- Context Providers ----------
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
+import { TeamProvider } from "./contexts/TeamContext";
 
 // 🔐 Protected Route Wrapper
 function ProtectedRoute({ children }) {
@@ -52,11 +53,13 @@ function ProtectedRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <ProfileProvider>
-        <Router>
-          <MainLayout />
-        </Router>
-      </ProfileProvider>
+      <TeamProvider>
+        <ProfileProvider>
+          <Router>
+            <MainLayout />
+          </Router>
+        </ProfileProvider>
+      </TeamProvider>
     </AuthProvider>
   );
 }

@@ -1,0 +1,178 @@
+.mentor-invite-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.invite-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 2.5rem;
+  text-align: center;
+  color: white;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+}
+
+.invite-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.invite-card h4 {
+  color: white;
+  font-size: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.invite-team-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1rem 0;
+  color: #fff;
+}
+
+.invite-description {
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+  margin: 1rem 0 2rem;
+}
+
+.accept-invite-btn {
+  background: white;
+  color: #667eea;
+  font-weight: 600;
+  padding: 0.875rem 2rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.accept-invite-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.accept-invite-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mentor-member-list {
+  margin-top: 1.5rem;
+}
+
+.mentor-member-list h4 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.mentor-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mentor-table thead {
+  background: #f8f9fa;
+}
+
+.mentor-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.mentor-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.mentor-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.mentor-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.role-badge,
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.role-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.role-mentor {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-candidate {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.status-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-invited {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-removed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.team-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.team-info p {
+  margin: 0;
+  color: #495057;
+}
+
+.error-banner,
+.success-banner {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+.error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.success-banner {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
