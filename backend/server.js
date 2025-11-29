@@ -33,7 +33,8 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
-
+import responseCoachingRoutes from "./routes/responseCoaching.js";
+import mockInterviewsRoutes from "./routes/mockInterviews.js";
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -549,6 +550,8 @@ app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
+app.use("/api/response-coaching", responseCoachingRoutes);
+app.use("/api/mock-interviews", mockInterviewsRoutes);
 
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
