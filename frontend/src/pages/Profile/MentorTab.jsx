@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
+import FeedbackThreads from "../../components/FeedbackThreads";
 import "./MentorTab.css";
+import "../Profile/TeamManagement.css";
 
 export default function MentorTab() {
   const { teamState, refreshTeam } = useTeam();
@@ -97,28 +99,81 @@ export default function MentorTab() {
   }
 
   if (isCandidate && teamState?.hasTeam) {
-    return (
-      <section className="profile-box">
-        <h3>Your Mentor Space</h3>
-        <p>
-          This is where mentor notes, invitations, and guidance will show up.
-          Stay tuned!
-        </p>
-        {teamName && (
-          <div className="team-info">
-            <p>
-              <strong>Team:</strong> {teamName}
-            </p>
-          </div>
-        )}
-      </section>
-    );
+    return <CandidateMentorView teamId={teamId} teamName={teamName} />;
   }
 
   return (
     <section className="profile-box">
       <h3>Mentor Overview</h3>
       <p>No mentor tools available for this account.</p>
+    </section>
+  );
+}
+
+// ============================================================
+// CANDIDATE VIEW: Display feedback from mentors
+// ============================================================
+function CandidateMentorView({ teamId, teamName }) {
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadFeedback = useCallback(async () => {
+    if (!teamId) {
+      setFeedbackList([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/feedback`);
+      console.log(`[Feedback] Candidate loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
+      setFeedbackList(data?.feedback || []);
+    } catch (err) {
+      console.error("Failed to load feedback:", err);
+      console.error("Error response:", err.response?.data);
+      setError("Failed to load feedback.");
+      setFeedbackList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [teamId]);
+
+  useEffect(() => {
+    loadFeedback();
+  }, [loadFeedback]);
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getFeedbackTypeLabel = (type) => {
+    switch (type) {
+      case "job": return "Job Feedback";
+      case "skill": return "Skill Feedback";
+      default: return "General Feedback";
+    }
+  };
+
+  return (
+    <section className="profile-box">
+      <h3>Your Mentor Space</h3>
+      {teamName && (
+        <p>
+          <strong>Team:</strong> {teamName}
+        </p>
+      )}
+
+      {error && <div className="error-banner">{error}</div>}
+
+      <div style={{ marginTop: "1rem" }}>
+        <FeedbackThreads teamId={teamId} />
+      </div>
     </section>
   );
 }

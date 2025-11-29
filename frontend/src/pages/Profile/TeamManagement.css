@@ -761,3 +761,197 @@
   }
 }
 
+/* ============================================================
+   FEEDBACK SECTION
+   ============================================================ */
+.team-feedback-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.feedback-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.feedback-section-header h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.2rem;
+}
+
+.feedback-view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.view-toggle-btn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #8b5cf6;
+}
+
+.view-toggle-btn.active {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.feedback-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.feedback-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.feedback-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.feedback-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.feedback-type-badge {
+  background: #8b5cf6;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.feedback-job-badge,
+.feedback-skill-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.feedback-job-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.feedback-skill-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.feedback-candidate {
+  font-weight: 600;
+  color: #111b21;
+  font-size: 13px;
+}
+
+.feedback-date {
+  color: #667781;
+  font-size: 13px;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-edit-feedback,
+.btn-delete-feedback {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-edit-feedback {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.btn-edit-feedback:hover {
+  background: #c7d2fe;
+}
+
+.btn-delete-feedback {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.btn-delete-feedback:hover {
+  background: #fecaca;
+}
+
+.feedback-content {
+  color: #111b21;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 15px;
+  padding-top: 8px;
+  border-top: 1px solid #e9edef;
+}
+
+.btn-feedback {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 0.5rem;
+}
+
+.btn-feedback:hover {
+  background: #7c3aed;
+}
+

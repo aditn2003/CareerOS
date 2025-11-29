@@ -15,6 +15,21 @@ const sslConfig = process.env.DATABASE_URL?.includes('supabase') || process.env.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ...(sslConfig && { ssl: sslConfig }),
+  max: 10, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+});
+
+// Handle pool errors gracefully
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+// Handle connection errors
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    console.error('Database client error:', err);
+  });
 });
 
 const ADMIN_ROLES = new Set(["admin"]);
@@ -933,6 +948,803 @@ router.get("/:teamId/members/:memberId/profile", async (req, res) => {
   } catch (err) {
     console.error("View candidate profile failed:", err);
     res.status(500).json({ error: "PROFILE_FETCH_FAILED" });
+  }
+});
+
+// ============================================================
+// MENTOR FEEDBACK SYSTEM
+// ============================================================
+
+// GET /api/team/:teamId/feedback - Get all feedback for a team
+// Mentors/Admins: See all feedback
+// Candidates: See only feedback about themselves
+router.get("/:teamId/feedback", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+
+    let query;
+    let params;
+
+    if (isManager) {
+      // Mentors/Admins see all feedback in the team
+      query = `
+        SELECT 
+          mf.id,
+          mf.team_id,
+          mf.mentor_id,
+          mf.candidate_id,
+          mf.job_id,
+          mf.feedback_type,
+          mf.content,
+          mf.skill_name,
+          mf.created_at,
+          mf.updated_at,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          mentor_u.email AS mentor_email,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          candidate_u.email AS candidate_email,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM mentor_feedback mf
+        LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
+        LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
+        LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
+        LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
+        LEFT JOIN jobs j ON mf.job_id = j.id
+        WHERE mf.team_id = $1
+        ORDER BY mf.created_at DESC
+      `;
+      params = [teamId];
+    } else if (isCandidate) {
+      // Candidates only see feedback about themselves
+      query = `
+        SELECT 
+          mf.id,
+          mf.team_id,
+          mf.mentor_id,
+          mf.candidate_id,
+          mf.job_id,
+          mf.feedback_type,
+          mf.content,
+          mf.skill_name,
+          mf.created_at,
+          mf.updated_at,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          mentor_u.email AS mentor_email,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          candidate_u.email AS candidate_email,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM mentor_feedback mf
+        LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
+        LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
+        LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
+        LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
+        LEFT JOIN jobs j ON mf.job_id = j.id
+        WHERE mf.team_id = $1 AND mf.candidate_id = $2
+        ORDER BY mf.created_at DESC
+      `;
+      params = [teamId, userId];
+    } else {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const result = await pool.query(query, params);
+    
+    console.log(`[Feedback] Fetched ${result.rows.length} feedback entries for team ${teamId}, user ${userId}`);
+    
+    res.json({
+      feedback: result.rows.map(fb => ({
+        id: fb.id,
+        teamId: fb.team_id,
+        mentorId: fb.mentor_id,
+        candidateId: fb.candidate_id,
+        jobId: fb.job_id,
+        feedbackType: fb.feedback_type,
+        content: fb.content,
+        skillName: fb.skill_name,
+        createdAt: fb.created_at,
+        updatedAt: fb.updated_at,
+        mentorName: fb.mentor_name,
+        mentorEmail: fb.mentor_email,
+        candidateName: fb.candidate_name,
+        candidateEmail: fb.candidate_email,
+        jobTitle: fb.job_title,
+        jobCompany: fb.job_company,
+      })),
+    });
+  } catch (err) {
+    console.error("Get feedback failed:", err);
+    res.status(500).json({ error: "FEEDBACK_FETCH_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/feedback/:feedbackId - Get single feedback entry
+router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+    
+    if (isNaN(teamId) || isNaN(feedbackId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+
+    // Check if feedback exists and user has permission to view it
+    let query;
+    let params;
+
+    if (isManager) {
+      query = `
+        SELECT 
+          mf.*,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM mentor_feedback mf
+        LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
+        LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
+        LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
+        LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
+        LEFT JOIN jobs j ON mf.job_id = j.id
+        WHERE mf.id = $1 AND mf.team_id = $2
+      `;
+      params = [feedbackId, teamId];
+    } else if (isCandidate) {
+      query = `
+        SELECT 
+          mf.*,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM mentor_feedback mf
+        LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
+        LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
+        LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
+        LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
+        LEFT JOIN jobs j ON mf.job_id = j.id
+        WHERE mf.id = $1 AND mf.team_id = $2 AND mf.candidate_id = $3
+      `;
+      params = [feedbackId, teamId, userId];
+    } else {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const result = await pool.query(query, params);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const fb = result.rows[0];
+    res.json({
+      id: fb.id,
+      teamId: fb.team_id,
+      mentorId: fb.mentor_id,
+      candidateId: fb.candidate_id,
+      jobId: fb.job_id,
+      feedbackType: fb.feedback_type,
+      content: fb.content,
+      skillName: fb.skill_name,
+      createdAt: fb.created_at,
+      updatedAt: fb.updated_at,
+      mentorName: fb.mentor_name,
+      candidateName: fb.candidate_name,
+      jobTitle: fb.job_title,
+      jobCompany: fb.job_company,
+    });
+  } catch (err) {
+    console.error("Get feedback failed:", err);
+    res.status(500).json({ error: "FEEDBACK_FETCH_FAILED" });
+  }
+});
+
+// POST /api/team/:teamId/feedback - Create feedback (mentor/admin only)
+router.post("/:teamId/feedback", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const { candidateId, jobId, feedbackType, content, skillName } = req.body;
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    if (!candidateId || !feedbackType || !content) {
+      return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS" });
+    }
+
+    if (!["job", "skill", "general"].includes(feedbackType)) {
+      return res.status(400).json({ error: "INVALID_FEEDBACK_TYPE" });
+    }
+
+    if (feedbackType === "skill" && !skillName) {
+      return res.status(400).json({ error: "SKILL_NAME_REQUIRED" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_CREATE_FEEDBACK" });
+    }
+
+    // Verify candidate is in the same team
+    const candidateMembership = await getMembership(teamId, candidateId);
+    if (!candidateMembership || candidateMembership.status !== "active") {
+      return res.status(400).json({ error: "CANDIDATE_NOT_IN_TEAM" });
+    }
+
+    if (candidateMembership.role !== "candidate") {
+      return res.status(400).json({ error: "FEEDBACK_ONLY_FOR_CANDIDATES" });
+    }
+
+    // If jobId is provided, verify it belongs to the candidate
+    if (jobId) {
+      const jobResult = await pool.query(
+        "SELECT user_id FROM jobs WHERE id = $1",
+        [jobId]
+      );
+      if (jobResult.rows.length === 0 || jobResult.rows[0].user_id !== candidateId) {
+        return res.status(400).json({ error: "INVALID_JOB_ID" });
+      }
+    }
+
+    const result = await pool.query(
+      `INSERT INTO mentor_feedback 
+       (team_id, mentor_id, candidate_id, job_id, feedback_type, content, skill_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        teamId,
+        userId,
+        candidateId,
+        jobId || null,
+        feedbackType,
+        content,
+        skillName || null,
+      ]
+    );
+
+    console.log(`[Feedback] Created feedback ${result.rows[0].id} for candidate ${candidateId} in team ${teamId}`);
+
+    const feedback = result.rows[0];
+    
+    // Fetch mentor and candidate names for response
+    const [mentorResult, candidateResult] = await Promise.all([
+      pool.query("SELECT full_name FROM profiles WHERE user_id = $1", [userId]),
+      pool.query("SELECT full_name FROM profiles WHERE user_id = $1", [candidateId]),
+    ]);
+
+    res.status(201).json({
+      id: feedback.id,
+      teamId: feedback.team_id,
+      mentorId: feedback.mentor_id,
+      candidateId: feedback.candidate_id,
+      jobId: feedback.job_id,
+      feedbackType: feedback.feedback_type,
+      content: feedback.content,
+      skillName: feedback.skill_name,
+      createdAt: feedback.created_at,
+      updatedAt: feedback.updated_at,
+      mentorName: mentorResult.rows[0]?.full_name || "",
+      candidateName: candidateResult.rows[0]?.full_name || "",
+    });
+  } catch (err) {
+    console.error("Create feedback failed:", err);
+    res.status(500).json({ error: "FEEDBACK_CREATE_FAILED" });
+  }
+});
+
+// PATCH /api/team/:teamId/feedback/:feedbackId - Update feedback (mentor who created it only)
+router.patch("/:teamId/feedback/:feedbackId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+    const { content, skillName } = req.body;
+
+    if (isNaN(teamId) || isNaN(feedbackId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    if (!content) {
+      return res.status(400).json({ error: "CONTENT_REQUIRED" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Check if feedback exists and user is the creator (or admin)
+    const feedbackResult = await pool.query(
+      "SELECT mentor_id, feedback_type FROM mentor_feedback WHERE id = $1 AND team_id = $2",
+      [feedbackId, teamId]
+    );
+
+    if (feedbackResult.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const feedback = feedbackResult.rows[0];
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isCreator = feedback.mentor_id === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: "CAN_ONLY_EDIT_OWN_FEEDBACK" });
+    }
+
+    // Update feedback
+    const updateFields = ["content = $1"];
+    const updateValues = [content];
+    let paramIndex = 2;
+
+    if (feedback.feedback_type === "skill" && skillName) {
+      updateFields.push(`skill_name = $${paramIndex}`);
+      updateValues.push(skillName);
+      paramIndex++;
+    }
+
+    updateValues.push(feedbackId, teamId);
+
+    const result = await pool.query(
+      `UPDATE mentor_feedback 
+       SET ${updateFields.join(", ")}
+       WHERE id = $${paramIndex} AND team_id = $${paramIndex + 1}
+       RETURNING *`,
+      updateValues
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const updatedFeedback = result.rows[0];
+    res.json({
+      id: updatedFeedback.id,
+      teamId: updatedFeedback.team_id,
+      mentorId: updatedFeedback.mentor_id,
+      candidateId: updatedFeedback.candidate_id,
+      jobId: updatedFeedback.job_id,
+      feedbackType: updatedFeedback.feedback_type,
+      content: updatedFeedback.content,
+      skillName: updatedFeedback.skill_name,
+      createdAt: updatedFeedback.created_at,
+      updatedAt: updatedFeedback.updated_at,
+    });
+  } catch (err) {
+    console.error("Update feedback failed:", err);
+    res.status(500).json({ error: "FEEDBACK_UPDATE_FAILED" });
+  }
+});
+
+// DELETE /api/team/:teamId/feedback/:feedbackId - Delete feedback
+router.delete("/:teamId/feedback/:feedbackId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+
+    if (isNaN(teamId) || isNaN(feedbackId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Check if feedback exists and user has permission to delete
+    const feedbackResult = await pool.query(
+      "SELECT mentor_id FROM mentor_feedback WHERE id = $1 AND team_id = $2",
+      [feedbackId, teamId]
+    );
+
+    if (feedbackResult.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const feedback = feedbackResult.rows[0];
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isCreator = feedback.mentor_id === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: "CAN_ONLY_DELETE_OWN_FEEDBACK" });
+    }
+
+    await pool.query(
+      "DELETE FROM mentor_feedback WHERE id = $1 AND team_id = $2",
+      [feedbackId, teamId]
+    );
+
+    res.json({ message: "FEEDBACK_DELETED" });
+  } catch (err) {
+    console.error("Delete feedback failed:", err);
+    res.status(500).json({ error: "FEEDBACK_DELETE_FAILED" });
+  }
+});
+
+// ============================================================
+// FEEDBACK REPLIES / THREADING SYSTEM
+// ============================================================
+
+// GET /api/team/:teamId/feedback/:feedbackId/replies - Get all replies for a feedback thread
+router.get("/:teamId/feedback/:feedbackId/replies", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+
+    if (isNaN(teamId) || isNaN(feedbackId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Verify feedback exists and user has permission to view it
+    const feedbackResult = await pool.query(
+      `SELECT mentor_id, candidate_id FROM mentor_feedback WHERE id = $1 AND team_id = $2`,
+      [feedbackId, teamId]
+    );
+
+    if (feedbackResult.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const feedback = feedbackResult.rows[0];
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+
+    // Verify user is either the mentor or candidate
+    if (!isManager && userId !== feedback.candidate_id && userId !== feedback.mentor_id) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    // Fetch all replies with user info, ordered by creation time
+    const repliesResult = await pool.query(
+      `
+      SELECT 
+        fr.id,
+        fr.feedback_id,
+        fr.user_id,
+        fr.parent_reply_id,
+        fr.content,
+        fr.created_at,
+        fr.updated_at,
+        COALESCE(
+          NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+          u_prof.full_name,
+          u.email,
+          'Unknown'
+        ) AS user_name,
+        u.email AS user_email,
+        mf.mentor_id,
+        mf.candidate_id
+      FROM feedback_replies fr
+      JOIN users u ON fr.user_id = u.id
+      LEFT JOIN profiles u_prof ON fr.user_id = u_prof.user_id
+      JOIN mentor_feedback mf ON fr.feedback_id = mf.id
+      WHERE fr.feedback_id = $1
+      ORDER BY fr.created_at ASC
+      `,
+      [feedbackId]
+    );
+
+    // Build threaded structure
+    const repliesMap = new Map();
+    const rootReplies = [];
+
+    repliesResult.rows.forEach((reply) => {
+      const replyData = {
+        id: reply.id,
+        feedbackId: reply.feedback_id,
+        userId: reply.user_id,
+        parentReplyId: reply.parent_reply_id,
+        content: reply.content,
+        createdAt: reply.created_at,
+        updatedAt: reply.updated_at,
+        userName: reply.user_name,
+        userEmail: reply.user_email,
+        isMentor: reply.user_id === reply.mentor_id,
+        isCandidate: reply.user_id === reply.candidate_id,
+        replies: [], // Child replies
+      };
+
+      repliesMap.set(reply.id, replyData);
+
+      if (reply.parent_reply_id) {
+        const parent = repliesMap.get(reply.parent_reply_id);
+        if (parent) {
+          parent.replies.push(replyData);
+        }
+      } else {
+        rootReplies.push(replyData);
+      }
+    });
+
+    res.json({ replies: rootReplies });
+  } catch (err) {
+    console.error("Get feedback replies failed:", err);
+    res.status(500).json({ error: "REPLIES_FETCH_FAILED" });
+  }
+});
+
+// POST /api/team/:teamId/feedback/:feedbackId/replies - Create a reply
+router.post("/:teamId/feedback/:feedbackId/replies", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+    const { content, parentReplyId } = req.body;
+
+    if (isNaN(teamId) || isNaN(feedbackId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: "CONTENT_REQUIRED" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Verify feedback exists and get mentor/candidate info
+    const feedbackResult = await pool.query(
+      `SELECT mentor_id, candidate_id FROM mentor_feedback WHERE id = $1 AND team_id = $2`,
+      [feedbackId, teamId]
+    );
+
+    if (feedbackResult.rows.length === 0) {
+      return res.status(404).json({ error: "FEEDBACK_NOT_FOUND" });
+    }
+
+    const feedback = feedbackResult.rows[0];
+    const isManager = MANAGER_ROLES.has(membership.role);
+
+    // Verify user is either the mentor or candidate (or admin can reply to any)
+    if (!isManager && userId !== feedback.candidate_id && userId !== feedback.mentor_id) {
+      return res.status(403).json({ error: "CAN_ONLY_REPLY_TO_OWN_FEEDBACK" });
+    }
+
+    // If parentReplyId is provided, verify it exists and belongs to the same feedback
+    if (parentReplyId) {
+      const parentCheck = await pool.query(
+        `SELECT id FROM feedback_replies WHERE id = $1 AND feedback_id = $2`,
+        [parentReplyId, feedbackId]
+      );
+      if (parentCheck.rows.length === 0) {
+        return res.status(400).json({ error: "INVALID_PARENT_REPLY" });
+      }
+    }
+
+    // Insert reply
+    const result = await pool.query(
+      `INSERT INTO feedback_replies (feedback_id, user_id, parent_reply_id, content)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [feedbackId, userId, parentReplyId || null, content.trim()]
+    );
+
+    const reply = result.rows[0];
+
+    // Fetch user info for response
+    const userResult = await pool.query(
+      `SELECT 
+        COALESCE(p.full_name, u.email, 'Unknown') AS user_name,
+        u.email AS user_email
+       FROM users u
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE u.id = $1`,
+      [userId]
+    );
+
+    const userInfo = userResult.rows[0];
+
+    res.status(201).json({
+      id: reply.id,
+      feedbackId: reply.feedback_id,
+      userId: reply.user_id,
+      parentReplyId: reply.parent_reply_id,
+      content: reply.content,
+      createdAt: reply.created_at,
+      updatedAt: reply.updated_at,
+      userName: userInfo.user_name,
+      userEmail: userInfo.user_email,
+      isMentor: userId === feedback.mentor_id,
+      isCandidate: userId === feedback.candidate_id,
+      replies: [],
+    });
+  } catch (err) {
+    console.error("Create feedback reply failed:", err);
+    res.status(500).json({ error: "REPLY_CREATE_FAILED" });
+  }
+});
+
+// PATCH /api/team/:teamId/feedback/:feedbackId/replies/:replyId - Edit a reply
+router.patch("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+    const replyId = parseInt(req.params.replyId);
+    const { content } = req.body;
+
+    if (isNaN(teamId) || isNaN(feedbackId) || isNaN(replyId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: "CONTENT_REQUIRED" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Verify reply exists and belongs to this feedback
+    const replyResult = await pool.query(
+      `SELECT user_id FROM feedback_replies WHERE id = $1 AND feedback_id = $2`,
+      [replyId, feedbackId]
+    );
+
+    if (replyResult.rows.length === 0) {
+      return res.status(404).json({ error: "REPLY_NOT_FOUND" });
+    }
+
+    const reply = replyResult.rows[0];
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+
+    // Only the author or admin can edit
+    if (!isAdmin && reply.user_id !== userId) {
+      return res.status(403).json({ error: "CAN_ONLY_EDIT_OWN_REPLY" });
+    }
+
+    // Update reply
+    const updateResult = await pool.query(
+      `UPDATE feedback_replies SET content = $1, updated_at = now()
+       WHERE id = $2 AND feedback_id = $3
+       RETURNING *`,
+      [content.trim(), replyId, feedbackId]
+    );
+
+    res.json({
+      id: updateResult.rows[0].id,
+      content: updateResult.rows[0].content,
+      updatedAt: updateResult.rows[0].updated_at,
+    });
+  } catch (err) {
+    console.error("Update feedback reply failed:", err);
+    res.status(500).json({ error: "REPLY_UPDATE_FAILED" });
+  }
+});
+
+// DELETE /api/team/:teamId/feedback/:feedbackId/replies/:replyId - Delete a reply
+router.delete("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const feedbackId = parseInt(req.params.feedbackId);
+    const replyId = parseInt(req.params.replyId);
+
+    if (isNaN(teamId) || isNaN(feedbackId) || isNaN(replyId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Verify reply exists
+    const replyResult = await pool.query(
+      `SELECT user_id FROM feedback_replies WHERE id = $1 AND feedback_id = $2`,
+      [replyId, feedbackId]
+    );
+
+    if (replyResult.rows.length === 0) {
+      return res.status(404).json({ error: "REPLY_NOT_FOUND" });
+    }
+
+    const reply = replyResult.rows[0];
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+
+    // Only the author or admin can delete
+    if (!isAdmin && reply.user_id !== userId) {
+      return res.status(403).json({ error: "CAN_ONLY_DELETE_OWN_REPLY" });
+    }
+
+    // Check if reply has children (replies to this reply)
+    const childrenCheck = await pool.query(
+      `SELECT COUNT(*) as count FROM feedback_replies WHERE parent_reply_id = $1`,
+      [replyId]
+    );
+
+    if (childrenCheck.rows[0].count > 0) {
+      // If it has children, we can't delete it (or we mark it as deleted, but for now we prevent deletion)
+      return res.status(400).json({ error: "CANNOT_DELETE_REPLY_WITH_CHILDREN" });
+    }
+
+    await pool.query(
+      `DELETE FROM feedback_replies WHERE id = $1 AND feedback_id = $2`,
+      [replyId, feedbackId]
+    );
+
+    res.json({ message: "REPLY_DELETED" });
+  } catch (err) {
+    console.error("Delete feedback reply failed:", err);
+    res.status(500).json({ error: "REPLY_DELETE_FAILED" });
   }
 });
 

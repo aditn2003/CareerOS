@@ -72,13 +72,51 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
+// Configure SSL for Supabase connections
+// Supabase requires SSL for all connections
+const dbUrl = process.env.DATABASE_URL || '';
+const isSupabase = dbUrl.includes('supabase') || 
+                   dbUrl.includes('pooler.supabase') ||
+                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
+
+const poolConfig = {
+  connectionString: dbUrl,
+};
+
+// Force SSL for Supabase connections
+if (isSupabase) {
+  poolConfig.ssl = { 
+    rejectUnauthorized: false 
+  };
+  console.log("🔒 SSL enabled for Supabase connection");
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  ...poolConfig,
+  max: 10, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+});
+
+// Handle pool errors gracefully
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+// Handle connection errors
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    console.error('Database client error:', err);
+  });
 });
 
 pool
   .connect()
-  .then(() => console.log("✅ Connected to PostgreSQL"))
+  .then((client) => {
+    console.log("✅ Connected to PostgreSQL");
+    // Release the test connection
+    client.release();
+  })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====

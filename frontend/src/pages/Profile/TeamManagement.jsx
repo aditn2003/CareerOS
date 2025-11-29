@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import CandidateProfileModal from "../../components/CandidateProfileModal";
+import FeedbackModal from "../../components/FeedbackModal";
+import FeedbackThreads from "../../components/FeedbackThreads";
 import "./TeamManagement.css";
 
 const errorMessages = {
@@ -36,6 +38,10 @@ function AdminTeamManagement() {
   const [renameValue, setRenameValue] = useState("");
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [viewingProfile, setViewingProfile] = useState(null);
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState(null);
 
   const showBanner = (type, message) => {
     if (!message) return;
@@ -102,8 +108,9 @@ function AdminTeamManagement() {
     if (selectedTeamId) {
       loadMembers(selectedTeamId);
       loadPendingRequests(selectedTeamId);
+      loadFeedback(selectedTeamId);
     }
-  }, [selectedTeamId, loadMembers, loadPendingRequests]);
+  }, [selectedTeamId, loadMembers, loadPendingRequests, loadFeedback]);
 
   const handleCreateTeam = async (e) => {
     e.preventDefault();
@@ -213,6 +220,17 @@ function AdminTeamManagement() {
       showBanner("error", err.response?.data?.error || "Failed to reject request.");
     } finally {
       setBusyMember(null);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) return;
+    try {
+      await api.delete(`/api/team/${selectedTeamId}/feedback/${feedbackId}`);
+      await loadFeedback(selectedTeamId);
+      showBanner("success", "Feedback deleted.");
+    } catch (err) {
+      showBanner("error", err.response?.data?.error || "Failed to delete feedback.");
     }
   };
 
@@ -430,13 +448,41 @@ function AdminTeamManagement() {
                             </span>
                           </td>
                           <td>
-                            <button
-                              className="btn-secondary"
-                              onClick={() => handleRemove(member.userId)}
-                              disabled={isSelf || busyMember === member.userId}
-                            >
-                              Remove
-                            </button>
+                            <div className="member-actions">
+                              {member.role === "candidate" && (
+                                <>
+                                  <button
+                                    className="btn-view-profile"
+                                    onClick={() =>
+                                      setViewingProfile({
+                                        id: member.userId,
+                                        name: fullName,
+                                      })
+                                    }
+                                  >
+                                    View Profile
+                                  </button>
+                                  <button
+                                    className="btn-feedback"
+                                    onClick={() =>
+                                      setFeedbackModal({
+                                        candidateId: member.userId,
+                                        candidateName: fullName,
+                                      })
+                                    }
+                                  >
+                                    Add Feedback
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                className="btn-secondary"
+                                onClick={() => handleRemove(member.userId)}
+                                disabled={isSelf || busyMember === member.userId}
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -445,9 +491,105 @@ function AdminTeamManagement() {
                 </table>
               )}
             </div>
+
+            {/* Feedback Section */}
+            {selectedTeam && (
+              <div className="team-feedback-section">
+                <h5>Team Feedback</h5>
+                {loadingFeedback ? (
+                  <p>Loading feedback...</p>
+                ) : feedbackList.length === 0 ? (
+                  <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
+                ) : (
+                  <div className="feedback-list">
+                    {feedbackList.map((feedback) => {
+                      const formatDate = (dateString) => {
+                        return new Date(dateString).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        });
+                      };
+
+                      const getFeedbackTypeLabel = (type) => {
+                        switch (type) {
+                          case "job": return "Job Feedback";
+                          case "skill": return "Skill Feedback";
+                          default: return "General Feedback";
+                        }
+                      };
+
+                      return (
+                        <div key={feedback.id} className="feedback-item">
+                          <div className="feedback-header">
+                            <div className="feedback-meta">
+                              <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
+                              <span className="feedback-candidate">For: {feedback.candidateName}</span>
+                              {feedback.jobTitle && (
+                                <span className="feedback-job">Job: {feedback.jobTitle} at {feedback.jobCompany}</span>
+                              )}
+                              {feedback.skillName && (
+                                <span className="feedback-skill">Skill: {feedback.skillName}</span>
+                              )}
+                              <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
+                            </div>
+                            <div className="feedback-actions">
+                              <button
+                                className="btn-edit-feedback"
+                                onClick={() =>
+                                  setFeedbackModal({
+                                    candidateId: feedback.candidateId,
+                                    candidateName: feedback.candidateName,
+                                    feedbackId: feedback.id,
+                                    existingFeedback: feedback,
+                                  })
+                                }
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="btn-delete-feedback"
+                                onClick={() => handleDeleteFeedback(feedback.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div className="feedback-content">{feedback.content}</div>
+                          <div className="feedback-author">By: {feedback.mentorName}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Candidate Profile Modal */}
+      {viewingProfile && selectedTeamId && (
+        <CandidateProfileModal
+          teamId={selectedTeamId}
+          candidateId={viewingProfile.id}
+          candidateName={viewingProfile.name}
+          onClose={() => setViewingProfile(null)}
+        />
+      )}
+
+      {/* Feedback Modal */}
+      {feedbackModal && selectedTeamId && (
+        <FeedbackModal
+          teamId={selectedTeamId}
+          candidateId={feedbackModal.candidateId}
+          candidateName={feedbackModal.candidateName}
+          feedbackId={feedbackModal.feedbackId || null}
+          existingFeedback={feedbackModal.existingFeedback || null}
+          onClose={() => setFeedbackModal(null)}
+          onSuccess={() => loadFeedback(selectedTeamId)}
+        />
+      )}
     </section>
   );
 }
@@ -469,6 +611,10 @@ function MentorTeamManagement() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState(null); // { candidateId, candidateName, feedbackId?: number }
+  const [feedbackViewMode, setFeedbackViewMode] = useState("list"); // "list" or "threads"
 
   const showBanner = (type, message) => {
     setBanner({ type, message });
@@ -510,10 +656,30 @@ function MentorTeamManagement() {
     }
   }, [teamId]);
 
+  const loadFeedback = useCallback(async () => {
+    if (!teamId) {
+      setFeedbackList([]);
+      return;
+    }
+    setLoadingFeedback(true);
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/feedback`);
+      console.log(`[Feedback] Loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
+      setFeedbackList(data?.feedback || []);
+    } catch (err) {
+      console.error("Failed to load feedback:", err);
+      console.error("Error response:", err.response?.data);
+      setFeedbackList([]);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  }, [teamId]);
+
   useEffect(() => {
     loadMembers();
     loadPendingRequests();
-  }, [loadMembers, loadPendingRequests]);
+    loadFeedback();
+  }, [loadMembers, loadPendingRequests, loadFeedback]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -587,6 +753,17 @@ function MentorTeamManagement() {
       showBanner("error", err.response?.data?.error || "Failed to reject request.");
     } finally {
       setBusyMember(null);
+    }
+  };
+
+  const handleDeleteFeedback = async (feedbackId) => {
+    if (!confirm("Are you sure you want to delete this feedback?")) return;
+    try {
+      await api.delete(`/api/team/${teamId}/feedback/${feedbackId}`);
+      await loadFeedback();
+      showBanner("success", "Feedback deleted.");
+    } catch (err) {
+      showBanner("error", err.response?.data?.error || "Failed to delete feedback.");
     }
   };
 
@@ -740,17 +917,30 @@ function MentorTeamManagement() {
                     <td>
                       <div className="member-actions">
                         {member.role === "candidate" && (
-                          <button
-                            className="btn-view-profile"
-                            onClick={() =>
-                              setViewingProfile({
-                                id: member.userId,
-                                name: fullName,
-                              })
-                            }
-                          >
-                            View Profile
-                          </button>
+                          <>
+                            <button
+                              className="btn-view-profile"
+                              onClick={() =>
+                                setViewingProfile({
+                                  id: member.userId,
+                                  name: fullName,
+                                })
+                              }
+                            >
+                              View Profile
+                            </button>
+                            <button
+                              className="btn-feedback"
+                              onClick={() =>
+                                setFeedbackModal({
+                                  candidateId: member.userId,
+                                  candidateName: fullName,
+                                })
+                              }
+                            >
+                              Add Feedback
+                            </button>
+                          </>
                         )}
                         {canRemove && (
                           <button
@@ -771,6 +961,110 @@ function MentorTeamManagement() {
         )}
       </div>
 
+      {/* Feedback Section */}
+      <div className="team-feedback-section">
+        <div className="feedback-section-header">
+          <h4>Team Feedback</h4>
+          <div className="feedback-view-toggle">
+            <button
+              className={`view-toggle-btn ${feedbackViewMode === "list" ? "active" : ""}`}
+              onClick={() => setFeedbackViewMode("list")}
+            >
+              List View
+            </button>
+            <button
+              className={`view-toggle-btn ${feedbackViewMode === "threads" ? "active" : ""}`}
+              onClick={() => setFeedbackViewMode("threads")}
+            >
+              Conversations
+            </button>
+          </div>
+        </div>
+
+        {feedbackViewMode === "threads" ? (
+          <FeedbackThreads teamId={teamId} hideViewToggle={true} />
+        ) : (
+          <>
+            {loadingFeedback ? (
+              <p>Loading feedback...</p>
+            ) : feedbackList.length === 0 ? (
+              <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
+            ) : (
+              <div className="feedback-list">
+                {feedbackList.map((feedback) => {
+                  const formatDate = (dateString) => {
+                    return new Date(dateString).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    });
+                  };
+
+                  const getFeedbackTypeLabel = (type) => {
+                    switch (type) {
+                      case "job": return "Job Feedback";
+                      case "skill": return "Skill Feedback";
+                      default: return "General Feedback";
+                    }
+                  };
+
+                  const isOwnFeedback = feedback.mentorId === teamState?.primaryTeam?.userId;
+                  const canEdit = isOwnFeedback || teamState?.isAdmin;
+
+                  return (
+                    <div key={feedback.id} className="feedback-item">
+                      <div className="feedback-header">
+                        <div className="feedback-meta">
+                          <div className="feedback-top-row">
+                            <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
+                            {feedback.jobTitle && (
+                              <span className="feedback-job-badge">
+                                {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
+                              </span>
+                            )}
+                            {feedback.skillName && (
+                              <span className="feedback-skill-badge">{feedback.skillName}</span>
+                            )}
+                          </div>
+                          <div className="feedback-meta-row">
+                            <span className="feedback-candidate">{feedback.candidateName}</span>
+                            <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
+                          </div>
+                        </div>
+                        {canEdit && (
+                          <div className="feedback-actions">
+                            <button
+                              className="btn-edit-feedback"
+                              onClick={() =>
+                                setFeedbackModal({
+                                  candidateId: feedback.candidateId,
+                                  candidateName: feedback.candidateName,
+                                  feedbackId: feedback.id,
+                                  existingFeedback: feedback,
+                                })
+                              }
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="btn-delete-feedback"
+                              onClick={() => handleDeleteFeedback(feedback.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div className="feedback-content">{feedback.content}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Candidate Profile Modal */}
       {viewingProfile && (
         <CandidateProfileModal
@@ -778,6 +1072,19 @@ function MentorTeamManagement() {
           candidateId={viewingProfile.id}
           candidateName={viewingProfile.name}
           onClose={() => setViewingProfile(null)}
+        />
+      )}
+
+      {/* Feedback Modal */}
+      {feedbackModal && (
+        <FeedbackModal
+          teamId={teamId}
+          candidateId={feedbackModal.candidateId}
+          candidateName={feedbackModal.candidateName}
+          feedbackId={feedbackModal.feedbackId || null}
+          existingFeedback={feedbackModal.existingFeedback || null}
+          onClose={() => setFeedbackModal(null)}
+          onSuccess={loadFeedback}
         />
       )}
     </section>
