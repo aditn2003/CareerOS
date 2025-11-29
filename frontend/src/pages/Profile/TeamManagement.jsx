@@ -42,6 +42,7 @@ function AdminTeamManagement() {
   const [feedbackList, setFeedbackList] = useState([]);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(null);
+  const [feedbackViewMode, setFeedbackViewMode] = useState("list"); // "list" or "threads"
 
   const showBanner = (type, message) => {
     if (!message) return;
@@ -99,6 +100,24 @@ function AdminTeamManagement() {
     },
     []
   );
+
+  const loadFeedback = useCallback(async (teamId) => {
+    if (!teamId) {
+      setFeedbackList([]);
+      return;
+    }
+    setLoadingFeedback(true);
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/feedback`);
+      console.log(`[Feedback] Loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
+      setFeedbackList(data?.feedback || []);
+    } catch (err) {
+      console.error("Failed to load feedback:", err);
+      setFeedbackList([]);
+    } finally {
+      setLoadingFeedback(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadAllTeams();
@@ -495,72 +514,105 @@ function AdminTeamManagement() {
             {/* Feedback Section */}
             {selectedTeam && (
               <div className="team-feedback-section">
-                <h5>Team Feedback</h5>
-                {loadingFeedback ? (
-                  <p>Loading feedback...</p>
-                ) : feedbackList.length === 0 ? (
-                  <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
-                ) : (
-                  <div className="feedback-list">
-                    {feedbackList.map((feedback) => {
-                      const formatDate = (dateString) => {
-                        return new Date(dateString).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        });
-                      };
-
-                      const getFeedbackTypeLabel = (type) => {
-                        switch (type) {
-                          case "job": return "Job Feedback";
-                          case "skill": return "Skill Feedback";
-                          default: return "General Feedback";
-                        }
-                      };
-
-                      return (
-                        <div key={feedback.id} className="feedback-item">
-                          <div className="feedback-header">
-                            <div className="feedback-meta">
-                              <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
-                              <span className="feedback-candidate">For: {feedback.candidateName}</span>
-                              {feedback.jobTitle && (
-                                <span className="feedback-job">Job: {feedback.jobTitle} at {feedback.jobCompany}</span>
-                              )}
-                              {feedback.skillName && (
-                                <span className="feedback-skill">Skill: {feedback.skillName}</span>
-                              )}
-                              <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
-                            </div>
-                            <div className="feedback-actions">
-                              <button
-                                className="btn-edit-feedback"
-                                onClick={() =>
-                                  setFeedbackModal({
-                                    candidateId: feedback.candidateId,
-                                    candidateName: feedback.candidateName,
-                                    feedbackId: feedback.id,
-                                    existingFeedback: feedback,
-                                  })
-                                }
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="btn-delete-feedback"
-                                onClick={() => handleDeleteFeedback(feedback.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                          <div className="feedback-content">{feedback.content}</div>
-                          <div className="feedback-author">By: {feedback.mentorName}</div>
-                        </div>
-                      );
-                    })}
+                <div className="feedback-section-header">
+                  <h4>Team Feedback</h4>
+                  <div className="feedback-view-toggle">
+                    <button
+                      className={`view-toggle-btn ${feedbackViewMode === "list" ? "active" : ""}`}
+                      onClick={() => setFeedbackViewMode("list")}
+                    >
+                      List View
+                    </button>
+                    <button
+                      className={`view-toggle-btn ${feedbackViewMode === "threads" ? "active" : ""}`}
+                      onClick={() => setFeedbackViewMode("threads")}
+                    >
+                      Conversations
+                    </button>
                   </div>
+                </div>
+
+                {feedbackViewMode === "threads" ? (
+                  <FeedbackThreads teamId={selectedTeamId} hideViewToggle={true} />
+                ) : (
+                  <>
+                    {loadingFeedback ? (
+                      <p>Loading feedback...</p>
+                    ) : feedbackList.length === 0 ? (
+                      <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
+                    ) : (
+                      <div className="feedback-list">
+                        {feedbackList.map((feedback) => {
+                          const formatDate = (dateString) => {
+                            return new Date(dateString).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            });
+                          };
+
+                          const getFeedbackTypeLabel = (type) => {
+                            switch (type) {
+                              case "job": return "Job Feedback";
+                              case "skill": return "Skill Feedback";
+                              default: return "General Feedback";
+                            }
+                          };
+
+                          const isOwnFeedback = feedback.mentorId === selectedTeam.ownerId;
+                          const canEdit = isOwnFeedback || true; // Admin can edit all
+
+                          return (
+                            <div key={feedback.id} className="feedback-item">
+                              <div className="feedback-header">
+                                <div className="feedback-meta">
+                                  <div className="feedback-top-row">
+                                    <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
+                                    {feedback.jobTitle && (
+                                      <span className="feedback-job-badge">
+                                        {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
+                                      </span>
+                                    )}
+                                    {feedback.skillName && (
+                                      <span className="feedback-skill-badge">{feedback.skillName}</span>
+                                    )}
+                                  </div>
+                                  <div className="feedback-meta-row">
+                                    <span className="feedback-candidate">{feedback.candidateName}</span>
+                                    <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
+                                  </div>
+                                </div>
+                                {canEdit && (
+                                  <div className="feedback-actions">
+                                    <button
+                                      className="btn-edit-feedback"
+                                      onClick={() =>
+                                        setFeedbackModal({
+                                          candidateId: feedback.candidateId,
+                                          candidateName: feedback.candidateName,
+                                          feedbackId: feedback.id,
+                                          existingFeedback: feedback,
+                                        })
+                                      }
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="btn-delete-feedback"
+                                      onClick={() => handleDeleteFeedback(feedback.id)}
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="feedback-content">{feedback.content}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
