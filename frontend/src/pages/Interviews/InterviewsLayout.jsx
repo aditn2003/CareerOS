@@ -38,6 +38,12 @@ export default function InterviewsLayout() {
         >
           🎭 Mock Interview
         </Link>
+        <Link
+          to="/interviews/follow-up"
+          className={`nav-tab ${location.pathname === '/interviews/follow-up' ? 'active' : ''}`}
+        >
+          📧 Follow-Up
+        </Link>
       </nav>
 
       {/* Render child routes */}

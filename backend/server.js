@@ -1,7 +1,6 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
-
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
