@@ -7,7 +7,7 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import pkg from "pg";
+//import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
 import employmentRoutes from "./routes/employment.js";
@@ -33,7 +33,8 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
-
+import pool from "./db/index.js";
+import dashboardRoutes from "./routes/dashboard.js";
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -47,7 +48,7 @@ console.log(
   "🔑 GOOGLE_API_KEY loaded:",
   process.env.GOOGLE_API_KEY ? "✅ yes" : "❌ no"
 );
-const { Pool } = pkg;
+//const { Pool } = pkg;
 const app = express();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -71,9 +72,9 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+//const pool = new Pool({
+ // connectionString: process.env.DATABASE_URL,
+//});
 
 pool
   .connect()
@@ -369,14 +370,15 @@ app.use("/api", educationRoutes);
 app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-
+app.use("/api/companyResearch", companyResearchRoutes);
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
-
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -539,7 +541,7 @@ async function sendDeadlineReminders() {
   }
 }
 app.use("/api", jobImportRoutes);
-app.use("/api/jobs", jobRoutes);
+//app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -549,6 +551,7 @@ app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
+
 
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
