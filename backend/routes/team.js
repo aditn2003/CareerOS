@@ -113,10 +113,11 @@ router.get("/admin/all", async (req, res) => {
         t.name,
         t.owner_id AS "ownerId",
         t.created_at AS "createdAt",
-        COUNT(DISTINCT tm.user_id) FILTER (WHERE tm.status = 'active') AS "memberCount"
+        COUNT(DISTINCT tm_all.user_id) FILTER (WHERE tm_all.status = 'active') AS "memberCount"
       FROM teams t
-      INNER JOIN team_members tm ON tm.team_id = t.id
-      WHERE tm.user_id = $1 AND tm.role = 'admin'
+      INNER JOIN team_members tm_admin ON tm_admin.team_id = t.id
+      LEFT JOIN team_members tm_all ON tm_all.team_id = t.id
+      WHERE tm_admin.user_id = $1 AND tm_admin.role = 'admin'
       GROUP BY t.id, t.name, t.owner_id, t.created_at
       ORDER BY t.created_at DESC
       `,
@@ -1745,6 +1746,414 @@ router.delete("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res)
   } catch (err) {
     console.error("Delete feedback reply failed:", err);
     res.status(500).json({ error: "REPLY_DELETE_FAILED" });
+  }
+});
+
+// ============================================================
+// TASK/ASSIGNMENT SYSTEM
+// ============================================================
+
+// GET /api/team/:teamId/tasks - Get all tasks for a team
+// Mentors/Admins: See all tasks in the team
+// Candidates: See only tasks assigned to them
+router.get("/:teamId/tasks", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+
+    let query;
+    let params;
+
+    if (isManager) {
+      // Mentors/Admins see all tasks in the team
+      query = `
+        SELECT 
+          t.id,
+          t.team_id,
+          t.mentor_id,
+          t.candidate_id,
+          t.job_id,
+          t.skill_name,
+          t.title,
+          t.description,
+          t.status,
+          t.due_date,
+          t.created_at,
+          t.updated_at,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM tasks t
+        INNER JOIN users mentor_u ON t.mentor_id = mentor_u.id
+        LEFT JOIN profiles mentor_prof ON mentor_u.id = mentor_prof.user_id
+        INNER JOIN users candidate_u ON t.candidate_id = candidate_u.id
+        LEFT JOIN profiles candidate_prof ON candidate_u.id = candidate_prof.user_id
+        LEFT JOIN jobs j ON t.job_id = j.id
+        WHERE t.team_id = $1
+        ORDER BY t.created_at DESC
+      `;
+      params = [teamId];
+    } else {
+      // Candidates see only tasks assigned to them
+      query = `
+        SELECT 
+          t.id,
+          t.team_id,
+          t.mentor_id,
+          t.candidate_id,
+          t.job_id,
+          t.skill_name,
+          t.title,
+          t.description,
+          t.status,
+          t.due_date,
+          t.created_at,
+          t.updated_at,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM tasks t
+        INNER JOIN users mentor_u ON t.mentor_id = mentor_u.id
+        LEFT JOIN profiles mentor_prof ON mentor_u.id = mentor_prof.user_id
+        LEFT JOIN jobs j ON t.job_id = j.id
+        WHERE t.team_id = $1 AND t.candidate_id = $2
+        ORDER BY t.created_at DESC
+      `;
+      params = [teamId, userId];
+    }
+
+    const result = await pool.query(query, params);
+    res.json({ tasks: result.rows });
+  } catch (err) {
+    console.error("Get tasks failed:", err);
+    res.status(500).json({ error: "GET_TASKS_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/tasks/:taskId - Get single task
+router.get("/:teamId/tasks/:taskId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const taskId = parseInt(req.params.taskId);
+    
+    if (isNaN(teamId) || isNaN(taskId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+
+    let query;
+    let params;
+
+    if (isManager) {
+      query = `
+        SELECT 
+          t.*,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', candidate_u.first_name, candidate_u.last_name)), ''),
+            candidate_prof.full_name,
+            candidate_u.email,
+            'Unknown'
+          ) AS candidate_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM tasks t
+        INNER JOIN users mentor_u ON t.mentor_id = mentor_u.id
+        LEFT JOIN profiles mentor_prof ON mentor_u.id = mentor_prof.user_id
+        INNER JOIN users candidate_u ON t.candidate_id = candidate_u.id
+        LEFT JOIN profiles candidate_prof ON candidate_u.id = candidate_prof.user_id
+        LEFT JOIN jobs j ON t.job_id = j.id
+        WHERE t.id = $1 AND t.team_id = $2
+      `;
+      params = [taskId, teamId];
+    } else {
+      query = `
+        SELECT 
+          t.*,
+          COALESCE(
+            NULLIF(TRIM(CONCAT_WS(' ', mentor_u.first_name, mentor_u.last_name)), ''),
+            mentor_prof.full_name,
+            mentor_u.email,
+            'Unknown'
+          ) AS mentor_name,
+          j.title AS job_title,
+          j.company AS job_company
+        FROM tasks t
+        INNER JOIN users mentor_u ON t.mentor_id = mentor_u.id
+        LEFT JOIN profiles mentor_prof ON mentor_u.id = mentor_prof.user_id
+        LEFT JOIN jobs j ON t.job_id = j.id
+        WHERE t.id = $1 AND t.team_id = $2 AND t.candidate_id = $3
+      `;
+      params = [taskId, teamId, userId];
+    }
+
+    const result = await pool.query(query, params);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "TASK_NOT_FOUND" });
+    }
+
+    res.json({ task: result.rows[0] });
+  } catch (err) {
+    console.error("Get task failed:", err);
+    res.status(500).json({ error: "GET_TASK_FAILED" });
+  }
+});
+
+// POST /api/team/:teamId/tasks - Create task (mentor/admin only)
+router.post("/:teamId/tasks", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const { candidateId, jobId, skillName, title, description, dueDate } = req.body;
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    if (!candidateId || !title) {
+      return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_CREATE_TASKS" });
+    }
+
+    // Verify candidate is in the team
+    const candidateMembership = await getMembership(teamId, candidateId);
+    if (!candidateMembership || candidateMembership.status !== "active") {
+      return res.status(400).json({ error: "CANDIDATE_NOT_IN_TEAM" });
+    }
+
+    if (candidateMembership.role !== "candidate") {
+      return res.status(400).json({ error: "CAN_ONLY_ASSIGN_TO_CANDIDATES" });
+    }
+
+    // Verify job belongs to candidate if provided
+    if (jobId) {
+      const jobResult = await pool.query(
+        "SELECT id FROM jobs WHERE id = $1 AND user_id = $2",
+        [jobId, candidateId]
+      );
+      if (jobResult.rows.length === 0) {
+        return res.status(400).json({ error: "JOB_NOT_FOUND_OR_NOT_OWNED_BY_CANDIDATE" });
+      }
+    }
+
+    // Create task
+    const result = await pool.query(
+      `INSERT INTO tasks (
+        team_id, mentor_id, candidate_id, job_id, skill_name, 
+        title, description, status, due_date
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)
+      RETURNING *`,
+      [
+        teamId,
+        userId,
+        candidateId,
+        jobId || null,
+        skillName || null,
+        title,
+        description || null,
+        dueDate || null,
+      ]
+    );
+
+    res.status(201).json({ task: result.rows[0] });
+  } catch (err) {
+    console.error("Create task failed:", err);
+    res.status(500).json({ error: "CREATE_TASK_FAILED" });
+  }
+});
+
+// PATCH /api/team/:teamId/tasks/:taskId - Update task
+// Mentors can edit all fields, candidates can only update status
+router.patch("/:teamId/tasks/:taskId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const taskId = parseInt(req.params.taskId);
+    const { title, description, status, jobId, skillName, dueDate } = req.body;
+
+    if (isNaN(teamId) || isNaN(taskId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Check if task exists and get details
+    const taskResult = await pool.query(
+      "SELECT mentor_id, candidate_id FROM tasks WHERE id = $1 AND team_id = $2",
+      [taskId, teamId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: "TASK_NOT_FOUND" });
+    }
+
+    const task = taskResult.rows[0];
+    const isManager = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === "candidate";
+    const isCreator = task.mentor_id === userId;
+    const isAssignedTo = task.candidate_id === userId;
+
+    // Determine what can be updated
+    let updateFields = [];
+    let updateValues = [];
+    let valueIndex = 1;
+
+    if (isManager && isCreator) {
+      // Mentor who created can update everything
+      if (title !== undefined) {
+        updateFields.push(`title = $${valueIndex++}`);
+        updateValues.push(title);
+      }
+      if (description !== undefined) {
+        updateFields.push(`description = $${valueIndex++}`);
+        updateValues.push(description || null);
+      }
+      if (status !== undefined) {
+        if (!["pending", "in_progress", "completed"].includes(status)) {
+          return res.status(400).json({ error: "INVALID_STATUS" });
+        }
+        updateFields.push(`status = $${valueIndex++}`);
+        updateValues.push(status);
+      }
+      if (jobId !== undefined) {
+        updateFields.push(`job_id = $${valueIndex++}`);
+        updateValues.push(jobId || null);
+      }
+      if (skillName !== undefined) {
+        updateFields.push(`skill_name = $${valueIndex++}`);
+        updateValues.push(skillName || null);
+      }
+      if (dueDate !== undefined) {
+        updateFields.push(`due_date = $${valueIndex++}`);
+        updateValues.push(dueDate || null);
+      }
+    } else if (isCandidate && isAssignedTo) {
+      // Candidate can only update status
+      if (status !== undefined) {
+        if (!["pending", "in_progress", "completed"].includes(status)) {
+          return res.status(400).json({ error: "INVALID_STATUS" });
+        }
+        updateFields.push(`status = $${valueIndex++}`);
+        updateValues.push(status);
+      } else {
+        return res.status(403).json({ error: "CANDIDATES_CAN_ONLY_UPDATE_STATUS" });
+      }
+    } else {
+      return res.status(403).json({ error: "NO_PERMISSION_TO_UPDATE_TASK" });
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: "NO_FIELDS_TO_UPDATE" });
+    }
+
+    updateValues.push(taskId, teamId);
+    const updateQuery = `
+      UPDATE tasks
+      SET ${updateFields.join(", ")}
+      WHERE id = $${valueIndex++} AND team_id = $${valueIndex++}
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateQuery, updateValues);
+    res.json({ task: result.rows[0] });
+  } catch (err) {
+    console.error("Update task failed:", err);
+    res.status(500).json({ error: "UPDATE_TASK_FAILED" });
+  }
+});
+
+// DELETE /api/team/:teamId/tasks/:taskId - Delete task (mentor/admin only)
+router.delete("/:teamId/tasks/:taskId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const taskId = parseInt(req.params.taskId);
+
+    if (isNaN(teamId) || isNaN(taskId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Check if task exists and user has permission to delete
+    const taskResult = await pool.query(
+      "SELECT mentor_id FROM tasks WHERE id = $1 AND team_id = $2",
+      [taskId, teamId]
+    );
+
+    if (taskResult.rows.length === 0) {
+      return res.status(404).json({ error: "TASK_NOT_FOUND" });
+    }
+
+    const task = taskResult.rows[0];
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isCreator = task.mentor_id === userId;
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ error: "NO_PERMISSION_TO_DELETE_TASK" });
+    }
+
+    await pool.query("DELETE FROM tasks WHERE id = $1 AND team_id = $2", [taskId, teamId]);
+
+    res.json({ message: "TASK_DELETED" });
+  } catch (err) {
+    console.error("Delete task failed:", err);
+    res.status(500).json({ error: "DELETE_TASK_FAILED" });
   }
 });
 

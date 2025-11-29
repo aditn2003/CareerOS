@@ -1,25 +1,43 @@
 .feedback-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10001;
-  padding: 20px;
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(2px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10001 !important;
+  padding: 20px !important;
+  margin: 0 !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
 }
 
 .feedback-modal {
-  background: #fff;
-  border-radius: 12px;
-  padding: 30px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow-y: auto;
-  position: relative;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  background: #fff !important;
+  border-radius: 12px !important;
+  padding: 30px !important;
+  width: 90% !important;
+  max-width: 600px !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  position: relative !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25) !important;
+  margin: auto !important;
+  z-index: 10002 !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+.feedback-modal:hover {
+  transform: none !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25) !important;
 }
 
 .feedback-modal-close {
@@ -122,6 +140,14 @@
   border-top: 1px solid #e5e7eb;
 }
 
+.feedback-modal-actions .btn-secondary,
+.feedback-modal-actions .btn-primary {
+  flex: 0 0 auto;
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
 .btn-secondary {
   background: #f3f4f6;
   color: #374151;
@@ -132,6 +158,8 @@
   font-size: 14px;
   font-weight: 500;
   transition: background 0.2s;
+  min-width: 100px;
+  flex: 0 0 auto;
 }
 
 .btn-secondary:hover {
@@ -148,6 +176,8 @@
   font-size: 14px;
   font-weight: 500;
   transition: background 0.2s;
+  min-width: 100px;
+  flex: 0 0 auto;
 }
 
 .btn-primary:hover:not(:disabled) {

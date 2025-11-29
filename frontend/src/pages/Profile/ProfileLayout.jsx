@@ -51,7 +51,6 @@ export default function ProfileLayout() {
 
         {/* ✅ Saved Resumes lives under profile */}
         <Route path="saved-resumes" element={<SavedResumes />} />
-        <Route path="mentor" element={<MentorTab />} />
         <Route path="team" element={<TeamManagement />} />
 
         <Route path="danger" element={<DangerTab />} />

@@ -17,19 +17,9 @@ export default function ProfileNavBar() {
     { key: "danger", label: "Danger Zone" },
   ];
 
-  // Show Mentor tab to anyone who has a team (admin, mentor, or candidate)
-  // or if they're a candidate/member waiting to be part of a team
-  const showMentorTab =
-    teamState?.hasTeam ||
-    teamState?.isMentor ||
-    teamState?.isCandidate ||
-    (teamState?.primaryTeam && teamState?.primaryTeam?.status);
   // Show Team Management tab for admin, mentors, and candidates
   const showTeamTab = teamState?.isAdmin || teamState?.isMentor || teamState?.isCandidate;
 
-  if (showMentorTab) {
-    tabs.push({ key: "mentor", label: "Mentor" });
-  }
   if (showTeamTab) {
     tabs.push({ key: "team", label: "Team Management" });
   }

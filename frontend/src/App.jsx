@@ -27,6 +27,7 @@ import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
 import Interviews from "./pages/Interviews/Interviews";
 import SalaryResearch from "./pages/Salary/SalaryResearch";
 import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
+import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -230,8 +231,19 @@ function MainLayout() {
             }
           />
           {/* --- Cover Letter (UC-055)  --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
+          <Route path="/cover-letter" element={<CoverLetter />} />
           {/* ✅ NEW */}
+          
+          {/* --- Mentor Routes (Protected) --- */}
+          <Route
+            path="/mentor/*"
+            element={
+              <ProtectedRoute>
+                <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
+          
           {/* --- Legacy / Alias --- */}
           <Route
             path="/resume/templates"
