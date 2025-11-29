@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import "./FeedbackModal.css";
 
@@ -98,7 +99,7 @@ export default function FeedbackModal({
     }
   };
 
-  return (
+  const modalContent = (
     <div className="feedback-modal-overlay" onClick={onClose}>
       <div className="feedback-modal" onClick={(e) => e.stopPropagation()}>
         <button className="feedback-modal-close" onClick={onClose}>
@@ -212,5 +213,8 @@ export default function FeedbackModal({
       </div>
     </div>
   );
+
+  // Render modal using Portal to document.body to escape parent constraints
+  return createPortal(modalContent, document.body);
 }
 

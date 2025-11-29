@@ -1156,8 +1156,6 @@ function CandidateTeamManagement() {
   const [banner, setBanner] = useState({ type: null, message: "" });
   const [mentorEmail, setMentorEmail] = useState("");
   const [peerEmail, setPeerEmail] = useState("");
-  const [requestType, setRequestType] = useState("email"); // "email" or "teamName"
-  const [teamNameInput, setTeamNameInput] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -1238,20 +1236,46 @@ function CandidateTeamManagement() {
 
   const handleRequestMentor = async (e) => {
     e.preventDefault();
-    if (!teamId || inviteStatus === "requested" || inviteStatus === "invited") return;
+    
+    // Validate email input
+    if (!mentorEmail || mentorEmail.trim() === "") {
+      showBanner("error", "Please enter a mentor email address.");
+      return;
+    }
+    
+    // Check if user already has a pending request or invite
+    if (inviteStatus === "requested") {
+      showBanner("error", "You already have a pending join request. Please wait for approval.");
+      return;
+    }
+    
+    if (inviteStatus === "invited") {
+      showBanner("error", "You have a pending team invitation. Please accept it first in the Mentor tab.");
+      return;
+    }
+    
+    // Require teamId - candidate must be in a team to request a mentor
+    if (!teamId) {
+      showBanner("error", "You must be part of a team to request a mentor. Please join a team first.");
+      return;
+    }
+    
     setInviteBusy(true);
     try {
       await api.post(`/api/team/${teamId}/request-mentor`, {
-        email: requestType === "email" ? mentorEmail : undefined,
-        teamName: requestType === "teamName" ? teamNameInput : undefined,
+        email: mentorEmail.trim(),
       });
       setMentorEmail("");
-      setTeamNameInput("");
       await loadMembers();
+      await refreshTeam();
       showBanner("success", "Mentor request sent.");
     } catch (err) {
       const code = err.response?.data?.error;
-      showBanner("error", errorMessages[code] || "Failed to send request.");
+      const message = err.response?.data?.message;
+      // Use custom message if provided, otherwise use error code mapping
+      const errorMsg = message || errorMessages[code] || "Failed to send request.";
+      console.error("Request mentor error:", { code, message, fullError: err.response?.data, err });
+      showBanner("error", errorMsg);
     } finally {
       setInviteBusy(false);
     }
@@ -1350,52 +1374,6 @@ function CandidateTeamManagement() {
             </div>
           )}
 
-          <div className="divider">OR</div>
-
-          <form onSubmit={handleRequestMentor} className="team-invite">
-            <h4>Request a Mentor</h4>
-            <p className="team-invite-subtext">
-              A mentor will add you to their team.
-            </p>
-            <div className="request-type-toggle">
-              <button
-                type="button"
-                className={requestType === "email" ? "active" : ""}
-                onClick={() => setRequestType("email")}
-              >
-                By Email
-              </button>
-              <button
-                type="button"
-                className={requestType === "teamName" ? "active" : ""}
-                onClick={() => setRequestType("teamName")}
-              >
-                By Team Name
-              </button>
-            </div>
-            <div className="team-invite-row">
-              {requestType === "email" ? (
-                <input
-                  type="email"
-                  placeholder="mentor@example.com"
-                  value={mentorEmail}
-                  onChange={(e) => setMentorEmail(e.target.value)}
-                  required
-                />
-              ) : (
-                <input
-                  type="text"
-                  placeholder="Mentor's team name"
-                  value={teamNameInput}
-                  onChange={(e) => setTeamNameInput(e.target.value)}
-                  required
-                />
-              )}
-              <button type="submit" disabled={inviteBusy}>
-                {inviteBusy ? "Sending..." : "Request Mentor"}
-              </button>
-            </div>
-          </form>
         </div>
       </section>
     );
@@ -1453,40 +1431,17 @@ function CandidateTeamManagement() {
       <div className="candidate-actions">
         <form onSubmit={handleRequestMentor} className="team-invite">
           <h4>Request a Mentor</h4>
-          <div className="request-type-toggle">
-            <button
-              type="button"
-              className={requestType === "email" ? "active" : ""}
-              onClick={() => setRequestType("email")}
-            >
-              By Email
-            </button>
-            <button
-              type="button"
-              className={requestType === "teamName" ? "active" : ""}
-              onClick={() => setRequestType("teamName")}
-            >
-              By Team Name
-            </button>
-          </div>
+          <p className="team-invite-subtext">
+            Request a mentor by email. The mentor will be invited to join your team.
+          </p>
           <div className="team-invite-row">
-            {requestType === "email" ? (
-              <input
-                type="email"
-                placeholder="mentor@example.com"
-                value={mentorEmail}
-                onChange={(e) => setMentorEmail(e.target.value)}
-                required
-              />
-            ) : (
-              <input
-                type="text"
-                placeholder="Mentor's team name"
-                value={teamNameInput}
-                onChange={(e) => setTeamNameInput(e.target.value)}
-                required
-              />
-            )}
+            <input
+              type="email"
+              placeholder="mentor@example.com"
+              value={mentorEmail}
+              onChange={(e) => setMentorEmail(e.target.value)}
+              required
+            />
             <button type="submit" disabled={inviteBusy}>
               {inviteBusy ? "Sending..." : "Request Mentor"}
             </button>
