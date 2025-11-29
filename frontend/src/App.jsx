@@ -31,6 +31,8 @@ import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-07
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
 import SalaryResearch from "./pages/Salary/SalaryResearch";
 import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
+import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
+
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -248,6 +250,7 @@ function MainLayout() {
             <Route path="question-bank" element={<QuestionBank />} />
             <Route path="response-coaching" element={<ResponseCoaching />} />
             <Route path="mock-interview" element={<MockInterview />} />
+            <Route path="follow-up" element={<FollowUpTemplates />} />
           </Route>
           
           {/* --- Cover Letter (UC-055) --- */}
