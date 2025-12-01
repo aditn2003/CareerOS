@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { fetchCompanyResearch, api } from "../api";
-import CompanyResearchCard from "../components/CompanyResearchCard";
+import { fetchCompanyResearch, api } from "../../api";
+import CompanyResearchCard from "../../components/CompanyResearchCard";
 import "./CompanyResearch.css";
 
 export default function CompanyResearch() {

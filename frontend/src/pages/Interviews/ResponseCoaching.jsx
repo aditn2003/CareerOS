@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../api";
+import { getUserId } from "../../utils/auth";
 import "./ResponseCoaching.css";
 
 export default function ResponseCoaching() {
-  const userId = 1; // TODO: Get from auth
+  const userId = getUserId();
   
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [responseText, setResponseText] = useState("");
