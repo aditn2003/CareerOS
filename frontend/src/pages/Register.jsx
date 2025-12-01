@@ -11,13 +11,17 @@ export default function Register() {
     email: "",
     password: "",
     confirmPassword: "",
+    accountType: "candidate",
   });
   const { setToken } = useAuth();
   const navigate = useNavigate();
 
   async function handleRegister() {
     try {
-      const { data } = await api.post("/register", form);
+      const { data } = await api.post("/register", {
+        ...form,
+        accountType: form.accountType || "candidate",
+      });
       alert("✅ Registered successfully!");
       setToken(data.token);
       navigate("/profile/info");
@@ -58,6 +62,20 @@ export default function Register() {
         value={form.confirmPassword}
         onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
       />
+      <label className="account-type-label">
+        Account type
+        <select
+          value={form.accountType}
+          onChange={(e) => setForm({ ...form, accountType: e.target.value })}
+        >
+          <option value="candidate">
+            Individual job seeker (candidate)
+          </option>
+          <option value="team_admin">
+            Team mentor / admin (career coach or team lead)
+          </option>
+        </select>
+      </label>
 
       <div className="button-group">
         <button onClick={handleRegister}>Register</button>
