@@ -19,7 +19,7 @@ import ProfileLayout from "./pages/Profile/ProfileLayout";
 import Jobs from "./pages/Jobs";
 import StatisticsPage from "./pages/StatisticsPage";
 import ArchivedJobs from "./pages/ArchivedJobs";
-import CompanyResearch from "./pages/CompanyResearch";
+import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
 import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
 import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
@@ -28,10 +28,10 @@ import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-
 import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
 import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
-import SalaryResearch from "./pages/Salary/SalaryResearch";
-import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
-import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
+import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
+import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
+import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -185,24 +185,16 @@ function MainLayout() {
             }
           />
 
-          {/* --- Company Research (Protected) --- */}
+          {/* --- Company Research (Redirect to Interviews) --- */}
           <Route
             path="/company-research"
-            element={
-              <ProtectedRoute>
-                <CompanyResearch />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/interviews/company-research" replace />}
           />
 
-          {/* --- Salary Research (Protected) --- */}
+          {/* --- Salary Research (Redirect to Interviews) --- */}
           <Route
             path="/salary-research"
-            element={
-              <ProtectedRoute>
-                <SalaryResearch />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/interviews/salary-research" replace />}
           />
 
           {/* --- Job Match (Protected) --- */}
@@ -237,7 +229,7 @@ function MainLayout() {
 
           {/* --- Interview Preparation (Nested + Protected) --- */}
           <Route
-            path="/interviews/*"
+            path="/interviews"
             element={
               <ProtectedRoute>
                 <InterviewsLayout />
@@ -253,6 +245,8 @@ function MainLayout() {
             <Route path="response-coaching" element={<ResponseCoaching />} />
             <Route path="mock-interview" element={<MockInterview />} />
             <Route path="follow-up" element={<FollowUpTemplates />} />
+            <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
+            <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}
           </Route>
 
           {/* --- Cover Letter (UC-055, Protected) --- */}
