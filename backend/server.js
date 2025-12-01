@@ -1,7 +1,6 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
-
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
@@ -35,6 +34,8 @@ import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import teamRoutes from "./routes/team.js";
 
+import responseCoachingRoutes from "./routes/responseCoaching.js";
+import mockInterviewsRoutes from "./routes/mockInterviews.js";
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -645,6 +646,8 @@ app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
+app.use("/api/response-coaching", responseCoachingRoutes);
+app.use("/api/mock-interviews", mockInterviewsRoutes);
 
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
