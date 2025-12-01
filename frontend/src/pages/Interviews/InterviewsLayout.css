@@ -1,97 +1,98 @@
 /* Interviews Layout Styles */
 .interviews-layout {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 24px;
-    background: #f5f5f5;
-    min-height: 100vh;
-  }
-  
-  .interviews-header {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-  
-  .main-title {
-    font-size: 42px;
-    font-weight: 800;
-    color: #4f22ea;
-    margin-bottom: 8px;
-  }
-  
-  .main-subtitle {
-    font-size: 18px;
-    color: #6b7280;
-  }
-  
-  /* Navigation Tabs */
-  .interview-nav-tabs {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 32px;
-    flex-wrap: wrap;
-    justify-content: center;
-    background: white;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.interviews-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.main-title {
+  font-size: 42px;
+  font-weight: 800;
+  color: #4f22ea;
+  margin-bottom: 8px;
+}
+
+.main-subtitle {
+  font-size: 18px;
+  color: #6b7280;
+}
+
+/* Navigation Tabs - Optimized for 7 tabs */
+.interview-nav-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.nav-tab {
+  padding: 12px 20px;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.nav-tab:hover {
+  background: #f3f4f6;
+  border-color: #4f22ea;
+  color: #4f22ea;
+  transform: translateY(-2px);
+}
+
+.nav-tab.active {
+  background: #4f22ea;
+  border-color: #4f22ea;
+  color: white;
+  box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
+}
+
+/* Content Area */
+.interview-content {
+  /* Child components handle their own styling */
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .interviews-layout {
     padding: 16px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
-  
+
+  .main-title {
+    font-size: 32px;
+  }
+
+  .main-subtitle {
+    font-size: 16px;
+  }
+
+  .interview-nav-tabs {
+    flex-direction: column;
+    padding: 12px;
+  }
+
   .nav-tab {
-    padding: 14px 28px;
-    background: #f9fafb;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    font-size: 15px;
-    color: #374151;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    width: 100%;
+    justify-content: center;
   }
-  
-  .nav-tab:hover {
-    background: #f3f4f6;
-    border-color: #4f22ea;
-    color: #4f22ea;
-    transform: translateY(-2px);
-  }
-  
-  .nav-tab.active {
-    background: #4f22ea;
-    border-color: #4f22ea;
-    color: white;
-    box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
-  }
-  
-  /* Content Area */
-  .interview-content {
-    /* Child components handle their own styling */
-  }
-  
-  /* Mobile Responsive */
-  @media (max-width: 768px) {
-    .interviews-layout {
-      padding: 16px;
-    }
-  
-    .main-title {
-      font-size: 32px;
-    }
-  
-    .main-subtitle {
-      font-size: 16px;
-    }
-  
-    .interview-nav-tabs {
-      flex-direction: column;
-      padding: 12px;
-    }
-  
-    .nav-tab {
-      width: 100%;
-      justify-content: center;
-    }
-  }
+}
