@@ -6,8 +6,28 @@ export default function Interviews() {
   const [companies, setCompanies] = useState([]);
   const [activeCompany, setActiveCompany] = useState("");
   
-  // Tab state: "insights" or "questions"
+  // Tab state: "insights" or "questions" or "coaching" or "mock"
   const [activeTab, setActiveTab] = useState("insights");
+
+  // 🆕 UC-076: Response Coaching state
+  const [selectedQuestion, setSelectedQuestion] = useState(null);
+  const [responseText, setResponseText] = useState("");
+  const [analyzingResponse, setAnalyzingResponse] = useState(false);
+  const [coachingFeedback, setCoachingFeedback] = useState(null);
+  const [coachingHistory, setCoachingHistory] = useState([]);
+  
+  // 🆕 UC-077: Mock Interview state
+  const [mockView, setMockView] = useState("start"); // start, interview, summary, history
+  const [mockSessionId, setMockSessionId] = useState(null);
+  const [mockScenario, setMockScenario] = useState(null);
+  const [mockCurrentQuestionIndex, setMockCurrentQuestionIndex] = useState(0);
+  const [mockCurrentResponse, setMockCurrentResponse] = useState("");
+  const [mockSummary, setMockSummary] = useState(null);
+  const [mockSessions, setMockSessions] = useState([]);
+  const [mockLoading, setMockLoading] = useState(false);
+  const [mockInterviewType, setMockInterviewType] = useState("mixed");
+  
+  
 
   // Role mapping by company
   const [roleMap, setRoleMap] = useState({});
@@ -264,6 +284,18 @@ export default function Interviews() {
           onClick={() => setActiveTab("questions")}
         >
           📝 Question Bank
+        </button>
+        <button
+          className={`tab-btn ${activeTab === "coaching" ? "active" : ""}`}
+          onClick={() => setActiveTab("coaching")}
+        >
+          🤖 AI Coaching
+        </button>
+        <button
+          className={`tab-btn ${activeTab === "mock" ? "active" : ""}`}
+          onClick={() => setActiveTab("mock")}
+        >
+          🎭 Mock Interview
         </button>
       </div>
 
@@ -569,6 +601,384 @@ export default function Interviews() {
               </div>
             )}
           </div>
+        </>
+      )}
+
+      {/* ============================================================
+          TAB 3: AI COACHING (🆕 UC-076)
+      ============================================================ */}
+      {activeTab === "coaching" && (
+        <>
+          <div className="coaching-intro">
+            <h2>🤖 AI-Powered Response Coaching</h2>
+            <p>Get instant feedback on your interview responses with detailed AI analysis</p>
+          </div>
+
+          <div className="coaching-container">
+            {/* Sample Questions */}
+            <div className="section-card">
+              <h3>Select a Question to Practice</h3>
+              <div className="question-options">
+                {[
+                  { id: "beh-1", text: "Tell me about a time you faced a significant challenge at work.", category: "behavioral" },
+                  { id: "beh-2", text: "Describe a situation where you had to work with a difficult team member.", category: "behavioral" },
+                  { id: "tech-1", text: "Explain your approach to debugging a complex issue in production.", category: "technical" },
+                  { id: "sit-1", text: "How would you handle a situation where you disagree with your manager?", category: "situational" }
+                ].map(q => (
+                  <button
+                    key={q.id}
+                    className={`question-option ${selectedQuestion?.id === q.id ? "selected" : ""}`}
+                    onClick={() => {
+                      setSelectedQuestion(q);
+                      setCoachingFeedback(null);
+                      setResponseText("");
+                    }}
+                  >
+                    <span className="q-category">{q.category}</span>
+                    <span className="q-text">{q.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedQuestion && (
+              <>
+                {/* Response Input */}
+                <div className="section-card">
+                  <h3>Write Your Response</h3>
+                  <p className="hint-text">
+                    {selectedQuestion.category === "behavioral" 
+                      ? "💡 Use STAR method: Situation, Task, Action, Result"
+                      : "💡 Be specific, concise, and include examples"}
+                  </p>
+                  <textarea
+                    className="response-input"
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Type your response here..."
+                    rows={10}
+                  />
+                  <div className="response-meta">
+                    <span>{responseText.trim().split(/\s+/).filter(w => w).length} words</span>
+                    <span>~{Math.round((responseText.trim().split(/\s+/).filter(w => w).length / 150) * 60)}s speaking time</span>
+                  </div>
+                  <button
+                    className="btn-primary btn-large"
+                    onClick={async () => {
+                      if (!responseText.trim()) {
+                        alert("Please write a response");
+                        return;
+                      }
+                      setAnalyzingResponse(true);
+                      try {
+                        const res = await api.post("/api/response-coaching/analyze", {
+                          userId,
+                          questionId: selectedQuestion.id,
+                          questionText: selectedQuestion.text,
+                          questionCategory: selectedQuestion.category,
+                          responseText
+                        });
+                        setCoachingFeedback(res.data.data);
+                      } catch (err) {
+                        console.error("Error:", err);
+                        alert("Failed to analyze response");
+                      } finally {
+                        setAnalyzingResponse(false);
+                      }
+                    }}
+                    disabled={analyzingResponse || !responseText.trim()}
+                  >
+                    {analyzingResponse ? "Analyzing..." : "🚀 Get AI Coaching"}
+                  </button>
+                </div>
+
+                {/* Feedback Display */}
+                {coachingFeedback && (
+                  <div className="feedback-panel">
+                    <div className="feedback-header">
+                      <h3>📊 Your Feedback</h3>
+                      <div className="overall-score">{coachingFeedback.analysis.scores.overall_score}/100</div>
+                    </div>
+                    
+                    <div className="scores-row">
+                      <div className="score-item">
+                        <span>Relevance</span>
+                        <strong>{coachingFeedback.analysis.scores.relevance_score}</strong>
+                      </div>
+                      <div className="score-item">
+                        <span>Specificity</span>
+                        <strong>{coachingFeedback.analysis.scores.specificity_score}</strong>
+                      </div>
+                      <div className="score-item">
+                        <span>Impact</span>
+                        <strong>{coachingFeedback.analysis.scores.impact_score}</strong>
+                      </div>
+                    </div>
+
+                    {coachingFeedback.improvement !== null && (
+                      <div className={`improvement-badge ${coachingFeedback.improvement > 0 ? "positive" : ""}`}>
+                        {coachingFeedback.improvement > 0 ? "📈" : "📉"} 
+                        {coachingFeedback.improvement > 0 ? "+" : ""}{coachingFeedback.improvement} points improvement!
+                      </div>
+                    )}
+
+                    <div className="feedback-sections">
+                      <div className="feedback-section strengths">
+                        <h4>💪 Strengths</h4>
+                        <ul>
+                          {coachingFeedback.analysis.content_feedback.strengths.map((s, i) => (
+                            <li key={i}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      <div className="feedback-section improvements">
+                        <h4>🎯 Areas to Improve</h4>
+                        <ul>
+                          {coachingFeedback.analysis.content_feedback.weaknesses.map((w, i) => (
+                            <li key={i}>{w}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {coachingFeedback.analysis.key_improvements && (
+                        <div className="feedback-section key-improvements">
+                          <h4>🔑 Key Focus Areas</h4>
+                          <ol>
+                            {coachingFeedback.analysis.key_improvements.map((imp, i) => (
+                              <li key={i}>{imp}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!selectedQuestion && (
+              <div className="empty-state">
+                <div className="empty-icon">🎯</div>
+                <h3>Ready to Improve?</h3>
+                <p>Select a question above and write your response to get instant AI coaching</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ============================================================
+          TAB 4: MOCK INTERVIEW (🆕 UC-077)
+      ============================================================ */}
+      {activeTab === "mock" && (
+        <>
+          <div className="mock-intro">
+            <h2>🎭 Mock Interview Practice</h2>
+            <p>Complete realistic interview sessions with AI-powered performance analysis</p>
+          </div>
+
+          {/* START VIEW */}
+          {mockView === "start" && (
+            <div className="mock-setup">
+              <div className="section-card">
+                <h3>Setup Your Mock Interview</h3>
+                
+                <div className="company-buttons">
+                  {companies.map((c) => (
+                    <button
+                      key={c}
+                      className={`company-btn ${c === activeCompany ? "active" : ""}`}
+                      onClick={() => setActiveCompany(c)}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="setup-row">
+                  <label>Interview Type</label>
+                  <div className="type-buttons">
+                    {["behavioral", "technical", "case_study", "mixed"].map(type => (
+                      <button
+                        key={type}
+                        className={`type-btn ${mockInterviewType === type ? "active" : ""}`}
+                        onClick={() => setMockInterviewType(type)}
+                      >
+                        {type.replace("_", " ")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  className="btn-primary btn-large"
+                  onClick={async () => {
+                    if (!activeCompany) {
+                      alert("Please select a company");
+                      return;
+                    }
+                    setMockLoading(true);
+                    try {
+                      const res = await api.post("/api/mock-interviews/start", {
+                        userId,
+                        company: activeCompany,
+                        role: roleMap[activeCompany]?.[0] || "Software Engineer",
+                        interviewType: mockInterviewType
+                      });
+                      setMockSessionId(res.data.data.sessionId);
+                      setMockScenario(res.data.data.scenario);
+                      setMockCurrentQuestionIndex(0);
+                      setMockCurrentResponse("");
+                      setMockView("interview");
+                    } catch (err) {
+                      console.error("Error:", err);
+                      alert("Failed to start interview");
+                    } finally {
+                      setMockLoading(false);
+                    }
+                  }}
+                  disabled={mockLoading}
+                >
+                  {mockLoading ? "Starting..." : "🚀 Start Mock Interview"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* INTERVIEW VIEW */}
+          {mockView === "interview" && mockScenario && (
+            <div className="mock-interview-active">
+              <div className="interview-header-section">
+                <h3>🏢 {activeCompany} - Mock Interview</h3>
+                <p className="scenario-desc">{mockScenario.scenario_description}</p>
+              </div>
+
+              <div className="interview-progress">
+                <div className="progress-text">
+                  Question {mockCurrentQuestionIndex + 1} of {mockScenario.questions.length}
+                </div>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{width: `${((mockCurrentQuestionIndex + 1) / mockScenario.questions.length) * 100}%`}}
+                  ></div>
+                </div>
+              </div>
+
+              <div className="current-question-card">
+                <div className="question-header">
+                  <span className="question-type">{mockScenario.questions[mockCurrentQuestionIndex].question_type}</span>
+                  <span className="question-num">#{mockScenario.questions[mockCurrentQuestionIndex].question_number}</span>
+                </div>
+                <h3>{mockScenario.questions[mockCurrentQuestionIndex].question_text}</h3>
+                {mockScenario.questions[mockCurrentQuestionIndex].response_guidance && (
+                  <div className="guidance">
+                    <strong>💡 Guidance:</strong> {mockScenario.questions[mockCurrentQuestionIndex].response_guidance.optimal_length}
+                  </div>
+                )}
+              </div>
+
+              <div className="section-card">
+                <label>Your Response</label>
+                <textarea
+                  className="response-input"
+                  value={mockCurrentResponse}
+                  onChange={(e) => setMockCurrentResponse(e.target.value)}
+                  placeholder="Write your response..."
+                  rows={10}
+                />
+                <div className="response-meta">
+                  <span>{mockCurrentResponse.trim().split(/\s+/).filter(w => w).length} words</span>
+                </div>
+                <button
+                  className="btn-primary btn-large"
+                  onClick={async () => {
+                    if (!mockCurrentResponse.trim()) {
+                      alert("Please write a response");
+                      return;
+                    }
+                    setMockLoading(true);
+                    try {
+                      await api.post("/api/mock-interviews/respond", {
+                        sessionId: mockSessionId,
+                        questionNumber: mockScenario.questions[mockCurrentQuestionIndex].question_number,
+                        responseText: mockCurrentResponse
+                      });
+
+                      setMockCurrentResponse("");
+
+                      if (mockCurrentQuestionIndex < mockScenario.questions.length - 1) {
+                        setMockCurrentQuestionIndex(mockCurrentQuestionIndex + 1);
+                      } else {
+                        // Complete interview
+                        const summaryRes = await api.post(`/api/mock-interviews/${mockSessionId}/complete`);
+                        setMockSummary(summaryRes.data.data.summary);
+                        setMockView("summary");
+                      }
+                    } catch (err) {
+                      console.error("Error:", err);
+                      alert("Failed to submit response");
+                    } finally {
+                      setMockLoading(false);
+                    }
+                  }}
+                  disabled={mockLoading || !mockCurrentResponse.trim()}
+                >
+                  {mockLoading ? "Saving..." : 
+                   mockCurrentQuestionIndex < mockScenario.questions.length - 1 ? "Next Question →" : "Finish Interview"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SUMMARY VIEW */}
+          {mockView === "summary" && mockSummary && (
+            <div className="mock-summary">
+              <h2>🎉 Interview Complete!</h2>
+              
+              <div className="summary-score">
+                <div className="score-big">{mockSummary.scores.overall_performance_score}</div>
+                <div className="score-label">Overall Performance</div>
+              </div>
+
+              <div className="summary-grid">
+                <div className="summary-section">
+                  <h3>💪 Strengths</h3>
+                  <ul>
+                    {mockSummary.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+                
+                <div className="summary-section">
+                  <h3>🎯 Areas to Improve</h3>
+                  <ul>
+                    {mockSummary.improvement_areas.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+
+                <div className="summary-section">
+                  <h3>📋 Next Steps</h3>
+                  <ol>
+                    {mockSummary.next_steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ol>
+                </div>
+              </div>
+
+              <button 
+                className="btn-primary btn-large"
+                onClick={() => {
+                  setMockView("start");
+                  setMockSummary(null);
+                  setMockSessionId(null);
+                  setMockScenario(null);
+                  setMockCurrentQuestionIndex(0);
+                }}
+              >
+                Start New Mock Interview
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
