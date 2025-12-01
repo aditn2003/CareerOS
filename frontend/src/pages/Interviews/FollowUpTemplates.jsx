@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
+import { getUserId } from "../../utils/auth";
 import "./FollowUpTemplates.css";
 
 export default function FollowUpTemplates() {
@@ -21,7 +22,7 @@ export default function FollowUpTemplates() {
     conversationHighlights: ["", "", ""]
   });
 
-  const userId = 1; // TODO: Replace with actual user ID from auth
+  const userId = getUserId();
 
   /* ============================================================
      Load companies from jobs
