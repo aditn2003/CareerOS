@@ -29,7 +29,8 @@ import {
   AreaChart,
 } from 'recharts';
 import { CSVLink } from 'react-csv';
-import { api, getSuccessAnalysis } from '../api';
+import { api, getSuccessAnalysis, getInterviewAnalysis } from '../api';
+import InterviewAnalysis from '../components/InterviewAnalysis';
 
 // Custom styles
 const styles = {
@@ -353,6 +354,7 @@ const StatisticsPage = () => {
           >
             <Tab label="Job Statistics" />
             <Tab label="Success Analysis" />
+            <Tab label="Interview Analysis" />
           </Tabs>
 
           {/* Tab 1: Job Statistics */}
@@ -681,12 +683,17 @@ const StatisticsPage = () => {
                     {analysis.recommendations.map((rec, idx) => (
                       <Box key={idx} sx={styles.recommendationCard}>
                         {rec}
-                      </Box>
+        </Box>
                     ))}
                   </ChartCard>
                 )}
               </>
-            )}
+      )}
+          </TabPanel>
+
+          {/* Tab 3: Interview Analysis */}
+          <TabPanel value={tabValue} index={2}>
+            <InterviewAnalysis />
           </TabPanel>
         </Paper>
     </Container>

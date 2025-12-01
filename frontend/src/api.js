@@ -127,4 +127,9 @@ export const duplicateTemplate = (id) =>
     
     export const resetGoals = () => api.delete("/api/goals");
 
+    /* -------------------------------------------------------
+       Interview Analysis API
+    ------------------------------------------------------- */
+    export const getInterviewAnalysis = () => api.get("/api/interview-analysis/full");
+
     

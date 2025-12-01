@@ -44,6 +44,7 @@ import jobImportRoutes from "./routes/jobRoutes.js";
 import puppeteer from "puppeteer";
 import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
+import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -474,6 +475,7 @@ app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
 app.use("/api/success-analysis", successAnalysisRoutes);
 app.use("/api/goals", goalsRoutes);
+app.use("/api/interview-analysis", interviewAnalysisRoutes);
 
 app.use("/api/team", teamRoutes);
 
