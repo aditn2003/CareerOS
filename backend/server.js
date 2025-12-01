@@ -32,7 +32,7 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
-import pool from "./db/index.js";
+import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import teamRoutes from "./routes/team.js";
 
@@ -94,12 +94,12 @@ if (isSupabase) {
   console.log("🔒 SSL enabled for Supabase connection");
 }
 
-const pool = new Pool({
-  ...poolConfig,
-  max: 10, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
-});
+// const pool = new Pool({
+//   ...poolConfig,
+//   max: 10, // Maximum number of clients in the pool
+//   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+//   connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+// });
 
 // Handle pool errors gracefully
 pool.on('error', (err) => {

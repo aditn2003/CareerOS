@@ -4,7 +4,7 @@ import express from "express";
 //import { Pool } from "pg";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import pool from "../db/index.js";
+import pool from "../db/pool.js";
 
 dotenv.config();
 const router = express.Router();
