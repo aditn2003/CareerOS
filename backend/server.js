@@ -34,7 +34,6 @@ import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 
-
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
 import puppeteer from "puppeteer";
@@ -71,14 +70,25 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
-const pool = new Pool({
+const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-});
+};
 
-pool
-  .connect()
-  .then(() => console.log("✅ Connected to PostgreSQL"))
-  .catch((err) => console.error("❌ DB connection error:", err.message));
+if (process.env.NODE_ENV === 'test') {
+    // Limit to 1 connection during tests to prevent Supabase "MaxClients" error
+    poolConfig.max = 1;
+    poolConfig.idleTimeoutMillis = 1000; // Close idle clients quickly
+}
+
+const pool = new Pool(poolConfig);
+
+// Only log connection if not in test mode to keep logs clean
+if (process.env.NODE_ENV !== 'test') {
+  pool
+    .connect()
+    .then(() => console.log("✅ Connected to PostgreSQL"))
+    .catch((err) => console.error("❌ DB connection error:", err.message));
+}
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
@@ -319,7 +329,6 @@ app.post("/delete", auth, async (req, res) => {
   }
 });
 
-// ========== UC-003 & UC-004: OAuth (demo stubs) ==========
 // ========== UC-003 & UC-004: Google OAuth ==========
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -369,13 +378,22 @@ app.use("/api", educationRoutes);
 app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/resumes", resumeRoutes);
+app.use("/api", resumePresetsRoutes);
+app.use("/api", sectionPresetsRoutes);
+app.use("/api", jobDescriptionsRoutes);
+app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/match", matchRoutes);
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/interview-insights", interviewInsights);
+app.use("/api/cover-letter", coverLetterRoutes);
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api", jobImportRoutes);
 
 
 // ===== Global Error Handler =====
@@ -388,10 +406,9 @@ app.use((err, req, res, next) => {
 app.get("/", (_req, res) => res.json({ ok: true }));
 
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB ======
-import cron from "node-cron";
 
 // run every day at 9:00 AM server time
-cron.schedule("0 9 * * *", async () => {
+crons.schedule("0 9 * * *", async () => {
   console.log("📬 Running daily job deadline reminder...");
 
   try {
@@ -553,10 +570,6 @@ app.use("/api/interview-insights", interviewInsights);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
-crons.schedule("0 9 * * *", async () => {
-  console.log("📬 Running daily job deadline reminder...");
-  // 🧠 your code logic here (the pool.query, resend email sending, etc.)
-});
 app.post("/test-reminders", async (req, res) => {
   try {
     await sendDeadlineReminders();
@@ -566,5 +579,13 @@ app.post("/test-reminders", async (req, res) => {
     res.status(500).json({ error: "Failed to run reminder job" });
   }
 });
+
 // ===== Start Server =====
-app.listen(4000, () => console.log("✅ API running at http://localhost:4000"));
+// FIX: Only start the server if we are NOT testing
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`✅ API running at http://localhost:${PORT}`));
+}
+
+// Export for tests
+export { app, pool };

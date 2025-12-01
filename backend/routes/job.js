@@ -59,8 +59,15 @@ router.post("/", auth, async (req, res) => {
 
     const cleanNumber = (v) => {
       if (!v) return null;
-      const num = parseInt(String(v).replace(/[^\d]/g, ""), 10);
-      return isNaN(num) ? null : num;
+      // Convert to string and remove currency symbols and commas
+      const str = String(v);
+      // Remove $ and commas, but keep decimal point for proper parsing
+      const cleaned = str.replace(/[$,]/g, "");
+      // Parse as float to handle decimals correctly, then round to integer
+      const num = parseFloat(cleaned);
+      if (isNaN(num)) return null;
+      // Round to nearest integer (salaries are whole numbers)
+      return Math.round(num);
     };
 
     const safeSalaryMin = cleanNumber(salary_min);
@@ -101,11 +108,16 @@ router.post("/", auth, async (req, res) => {
 
     // 🧩 RECORD MATERIAL HISTORY (If provided)
     if (resume_id || cover_letter_id) {
-      await pool.query(
-        `INSERT INTO application_materials_history (job_id, resume_id, cover_letter_id)
-         VALUES ($1, $2, $3)`,
-        [newJob.id, resume_id || null, cover_letter_id || null]
-      );
+      try {
+        await pool.query(
+          `INSERT INTO application_materials_history (user_id, job_id, resume_id, cover_letter_id)
+           VALUES ($1, $2, $3, $4)`,
+          [req.userId, newJob.id, resume_id || null, cover_letter_id || null]
+        );
+      } catch (err) {
+        // Table might not exist, log but don't fail
+        console.warn("⚠️ Could not record application materials history:", err.message);
+      }
     }
 
     res.status(200).json({
@@ -411,11 +423,16 @@ router.put("/:id", auth, async (req, res) => {
     const job = result.rows[0];
 
     if (updates.resume_id || updates.cover_letter_id) {
-      await pool.query(
-        `INSERT INTO application_materials_history (job_id, resume_id, cover_letter_id)
-         VALUES ($1, $2, $3)`,
-        [id, updates.resume_id || null, updates.cover_letter_id || null]
-      );
+      try {
+        await pool.query(
+          `INSERT INTO application_materials_history (user_id, job_id, resume_id, cover_letter_id)
+           VALUES ($1, $2, $3, $4)`,
+          [req.userId, id, updates.resume_id || null, updates.cover_letter_id || null]
+        );
+      } catch (err) {
+        // Table might not exist, log but don't fail
+        console.warn("⚠️ Could not record application materials history:", err.message);
+      }
     }
 
     res.json({ job });

@@ -23,6 +23,11 @@ router.get("/", auth, async (req, res) => {
     );
     res.json({ cover_letters: rows });
   } catch (err) {
+    // Handle case where table doesn't exist yet
+    if (err.code === '42P01' || err.message.includes('does not exist')) {
+      console.warn("⚠️ Cover letters table does not exist yet");
+      return res.json({ cover_letters: [] });
+    }
     console.error("❌ Fetch cover letters error:", err);
     res.status(500).json({ error: "Failed to load cover letters" });
   }
@@ -47,6 +52,11 @@ router.post("/", auth, async (req, res) => {
 
     res.json({ message: "✅ Cover letter saved", cover_letter: rows[0] });
   } catch (err) {
+    // Handle case where table doesn't exist yet
+    if (err.code === '42P01' || err.message.includes('does not exist')) {
+      console.warn("⚠️ Cover letters table does not exist yet - run database migration");
+      return res.status(503).json({ error: "Cover letters feature not available - database migration required" });
+    }
     console.error("❌ Save cover letter error:", err);
     res.status(500).json({ error: "Failed to save cover letter" });
   }
@@ -62,6 +72,11 @@ router.delete("/:id", auth, async (req, res) => {
     );
     res.json({ message: "🗑️ Cover letter deleted" });
   } catch (err) {
+    // Handle case where table doesn't exist yet
+    if (err.code === '42P01' || err.message.includes('does not exist')) {
+      console.warn("⚠️ Cover letters table does not exist yet");
+      return res.status(503).json({ error: "Cover letters feature not available - database migration required" });
+    }
     console.error("❌ Delete cover letter error:", err);
     res.status(500).json({ error: "Failed to delete cover letter" });
   }
