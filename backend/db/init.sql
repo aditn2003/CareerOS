@@ -1,240 +1,187 @@
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
+-- ======================================
+-- DATABASE INITIALIZATION SCRIPT (init.sql)
+-- ======================================
+-- USERS TABLE
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    first_name TEXT,
+    last_name TEXT,
+    provider TEXT DEFAULT 'local',
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- PROFILES TABLE
+CREATE TABLE IF NOT EXISTS profiles (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    full_name VARCHAR(255),
+    email VARCHAR(255),
+    phone VARCHAR(50),
+    location VARCHAR(255),
+    title VARCHAR(255),
+    bio TEXT,
+    industry VARCHAR(255),
+    experience VARCHAR(50),
+    picture_url TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- EDUCATION TABLE
+CREATE TABLE IF NOT EXISTS education (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    institution VARCHAR(150) NOT NULL,
+    degree_type VARCHAR(100) NOT NULL,
+    field_of_study VARCHAR(100) NOT NULL,
+    graduation_date DATE,
+    currently_enrolled BOOLEAN DEFAULT FALSE,
+    education_level VARCHAR(50),
+    gpa NUMERIC(3, 2),
+    gpa_private BOOLEAN DEFAULT FALSE,
+    honors TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- EMPLOYMENT TABLE
+CREATE TABLE IF NOT EXISTS employment (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    company VARCHAR(255) NOT NULL,
+    location VARCHAR(255),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    current BOOLEAN DEFAULT FALSE,
+    description TEXT CHECK (char_length(description) <= 1000),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
+-- PROJECTS TABLE
+CREATE TABLE IF NOT EXISTS projects (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    role VARCHAR(255) NOT NULL,
+    start_date DATE,
+    end_date DATE,
+    technologies TEXT [],
+    repository_link TEXT,
+    team_size INTEGER,
+    collaboration_details TEXT,
+    outcomes TEXT,
+    industry VARCHAR(100),
+    project_type VARCHAR(100),
+    media_url TEXT,
+    status VARCHAR(50) DEFAULT 'Planned' CHECK (status IN ('Completed', 'Ongoing', 'Planned')),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- SKILLS TABLE
+CREATE TABLE IF NOT EXISTS skills (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    category VARCHAR(50) NOT NULL CHECK (
+        category IN (
+            'Technical',
+            'Soft Skills',
+            'Languages',
+            'Industry-Specific'
+        )
+    ),
+    proficiency VARCHAR(20) NOT NULL CHECK (
+        proficiency IN ('Beginner', 'Intermediate', 'Advanced', 'Expert')
+    ),
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, name)
+);
+-- CERTIFICATIONS TABLE
+CREATE TABLE IF NOT EXISTS certifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    organization VARCHAR(255) NOT NULL,
+    category VARCHAR(255),
+    cert_number VARCHAR(100),
+    date_earned DATE NOT NULL,
+    expiration_date DATE,
+    does_not_expire BOOLEAN DEFAULT FALSE,
+    document_url TEXT,
+    verified BOOLEAN DEFAULT FALSE,
+    renewal_reminder DATE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+-- JOBS TABLE
+CREATE TABLE IF NOT EXISTS jobs (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    location TEXT,
+    salary_min INT,
+    salary_max INT,
+    url TEXT,
+    deadline DATE,
+    description TEXT,
+    industry TEXT,
+    type TEXT,
+    status VARCHAR(50) DEFAULT 'Interested',
+    status_updated_at TIMESTAMP DEFAULT NOW(),
+    created_at TIMESTAMP DEFAULT NOW(),
+    notes TEXT,
+    contact_name TEXT,
+    contact_email TEXT,
+    contact_phone TEXT,
+    salary_notes TEXT,
+    interview_notes TEXT,
+    application_history JSONB DEFAULT '[]'::jsonb,
+    resume_customization VARCHAR(20) DEFAULT 'none' CHECK (resume_customization IN ('none', 'light', 'heavy', 'tailored')),
+    cover_letter_customization VARCHAR(20) DEFAULT 'none' CHECK (cover_letter_customization IN ('none', 'light', 'heavy', 'tailored'))
+);
+-- JOBS INDEXES
+CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 
-CREATE TABLE public.application_history (
-  id integer NOT NULL DEFAULT nextval('application_history_id_seq'::regclass),
-  job_id integer,
-  event text,
-  timestamp timestamp without time zone DEFAULT now(),
-  user_id integer,
-  from_status text,
-  to_status text,
-  meta jsonb DEFAULT '{}'::jsonb,
-  CONSTRAINT application_history_pkey PRIMARY KEY (id),
-  CONSTRAINT application_history_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id)
+-- USER GOALS TABLE (customizable performance targets)
+CREATE TABLE IF NOT EXISTS user_goals (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    monthly_applications INT DEFAULT 30,
+    interview_rate_target DECIMAL(3,2) DEFAULT 0.30,
+    offer_rate_target DECIMAL(3,2) DEFAULT 0.05,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
-CREATE TABLE public.application_materials (
-  id bigint NOT NULL DEFAULT nextval('application_materials_id_seq'::regclass),
-  user_id bigint NOT NULL,
-  job_id bigint NOT NULL,
-  resume_id bigint,
-  cover_letter_id bigint,
-  notes text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT application_materials_pkey PRIMARY KEY (id),
-  CONSTRAINT application_materials_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id),
-  CONSTRAINT application_materials_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+CREATE TABLE IF NOT EXISTS companies (
+CREATE TABLE IF NOT EXISTS companies (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    size VARCHAR(100),
+    industry VARCHAR(100),
+    location VARCHAR(255),
+    website TEXT,
+    description TEXT,
+    mission TEXT,
+    news TEXT,
+    glassdoor_rating DECIMAL(2, 1),
+    contact_email VARCHAR(255),
+    contact_phone VARCHAR(50),
+    logo_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
-CREATE TABLE public.application_materials_history (
-  id bigint NOT NULL DEFAULT nextval('application_materials_history_id_seq'::regclass),
-  user_id bigint NOT NULL,
-  job_id bigint NOT NULL,
-  resume_id bigint,
-  cover_letter_id bigint,
-  action text NOT NULL,
-  details jsonb NOT NULL DEFAULT '{}'::jsonb,
-  changed_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT application_materials_history_pkey PRIMARY KEY (id),
-  CONSTRAINT application_materials_history_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id),
-  CONSTRAINT application_materials_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.certifications (
-  id integer NOT NULL DEFAULT nextval('certifications_id_seq'::regclass),
-  user_id integer NOT NULL,
-  name character varying NOT NULL,
-  organization character varying NOT NULL,
-  category character varying,
-  cert_number character varying,
-  date_earned date NOT NULL,
-  expiration_date date,
-  does_not_expire boolean DEFAULT false,
-  document_url text,
-  verified boolean DEFAULT false,
-  renewal_reminder date,
-  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT certifications_pkey PRIMARY KEY (id),
-  CONSTRAINT certifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.companies (
-  id integer NOT NULL DEFAULT nextval('companies_id_seq'::regclass),
-  name character varying NOT NULL UNIQUE,
-  size character varying,
-  industry character varying,
-  location character varying,
-  website text,
-  description text,
-  mission text,
-  news text,
-  glassdoor_rating numeric,
-  contact_email character varying,
-  contact_phone character varying,
-  logo_url text,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT companies_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.company_research (
-  id integer NOT NULL DEFAULT nextval('company_research_id_seq'::regclass),
-  company character varying NOT NULL UNIQUE,
-  basics jsonb,
-  mission_values_culture jsonb,
-  executives jsonb,
-  products_services jsonb,
-  competitive_landscape jsonb,
-  summary text,
-  news jsonb,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT company_research_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.cover_letter_templates (
-  id integer NOT NULL DEFAULT nextval('cover_letter_templates_id_seq'::regclass),
-  user_id integer,
-  name character varying NOT NULL,
-  industry character varying,
-  category character varying,
-  content text NOT NULL,
-  is_custom boolean DEFAULT false,
-  view_count integer DEFAULT 0,
-  use_count integer DEFAULT 0,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT cover_letter_templates_pkey PRIMARY KEY (id),
-  CONSTRAINT cover_letter_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.cover_letters (
-  id integer NOT NULL DEFAULT nextval('cover_letters_id_seq'::regclass),
-  user_id integer,
-  name character varying NOT NULL,
-  industry character varying,
-  category character varying,
-  content text NOT NULL,
-  is_custom boolean DEFAULT false,
-  view_count integer DEFAULT 0,
-  use_count integer DEFAULT 0,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT cover_letters_pkey PRIMARY KEY (id),
-  CONSTRAINT cover_letters_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.education (
-  id integer NOT NULL DEFAULT nextval('education_id_seq'::regclass),
-  user_id integer NOT NULL,
-  institution character varying NOT NULL,
-  degree_type character varying NOT NULL,
-  field_of_study character varying NOT NULL,
-  graduation_date date,
-  currently_enrolled boolean DEFAULT false,
-  education_level character varying,
-  gpa numeric,
-  gpa_private boolean DEFAULT false,
-  honors text,
-  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT education_pkey PRIMARY KEY (id),
-  CONSTRAINT education_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.employment (
-  id integer NOT NULL DEFAULT nextval('employment_id_seq'::regclass),
-  user_id integer NOT NULL,
-  title character varying NOT NULL,
-  company character varying NOT NULL,
-  location character varying,
-  start_date date NOT NULL,
-  end_date date,
-  current boolean DEFAULT false,
-  description text CHECK (char_length(description) <= 1000),
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT employment_pkey PRIMARY KEY (id),
-  CONSTRAINT employment_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.industry_benchmarks (
-  id integer NOT NULL DEFAULT nextval('industry_benchmarks_id_seq'::regclass),
-  industry character varying NOT NULL,
-  metric_name character varying NOT NULL,
-  metric_value numeric NOT NULL,
-  updated_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT industry_benchmarks_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.job_descriptions (
-  id integer NOT NULL DEFAULT nextval('job_descriptions_id_seq'::regclass),
-  user_id integer NOT NULL,
-  content text NOT NULL,
-  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT job_descriptions_pkey PRIMARY KEY (id),
-  CONSTRAINT job_descriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.job_material_history (
-  id integer NOT NULL DEFAULT nextval('job_material_history_id_seq'::regclass),
-  job_id integer,
-  resume_id integer,
-  cover_letter_id integer,
-  changed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT job_material_history_pkey PRIMARY KEY (id),
-  CONSTRAINT job_material_history_cover_letter_id_fkey FOREIGN KEY (cover_letter_id) REFERENCES public.cover_letter_templates(id),
-  CONSTRAINT job_material_history_job_id_fkey FOREIGN KEY (job_id) REFERENCES public.jobs(id),
-  CONSTRAINT job_material_history_resume_id_fkey FOREIGN KEY (resume_id) REFERENCES public.resumes(id)
-);
-CREATE TABLE public.jobs (
-  id integer NOT NULL DEFAULT nextval('jobs_id_seq'::regclass),
-  user_id integer NOT NULL,
-  title text NOT NULL,
-  company text NOT NULL,
-  location text,
-  salary_min integer,
-  salary_max integer,
-  url text,
-  deadline date,
-  description text,
-  industry text,
-  type text,
-  status character varying DEFAULT 'Interested'::character varying,
-  status_updated_at timestamp without time zone DEFAULT now(),
-  created_at timestamp without time zone DEFAULT now(),
-  notes text,
-  contact_name text,
-  contact_email text,
-  contact_phone text,
-  salary_notes text,
-  interview_notes text,
-  application_history jsonb DEFAULT '[]'::jsonb,
-  is_archived boolean NOT NULL DEFAULT false,
-  isarchived boolean DEFAULT false,
-  application_date date,
-  applicationDate date,
-  offerdate date,
-  offerDate date,
-  required_skills ARRAY DEFAULT '{}'::text[],
-  applied_on date,
-  resume_id bigint,
-  cover_letter_id bigint,
-  isArchived boolean DEFAULT false,
-  archiveReason text,
-  application_status text,
-  response_date timestamp with time zone,
-  interview_date timestamp with time zone,
-  offer_date timestamp with time zone,
-  source text,
-  first_response_date timestamp without time zone,
-  rejection_date timestamp without time zone,
-  target_response_days integer DEFAULT 14,
-  CONSTRAINT jobs_pkey PRIMARY KEY (id),
-  CONSTRAINT jobs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
-);
-CREATE TABLE public.match_history (
-  id integer NOT NULL DEFAULT nextval('match_history_id_seq'::regclass),
-  user_id integer NOT NULL,
-  job_id integer NOT NULL,
-  match_score integer NOT NULL,
-  skills_score integer,
-  experience_score integer,
-  education_score integer,
-  strengths text,
-  gaps text,
-  improvements text,
-  weights jsonb,
-  details jsonb,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT match_history_pkey PRIMARY KEY (id)
+-- resume_templates table
+CREATE TABLE IF NOT EXISTS resume_templates (
+CREATE TABLE IF NOT EXISTS resume_templates (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    layout_type VARCHAR(50) NOT NULL,
+    -- e.g. 'chronological', 'functional', 'hybrid'
+    font VARCHAR(50) DEFAULT 'Inter',
+    color_scheme VARCHAR(50) DEFAULT 'blue',
+    preview_url TEXT,
+    -- optional: screenshot or preview image
+    is_default BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE TABLE public.practiced_questions (
   id integer NOT NULL DEFAULT nextval('practiced_questions_id_seq'::regclass),

@@ -5,6 +5,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import pool from "../db/pool.js";
+import { getRoleTypeFromTitle } from "../utils/roleTypeMapper.js";
 
 dotenv.config();
 const router = express.Router();
@@ -95,7 +96,7 @@ router.post("/", auth, async (req, res) => {
       deadline,
       description || "",
       industry || "",
-      type || "",
+      getRoleTypeFromTitle(title),
       applicationDate || null,
       resume_id || null,
       cover_letter_id || null,
@@ -127,6 +128,38 @@ router.post("/", auth, async (req, res) => {
     res.status(500).json({ error: "Failed to save job." });
   }
 });
+
+// --------------------------------------------------
+// TEMP FIX: Fill missing role types on all existing jobs
+// --------------------------------------------------
+router.post("/fix-role-types", auth, async (req, res) => {
+  try {
+    const jobs = await pool.query(
+      `SELECT id, title FROM jobs WHERE user_id=$1`,
+      [req.userId]
+    );
+
+    console.log("🔥 FIX ROUTE HIT");
+    console.log("Rows found:", jobs.rows.length);
+
+    for (const job of jobs.rows) {
+      const roleType = getRoleTypeFromTitle(job.title);
+      console.log(`Updating: ${job.title} → ${roleType}`);
+
+      await pool.query(
+        `UPDATE jobs SET type=$1 WHERE id=$2`,
+        [roleType, job.id]
+      );
+    }
+
+    res.json({ message: "Role types updated for all jobs!" });
+  } catch (err) {
+    console.error("❌ Role type fix error:", err);
+    res.status(500).json({ error: "Failed to update role types" });
+  }
+});
+
+
 
 // ---------- LIST ALL JOBS (Filters out archived) ----------
 router.get("/", auth, async (req, res) => {
@@ -406,6 +439,8 @@ router.put("/:id", auth, async (req, res) => {
       "applicationDate",
       "offerDate",
       "required_skills",
+      "resume_customization",
+      "cover_letter_customization",
     ];
 
     const updates = {};
@@ -413,6 +448,10 @@ router.put("/:id", auth, async (req, res) => {
       if (req.body[key] !== undefined) {
         updates[key] = req.body[key];
       }
+    }
+
+    if (updates.title) {
+      updates.type = getRoleTypeFromTitle(updates.title);
     }
 
     if (Object.keys(updates).length === 0)
@@ -503,24 +542,33 @@ router.get("/:id/materials-history", auth, async (req, res) => {
 });
 
 
-// ---------- UPDATE MATERIALS (resume + cover letter) ----------
+// ---------- UPDATE MATERIALS (resume + cover letter + customization levels) ----------
 router.put("/:id/materials", auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { resume_id, cover_letter_id } = req.body;
+    const { resume_id, cover_letter_id, resume_customization, cover_letter_customization } = req.body;
 
-    // Update the job with new resume + cover letter
+    // Validate customization levels
+    const validLevels = ['none', 'light', 'heavy', 'tailored'];
+    const safeResumeCustomization = validLevels.includes(resume_customization) ? resume_customization : 'none';
+    const safeCoverLetterCustomization = validLevels.includes(cover_letter_customization) ? cover_letter_customization : 'none';
+
+    // Update the job with new resume + cover letter + customization levels
     const updateQuery = `
       UPDATE jobs 
       SET resume_id = $1,
-          cover_letter_id = $2
-      WHERE id = $3 AND user_id = $4
+          cover_letter_id = $2,
+          resume_customization = $3,
+          cover_letter_customization = $4
+      WHERE id = $5 AND user_id = $6
       RETURNING *;
     `;
 
     const updateValues = [
       resume_id || null,
       cover_letter_id || null,
+      safeResumeCustomization,
+      safeCoverLetterCustomization,
       id,
       req.userId,
     ];
@@ -537,19 +585,16 @@ router.put("/:id/materials", auth, async (req, res) => {
       `
       INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
       VALUES ($1, $2, $3, $4, $5)
-      
-
     `,
     [id, req.userId, resume_id || null, cover_letter_id || null, "materials_updated"]
-
     );
 
     res.json({
-      message: "Materials updated successfully",
+      message: "Materials and customization levels updated successfully",
       job: updatedJob,
     });
   } catch (err) {
-    console.error("❌ Materials update error:", err.message);
+    console.error("Materials update error:", err.message);
     res.status(500).json({ error: "Failed to update materials" });
   }
 });
