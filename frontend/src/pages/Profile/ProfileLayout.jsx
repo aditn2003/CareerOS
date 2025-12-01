@@ -13,6 +13,8 @@ import DashboardTab from "./DashboardTab";
 import DangerTab from "./DangerTab";
 import SavedResumes from "./SavedResumes";
 import { useAuth } from "../../contexts/AuthContext";
+import MentorTab from "./MentorTab";
+import TeamManagement from "./TeamManagement";
 
 export default function ProfileLayout() {
   const { authed } = useAuth();
@@ -49,6 +51,7 @@ export default function ProfileLayout() {
 
         {/* ✅ Saved Resumes lives under profile */}
         <Route path="saved-resumes" element={<SavedResumes />} />
+        <Route path="team" element={<TeamManagement />} />
 
         <Route path="danger" element={<DangerTab />} />
 

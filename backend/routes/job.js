@@ -1,13 +1,14 @@
 // backend/routes/job.js
 
 import express from "express";
-import { Pool } from "pg";
+//import { Pool } from "pg";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import pool from "../db/pool.js";
 
 dotenv.config();
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+//const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 const STAGES = [
@@ -107,10 +108,13 @@ router.post("/", auth, async (req, res) => {
     // 🧩 RECORD MATERIAL HISTORY
     if (resume_id || cover_letter_id) {
       await pool.query(
-        `INSERT INTO application_materials_history (job_id, resume_id, cover_letter_id)
-         VALUES ($1, $2, $3)`,
-        [newJob.id, resume_id || null, cover_letter_id || null]
+        `INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
+        VALUES ($1, $2, $3, $4, $5)
+        `,
+        [newJob.id, req.userId, resume_id || null, cover_letter_id || null, "initial_set"]
+
       );
+      
     }
 
     res.status(201).json({
@@ -451,10 +455,13 @@ router.put("/:id", auth, async (req, res) => {
     if (updates.resume_id || updates.cover_letter_id) {
       await pool.query(
         `
-        INSERT INTO application_materials_history (job_id, resume_id, cover_letter_id)
-        VALUES ($1, $2, $3)
+        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
+        VALUES ($1, $2, $3, $4, $5)
+
+
       `,
-        [id, updates.resume_id || null, updates.cover_letter_id || null]
+      [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated"]
+
       );
     }
 
@@ -467,6 +474,7 @@ router.put("/:id", auth, async (req, res) => {
 
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 // --------------------------------------------------
+// 🔥 MATERIALS HISTORY FOR THIS JOB
 router.get("/:id/materials-history", auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -477,7 +485,7 @@ router.get("/:id/materials-history", auth, async (req, res) => {
         h.id,
         h.changed_at,
         r.title AS resume_title,
-        c.title AS cover_title
+        c.name AS cover_title
       FROM application_materials_history h
       LEFT JOIN resumes r ON r.id = h.resume_id
       LEFT JOIN cover_letters c ON c.id = h.cover_letter_id
@@ -493,6 +501,7 @@ router.get("/:id/materials-history", auth, async (req, res) => {
     res.status(500).json({ error: "Failed to load materials history" });
   }
 });
+
 
 // ---------- UPDATE MATERIALS (resume + cover letter) ----------
 router.put("/:id/materials", auth, async (req, res) => {
@@ -526,10 +535,13 @@ router.put("/:id/materials", auth, async (req, res) => {
     // Insert a new materials history log
     await pool.query(
       `
-      INSERT INTO application_materials_history (job_id, resume_id, cover_letter_id)
-      VALUES ($1, $2, $3)
+      INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
+      VALUES ($1, $2, $3, $4, $5)
+      
+
     `,
-      [id, resume_id || null, cover_letter_id || null]
+    [id, req.userId, resume_id || null, cover_letter_id || null, "materials_updated"]
+
     );
 
     res.json({
@@ -561,6 +573,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 // ---------- UPDATE STATUS ----------
+// ---------- UPDATE STATUS (with interview_date + offer_date logic) ----------
 router.put("/:id/status", auth, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -570,21 +583,37 @@ router.put("/:id/status", auth, async (req, res) => {
   }
 
   try {
-    // Determine if we need to set offerDate
     let query;
     let params;
 
-    if (status === "Offer") {
+    // 1️⃣ If status becomes INTERVIEW → set interview_date automatically
+    if (status === "Interview") {
       query = `
         UPDATE jobs
         SET status = $1,
             status_updated_at = NOW(),
-            "offerDate" = COALESCE("offerDate", NOW())
+            interview_date = COALESCE(interview_date, NOW())
         WHERE id = $2 AND user_id = $3
         RETURNING *;
       `;
       params = [status, id, req.userId];
-    } else {
+    }
+
+    // 2️⃣ If status becomes OFFER → set offer_date automatically
+    else if (status === "Offer") {
+      query = `
+        UPDATE jobs
+        SET status = $1,
+            status_updated_at = NOW(),
+            offer_date = COALESCE(offer_date, NOW())
+        WHERE id = $2 AND user_id = $3
+        RETURNING *;
+      `;
+      params = [status, id, req.userId];
+    }
+
+    // 3️⃣ All other statuses → just update normally
+    else {
       query = `
         UPDATE jobs
         SET status = $1,
@@ -601,7 +630,7 @@ router.put("/:id/status", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
-    // Log application history
+    // Log into application history
     await pool.query(
       `
       INSERT INTO application_history (job_id, event)
@@ -620,35 +649,6 @@ router.put("/:id/status", auth, async (req, res) => {
   }
 });
 
-// ---------- BULK DEADLINE UPDATE ----------
-router.put("/bulk/deadline", auth, async (req, res) => {
-  const { jobIds, daysToAdd } = req.body;
-
-  if (!Array.isArray(jobIds) || jobIds.length === 0)
-    return res.status(400).json({ error: "No job IDs provided" });
-
-  const days = parseInt(daysToAdd, 10);
-  if (isNaN(days) || days === 0)
-    return res.status(400).json({ error: "Invalid daysToAdd" });
-
-  try {
-    const result = await pool.query(
-      `
-      UPDATE jobs
-      SET deadline = deadline + INTERVAL '${days} days',
-          status_updated_at = NOW()
-      WHERE user_id = $1 AND id = ANY($2::int[])
-      RETURNING id, title, deadline;
-      `,
-      [req.userId, jobIds]
-    );
-
-    res.json({ updated: result.rows });
-  } catch (err) {
-    console.error("❌ Bulk deadline update error:", err.message);
-    res.status(500).json({ error: "Database error" });
-  }
-});
 
 // ---------- ARCHIVE A JOB ----------
 router.put("/:id/archive", auth, async (req, res) => {

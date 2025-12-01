@@ -1,0 +1,957 @@
+.team-management {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.team-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.75rem;
+}
+
+.team-kicker {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-bottom: 0.35rem;
+}
+
+.team-banner {
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  font-weight: 500;
+}
+
+.team-banner.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.team-banner.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.team-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #fff;
+  box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.team-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.team-card input,
+.team-card select {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.95rem;
+}
+
+.team-card-subtext {
+  color: #6b7280;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.team-primary {
+  align-self: flex-start;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.team-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.team-secondary {
+  background: #ede9fe;
+  color: #5b21b6;
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.team-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.members-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.member-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.member-email {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.member-status span {
+  text-transform: capitalize;
+  font-weight: 600;
+}
+
+.member-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.btn-view-profile {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.btn-view-profile:hover {
+  background: #7c3aed;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.role-pill {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+@media (max-width: 640px) {
+  .member-row {
+    flex-direction: column;
+  }
+  .member-actions {
+    width: 100%;
+    align-items: flex-start;
+  }
+}
+
+/* ============================================================
+   ADMIN VIEW: Multi-team management
+   ============================================================ */
+.team-management-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.create-team-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.create-team-form input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  min-width: 200px;
+}
+
+.team-management-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  min-height: 400px;
+}
+
+.teams-sidebar {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  height: fit-content;
+  border: 1px solid #e5e7eb;
+}
+
+.teams-sidebar h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.teams-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.teams-list li {
+  position: relative;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.teams-list li:hover {
+  border-color: #7c3aed;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
+}
+
+.teams-list li.active {
+  border-color: #7c3aed;
+  background: #f3e8ff;
+}
+
+.team-item-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.team-item-meta {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.btn-rename {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.btn-rename:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.rename-input-group {
+  margin-top: 0.5rem;
+}
+
+.rename-input-group input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #7c3aed;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.team-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.team-details h4 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+/* ============================================================
+   CANDIDATE VIEW: Request mentors and invite peers
+   ============================================================ */
+.candidate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.request-type-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.request-type-toggle button {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.request-type-toggle button.active {
+  background: #7c3aed;
+  color: white;
+  border-color: #7c3aed;
+}
+
+.request-type-toggle button:hover:not(.active) {
+  background: #f9fafb;
+  border-color: #7c3aed;
+}
+
+/* ============================================================
+   Shared styles
+   ============================================================ */
+.banner {
+  padding: 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.banner.error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.banner.success-banner {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.team-invite {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.team-invite h4,
+.team-invite h5 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.team-invite-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.team-invite-row input,
+.team-invite-row select {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.team-invite-row button {
+  padding: 0.6rem 1.5rem;
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.team-invite-row button:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
+.team-invite-row button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.team-table thead {
+  background: #f9fafb;
+}
+
+.team-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.team-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.team-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.team-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.team-table select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.role-badge,
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.role-admin {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.role-mentor {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.role-candidate {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.status-active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-invited {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-requested {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.status-removed {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pending-requests {
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.pending-requests h4 {
+  margin: 0 0 1rem 0;
+  color: #92400e;
+}
+
+.request-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-approve {
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-approve:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-approve:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-reject {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-reject:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Candidate: No team view
+   ============================================================ */
+.no-team-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.team-search {
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.team-search h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.search-results {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.search-results h5 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.teams-list-compact {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.team-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.team-result-item strong {
+  display: block;
+  color: #1f2937;
+  margin-bottom: 0.25rem;
+}
+
+.team-result-meta {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.btn-primary {
+  background: #7c3aed;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  text-align: center;
+  position: relative;
+  margin: 1rem 0;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+.divider::before {
+  left: 0;
+}
+
+.divider::after {
+  right: 0;
+}
+
+.pending-request-message {
+  background: #e0e7ff;
+  border: 1px solid #818cf8;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.pending-request-message h4 {
+  margin: 0 0 1rem 0;
+  color: #3730a3;
+  font-size: 1.25rem;
+}
+
+.pending-request-message p {
+  margin: 0;
+  color: #4338ca;
+  line-height: 1.6;
+}
+
+.pending-request-message strong {
+  color: #3730a3;
+  font-weight: 600;
+}
+
+.team-invite-subtext {
+  margin: -0.5rem 0 1rem 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1024px) {
+  .team-management-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .teams-sidebar {
+    order: 2;
+  }
+
+  .team-details {
+    order: 1;
+  }
+
+  .team-result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .team-result-item .btn-primary {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   FEEDBACK SECTION
+   ============================================================ */
+.team-feedback-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e5e7eb;
+}
+
+.feedback-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.feedback-section-header h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.2rem;
+}
+
+.feedback-view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.view-toggle-btn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #8b5cf6;
+}
+
+.view-toggle-btn.active {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+.feedback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.feedback-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.feedback-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.feedback-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.feedback-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.feedback-type-badge {
+  background: #8b5cf6;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.feedback-job-badge,
+.feedback-skill-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.feedback-job-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.feedback-skill-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.feedback-candidate {
+  font-weight: 600;
+  color: #111b21;
+  font-size: 13px;
+}
+
+.feedback-date {
+  color: #667781;
+  font-size: 13px;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-edit-feedback,
+.btn-delete-feedback {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.btn-edit-feedback {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.btn-edit-feedback:hover {
+  background: #c7d2fe;
+}
+
+.btn-delete-feedback {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.btn-delete-feedback:hover {
+  background: #fecaca;
+}
+
+.feedback-content {
+  color: #111b21;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 15px;
+  padding-top: 8px;
+  border-top: 1px solid #e9edef;
+}
+
+.btn-feedback {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 0.5rem;
+}
+
+.btn-feedback:hover {
+  background: #7c3aed;
+}
+
