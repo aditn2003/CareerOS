@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
+import { getUserId } from "../../utils/auth";
 import "./QuestionBank.css";
 
 export default function QuestionBank() {
@@ -17,7 +18,7 @@ export default function QuestionBank() {
   const [practiceStats, setPracticeStats] = useState(null);
   const [activeTab, setActiveTab] = useState("practice"); // "practice" or "review"
 
-  const userId = 1; // TODO: Replace with actual user ID from auth
+  const userId = getUserId();
 
   /* ============================================================
      Load questions and stats on mount

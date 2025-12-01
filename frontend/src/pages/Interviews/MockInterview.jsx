@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../api";
+import { getUserId } from "../../utils/auth";
 import "./MockInterview.css";
 
 export default function MockInterview() {
-  const userId = 1; // TODO: Get from auth
+  const userId = getUserId();
   
   const [view, setView] = useState("start"); // start, interview, summary, history
   const [companies, setCompanies] = useState([]);

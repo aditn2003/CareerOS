@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
+import { getUserId } from "../../utils/auth";
 import "./InterviewInsights.css";
 
 export default function InterviewInsights() {
@@ -10,7 +11,7 @@ export default function InterviewInsights() {
   const [loading, setLoading] = useState(false);
   const [checklistStatus, setChecklistStatus] = useState({});
 
-  const userId = 1; // TODO: Replace with actual user ID from auth
+  const userId = getUserId();
 
   /* ============================================================
      Load JOBS → build unique company list & role list per company
