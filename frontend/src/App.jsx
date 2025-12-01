@@ -30,7 +30,8 @@ import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
 import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
 import SalaryResearch from "./pages/Salary/SalaryResearch";
-import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
+import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
+import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
 
 
@@ -46,6 +47,7 @@ import ResumeFinalReview from "./components/ResumeFinalReview";
 // ---------- Context Providers ----------
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
+import { TeamProvider } from "./contexts/TeamContext";
 
 // 🔐 Protected Route Wrapper
 function ProtectedRoute({ children }) {
@@ -58,11 +60,13 @@ function ProtectedRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
-      <ProfileProvider>
-        <Router>
-          <MainLayout />
-        </Router>
-      </ProfileProvider>
+      <TeamProvider>
+        <ProfileProvider>
+          <Router>
+            <MainLayout />
+          </Router>
+        </ProfileProvider>
+      </TeamProvider>
     </AuthProvider>
   );
 }
@@ -241,6 +245,20 @@ function MainLayout() {
                 <InterviewsLayout />
               </ProtectedRoute>
             }
+          />
+          {/* --- Cover Letter (UC-055)  --- */}
+          <Route path="/cover-letter" element={<CoverLetter />} />
+          {/* ✅ NEW */}
+          
+          {/* --- Mentor Routes (Protected) --- */}
+          <Route
+            path="/mentor/*"
+            element={
+              <ProtectedRoute>
+                <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
           >
             {/* Default redirect to insights */}
             <Route index element={<Navigate to="insights" replace />} />
@@ -254,7 +272,7 @@ function MainLayout() {
           </Route>
           
           {/* --- Cover Letter (UC-055) --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />
+//           <Route path="/cover-letter" element={<CoverLetter />} />
           
           {/* --- Legacy / Alias --- */}
           <Route
