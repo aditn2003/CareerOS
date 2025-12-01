@@ -115,5 +115,16 @@ export const duplicateTemplate = (id) =>
       const data = await res.json();
       return data;
     }
+
+    export const getSuccessAnalysis = () => api.get("/api/success-analysis/full");
+
+    /* -------------------------------------------------------
+       Goals API
+    ------------------------------------------------------- */
+    export const getGoals = () => api.get("/api/goals");
     
+    export const updateGoals = (goals) => api.put("/api/goals", goals);
+    
+    export const resetGoals = () => api.delete("/api/goals");
+
     

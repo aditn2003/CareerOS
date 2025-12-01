@@ -132,11 +132,24 @@ CREATE TABLE IF NOT EXISTS jobs (
     contact_phone TEXT,
     salary_notes TEXT,
     interview_notes TEXT,
-    application_history JSONB DEFAULT '[]'::jsonb
+    application_history JSONB DEFAULT '[]'::jsonb,
+    resume_customization VARCHAR(20) DEFAULT 'none' CHECK (resume_customization IN ('none', 'light', 'heavy', 'tailored')),
+    cover_letter_customization VARCHAR(20) DEFAULT 'none' CHECK (cover_letter_customization IN ('none', 'light', 'heavy', 'tailored'))
 );
 -- JOBS INDEXES
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+
+-- USER GOALS TABLE (customizable performance targets)
+CREATE TABLE IF NOT EXISTS user_goals (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    monthly_applications INT DEFAULT 30,
+    interview_rate_target DECIMAL(3,2) DEFAULT 0.30,
+    offer_rate_target DECIMAL(3,2) DEFAULT 0.05,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS companies (
     id SERIAL PRIMARY KEY,

@@ -22,6 +22,10 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     resume_id: "",
     cover_letter_id: "",
 
+    // ⭐ CUSTOMIZATION LEVELS
+    resume_customization: "none",
+    cover_letter_customization: "none",
+
     // ⭐ REQUIRED SKILLS (string input → array)
     required_skills: "",
   });
@@ -308,6 +312,17 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         ))}
       </select>
 
+      <label>Resume Customization Level</label>
+      <select
+        value={form.resume_customization}
+        onChange={(e) => setForm({ ...form, resume_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic resume</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
+      </select>
+
       <label>Cover Letter Used</label>
       <select
         value={form.cover_letter_id}
@@ -319,6 +334,17 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
             {c.title}
           </option>
         ))}
+      </select>
+
+      <label>Cover Letter Customization Level</label>
+      <select
+        value={form.cover_letter_customization}
+        onChange={(e) => setForm({ ...form, cover_letter_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic cover letter</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
       </select>
 
       {/* BUTTONS */}
