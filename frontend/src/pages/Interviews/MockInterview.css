@@ -1,0 +1,412 @@
+/* Mock Interview Styles */
+.mock-interview-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  
+  .page-title {
+    font-size: 40px;
+    font-weight: 800;
+    color: #4f22ea;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  
+  /* START VIEW */
+  .start-view {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  
+  .setup-card {
+    background: white;
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+  }
+  
+  .setup-card h2 {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 24px;
+  }
+  
+  .setup-section {
+    margin-bottom: 24px;
+  }
+  
+  .setup-section label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+  }
+  
+  .setup-section input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e6dbff;
+    border-radius: 8px;
+    font-size: 16px;
+  }
+  
+  .company-grid, .type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+  
+  .company-option, .type-option {
+    padding: 12px 16px;
+    border: 2px solid #e6dbff;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    text-transform: capitalize;
+    transition: 0.2s;
+  }
+  
+  .company-option:hover, .type-option:hover {
+    border-color: #4f22ea;
+    background: #f9f7ff;
+  }
+  
+  .company-option.selected, .type-option.selected {
+    border-color: #4f22ea;
+    background: #4f22ea;
+    color: white;
+  }
+  
+  .btn-start, .btn-history, .btn-restart {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 700;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  
+  .btn-start {
+    background: #4f22ea;
+    color: white;
+  }
+  
+  .btn-start:hover:not(:disabled) {
+    background: #3d1bc2;
+    transform: translateY(-2px);
+  }
+  
+  .btn-history, .btn-restart {
+    background: white;
+    color: #4f22ea;
+    border: 2px solid #4f22ea;
+    margin-top: 12px;
+  }
+  
+  /* INTERVIEW VIEW */
+  .interview-view {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  
+  .interview-header {
+    background: linear-gradient(135deg, #f3f3ff, #e6dbff);
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .header-info h2 {
+    font-size: 24px;
+    color: #4f22ea;
+    margin-bottom: 8px;
+  }
+  
+  .scenario-desc {
+    color: #666;
+    margin-bottom: 16px;
+  }
+  
+  .progress-text {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+  }
+  
+  .progress-bar {
+    height: 12px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  
+  .progress-fill {
+    height: 100%;
+    background: #4f22ea;
+    transition: width 0.3s;
+  }
+  
+  .question-card {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 24px;
+  }
+  
+  .question-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  
+  .question-type {
+    background: #4f22ea;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  
+  .question-text {
+    font-size: 20px;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  
+  .response-guidance {
+    background: #fffbeb;
+    padding: 16px;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+  }
+  
+  .response-guidance ul {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  
+  .optimal-length {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #78350f;
+  }
+  
+  .response-area {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 24px;
+  }
+  
+  .response-area label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  
+  .response-area textarea {
+    width: 100%;
+    padding: 16px;
+    border: 2px solid #e6dbff;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+  }
+  
+  .response-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 12px;
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .interview-actions {
+    display: flex;
+    gap: 12px;
+  }
+  
+  .btn-submit {
+    flex: 1;
+    padding: 16px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  
+  .btn-submit:hover:not(:disabled) {
+    background: #059669;
+    transform: translateY(-2px);
+  }
+  
+  .btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  /* SUMMARY VIEW */
+  .summary-view {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  
+  .summary-view h2 {
+    text-align: center;
+    font-size: 32px;
+    color: #4f22ea;
+    margin-bottom: 32px;
+  }
+  
+  .scores-overview {
+    background: linear-gradient(135deg, #f3f3ff, #e6dbff);
+    padding: 32px;
+    border-radius: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+  }
+  
+  .score-big {
+    text-align: center;
+  }
+  
+  .score-value {
+    font-size: 64px;
+    font-weight: 700;
+    color: #4f22ea;
+  }
+  
+  .score-label {
+    font-size: 14px;
+    color: #666;
+    font-weight: 600;
+  }
+  
+  .scores-detail {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .score-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+  }
+  
+  .summary-section {
+    background: white;
+    padding: 24px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  
+  .summary-section h3 {
+    font-size: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .summary-section ul, .summary-section ol {
+    padding-left: 24px;
+  }
+  
+  .summary-section li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+  
+  .exercise-card {
+    background: #f9fafb;
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .exercise-card h4 {
+    color: #4f22ea;
+    margin-bottom: 8px;
+  }
+  
+  .exercise-benefit {
+    color: #666;
+    font-size: 14px;
+  }
+  
+  /* HISTORY VIEW */
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  
+  .sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .session-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  
+  .session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  
+  .session-score {
+    font-size: 32px;
+    font-weight: 700;
+    color: #4f22ea;
+  }
+  
+  .session-type {
+    font-size: 14px;
+    color: #666;
+    text-transform: capitalize;
+  }
+  
+  .session-meta {
+    display: flex;
+    gap: 20px;
+    font-size: 14px;
+    color: #666;
+  }
+  
+  @media (max-width: 768px) {
+    .company-grid, .type-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .scores-overview {
+      flex-direction: column;
+    }
+  }

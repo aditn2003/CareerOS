@@ -183,182 +183,139 @@ CREATE TABLE IF NOT EXISTS resume_templates (
     is_default BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS resumes (
-CREATE TABLE IF NOT EXISTS resumes (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    template_id INTEGER,
-    format VARCHAR(10) DEFAULT 'pdf',
-    sections JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.practiced_questions (
+  id integer NOT NULL DEFAULT nextval('practiced_questions_id_seq'::regclass),
+  user_id integer NOT NULL,
+  question_id character varying NOT NULL,
+  question_category character varying,
+  response text,
+  response_length integer DEFAULT 0,
+  practiced_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT practiced_questions_pkey PRIMARY KEY (id)
 );
-INSERT INTO resume_templates (
-        user_id,
-        name,
-        layout_type,
-        font,
-        color_scheme,
-        is_default
-    )
-VALUES (
-        NULL,
-        'Chronological',
-        'chronological',
-        'Inter',
-        'blue',
-        true
-    ),
-    (
-        NULL,
-        'Functional',
-        'functional',
-        'Arial',
-        'green',
-        false
-    ),
-    (
-        NULL,
-        'Hybrid',
-        'hybrid',
-        'Roboto',
-        'purple',
-        false
-    ) ON CONFLICT DO NOTHING;
-
-
-CREATE TABLE IF NOT EXISTS resume_presets (
-CREATE TABLE IF NOT EXISTS resume_presets (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    section_order TEXT [],
-    -- e.g. ['profile', 'education', 'skills', 'projects']
-    visible_sections JSONB,
-    -- { "profile": true, "skills": false, ... }
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.profiles (
+  id integer NOT NULL DEFAULT nextval('profiles_id_seq'::regclass),
+  user_id integer NOT NULL,
+  full_name character varying,
+  email character varying,
+  phone character varying,
+  location character varying,
+  title character varying,
+  bio text,
+  industry character varying,
+  experience character varying,
+  picture_url text,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-CREATE TABLE IF NOT EXISTS section_presets (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    section_name VARCHAR(100) NOT NULL,         -- e.g. "education", "skills"
-    preset_name VARCHAR(100) NOT NULL,          -- e.g. "Short Internship Version"
-    section_data JSONB NOT NULL,                -- stores the actual data (entries or object)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.projects (
+  id integer NOT NULL DEFAULT nextval('projects_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  description text NOT NULL,
+  role character varying NOT NULL,
+  start_date date,
+  end_date date,
+  technologies ARRAY,
+  repository_link text,
+  team_size integer,
+  collaboration_details text,
+  outcomes text,
+  industry character varying,
+  project_type character varying,
+  media_url text,
+  status character varying DEFAULT 'Planned'::character varying CHECK (status::text = ANY (ARRAY['Completed'::character varying::text, 'Ongoing'::character varying::text, 'Planned'::character varying::text])),
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT projects_pkey PRIMARY KEY (id),
+  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-CREATE TABLE IF NOT EXISTS job_descriptions (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.resume_presets (
+  id integer NOT NULL DEFAULT nextval('resume_presets_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  section_order ARRAY,
+  visible_sections jsonb,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT resume_presets_pkey PRIMARY KEY (id),
+  CONSTRAINT resume_presets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-CREATE TABLE IF NOT EXISTS company_research (
-  id SERIAL PRIMARY KEY,
-  company VARCHAR(255) UNIQUE NOT NULL,
-  basics JSONB,
-  mission_values_culture JSONB,
-  executives JSONB,
-  products_services JSONB,
-  competitive_landscape JSONB,
-  summary TEXT,
-  news JSONB,
-  created_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.resume_templates (
+  id integer NOT NULL DEFAULT nextval('resume_templates_id_seq'::regclass),
+  user_id integer,
+  name character varying NOT NULL,
+  layout_type character varying NOT NULL,
+  font character varying DEFAULT 'Inter'::character varying,
+  color_scheme character varying DEFAULT 'blue'::character varying,
+  preview_url text,
+  is_default boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT resume_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT resume_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-ALTER TABLE resumes
-ADD COLUMN IF NOT EXISTS preview_url TEXT,
-ADD COLUMN IF NOT EXISTS format TEXT DEFAULT 'pdf',
-ADD COLUMN IF NOT EXISTS template_name TEXT,
-ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
-
-ALTER TABLE public.jobs
-ADD COLUMN IF NOT EXISTS "offerDate" DATE;
-
-CREATE TABLE IF NOT EXISTS match_history (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  job_id INTEGER NOT NULL,
-  match_score INTEGER NOT NULL,
-  skills_score INTEGER,
-  experience_score INTEGER,
-  education_score INTEGER,
-  strengths TEXT,
-  gaps TEXT,
-  improvements TEXT,
-  weights JSONB,         -- stores personalized weighting used
-  details JSONB,         -- raw AI response for future use
-  created_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.resumes (
+  id integer NOT NULL DEFAULT nextval('resumes_id_seq'::regclass),
+  user_id integer,
+  title character varying NOT NULL,
+  template_id integer,
+  sections jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  format character varying DEFAULT 'pdf'::character varying,
+  preview_url text,
+  template_name text,
+  CONSTRAINT resumes_pkey PRIMARY KEY (id),
+  CONSTRAINT resumes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
--- ======================================
--- COVER LETTER TEMPLATES (UC-055)
--- ======================================
-
-CREATE TABLE IF NOT EXISTS cover_letter_templates (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, 
-    name VARCHAR(255) NOT NULL,
-    industry VARCHAR(255),
-    category VARCHAR(50),
-    content TEXT NOT NULL,
-    is_custom BOOLEAN DEFAULT FALSE,
-    view_count INTEGER DEFAULT 0,
-    use_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.section_presets (
+  id integer NOT NULL DEFAULT nextval('section_presets_id_seq'::regclass),
+  user_id integer NOT NULL,
+  section_name character varying NOT NULL,
+  preset_name character varying NOT NULL,
+  section_data jsonb NOT NULL,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT section_presets_pkey PRIMARY KEY (id),
+  CONSTRAINT section_presets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
--- Seed global templates (shown to EVERY user)
-INSERT INTO cover_letter_templates 
-    (user_id, name, industry, category, content, is_custom)
-VALUES
-    (
-        NULL,
-        'Formal Software Engineer',
-        'Software Engineering',
-        'Formal',
-        'Dear Hiring Manager,\n\nI am writing to express my interest in the Software Engineer position at {{company}}. With {{years_experience}} years of experience in full-stack development and a strong background in {{skills}}, I am confident in my ability to contribute to your team.\n\nSincerely,\n{{your_name}}',
-        FALSE
-    ),
-    (
-        NULL,
-        'Technical Cybersecurity Analyst',
-        'Cybersecurity',
-        'Technical',
-        'Dear {{company}} Security Team,\n\nAs a cybersecurity enthusiast with hands-on experience in incident response, log analysis, and vulnerability management, I am excited to apply for the Cybersecurity Analyst role. In my recent work, I have used tools such as {{tools}} to detect and remediate threats.\n\nBest regards,\n{{your_name}}',
-        FALSE
-    ),
-    (
-        NULL,
-        'Creative Marketing Cover Letter',
-        'Marketing',
-        'Creative',
-        'Hi {{company}} Team,\n\nI am thrilled to apply for the Marketing position at {{company}}. I love telling stories with data and design, and I have led campaigns that increased engagement by {{metric}}.\n\nCheers,\n{{your_name}}',
-        FALSE
-    )
-ON CONFLICT DO NOTHING;
-
-ALTER TABLE public.jobs
-ADD COLUMN IF NOT EXISTS "offerDate" DATE;
-
-CREATE TABLE IF NOT EXISTS match_history (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  job_id INTEGER NOT NULL,
-  match_score INTEGER NOT NULL,
-  skills_score INTEGER,
-  experience_score INTEGER,
-  education_score INTEGER,
-  strengths TEXT,
-  gaps TEXT,
-  improvements TEXT,
-  weights JSONB,         -- stores personalized weighting used
-  details JSONB,         -- raw AI response for future use
-  created_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE public.skill_progress (
+  id integer NOT NULL DEFAULT nextval('skill_progress_id_seq'::regclass),
+  user_id integer NOT NULL,
+  skill text NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['not started'::text, 'in progress'::text, 'completed'::text])),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT skill_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT skill_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-ALTER TABLE jobs
-ADD COLUMN required_skills TEXT[];
-
+CREATE TABLE public.skills (
+  id integer NOT NULL DEFAULT nextval('skills_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  category character varying NOT NULL CHECK (category::text = ANY (ARRAY['Technical'::character varying::text, 'Soft Skills'::character varying::text, 'Languages'::character varying::text, 'Industry-Specific'::character varying::text])),
+  proficiency character varying NOT NULL CHECK (proficiency::text = ANY (ARRAY['Beginner'::character varying::text, 'Intermediate'::character varying::text, 'Advanced'::character varying::text, 'Expert'::character varying::text])),
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT skills_pkey PRIMARY KEY (id),
+  CONSTRAINT skills_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_job_goals (
+  id integer NOT NULL DEFAULT nextval('user_job_goals_id_seq'::regclass),
+  user_id integer NOT NULL,
+  goal_type character varying NOT NULL,
+  target_value integer NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_job_goals_pkey PRIMARY KEY (id),
+  CONSTRAINT user_job_goals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.users (
+  id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  first_name text,
+  last_name text,
+  provider text DEFAULT 'local'::text,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);

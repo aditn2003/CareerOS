@@ -17,13 +17,24 @@ import {
   FaDollarSign, // 💰 NEW ICON
   FaBuilding,
   FaEnvelope, // ✅ Icon for Cover Letter
+  FaUserGraduate, // ✅ Icon for Mentor
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTeam } from "../contexts/TeamContext";
 
 export default function NavBar() {
   const { authed, logout } = useAuth();
+  const { teamState } = useTeam() || {};
   const navigate = useNavigate();
+
+  // Show Mentor button to anyone who has a team (admin, mentor, or candidate)
+  // or if they're a candidate/member waiting to be part of a team
+  const showMentorButton =
+    teamState?.hasTeam ||
+    teamState?.isMentor ||
+    teamState?.isCandidate ||
+    (teamState?.primaryTeam && teamState?.primaryTeam?.status);
 
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
@@ -91,6 +102,13 @@ export default function NavBar() {
             <NavLink to="/interviews">
               <FaComments /> Interviews
             </NavLink>
+
+            {/* 👨‍🏫 Mentor */}
+            {showMentorButton && (
+              <NavLink to="/mentor">
+                <FaUserGraduate /> Mentor
+              </NavLink>
+            )}
 
             {/* 👤 Profile */}
             <NavLink to="/profile/info">
