@@ -1,0 +1,663 @@
+/* Container */
+.shared-jobs-container {
+  max-width: 100%;
+}
+
+/* Header Section */
+.shared-jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.shared-jobs-header h3 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.shared-jobs-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.25rem;
+  background: white;
+}
+
+.toggle-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.toggle-btn.active {
+  background: #6d28d9;
+  color: white;
+}
+
+/* Shared Jobs List */
+.shared-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.shared-job-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s;
+}
+
+.shared-job-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.shared-job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+  gap: 1rem;
+}
+
+.shared-job-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.shared-job-title-row h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.shared-job-company {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.export-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.shared-job-location,
+.shared-job-deadline,
+.shared-job-salary {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0.5rem 0;
+}
+
+.shared-job-location strong,
+.shared-job-deadline strong,
+.shared-job-salary strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.shared-job-description {
+  margin: 1rem 0;
+  color: #4b5563;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.shared-job-comments {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f3f4f6;
+  border-radius: 6px;
+  border-left: 3px solid #6d28d9;
+}
+
+.comments-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+.shared-job-comments p {
+  margin: 0;
+  color: #374151;
+  line-height: 1.6;
+}
+
+/* Comments Editor */
+.comments-editor {
+  margin: 1rem 0;
+}
+
+.comments-editor textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  box-sizing: border-box;
+}
+
+.comments-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* Job Actions */
+.shared-job-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.shared-job-actions .btn-primary.exported {
+  background: #10b981;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.shared-job-actions .btn-primary.exported:hover {
+  background: #10b981;
+}
+
+.shared-job-meta {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Empty States */
+.shared-jobs-empty,
+.progress-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+/* Error Banner */
+.error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  border: 1px solid #fecaca;
+}
+
+/* ========================================
+   MODAL STYLES - FIXED HEIGHT CALCULATIONS
+   ======================================== */
+
+/* Modal Overlay - Portal Layer */
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 999999 !important;
+  padding: 20px !important;
+  margin: 0 !important;
+  animation: fadeIn 0.2s ease-out !important;
+  overflow: auto !important;
+}
+
+/* Modal Content Container */
+.modal-content {
+  background: white !important;
+  border-radius: 12px !important;
+  width: 90% !important;
+  min-width: 550px !important;
+  max-width: 700px !important;
+  max-height: 85vh !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+  position: relative !important;
+  animation: slideInUp 0.3s ease-out !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Modal Close Button */
+.modal-close {
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: transparent !important;
+  border: none !important;
+  font-size: 1.75rem !important;
+  cursor: pointer !important;
+  color: #6b7280 !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 6px !important;
+  transition: all 0.2s !important;
+  z-index: 10 !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+.modal-close:hover {
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+}
+
+/* Modal Title - Fixed Height */
+.modal-content > h2 {
+  margin: 0 !important;
+  padding: 32px 70px 28px 40px !important;
+  color: #111827 !important;
+  font-size: 1.75rem !important;
+  font-weight: 700 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  background: white !important;
+  flex-shrink: 0 !important;
+}
+
+/* Modal Form Container */
+.modal-content > form {
+  display: flex !important;
+  flex-direction: column !important;
+  background: white !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Form Inner Wrapper - Scrollable Content */
+.modal-content form > div:first-child {
+  padding: 35px 40px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Form Groups */
+.form-group {
+  margin-bottom: 28px !important;
+}
+
+.form-group:last-of-type {
+  margin-bottom: 0 !important;
+}
+
+.form-group label {
+  display: block !important;
+  margin-bottom: 10px !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  font-size: 1rem !important;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100% !important;
+  padding: 14px !important;
+  border: 1.5px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 1rem !important;
+  font-family: inherit !important;
+  box-sizing: border-box !important;
+  background: white !important;
+  transition: all 0.2s !important;
+}
+
+.form-group textarea {
+  resize: vertical !important;
+  min-height: 180px !important;
+  max-height: 400px !important;
+  line-height: 1.6 !important;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none !important;
+  border-color: #6d28d9 !important;
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.1) !important;
+}
+
+.form-hint {
+  color: #6b7280 !important;
+  font-size: 0.875rem !important;
+  font-style: italic !important;
+  margin: 0 !important;
+  padding: 8px 0 0 0 !important;
+}
+
+/* Modal Actions Footer - Fixed Height */
+.modal-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0 !important;
+  justify-content: center !important;
+  align-items: center !important;
+  padding: 20px 40px !important;
+  border-top: 1px solid #e5e7eb !important;
+  background: #fafafa !important;
+  border-radius: 0 0 12px 12px !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+  min-height: auto !important;
+  position: relative !important;
+}
+
+.modal-actions button {
+  padding: 10px 24px !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s !important;
+  white-space: nowrap !important;
+  line-height: 1.4 !important;
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.modal-actions .btn-secondary {
+  background: white !important;
+  color: #374151 !important;
+  border: 1.5px solid #d1d5db !important;
+  padding: 6px 12px !important;
+}
+
+.modal-actions .btn-secondary:hover {
+  background: #f9fafb !important;
+  border-color: #9ca3af !important;
+}
+
+.modal-actions .btn-primary {
+  background: #6d28d9 !important;
+  color: white !important;
+  padding: 6px 12px !important;
+}
+
+.modal-actions .btn-primary:hover:not(:disabled) {
+  background: #5b21b6 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3) !important;
+}
+
+.modal-actions .btn-primary:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background: #9ca3af !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Progress Dashboard */
+.progress-dashboard {
+  margin-top: 1.5rem;
+}
+
+.progress-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.summary-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.summary-item strong {
+  display: block;
+  font-size: 1.5rem;
+  color: #6d28d9;
+  margin-bottom: 0.25rem;
+}
+
+.progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.progress-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.progress-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.progress-item-header h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.progress-company {
+  color: #6b7280;
+  font-size: 0.875rem;
+}
+
+.progress-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.export-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 12px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.progress-exports {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.progress-exports strong {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.progress-exports ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.progress-exports li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.job-status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+.export-date {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.progress-no-exports {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border-radius: 6px;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.progress-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .shared-jobs-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .shared-jobs-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .progress-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .modal-content {
+    width: 95% !important;
+    min-width: 480px !important;
+    max-width: 95% !important;
+    max-height: 92vh !important;
+  }
+
+  .modal-content > h2 {
+    padding: 24px 60px 20px 24px !important;
+    font-size: 1.5rem !important;
+  }
+
+  .modal-content form > div:first-child {
+    padding: 24px !important;
+  }
+
+  .modal-actions {
+    padding: 20px 24px !important;
+    gap: 0 !important;
+  }
+
+  .modal-actions button {
+    padding: 10px 20px !important;
+    font-size: 0.875rem !important;
+  }
+}

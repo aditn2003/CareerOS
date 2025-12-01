@@ -12,25 +12,36 @@ const sslConfig = process.env.DATABASE_URL?.includes('supabase') || process.env.
   ? { rejectUnauthorized: false }
   : undefined;
 
+// Check if this is a Supabase connection
+const dbUrl = process.env.DATABASE_URL || '';
+const isSupabase = dbUrl.includes('supabase') || 
+                   dbUrl.includes('pooler.supabase') ||
+                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
+
+// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
+// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
+const poolSize = isSupabase ? 1 : 20; // Maximum 1 connection for Supabase (extremely conservative)
+const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
   ...(sslConfig && { ssl: sslConfig }),
-  max: 10, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+  max: poolSize, // Maximum connections (1 for Supabase - extremely conservative)
+  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
+  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
+  connectionTimeoutMillis: 5000, // Return error after 5 seconds
+  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
+  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
 });
 
-// Handle pool errors gracefully
+// Handle pool errors gracefully - don't terminate on error, try to reconnect
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  console.error('⚠️ Unexpected error on idle client in team.js:', err.message);
+  // Don't throw - let the pool handle reconnection automatically
 });
 
-// Handle connection errors
-pool.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('Database client error:', err);
-  });
-});
+// Remove health check interval - it consumes connections unnecessarily
+// Connections will be created on-demand when needed
 
 const ADMIN_ROLES = new Set(["admin"]);
 const MANAGER_ROLES = new Set(["admin", "mentor"]);
@@ -1008,13 +1019,16 @@ router.get("/:teamId/feedback", async (req, res) => {
           ) AS candidate_name,
           candidate_u.email AS candidate_email,
           j.title AS job_title,
-          j.company AS job_company
+          j.company AS job_company,
+          t.id AS task_id,
+          t.title AS task_title
         FROM mentor_feedback mf
         LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
         LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
         LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
         LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
         LEFT JOIN jobs j ON mf.job_id = j.id
+        LEFT JOIN tasks t ON mf.task_id = t.id
         WHERE mf.team_id = $1
         ORDER BY mf.created_at DESC
       `;
@@ -1048,13 +1062,16 @@ router.get("/:teamId/feedback", async (req, res) => {
           ) AS candidate_name,
           candidate_u.email AS candidate_email,
           j.title AS job_title,
-          j.company AS job_company
+          j.company AS job_company,
+          t.id AS task_id,
+          t.title AS task_title
         FROM mentor_feedback mf
         LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
         LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
         LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
         LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
         LEFT JOIN jobs j ON mf.job_id = j.id
+        LEFT JOIN tasks t ON mf.task_id = t.id
         WHERE mf.team_id = $1 AND mf.candidate_id = $2
         ORDER BY mf.created_at DESC
       `;
@@ -1085,6 +1102,8 @@ router.get("/:teamId/feedback", async (req, res) => {
         candidateEmail: fb.candidate_email,
         jobTitle: fb.job_title,
         jobCompany: fb.job_company,
+        taskId: fb.task_id,
+        taskTitle: fb.task_title,
       })),
     });
   } catch (err) {
@@ -1133,13 +1152,16 @@ router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
             'Unknown'
           ) AS candidate_name,
           j.title AS job_title,
-          j.company AS job_company
+          j.company AS job_company,
+          t.id AS task_id,
+          t.title AS task_title
         FROM mentor_feedback mf
         LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
         LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
         LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
         LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
         LEFT JOIN jobs j ON mf.job_id = j.id
+        LEFT JOIN tasks t ON mf.task_id = t.id
         WHERE mf.id = $1 AND mf.team_id = $2
       `;
       params = [feedbackId, teamId];
@@ -1160,13 +1182,16 @@ router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
             'Unknown'
           ) AS candidate_name,
           j.title AS job_title,
-          j.company AS job_company
+          j.company AS job_company,
+          t.id AS task_id,
+          t.title AS task_title
         FROM mentor_feedback mf
         LEFT JOIN profiles mentor_prof ON mf.mentor_id = mentor_prof.user_id
         LEFT JOIN users mentor_u ON mf.mentor_id = mentor_u.id
         LEFT JOIN profiles candidate_prof ON mf.candidate_id = candidate_prof.user_id
         LEFT JOIN users candidate_u ON mf.candidate_id = candidate_u.id
         LEFT JOIN jobs j ON mf.job_id = j.id
+        LEFT JOIN tasks t ON mf.task_id = t.id
         WHERE mf.id = $1 AND mf.team_id = $2 AND mf.candidate_id = $3
       `;
       params = [feedbackId, teamId, userId];
@@ -1196,6 +1221,8 @@ router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
       candidateName: fb.candidate_name,
       jobTitle: fb.job_title,
       jobCompany: fb.job_company,
+      taskId: fb.task_id,
+      taskTitle: fb.task_title,
     });
   } catch (err) {
     console.error("Get feedback failed:", err);
@@ -1203,12 +1230,12 @@ router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
   }
 });
 
-// POST /api/team/:teamId/feedback - Create feedback (mentor/admin only)
+// POST /api/team/:teamId/feedback - Create feedback (mentor only - admins cannot create feedback)
 router.post("/:teamId/feedback", async (req, res) => {
   try {
     const userId = req.user.id;
     const teamId = parseInt(req.params.teamId);
-    const { candidateId, jobId, feedbackType, content, skillName } = req.body;
+    const { candidateId, jobId, feedbackType, content, skillName, taskId } = req.body;
 
     if (isNaN(teamId)) {
       return res.status(400).json({ error: "INVALID_TEAM_ID" });
@@ -1218,8 +1245,18 @@ router.post("/:teamId/feedback", async (req, res) => {
       return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS" });
     }
 
-    if (!["job", "skill", "general"].includes(feedbackType)) {
+    if (!["job", "skill", "general", "task"].includes(feedbackType)) {
       return res.status(400).json({ error: "INVALID_FEEDBACK_TYPE" });
+    }
+
+    // Enforce that if taskId is provided, feedbackType must be "task"
+    if (taskId && feedbackType !== "task") {
+      return res.status(400).json({ error: "TASK_FEEDBACK_MUST_HAVE_TASK_TYPE" });
+    }
+
+    // Enforce that if feedbackType is "task", taskId must be provided
+    if (feedbackType === "task" && !taskId) {
+      return res.status(400).json({ error: "TASK_FEEDBACK_REQUIRES_TASK_ID" });
     }
 
     if (feedbackType === "skill" && !skillName) {
@@ -1231,7 +1268,8 @@ router.post("/:teamId/feedback", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    if (!MANAGER_ROLES.has(membership.role)) {
+    // Only mentors can create feedback - admins cannot create feedback (they can only view/edit/delete)
+    if (membership.role !== "mentor") {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_CREATE_FEEDBACK" });
     }
 
@@ -1256,16 +1294,28 @@ router.post("/:teamId/feedback", async (req, res) => {
       }
     }
 
+    // If taskId is provided, verify it exists and belongs to the candidate
+    if (taskId) {
+      const taskResult = await pool.query(
+        "SELECT candidate_id FROM tasks WHERE id = $1 AND team_id = $2",
+        [taskId, teamId]
+      );
+      if (taskResult.rows.length === 0 || taskResult.rows[0].candidate_id !== candidateId) {
+        return res.status(400).json({ error: "INVALID_TASK_ID" });
+      }
+    }
+
     const result = await pool.query(
       `INSERT INTO mentor_feedback 
-       (team_id, mentor_id, candidate_id, job_id, feedback_type, content, skill_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       (team_id, mentor_id, candidate_id, job_id, task_id, feedback_type, content, skill_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         teamId,
         userId,
         candidateId,
         jobId || null,
+        taskId || null,
         feedbackType,
         content,
         skillName || null,
@@ -2051,7 +2101,7 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
     let valueIndex = 1;
 
     if (isManager && isCreator) {
-      // Mentor who created can update everything
+      // Mentor who created can update everything EXCEPT status (status can only be updated by candidates)
       if (title !== undefined) {
         updateFields.push(`title = $${valueIndex++}`);
         updateValues.push(title);
@@ -2060,12 +2110,9 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
         updateFields.push(`description = $${valueIndex++}`);
         updateValues.push(description || null);
       }
+      // Status updates are NOT allowed for mentors/admins - only candidates can update status
       if (status !== undefined) {
-        if (!["pending", "in_progress", "completed"].includes(status)) {
-          return res.status(400).json({ error: "INVALID_STATUS" });
-        }
-        updateFields.push(`status = $${valueIndex++}`);
-        updateValues.push(status);
+        return res.status(403).json({ error: "ONLY_CANDIDATES_CAN_UPDATE_TASK_STATUS" });
       }
       if (jobId !== undefined) {
         updateFields.push(`job_id = $${valueIndex++}`);
@@ -2154,6 +2201,847 @@ router.delete("/:teamId/tasks/:taskId", async (req, res) => {
   } catch (err) {
     console.error("Delete task failed:", err);
     res.status(500).json({ error: "DELETE_TASK_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/activity - Get team-wide activity feed (mentor/admin only)
+router.get("/:teamId/activity", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only mentors and admins can view activity feed
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_ACTIVITY" });
+    }
+
+    // Get all candidates in the team
+    const membersResult = await pool.query(
+      `SELECT tm.user_id, u.email, 
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS name
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+       ORDER BY name`,
+      [teamId]
+    );
+
+    const candidateIds = membersResult.rows.map((m) => m.user_id);
+    const candidateMap = new Map(membersResult.rows.map((m) => [m.user_id, m]));
+
+    if (candidateIds.length === 0) {
+      return res.json({
+        activities: [],
+        summary: {
+          totalCandidates: 0,
+          candidatesNeedingAttention: 0,
+          recentApplications: 0,
+          upcomingDeadlines: 0,
+        },
+      });
+    }
+
+    const candidateIdsArray = candidateIds;
+
+    // Get recent job applications (last 30 days)
+    const jobsResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT j.id, j.title, j.company, j.status, j.deadline, j.created_at, j.status_updated_at,
+              j.user_id, j."applicationDate",
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE j.user_id = ANY($1)
+         AND j.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY j.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get task completions (last 30 days)
+    const tasksResult = await pool.query(
+      `SELECT t.id, t.title, t.status, t.updated_at, t.due_date,
+              t.candidate_id, t.mentor_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM tasks t
+       JOIN users u ON t.candidate_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE t.team_id = $1
+         AND t.status = 'completed'
+         AND t.updated_at >= NOW() - INTERVAL '30 days'
+       ORDER BY t.updated_at DESC
+       LIMIT 50`,
+      [teamId]
+    );
+
+    // Get job status changes (last 30 days)
+    const statusChangesResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT j.id AS job_id, j.title, j.company, j.status, j.status_updated_at,
+              j.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE j.user_id = ANY($1)
+         AND j.status_updated_at >= NOW() - INTERVAL '30 days'
+         AND j.status_updated_at IS NOT NULL
+       ORDER BY j.status_updated_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get upcoming deadlines (next 30 days)
+    const deadlinesResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT j.id, j.title, j.company, j.deadline, j.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE j.user_id = ANY($1)
+         AND j.deadline IS NOT NULL
+         AND j.deadline >= CURRENT_DATE
+         AND j.deadline <= CURRENT_DATE + INTERVAL '30 days'
+         AND j.status NOT IN ('Rejected', 'Offer', 'Accepted')
+       ORDER BY j.deadline ASC
+       LIMIT 20`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get candidates needing attention (overdue tasks or pending tasks > 7 days)
+    const attentionTasksResult = await pool.query(
+      `SELECT DISTINCT t.candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM tasks t
+       JOIN users u ON t.candidate_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE t.team_id = $1
+         AND t.status != 'completed'
+         AND (
+           (t.due_date IS NOT NULL AND t.due_date < CURRENT_DATE) OR
+           (t.created_at < NOW() - INTERVAL '7 days' AND t.status = 'pending')
+         )`,
+      [teamId]
+    );
+
+    // Get candidates with overdue or upcoming (within 3 days) job deadlines
+    const attentionJobsResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT DISTINCT j.user_id AS candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE j.user_id = ANY($1)
+         AND j.deadline IS NOT NULL
+         AND j.deadline >= CURRENT_DATE
+         AND j.deadline <= CURRENT_DATE + INTERVAL '3 days'
+         AND j.status NOT IN ('Rejected', 'Offer', 'Accepted')
+       UNION
+       SELECT DISTINCT j.user_id AS candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM jobs j
+       JOIN users u ON j.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE j.user_id = ANY($1)
+         AND j.deadline IS NOT NULL
+         AND j.deadline < CURRENT_DATE
+         AND j.status NOT IN ('Rejected', 'Offer', 'Accepted')`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Combine attention candidates (deduplicate)
+    const attentionMap = new Map();
+    [...attentionTasksResult.rows, ...attentionJobsResult.rows].forEach((row) => {
+      if (!attentionMap.has(row.candidate_id)) {
+        attentionMap.set(row.candidate_id, row);
+      }
+    });
+    const attentionResult = { rows: Array.from(attentionMap.values()) };
+
+    // Combine and format activities
+    const activities = [];
+
+    // Add job applications
+    jobsResult.rows.forEach((job) => {
+      activities.push({
+        type: "job_application",
+        id: `job-${job.id}`,
+        timestamp: job.created_at,
+        candidateId: job.user_id,
+        candidateName: job.candidate_name,
+        title: `New job application: ${job.title} at ${job.company}`,
+        details: {
+          jobId: job.id,
+          jobTitle: job.title,
+          company: job.company,
+          status: job.status,
+          applicationDate: job.applicationDate,
+        },
+      });
+    });
+
+    // Add task completions
+    tasksResult.rows.forEach((task) => {
+      activities.push({
+        type: "task_completion",
+        id: `task-${task.id}`,
+        timestamp: task.updated_at,
+        candidateId: task.candidate_id,
+        candidateName: task.candidate_name,
+        title: `Task completed: ${task.title}`,
+        details: {
+          taskId: task.id,
+          taskTitle: task.title,
+          dueDate: task.due_date,
+        },
+      });
+    });
+
+    // Add status changes
+    statusChangesResult.rows.forEach((job) => {
+      activities.push({
+        type: "status_change",
+        id: `status-${job.job_id}-${job.status_updated_at}`,
+        timestamp: job.status_updated_at,
+        candidateId: job.user_id,
+        candidateName: job.candidate_name,
+        title: `Status changed: ${job.title} at ${job.company} → ${job.status}`,
+        details: {
+          jobId: job.job_id,
+          jobTitle: job.title,
+          company: job.company,
+          status: job.status,
+        },
+      });
+    });
+
+    // Get profile updates - New skills added (last 30 days)
+    const skillsResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT s.id, s.name, s.category, s.proficiency, s.created_at, s.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM skills s
+       JOIN users u ON s.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE s.user_id = ANY($1)
+         AND s.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY s.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get profile updates - New employment entries added (last 30 days)
+    const employmentResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT e.id, e.title, e.company, e.location, e.created_at, e.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM employment e
+       JOIN users u ON e.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE e.user_id = ANY($1)
+         AND e.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY e.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get profile updates - New education entries added (last 30 days)
+    const educationResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT ed.id, ed.institution, ed.degree_type, ed.field_of_study, ed.created_at, ed.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM education ed
+       JOIN users u ON ed.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE ed.user_id = ANY($1)
+         AND ed.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY ed.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get profile updates - New projects added (last 30 days)
+    const projectsResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT pr.id, pr.name, pr.description, pr.created_at, pr.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM projects pr
+       JOIN users u ON pr.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE pr.user_id = ANY($1)
+         AND pr.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY pr.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Get profile updates - New certifications added (last 30 days)
+    const certificationsResult = candidateIdsArray.length > 0 ? await pool.query(
+      `SELECT c.id, c.name, c.organization, c.created_at, c.user_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       FROM certifications c
+       JOIN users u ON c.user_id = u.id
+       LEFT JOIN profiles p ON u.id = p.user_id
+       WHERE c.user_id = ANY($1)
+         AND c.created_at >= NOW() - INTERVAL '30 days'
+       ORDER BY c.created_at DESC
+       LIMIT 50`,
+      [candidateIdsArray]
+    ) : { rows: [] };
+
+    // Add profile updates - Skills
+    skillsResult.rows.forEach((skill) => {
+      activities.push({
+        type: "profile_update",
+        id: `skill-${skill.id}`,
+        timestamp: skill.created_at,
+        candidateId: skill.user_id,
+        candidateName: skill.candidate_name,
+        title: `Added skill: ${skill.name} (${skill.proficiency})`,
+        details: {
+          updateType: "skill",
+          skillId: skill.id,
+          skillName: skill.name,
+          category: skill.category,
+          proficiency: skill.proficiency,
+        },
+      });
+    });
+
+    // Add profile updates - Employment
+    employmentResult.rows.forEach((emp) => {
+      activities.push({
+        type: "profile_update",
+        id: `employment-${emp.id}`,
+        timestamp: emp.created_at,
+        candidateId: emp.user_id,
+        candidateName: emp.candidate_name,
+        title: `Added employment: ${emp.title} at ${emp.company}`,
+        details: {
+          updateType: "employment",
+          employmentId: emp.id,
+          title: emp.title,
+          company: emp.company,
+          location: emp.location,
+        },
+      });
+    });
+
+    // Add profile updates - Education
+    educationResult.rows.forEach((edu) => {
+      activities.push({
+        type: "profile_update",
+        id: `education-${edu.id}`,
+        timestamp: edu.created_at,
+        candidateId: edu.user_id,
+        candidateName: edu.candidate_name,
+        title: `Added education: ${edu.degree_type} in ${edu.field_of_study} at ${edu.institution}`,
+        details: {
+          updateType: "education",
+          educationId: edu.id,
+          institution: edu.institution,
+          degreeType: edu.degree_type,
+          fieldOfStudy: edu.field_of_study,
+        },
+      });
+    });
+
+    // Add profile updates - Projects
+    projectsResult.rows.forEach((project) => {
+      activities.push({
+        type: "profile_update",
+        id: `project-${project.id}`,
+        timestamp: project.created_at,
+        candidateId: project.user_id,
+        candidateName: project.candidate_name,
+        title: `Added project: ${project.name}`,
+        details: {
+          updateType: "project",
+          projectId: project.id,
+          projectName: project.name,
+        },
+      });
+    });
+
+    // Add profile updates - Certifications
+    certificationsResult.rows.forEach((cert) => {
+      activities.push({
+        type: "profile_update",
+        id: `certification-${cert.id}`,
+        timestamp: cert.created_at,
+        candidateId: cert.user_id,
+        candidateName: cert.candidate_name,
+        title: `Added certification: ${cert.name} from ${cert.organization}`,
+        details: {
+          updateType: "certification",
+          certificationId: cert.id,
+          certificationName: cert.name,
+          organization: cert.organization,
+        },
+      });
+    });
+
+    // Sort activities by timestamp (most recent first)
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Get summary statistics
+    const totalCandidates = candidateIds.length;
+    const candidatesNeedingAttention = new Set(attentionResult.rows.map((r) => r.candidate_id)).size;
+    const recentApplications = jobsResult.rows.length;
+    const upcomingDeadlines = deadlinesResult.rows.length;
+
+    res.json({
+      activities: activities.slice(0, 100), // Limit to 100 most recent activities
+      summary: {
+        totalCandidates,
+        candidatesNeedingAttention,
+        recentApplications,
+        upcomingDeadlines,
+      },
+      upcomingDeadlines: deadlinesResult.rows.map((j) => ({
+        jobId: j.id,
+        title: j.title,
+        company: j.company,
+        deadline: j.deadline,
+        candidateId: j.user_id,
+        candidateName: j.candidate_name,
+      })),
+      candidatesNeedingAttention: attentionResult.rows.map((r) => ({
+        candidateId: r.candidate_id,
+        candidateName: r.candidate_name,
+      })),
+    });
+  } catch (err) {
+    console.error("Get activity feed failed:", err);
+    res.status(500).json({ error: "ACTIVITY_FEED_FAILED" });
+  }
+});
+
+// ============================================================
+// JOB SHARING ROUTES
+// ============================================================
+
+// POST /api/team/:teamId/shared-jobs - Share a job with the team (mentor only)
+router.post("/:teamId/shared-jobs", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const { jobId, comments } = req.body;
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    if (!jobId) {
+      return res.status(400).json({ error: "JOB_ID_REQUIRED" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only mentors/admins can share jobs
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_SHARE_JOBS" });
+    }
+
+    // Verify the job belongs to the mentor
+    const jobResult = await pool.query(
+      "SELECT id, title, company FROM jobs WHERE id = $1 AND user_id = $2",
+      [jobId, userId]
+    );
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: "JOB_NOT_FOUND_OR_NOT_OWNED" });
+    }
+
+    // Check if job is already shared in this team
+    const existingResult = await pool.query(
+      "SELECT id FROM shared_jobs WHERE team_id = $1 AND job_id = $2",
+      [teamId, jobId]
+    );
+
+    if (existingResult.rows.length > 0) {
+      return res.status(409).json({ error: "JOB_ALREADY_SHARED" });
+    }
+
+    // Share the job
+    const result = await pool.query(
+      `INSERT INTO shared_jobs (team_id, job_id, shared_by_mentor_id, comments)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [teamId, jobId, userId, comments || null]
+    );
+
+    res.status(201).json({
+      sharedJob: result.rows[0],
+      message: "Job shared successfully",
+    });
+  } catch (err) {
+    console.error("Share job failed:", err);
+    res.status(500).json({ error: "SHARE_JOB_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/shared-jobs - Get all shared jobs (role-based visibility)
+router.get("/:teamId/shared-jobs", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Fetch shared jobs with full job details and mentor info
+    const result = await pool.query(
+      `
+      SELECT 
+        sj.id AS shared_job_id,
+        sj.comments,
+        sj.created_at AS shared_at,
+        sj.updated_at,
+        j.id AS job_id,
+        j.title,
+        j.company,
+        j.location,
+        j.salary_min,
+        j.salary_max,
+        j.url,
+        j.deadline,
+        j.description,
+        j.industry,
+        j.type,
+        j.required_skills,
+        j.status,
+        COALESCE(
+          NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+          u_prof.full_name,
+          u.email,
+          'Unknown'
+        ) AS mentor_name,
+        u.email AS mentor_email
+      FROM shared_jobs sj
+      JOIN jobs j ON sj.job_id = j.id
+      JOIN users u ON sj.shared_by_mentor_id = u.id
+      LEFT JOIN profiles u_prof ON sj.shared_by_mentor_id = u_prof.user_id
+      WHERE sj.team_id = $1
+      ORDER BY sj.created_at DESC
+      `,
+      [teamId]
+    );
+
+    // For candidates, check which jobs they've already exported
+    const exportedJobs = membership.role === "candidate"
+      ? await pool.query(
+          `SELECT shared_job_id FROM shared_job_exports WHERE candidate_id = $1`,
+          [userId]
+        )
+      : { rows: [] };
+
+    const exportedJobIds = new Set(exportedJobs.rows.map((row) => row.shared_job_id));
+
+    // For mentors/admins, get export counts
+    const sharedJobIds = result.rows.map((row) => row.shared_job_id);
+    const exportCounts =
+      MANAGER_ROLES.has(membership.role) && sharedJobIds.length > 0
+        ? await pool.query(
+            `SELECT shared_job_id, COUNT(*) as export_count
+             FROM shared_job_exports
+             WHERE shared_job_id = ANY($1)
+             GROUP BY shared_job_id`,
+            [sharedJobIds]
+          )
+        : { rows: [] };
+
+    const exportCountMap = new Map(
+      exportCounts.rows.map((row) => [row.shared_job_id, parseInt(row.export_count)])
+    );
+
+    const sharedJobs = result.rows.map((row) => ({
+      id: row.shared_job_id,
+      jobId: row.job_id,
+      title: row.title,
+      company: row.company,
+      location: row.location,
+      salaryMin: row.salary_min,
+      salaryMax: row.salary_max,
+      url: row.url,
+      deadline: row.deadline,
+      description: row.description,
+      industry: row.industry,
+      type: row.type,
+      requiredSkills: row.required_skills || [],
+      status: row.status,
+      comments: row.comments,
+      sharedAt: row.shared_at,
+      mentorName: row.mentor_name,
+      mentorEmail: row.mentor_email,
+      isExported: exportedJobIds.has(row.shared_job_id),
+      exportCount: exportCountMap.get(row.shared_job_id) || 0,
+    }));
+
+    res.json({ sharedJobs });
+  } catch (err) {
+    console.error("Get shared jobs failed:", err);
+    res.status(500).json({ error: "GET_SHARED_JOBS_FAILED" });
+  }
+});
+
+// POST /api/team/:teamId/shared-jobs/:sharedJobId/comments - Add/update comments (mentor only)
+router.post("/:teamId/shared-jobs/:sharedJobId/comments", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const sharedJobId = parseInt(req.params.sharedJobId);
+    const { comments } = req.body;
+
+    if (isNaN(teamId) || isNaN(sharedJobId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only mentors/admins can update comments
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_UPDATE_COMMENTS" });
+    }
+
+    // Verify the shared job exists and belongs to this mentor (or admin can update any)
+    const sharedJobResult = await pool.query(
+      `SELECT shared_by_mentor_id FROM shared_jobs WHERE id = $1 AND team_id = $2`,
+      [sharedJobId, teamId]
+    );
+
+    if (sharedJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "SHARED_JOB_NOT_FOUND" });
+    }
+
+    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isOwner = sharedJobResult.rows[0].shared_by_mentor_id === userId;
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: "CAN_ONLY_UPDATE_OWN_SHARED_JOB_COMMENTS" });
+    }
+
+    // Update comments
+    const result = await pool.query(
+      `UPDATE shared_jobs SET comments = $1 WHERE id = $2 AND team_id = $3 RETURNING *`,
+      [comments || null, sharedJobId, teamId]
+    );
+
+    res.json({
+      sharedJob: result.rows[0],
+      message: "Comments updated successfully",
+    });
+  } catch (err) {
+    console.error("Update shared job comments failed:", err);
+    res.status(500).json({ error: "UPDATE_COMMENTS_FAILED" });
+  }
+});
+
+// POST /api/team/:teamId/shared-jobs/:sharedJobId/export - Export shared job to candidate's pipeline
+router.post("/:teamId/shared-jobs/:sharedJobId/export", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const sharedJobId = parseInt(req.params.sharedJobId);
+
+    if (isNaN(teamId) || isNaN(sharedJobId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only candidates can export jobs
+    if (membership.role !== "candidate") {
+      return res.status(403).json({ error: "ONLY_CANDIDATES_CAN_EXPORT_JOBS" });
+    }
+
+    // Verify the shared job exists in this team
+    const sharedJobResult = await pool.query(
+      `
+      SELECT sj.id, sj.job_id, j.*
+      FROM shared_jobs sj
+      JOIN jobs j ON sj.job_id = j.id
+      WHERE sj.id = $1 AND sj.team_id = $2
+      `,
+      [sharedJobId, teamId]
+    );
+
+    if (sharedJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "SHARED_JOB_NOT_FOUND" });
+    }
+
+    const originalJob = sharedJobResult.rows[0];
+
+    // Check if already exported
+    const existingExport = await pool.query(
+      `SELECT id FROM shared_job_exports WHERE shared_job_id = $1 AND candidate_id = $2`,
+      [sharedJobId, userId]
+    );
+
+    if (existingExport.rows.length > 0) {
+      return res.status(409).json({ error: "JOB_ALREADY_EXPORTED" });
+    }
+
+    // Create the job in candidate's pipeline (status = 'Interested')
+    const newJobResult = await pool.query(
+      `
+      INSERT INTO jobs (
+        user_id, title, company, location, salary_min, salary_max,
+        url, deadline, description, industry, type,
+        required_skills, status, status_updated_at, created_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Interested', NOW(), NOW())
+      RETURNING *
+      `,
+      [
+        userId,
+        originalJob.title,
+        originalJob.company,
+        originalJob.location,
+        originalJob.salary_min,
+        originalJob.salary_max,
+        originalJob.url,
+        originalJob.deadline,
+        originalJob.description,
+        originalJob.industry,
+        originalJob.type,
+        originalJob.required_skills || [],
+      ]
+    );
+
+    const newJob = newJobResult.rows[0];
+
+    // Record the export
+    await pool.query(
+      `INSERT INTO shared_job_exports (shared_job_id, candidate_id, exported_job_id)
+       VALUES ($1, $2, $3)`,
+      [sharedJobId, userId, newJob.id]
+    );
+
+    res.status(201).json({
+      job: newJob,
+      message: "Job exported to your pipeline successfully",
+    });
+  } catch (err) {
+    console.error("Export shared job failed:", err);
+    res.status(500).json({ error: "EXPORT_JOB_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/shared-jobs/progress - Get mentee progress dashboard (mentor/admin only)
+router.get("/:teamId/shared-jobs/progress", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only mentors/admins can view progress
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_PROGRESS" });
+    }
+
+    // Get all shared jobs with export details
+    const progressResult = await pool.query(
+      `
+      SELECT 
+        sj.id AS shared_job_id,
+        j.id AS job_id,
+        j.title,
+        j.company,
+        sj.created_at AS shared_at,
+        COUNT(sje.id) AS export_count,
+        ARRAY_AGG(
+          json_build_object(
+            'candidateId', sje.candidate_id,
+            'candidateName', COALESCE(
+              NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+              u_prof.full_name,
+              u.email,
+              'Unknown'
+            ),
+            'exportedAt', sje.exported_at,
+            'exportedJobId', sje.exported_job_id,
+            'exportedJobStatus', ej.status
+          )
+        ) FILTER (WHERE sje.id IS NOT NULL) AS exports
+      FROM shared_jobs sj
+      JOIN jobs j ON sj.job_id = j.id
+      LEFT JOIN shared_job_exports sje ON sj.id = sje.shared_job_id
+      LEFT JOIN users u ON sje.candidate_id = u.id
+      LEFT JOIN profiles u_prof ON sje.candidate_id = u_prof.user_id
+      LEFT JOIN jobs ej ON sje.exported_job_id = ej.id
+      WHERE sj.team_id = $1
+      GROUP BY sj.id, j.id, j.title, j.company, sj.created_at
+      ORDER BY sj.created_at DESC
+      `,
+      [teamId]
+    );
+
+    // Get candidate list for the team
+    const candidatesResult = await pool.query(
+      `SELECT tm.user_id,
+              COALESCE(
+                NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+                u_prof.full_name,
+                u.email,
+                'Unknown'
+              ) AS candidate_name
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       LEFT JOIN profiles u_prof ON tm.user_id = u_prof.user_id
+       WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+       ORDER BY candidate_name`,
+      [teamId]
+    );
+
+    const progress = progressResult.rows.map((row) => ({
+      sharedJobId: row.shared_job_id,
+      jobId: row.job_id,
+      title: row.title,
+      company: row.company,
+      sharedAt: row.shared_at,
+      exportCount: parseInt(row.export_count) || 0,
+      exports: (row.exports && Array.isArray(row.exports)) ? row.exports.filter((e) => e.candidateId) : [],
+    }));
+
+    res.json({
+      progress,
+      candidates: candidatesResult.rows.map((c) => ({
+        candidateId: c.user_id,
+        candidateName: c.candidate_name,
+      })),
+    });
+  } catch (err) {
+    console.error("Get shared jobs progress failed:", err);
+    res.status(500).json({ error: "GET_PROGRESS_FAILED" });
   }
 });
 

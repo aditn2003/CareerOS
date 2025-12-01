@@ -9,14 +9,20 @@ export default function FeedbackModal({
   candidateName,
   feedbackId = null, // null for create, ID for edit
   existingFeedback = null,
+  taskId = null, // For task-linked feedback
+  taskTitle = null, // Task title for display
   onClose,
   onSuccess,
 }) {
+  // Ensure feedbackType is always "task" when taskId is provided (for new feedback)
+  const initialFeedbackType = existingFeedback?.feedbackType || (taskId ? "task" : "general");
+  
   const [formData, setFormData] = useState({
-    feedbackType: existingFeedback?.feedbackType || "general",
+    feedbackType: taskId && !existingFeedback ? "task" : initialFeedbackType, // Force "task" if taskId provided and not editing
     content: existingFeedback?.content || "",
     jobId: existingFeedback?.jobId || "",
     skillName: existingFeedback?.skillName || "",
+    taskId: existingFeedback?.taskId || taskId || "",
   });
   const [candidateJobs, setCandidateJobs] = useState([]);
   const [candidateSkills, setCandidateSkills] = useState([]);
@@ -69,12 +75,16 @@ export default function FeedbackModal({
     setLoading(true);
 
     try {
+      // Ensure feedbackType is "task" if taskId is provided
+      const finalFeedbackType = formData.taskId ? "task" : formData.feedbackType;
+      
       const payload = {
         candidateId,
-        feedbackType: formData.feedbackType,
+        feedbackType: finalFeedbackType,
         content: formData.content.trim(),
-        jobId: formData.feedbackType === "job" ? parseInt(formData.jobId) || null : null,
-        skillName: formData.feedbackType === "skill" ? formData.skillName.trim() || null : null,
+        jobId: finalFeedbackType === "job" ? parseInt(formData.jobId) || null : null,
+        skillName: finalFeedbackType === "skill" ? formData.skillName.trim() || null : null,
+        taskId: finalFeedbackType === "task" ? parseInt(formData.taskId) || null : null,
       };
 
       if (isEditMode) {
@@ -107,7 +117,10 @@ export default function FeedbackModal({
         </button>
 
         <h2>{isEditMode ? "Edit Feedback" : "Add Feedback"}</h2>
-        <p className="feedback-modal-subtitle">Feedback for {candidateName}</p>
+        <p className="feedback-modal-subtitle">
+          Feedback for {candidateName}
+          {taskTitle && ` - Task: ${taskTitle}`}
+        </p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -121,14 +134,16 @@ export default function FeedbackModal({
                   feedbackType: e.target.value,
                   jobId: "",
                   skillName: "",
+                  taskId: e.target.value === "task" ? (taskId || "") : "",
                 });
               }}
               required
-              disabled={isEditMode}
+              disabled={isEditMode || (taskId !== null)} // Disable if taskId is provided (pre-set)
             >
               <option value="general">General Progress</option>
               <option value="job">Related to Job Application</option>
               <option value="skill">Related to Skill</option>
+              <option value="task">Related to Task</option>
             </select>
           </div>
 

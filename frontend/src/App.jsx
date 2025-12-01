@@ -59,11 +59,11 @@ export default function App() {
   return (
     <AuthProvider>
       <TeamProvider>
-        <ProfileProvider>
-          <Router>
-            <MainLayout />
-          </Router>
-        </ProfileProvider>
+      <ProfileProvider>
+        <Router>
+          <MainLayout />
+        </Router>
+      </ProfileProvider>
       </TeamProvider>
     </AuthProvider>
   );
