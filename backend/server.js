@@ -45,6 +45,10 @@ import puppeteer from "puppeteer";
 import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
+import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
+import networkingRoutes from "./routes/networking.js";
+import offersRoutes from "./routes/offers.js";
+import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -470,12 +474,17 @@ app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
 app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
 app.use("/api/success-analysis", successAnalysisRoutes);
 app.use("/api/goals", goalsRoutes);
 app.use("/api/interview-analysis", interviewAnalysisRoutes);
+app.use("/api/networking-analysis", networkingAnalysisRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/offers", offersRoutes);
+app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
 
 app.use("/api/team", teamRoutes);
 

@@ -58,7 +58,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
         if (resCovers.ok) {
           const data = await resCovers.json();
+          console.log("📄 Cover letters data:", data);
+          console.log("📄 Cover letters array:", data.cover_letters);
+          console.log("📄 User letters:", data.user_letters);
+          console.log("📄 Templates:", data.templates);
+          // Use the combined list from backend (already includes templates with prefixed IDs)
           setCoverLetters(data.cover_letters || []);
+        } else {
+          console.error("❌ Cover letters response not OK:", resCovers.status, resCovers.statusText);
         }
       } catch (err) {
         console.error("❌ Failed to load materials:", err);
@@ -331,7 +338,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="">Select a Cover Letter</option>
         {coverLetters.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.title}
+            {c.title} {c.isTemplate ? '(Global Template)' : ''}
           </option>
         ))}
       </select>
