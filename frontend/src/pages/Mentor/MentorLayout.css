@@ -1,0 +1,10 @@
+/* Ensure Mentor Section matches Profile Section width exactly */
+/* Both ProfileLayout and MentorLayout use .profile-section class */
+/* This ensures they have identical width constraints */
+
+.profile-section {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
