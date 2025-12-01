@@ -7,12 +7,14 @@ import ApplicationsTrendChart from "./charts/ApplicationsTrendChart";
 import FunnelChart from "./charts/FunnelChart";
 import StageTimeChart from "./charts/StageTimeChart";
 import GoalRing from "./charts/GoalRing";
+import GoalsSettings from "./GoalsSettings";
 
 export default function StatisticsDashboard({ token: incomingToken }) {
     const { token } = useAuth();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showGoalsSettings, setShowGoalsSettings] = useState(false);
 
   // Set wide default date range to capture all jobs
   const [filters, setFilters] = useState({
@@ -20,21 +22,7 @@ export default function StatisticsDashboard({ token: incomingToken }) {
     endDate: "2030-12-31",
   });
 
-  const benchmarks = stats?.industryBenchmarks || {};
-
-const interviewRate = benchmarks.interviewRate != null
-  ? (benchmarks.interviewRate * 100).toFixed(1)
-  : "N/A";
-
-const offerRate = benchmarks.offerRate != null
-  ? (benchmarks.offerRate * 100).toFixed(1)
-  : "N/A";
-
-const responseHours = benchmarks.avgResponseHours ?? "N/A";
-
-// -----------------------------
-// 7️⃣ REAL INDUSTRY BENCHMARKS (BASED ON USER DATA)
-// -----------------------------
+  const comparison = stats?.industryComparison?.comparison || {};
 
 
   useEffect(() => {
@@ -79,8 +67,8 @@ const responseHours = benchmarks.avgResponseHours ?? "N/A";
             goals: data.goals || {},
             actionableInsights: data.actionableInsights || [],
           
-            // 🚀 ADD THIS LINE
-            industryBenchmarks: data.industryBenchmarks || {}
+            // Industry comparison data
+            industryComparison: data.industryComparison || {}
           };
           
 
@@ -163,11 +151,21 @@ const responseHours = benchmarks.avgResponseHours ?? "N/A";
       <StageTimeChart data={stats.avgTimeInStage} />
 
       {/* 🎯 Goals */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+      <div className="flex items-center justify-between mt-6 mb-4">
+        <h3 className="font-semibold text-lg">Goals Progress</h3>
+        <button 
+          onClick={() => setShowGoalsSettings(true)}
+          className="px-4 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          Customize Goals
+        </button>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <GoalRing
           current={stats.keyMetrics.total_applications}
           target={stats.goals.monthlyApplications}
-          label="Monthly Application Goal"
+          label={`Monthly Apps (Target: ${stats.goals.monthlyApplications})`}
         />
 
         <GoalRing
@@ -177,11 +175,9 @@ const responseHours = benchmarks.avgResponseHours ?? "N/A";
             : 0
         }
         target={stats.goals.interviewRateTarget}
-        label="Interview Conversion Goal"
+        label={`Interview Rate (Target: ${Math.round(stats.goals.interviewRateTarget * 100)}%)`}
         isRate={true}
         />
-
-
 
         <GoalRing
         current={
@@ -190,12 +186,28 @@ const responseHours = benchmarks.avgResponseHours ?? "N/A";
             : 0
         }
         target={stats.goals.offerRateTarget}
-        label="Offer Conversion Goal"
+        label={`Offer Rate (Target: ${Math.round(stats.goals.offerRateTarget * 100)}%)`}
         isRate={true}
         />
-
-
       </div>
+
+      {/* Goals Settings Modal */}
+      {showGoalsSettings && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={(e) => e.target === e.currentTarget && setShowGoalsSettings(false)}
+        >
+          <div className="relative">
+            <button 
+              onClick={() => setShowGoalsSettings(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-500 hover:text-gray-700 z-10"
+            >
+              X
+            </button>
+            <GoalsSettings />
+          </div>
+        </div>
+      )}
 
       {/* Insights */}
       <h3 className="font-semibold text-lg mt-6 mb-2">🔎 Insights</h3>
@@ -205,10 +217,69 @@ const responseHours = benchmarks.avgResponseHours ?? "N/A";
         ))}
       </ul>
 
-      {/* 📊 Industry Benchmarks */}
-      <li>Average Interview Rate: <strong>{interviewRate}%</strong></li>
-<li>Average Offer Rate: <strong>{offerRate}%</strong></li>
-<li>Average Response Time: <strong>{responseHours} hrs</strong></li>
+      {/* 📊 Industry Benchmarks Comparison */}
+      <h3 className="font-semibold text-lg mt-6 mb-3">Industry Benchmark Comparison</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Interview Rate Comparison */}
+        <div className="border rounded-lg p-4 bg-white shadow-sm">
+          <div className="text-sm text-gray-500 mb-1">Interview Rate</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">
+              {comparison.interviewRate ? (comparison.interviewRate.user * 100).toFixed(1) : 0}%
+            </span>
+            <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+              comparison.interviewRate?.status === 'above' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {comparison.interviewRate?.status === 'above' ? '↑' : '↓'} vs {(comparison.interviewRate?.industry * 100 || 12).toFixed(0)}% avg
+            </span>
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            Industry average: 12%
+          </div>
+        </div>
+
+        {/* Offer Rate Comparison */}
+        <div className="border rounded-lg p-4 bg-white shadow-sm">
+          <div className="text-sm text-gray-500 mb-1">Offer Rate</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">
+              {comparison.offerRate ? (comparison.offerRate.user * 100).toFixed(1) : 0}%
+            </span>
+            <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+              comparison.offerRate?.status === 'above' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-red-100 text-red-700'
+            }`}>
+              {comparison.offerRate?.status === 'above' ? '↑' : '↓'} vs {(comparison.offerRate?.industry * 100 || 3).toFixed(0)}% avg
+            </span>
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            Industry average: 3%
+          </div>
+        </div>
+
+        {/* Response Time Comparison */}
+        <div className="border rounded-lg p-4 bg-white shadow-sm">
+          <div className="text-sm text-gray-500 mb-1">Avg Response Time</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold">
+              {comparison.responseTime?.userDays ? comparison.responseTime.userDays.toFixed(1) : 'N/A'} days
+            </span>
+            <span className={`text-sm font-medium px-2 py-0.5 rounded ${
+              comparison.responseTime?.status === 'above' 
+                ? 'bg-green-100 text-green-700' 
+                : 'bg-yellow-100 text-yellow-700'
+            }`}>
+              {comparison.responseTime?.status === 'above' ? '↑ Faster' : '↓ Slower'} than avg
+            </span>
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            Industry average: 10 days
+          </div>
+        </div>
+      </div>
 
 
     </div>

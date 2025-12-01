@@ -42,6 +42,13 @@ import mockInterviewsRoutes from "./routes/mockInterviews.js";
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
 import puppeteer from "puppeteer";
+import successAnalysisRoutes from "./routes/successAnalysis.js";
+import goalsRoutes from "./routes/goals.js";
+import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
+import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
+import networkingRoutes from "./routes/networking.js";
+import offersRoutes from "./routes/offers.js";
+import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -347,7 +354,7 @@ app.get("/me", auth, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, email, first_name AS firstName, last_name AS lastName FROM users WHERE id=$1",
-      [req.userId]
+      [req.user.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -363,7 +370,7 @@ app.put("/me", auth, async (req, res) => {
   try {
     await pool.query(
       "UPDATE users SET first_name=$1, last_name=$2 WHERE id=$3",
-      [firstName, lastName, req.userId]
+      [firstName, lastName, req.user.id]
     );
     res.json({ message: "Updated" });
   } catch (err) {
@@ -395,7 +402,7 @@ app.post("/delete", auth, async (req, res) => {
   try {
     const { password = "" } = req.body;
     const userRes = await pool.query("SELECT * FROM users WHERE id=$1", [
-      req.userId,
+      req.user.id,
     ]);
     if (userRes.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -404,7 +411,7 @@ app.post("/delete", auth, async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash || "");
     if (!ok) return res.status(401).json({ error: "Invalid password" });
 
-    await pool.query("DELETE FROM users WHERE id=$1", [req.userId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [req.user.id]);
     res.json({ message: "Account deleted" });
   } catch (err) {
     console.error(err);
@@ -463,14 +470,22 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
 app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api/success-analysis", successAnalysisRoutes);
+app.use("/api/goals", goalsRoutes);
+app.use("/api/interview-analysis", interviewAnalysisRoutes);
+app.use("/api/networking-analysis", networkingAnalysisRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/offers", offersRoutes);
+app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+
 app.use("/api/team", teamRoutes);
 
 // ===== Global Error Handler =====
@@ -647,7 +662,7 @@ app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
 
-
+app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
@@ -664,5 +679,7 @@ app.post("/test-reminders", async (req, res) => {
     res.status(500).json({ error: "Failed to run reminder job" });
   }
 });
+
+
 // ===== Start Server =====
 app.listen(4000, () => console.log("✅ API running at http://localhost:4000"));
