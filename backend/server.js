@@ -32,6 +32,8 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
+import teamRoutes from "./routes/team.js";
+
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
 
@@ -71,18 +73,58 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
+// Configure SSL for Supabase connections
+// Supabase requires SSL for all connections
+const dbUrl = process.env.DATABASE_URL || '';
+const isSupabase = dbUrl.includes('supabase') || 
+                   dbUrl.includes('pooler.supabase') ||
+                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
+
+const poolConfig = {
+  connectionString: dbUrl,
+};
+
+// Force SSL for Supabase connections
+if (isSupabase) {
+  poolConfig.ssl = { 
+    rejectUnauthorized: false 
+  };
+  console.log("🔒 SSL enabled for Supabase connection");
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  ...poolConfig,
+  max: 10, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+});
+
+// Handle pool errors gracefully
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+// Handle connection errors
+pool.on('connect', (client) => {
+  client.on('error', (err) => {
+    console.error('Database client error:', err);
+  });
 });
 
 pool
   .connect()
-  .then(() => console.log("✅ Connected to PostgreSQL"))
+  .then((client) => {
+    console.log("✅ Connected to PostgreSQL");
+    // Release the test connection
+    client.release();
+  })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const ACCOUNT_TYPES = new Set(["candidate", "team_admin"]);
+const DEFAULT_ACCOUNT_TYPE = "candidate";
 
 function makeToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
@@ -101,6 +143,7 @@ app.post("/register", async (req, res) => {
     confirmPassword = "",
     firstName = "",
     lastName = "",
+    accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
     if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
@@ -119,21 +162,69 @@ app.post("/register", async (req, res) => {
         .status(400)
         .json({ error: "First and last name are required" });
     }
+    const normalizedAccountType = (accountType || DEFAULT_ACCOUNT_TYPE)
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (!ACCOUNT_TYPES.has(normalizedAccountType)) {
+      return res.status(400).json({ error: "Invalid account type" });
+    }
 
     const lower = email.toLowerCase();
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
-      lower,
-    ]);
-    if (existing.rows.length > 0)
-      return res.status(409).json({ error: "Email already in use" });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      "INSERT INTO users (email, password_hash, first_name, last_name, provider) VALUES ($1,$2,$3,$4,'local') RETURNING id",
-      [lower, passwordHash, firstName.trim(), lastName.trim()]
-    );
-    const token = makeToken({ id: result.rows[0].id, email: lower });
-    return res.status(201).json({ message: "Registered", token });
+      const existing = await client.query(
+        "SELECT id FROM users WHERE email=$1",
+        [lower]
+      );
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ error: "Email already in use" });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      const userResult = await client.query(
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
+        [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
+      );
+      const userId = userResult.rows[0].id;
+
+      if (normalizedAccountType === "team_admin") {
+        const nameParts = [
+          userResult.rows[0].first_name?.trim(),
+          userResult.rows[0].last_name?.trim(),
+        ].filter(Boolean);
+        const teamName =
+          nameParts.length > 0
+            ? `${nameParts.join(" ")} Team`
+            : "New Team";
+
+        const teamResult = await client.query(
+          "INSERT INTO teams (name, owner_id) VALUES ($1,$2) RETURNING id",
+          [teamName, userId]
+        );
+
+        await client.query(
+          "INSERT INTO team_members (team_id, user_id, role, status) VALUES ($1,$2,'admin','active')",
+          [teamResult.rows[0].id, userId]
+        );
+      }
+
+      await client.query("COMMIT");
+      const token = makeToken({ id: userId, email: lower });
+      return res.status(201).json({ message: "Registered", token });
+    } catch (dbErr) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        console.error("Rollback failed:", rollbackErr.message);
+      }
+      throw dbErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -347,7 +438,7 @@ app.post("/google", async (req, res) => {
     ]);
     if (result.rows.length === 0) {
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider) VALUES ($1,$2,$3,'google') RETURNING id",
+        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
         [email, firstName, lastName]
       );
     }
@@ -376,6 +467,7 @@ app.use("/api/companyResearch", companyResearchRoutes);
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api/team", teamRoutes);
 
 
 // ===== Global Error Handler =====
