@@ -29,7 +29,11 @@ import {
   AreaChart,
 } from 'recharts';
 import { CSVLink } from 'react-csv';
-import { api, getSuccessAnalysis } from '../api';
+import { api, getSuccessAnalysis, getInterviewAnalysis, getNetworkingAnalysis } from '../api';
+import InterviewAnalysis from '../components/InterviewAnalysis';
+import NetworkingAnalysis from '../components/NetworkingAnalysis';
+import CompensationAnalysis from '../components/CompensationAnalysis';
+import ComprehensiveCompensationAnalysis from '../components/ComprehensiveCompensationAnalysis';
 
 // Custom styles
 const styles = {
@@ -353,6 +357,9 @@ const StatisticsPage = () => {
           >
             <Tab label="Job Statistics" />
             <Tab label="Success Analysis" />
+            <Tab label="Interview Analysis" />
+            <Tab label="Networking Analysis" />
+            <Tab label="Compensation Analysis" />
           </Tabs>
 
           {/* Tab 1: Job Statistics */}
@@ -681,12 +688,27 @@ const StatisticsPage = () => {
                     {analysis.recommendations.map((rec, idx) => (
                       <Box key={idx} sx={styles.recommendationCard}>
                         {rec}
-                      </Box>
+        </Box>
                     ))}
                   </ChartCard>
                 )}
               </>
-            )}
+      )}
+          </TabPanel>
+
+          {/* Tab 3: Interview Analysis */}
+          <TabPanel value={tabValue} index={2}>
+            <InterviewAnalysis />
+          </TabPanel>
+
+          {/* Tab 4: Networking Analysis */}
+          <TabPanel value={tabValue} index={3}>
+            <NetworkingAnalysis />
+          </TabPanel>
+
+          {/* Tab 5: Compensation Analysis */}
+          <TabPanel value={tabValue} index={4}>
+            <ComprehensiveCompensationAnalysis />
           </TabPanel>
         </Paper>
     </Container>
