@@ -481,17 +481,7 @@ function AdminTeamManagement() {
                                   >
                                     View Profile
                                   </button>
-                                  <button
-                                    className="btn-feedback"
-                                    onClick={() =>
-                                      setFeedbackModal({
-                                        candidateId: member.userId,
-                                        candidateName: fullName,
-                                      })
-                                    }
-                                  >
-                                    Add Feedback
-                                  </button>
+                                  {/* Admins cannot create feedback - they can only view/edit/delete */}
                                 </>
                               )}
                               <button

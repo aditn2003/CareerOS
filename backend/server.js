@@ -91,24 +91,29 @@ if (isSupabase) {
   console.log("🔒 SSL enabled for Supabase connection");
 }
 
+// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
+// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
+const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
+const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
+
 const pool = new Pool({
   ...poolConfig,
-  max: 10, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+  max: poolSize, // Maximum connections (2 for Supabase Session mode - very conservative)
+  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
+  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
+  connectionTimeoutMillis: 5000, // Return error after 5 seconds
+  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
+  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
 });
 
-// Handle pool errors gracefully
+// Handle pool errors gracefully - don't terminate on error, try to reconnect
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  console.error('⚠️ Unexpected error on idle client:', err.message);
+  // Don't throw - let the pool handle reconnection automatically
 });
 
-// Handle connection errors
-pool.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('Database client error:', err);
-  });
-});
+// REMOVED: Periodic health check consumes connections unnecessarily
+// Connections will be created on-demand when needed
 
 pool
   .connect()
@@ -180,14 +185,14 @@ app.post("/register", async (req, res) => {
       );
       if (existing.rows.length > 0) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ error: "Email already in use" });
+      return res.status(409).json({ error: "Email already in use" });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
       const userResult = await client.query(
         "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
         [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
-      );
+    );
       const userId = userResult.rows[0].id;
 
       if (normalizedAccountType === "team_admin") {
@@ -213,7 +218,7 @@ app.post("/register", async (req, res) => {
 
       await client.query("COMMIT");
       const token = makeToken({ id: userId, email: lower });
-      return res.status(201).json({ message: "Registered", token });
+    return res.status(201).json({ message: "Registered", token });
     } catch (dbErr) {
       try {
         await client.query("ROLLBACK");
