@@ -17,6 +17,8 @@ import {
   FaDollarSign, // 💰 NEW ICON
   FaBuilding,
   FaEnvelope, // ✅ Icon for Cover Letter
+  FaUsers, // ✅ Icon for Professional Network
+  FaHandshake, // ✅ Icon for Referrals
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -90,6 +92,16 @@ export default function NavBar() {
             {/* 🗨️ INTERVIEW INSIGHTS */}
             <NavLink to="/interviews">
               <FaComments /> Interviews
+            </NavLink>
+
+            {/* 👥 Professional Network */}
+            <NavLink to="/network">
+              <FaUsers /> Network
+            </NavLink>
+
+            {/* 🤝 Referral Requests */}
+            <NavLink to="/referrals">
+              <FaHandshake /> Referrals
             </NavLink>
 
             {/* 👤 Profile */}

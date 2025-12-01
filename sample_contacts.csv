@@ -1,0 +1,11 @@
+first_name,last_name,email,phone,title,company,industry,relationship_type
+John,Doe,john.doe@email.com,555-0101,Senior Software Engineer,TechCorp Inc,Technology,Colleague
+Jane,Smith,jane.smith@email.com,555-0102,Product Manager,InnovateLab,Technology,Manager
+Michael,Johnson,michael.j@email.com,555-0103,Marketing Director,GlobalBrand Co,Marketing,Acquaintance
+Sarah,Williams,sarah.williams@email.com,555-0104,HR Manager,PeopleFocus Ltd,Human Resources,Mentor
+David,Brown,david.brown@email.com,555-0105,Finance Analyst,MoneyWise Financial,Finance,Colleague
+Emily,Davis,emily.davis@email.com,555-0106,Recruiter,TalentHub Staffing,Recruitment,Recruiter
+Robert,Miller,robert.miller@email.com,555-0107,CTO,StartupXYZ,Technology,Mentor
+Lisa,Wilson,lisa.wilson@email.com,555-0108,Sales Lead,SalesForce Co,Sales,Friend
+James,Moore,james.moore@email.com,555-0109,Project Manager,BuildIT Solutions,Construction,Client
+Patricia,Taylor,patricia.taylor@email.com,555-0110,Consultant,ConsultPro Group,Consulting,Acquaintance

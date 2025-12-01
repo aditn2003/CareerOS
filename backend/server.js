@@ -37,6 +37,8 @@ import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
+import contactsRoutes, { setContactsPool } from "./routes/contacts.js";
+import referralsRoutes from "./routes/referrals.js";
 import puppeteer from "puppeteer";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
@@ -77,7 +79,11 @@ const pool = new Pool({
 
 pool
   .connect()
-  .then(() => console.log("✅ Connected to PostgreSQL"))
+  .then(() => {
+    console.log("✅ Connected to PostgreSQL");
+    // Initialize contacts route with the pool
+    setContactsPool(pool);
+  })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====
@@ -547,6 +553,8 @@ app.use("/api", sectionPresetsRoutes);
 app.use("/api", jobDescriptionsRoutes);
 app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
+app.use("/api", contactsRoutes);
+app.use("/api/referrals", referralsRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 

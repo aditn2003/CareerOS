@@ -27,6 +27,8 @@ import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
 import Interviews from "./pages/Interviews/Interviews";
 import SalaryResearch from "./pages/Salary/SalaryResearch";
 import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
+import NetworkContacts from "./components/NetworkContacts"; // ✅ ADDED (UC-10x - Professional Network)
+import ReferralRequests from "./components/ReferralRequests"; // ✅ ADDED (UC-087 - Referral Management)
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -228,6 +230,25 @@ function MainLayout() {
           />
           {/* --- Cover Letter (UC-055)  --- */}
           <Route path="/cover-letter" element={<CoverLetter />} />{" "}
+          {/* ✅ NEW */}
+          {/* --- Professional Network (UC-10x) --- */}
+          <Route
+            path="/network"
+            element={
+              <ProtectedRoute>
+                <NetworkContacts />
+              </ProtectedRoute>
+            }
+          />
+          {/* --- Referral Requests (UC-087) --- */}
+          <Route
+            path="/referrals"
+            element={
+              <ProtectedRoute>
+                <ReferralRequests />
+              </ProtectedRoute>
+            }
+          />
           {/* ✅ NEW */}
           {/* --- Legacy / Alias --- */}
           <Route
