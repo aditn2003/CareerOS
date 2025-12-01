@@ -95,3 +95,25 @@ export const duplicateTemplate = (id) =>
         responseType: "blob",
       });
     }
+
+    export async function fetchDashboardStats(token, filters = {}) {
+      const params = new URLSearchParams();
+    
+      if (filters.startDate) params.append("startDate", filters.startDate);
+      if (filters.endDate) params.append("endDate", filters.endDate);
+    
+      const res = await fetch(
+        `http://localhost:4000/api/dashboard/stats?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    
+      if (!res.ok) throw new Error("Failed to load stats");
+      const data = await res.json();
+      return data;
+    }
+    
+    
