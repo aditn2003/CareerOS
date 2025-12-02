@@ -16,7 +16,6 @@ import {
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter
   FaUserGraduate, // ✅ Icon for Mentor
-  FaNetworkWired, // ✅ Icon for Networking
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -79,11 +78,6 @@ export default function NavBar() {
             {/* 📊 Statistics */}
             <NavLink to="/statistics">
               <FaChartBar /> Statistics
-            </NavLink>
-
-            {/* 🌐 Networking */}
-            <NavLink to="/networking">
-              <FaNetworkWired /> Networking
             </NavLink>
 
             {/* 🗄️ Archived */}

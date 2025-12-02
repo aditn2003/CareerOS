@@ -32,7 +32,6 @@ import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-
 import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
 import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
-import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -162,16 +161,6 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <Jobs />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* --- Networking (Protected) --- */}
-          <Route
-            path="/networking"
-            element={
-              <ProtectedRoute>
-                <Networking />
               </ProtectedRoute>
             }
           />

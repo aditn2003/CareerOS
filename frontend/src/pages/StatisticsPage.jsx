@@ -55,6 +55,7 @@ const styles = {
     borderRadius: '16px',
     overflow: 'hidden',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+    width: '100%',
   },
   tab: {
     fontWeight: 600,
@@ -347,12 +348,23 @@ const StatisticsPage = () => {
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               background: '#fff',
               borderBottom: '1px solid #e5e7eb',
+              width: '100%',
+              overflowX: 'auto',
               '& .MuiTab-root': styles.tab,
               '& .Mui-selected': { color: '#3b82f6' },
               '& .MuiTabs-indicator': { backgroundColor: '#3b82f6', height: 2 },
+              '& .MuiTabs-scrollButtons': {
+                '&.Mui-disabled': { opacity: 0.3 }
+              },
+              '& .MuiTabs-scroller': {
+                overflowX: 'auto !important'
+              }
             }}
           >
             <Tab label="Job Statistics" />

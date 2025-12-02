@@ -49,6 +49,8 @@ import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import compensationHistoryRoutes from "./routes/compensationHistory.js";
+import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -485,6 +487,8 @@ app.use("/api/networking-analysis", networkingAnalysisRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+app.use("/api/compensation-history", compensationHistoryRoutes);
+app.use("/api/market-benchmarks", marketBenchmarksRoutes);
 
 app.use("/api/team", teamRoutes);
 
