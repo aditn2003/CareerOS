@@ -6,21 +6,17 @@ import pkg from "pg";
 
 const { Pool } = pkg;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-const router = express.Router();
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Factory function for dependency injection (for testing)
+function createCoverLetterAIRoutes(dbPool = null, openaiClient = null) {
+  const router = express.Router();
+  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const openai = openaiClient || new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ============================================================
    UC-058 + UC-059 Cover Letter + Experience Highlighting
 ============================================================ */
 
-router.post("/generate", auth, async (req, res) => {
+  router.post("/generate", auth, async (req, res) => {
   try {
     const {
       jobTitle: rawJobTitle,
@@ -265,12 +261,12 @@ COVER LETTER VARIATION #3
     console.error("❌ AI generation error:", err);
     res.status(500).json({ error: "AI generation failed" });
   }
-});
+  });
 
-/* ============================================================
-   UC-060 — REFINE EDITED COVER LETTER
-============================================================ */
-router.post("/refine", auth, async (req, res) => {
+  /* ============================================================
+     UC-060 — REFINE EDITED COVER LETTER
+  ============================================================ */
+  router.post("/refine", auth, async (req, res) => {
   try {
     const { text = "" } = req.body;
 
@@ -336,6 +332,14 @@ ${text}
     console.error("❌ UC-060 refine error:", err);
     return res.status(500).json({ error: "Failed to refine cover letter." });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createCoverLetterAIRoutes();
 export default router;
+
+// Export factory function for testing
+export { createCoverLetterAIRoutes };
