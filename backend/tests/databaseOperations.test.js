@@ -33,7 +33,15 @@ afterAll(async () => {
   if (skillId) await pool.query("DELETE FROM skills WHERE id = $1", [skillId]);
   if (coverLetterId) await pool.query("DELETE FROM cover_letters WHERE id = $1", [coverLetterId]);
   if (resumeId) await pool.query("DELETE FROM resumes WHERE id = $1", [resumeId]);
-  if (jobId) await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
+  if (jobId) {
+    try {
+      await pool.query("DELETE FROM application_materials_history WHERE job_id = $1", [jobId]);
+      await pool.query("DELETE FROM application_history WHERE job_id = $1", [jobId]);
+      await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
+    } catch (err) {
+      console.warn(`Cleanup warning:`, err.message);
+    }
+  }
   if (userId) {
     await pool.query("DELETE FROM profiles WHERE user_id = $1", [userId]);
     await pool.query("DELETE FROM users WHERE id = $1", [userId]);
@@ -62,7 +70,7 @@ describe('Database Operations for New Entities', () => {
           applicationDate: '2024-01-15'
         });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(201);
       jobId = res.body.job.id;
       expect(jobId).toBeDefined();
     });
@@ -78,6 +86,8 @@ describe('Database Operations for New Entities', () => {
     });
 
     it('should update job in database', async () => {
+      expect(jobId).toBeDefined();
+      
       await pool.query(
         `UPDATE jobs SET title = $1 WHERE id = $2`,
         ['Updated Database Test Job', jobId]
@@ -88,15 +98,19 @@ describe('Database Operations for New Entities', () => {
         [jobId]
       );
 
+      expect(res.rows.length).toBeGreaterThan(0);
       expect(res.rows[0].title).toBe('Updated Database Test Job');
     });
 
     it('should handle JSONB fields correctly', async () => {
+      expect(jobId).toBeDefined();
+      
       const res = await pool.query(
         `SELECT "required_skills" FROM jobs WHERE id = $1`,
         [jobId]
       );
 
+      expect(res.rows.length).toBeGreaterThan(0);
       expect(res.rows[0].required_skills).toBeInstanceOf(Array);
       expect(res.rows[0].required_skills).toContain('JavaScript');
     });

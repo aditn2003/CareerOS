@@ -504,6 +504,11 @@ router.get("/:id", auth, async (req, res) => {
 router.put("/:id", auth, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Validate id parameter
+    if (!id || id === 'undefined' || isNaN(parseInt(id, 10))) {
+      return res.status(400).json({ error: "Invalid job ID" });
+    }
 
     // FIX: Handle dateApplied from frontend for Update as well
     if (req.body.dateApplied !== undefined) {
@@ -693,6 +698,12 @@ router.put("/:id/materials", auth, async (req, res) => {
 // ---------- DELETE JOB ----------
 router.delete("/:id", auth, async (req, res) => {
   const { id } = req.params;
+  
+  // Validate id parameter
+  if (!id || id === 'undefined' || isNaN(parseInt(id, 10))) {
+    return res.status(400).json({ error: "Invalid job ID" });
+  }
+  
   try {
     const result = await pool.query(
       `DELETE FROM jobs WHERE id = $1 AND user_id = $2`,
@@ -709,6 +720,7 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 // ---------- UPDATE STATUS ----------
+// ---------- UPDATE STATUS (with interview_date + offer_date logic) ----------
 // ---------- UPDATE STATUS (with interview_date + offer_date logic) ----------
 router.put("/:id/status", auth, async (req, res) => {
   const { id } = req.params;
@@ -758,10 +770,10 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
-  try {
+    // Execute the query
     const result = await pool.query(query, params);
 
-    if (result.rows.length === 0)
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
@@ -775,12 +787,12 @@ router.put("/:id/status", auth, async (req, res) => {
     );
 
     res.json({ job: result.rows[0] });
+
   } catch (err) {
     console.error("❌ Failed to update job stage:", err.message);
     res.status(500).json({ error: "Database error" });
   }
 });
-
 // ---------- BULK DEADLINE UPDATE ----------
 router.put("/bulk/deadline", auth, async (req, res) => {
     const { jobIds, daysToAdd } = req.body;

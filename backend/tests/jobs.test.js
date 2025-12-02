@@ -54,7 +54,7 @@ describe('Job Endpoints (AC #1, #8)', () => {
       company: 'Test Co',
       required_skills: ['React']
     });
-    expect(res.statusCode).toBe(200);
+    expect(res.statusCode).toBe(201);
     jobId = res.body.job.id;
   });
 

@@ -23,7 +23,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (jobId) await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
+  if (jobId) {
+    try {
+      await pool.query("DELETE FROM application_materials_history WHERE job_id = $1", [jobId]);
+      await pool.query("DELETE FROM application_history WHERE job_id = $1", [jobId]);
+      await pool.query("DELETE FROM jobs WHERE id = $1", [jobId]);
+    } catch (err) {
+      console.warn(`Cleanup warning:`, err.message);
+    }
+  }
   if (userId) await pool.query("DELETE FROM users WHERE id = $1", [userId]);
   await pool.end();
 });
@@ -46,7 +54,7 @@ describe('Job Management Functions', () => {
           required_skills: ['JavaScript', 'React', 'Node.js']
         });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(201);
       expect(res.body.job).toBeDefined();
       expect(res.body.job.title).toBe('Software Engineer');
       expect(res.body.job.company).toBe('Tech Corp');
@@ -89,7 +97,7 @@ describe('Job Management Functions', () => {
           applicationDate
         });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(201);
       expect(res.body.job).toBeDefined();
     });
 
@@ -104,7 +112,7 @@ describe('Job Management Functions', () => {
           dateApplied
         });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(201);
       expect(res.body.job).toBeDefined();
     });
 
@@ -119,7 +127,7 @@ describe('Job Management Functions', () => {
           salary_max: '150000'
         });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(201);
       expect(res.body.job.salary_min).toBe(100000);
       // Handle potential parsing issues - should be 150000, but allow for edge cases
       const salaryMax = res.body.job.salary_max;

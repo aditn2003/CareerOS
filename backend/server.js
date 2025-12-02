@@ -80,64 +80,6 @@ app.use(express.json());
 // ✅ Serve uploaded images so React can access them
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ===== PostgreSQL Setup =====
-// Configure SSL for Supabase connections
-// Supabase requires SSL for all connections
-const dbUrl = process.env.DATABASE_URL || '';
-const isSupabase = dbUrl.includes('supabase') || 
-                   dbUrl.includes('pooler.supabase') ||
-                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
-
-const poolConfig = {
-  connectionString: dbUrl,
-};
-
-// Force SSL for Supabase connections
-if (isSupabase) {
-  poolConfig.ssl = { 
-    rejectUnauthorized: false 
-  };
-  console.log("🔒 SSL enabled for Supabase connection");
-}
-
-// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
-// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
-const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
-const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
-
-const pool = new Pool({
-  ...poolConfig,
-  max: poolSize, // Maximum connections (2 for Supabase Session mode - very conservative)
-  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
-  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
-  connectionTimeoutMillis: 5000, // Return error after 5 seconds
-  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
-  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
-});
-// const pool = new Pool({
-//   ...poolConfig,
-//   max: 10, // Maximum number of clients in the pool
-//   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-//   connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
-// });
-
-// Handle pool errors gracefully - don't terminate on error, try to reconnect
-pool.on('error', (err) => {
-  console.error('⚠️ Unexpected error on idle client:', err.message);
-  // Don't throw - let the pool handle reconnection automatically
-});
-
-// REMOVED: Periodic health check consumes connections unnecessarily
-// Connections will be created on-demand when needed
-
-pool
-  .connect()
-  .then((client) => {
-    console.log("✅ Connected to PostgreSQL");
-    // Release the test connection
-    client.release();
-  })
-  .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
