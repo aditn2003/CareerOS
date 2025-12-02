@@ -35,9 +35,11 @@ import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import teamRoutes from "./routes/team.js";
+import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
 
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
+import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -672,6 +674,8 @@ app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
+app.use('/api/salary-negotiation', salaryNegotiationRoutes);
+app.use('/api/interview-analytics', interviewAnalyticsRoutes);
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
