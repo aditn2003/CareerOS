@@ -34,6 +34,8 @@ import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-
 import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
+import InterviewTracker from './pages/Interviews/InterviewTracker';
+
 
 
 // ---------- Resume Flow ----------
@@ -251,6 +253,7 @@ function MainLayout() {
             <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
             <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}
             <Route path="salary-negotiation" element={<SalaryNegotiation />} /> {/* ✅ UC-083 */}
+            <Route path="tracker" element={<InterviewTracker />} />
             <Route path="analytics" element={<InterviewAnalytics />} />
           </Route>
 

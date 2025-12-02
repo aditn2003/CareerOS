@@ -63,6 +63,12 @@ export default function InterviewsLayout() {
           💵 Negotiation
         </Link>
         <Link
+          to="/interviews/tracker"
+          className={`nav-tab ${location.pathname === '/interviews/tracker' ? 'active' : ''}`}
+        >
+          📋 Tracker
+        </Link>
+        <Link
           to="/interviews/analytics"
           className={`nav-tab ${location.pathname === '/interviews/analytics' ? 'active' : ''}`}
         >
