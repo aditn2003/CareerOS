@@ -161,14 +161,16 @@ export default function JobDetailsModal({
       const res = await api.put(`/api/jobs/${jobId}/materials`, {
         resume_id: selectedResume || null,
         cover_letter_id: selectedCover || null,
+        resume_customization: job.resume_customization || "none",
+        cover_letter_customization: job.cover_letter_customization || "none",
       });
 
-      alert("✅ Materials updated!");
+      alert("Materials and customization levels updated!");
       setJob(res.data.job);
 
-      await loadHistory(); // 🔥 refresh timestamps immediately
+      await loadHistory();
     } catch (err) {
-      console.error("❌ Failed to update materials:", err);
+      console.error("Failed to update materials:", err);
       alert("Failed to update materials.");
     }
   }
@@ -487,6 +489,18 @@ export default function JobDetailsModal({
             ))}
           </select>
 
+          <label style={{ marginTop: "10px" }}>Resume Customization Level</label>
+          <select
+            value={job.resume_customization || "none"}
+            onChange={(e) => setJob({ ...job, resume_customization: e.target.value })}
+            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #d1d5db" }}
+          >
+            <option value="none">None - Used generic resume</option>
+            <option value="light">Light - Minor adjustments</option>
+            <option value="heavy">Heavy - Significant customization</option>
+            <option value="tailored">Tailored - Fully customized for this job</option>
+          </select>
+
           <label style={{ marginTop: "10px" }}>Cover Letter</label>
           <select
             value={selectedCover}
@@ -498,6 +512,18 @@ export default function JobDetailsModal({
                 {c.title}
               </option>
             ))}
+          </select>
+
+          <label style={{ marginTop: "10px" }}>Cover Letter Customization Level</label>
+          <select
+            value={job.cover_letter_customization || "none"}
+            onChange={(e) => setJob({ ...job, cover_letter_customization: e.target.value })}
+            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #d1d5db" }}
+          >
+            <option value="none">None - Used generic cover letter</option>
+            <option value="light">Light - Minor adjustments</option>
+            <option value="heavy">Heavy - Significant customization</option>
+            <option value="tailored">Tailored - Fully customized for this job</option>
           </select>
 
           <button

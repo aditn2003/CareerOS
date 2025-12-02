@@ -5,7 +5,6 @@ import {
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import Spinner from "./components/Spinner";
@@ -20,13 +19,20 @@ import ProfileLayout from "./pages/Profile/ProfileLayout";
 import Jobs from "./pages/Jobs";
 import StatisticsPage from "./pages/StatisticsPage";
 import ArchivedJobs from "./pages/ArchivedJobs";
-import CompanyResearch from "./pages/CompanyResearch";
+import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
 import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
 import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
-import Interviews from "./pages/Interviews/Interviews";
-import SalaryResearch from "./pages/Salary/SalaryResearch";
-import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
+import InterviewsLayout from "./pages/Interviews/InterviewsLayout"; // Layout wrapper
+import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-074
+import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
+import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
+import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
+import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
+import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
+import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
+import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
+import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -40,11 +46,11 @@ import ResumeFinalReview from "./components/ResumeFinalReview";
 // ---------- Context Providers ----------
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
+import { TeamProvider } from "./contexts/TeamContext";
 
 // 🔐 Protected Route Wrapper
 function ProtectedRoute({ children }) {
   const authed = !!localStorage.getItem("token");
-
   return authed ? children : <Navigate to="/login" replace />;
 }
 
@@ -52,11 +58,13 @@ function ProtectedRoute({ children }) {
 export default function App() {
   return (
     <AuthProvider>
+      <TeamProvider>
       <ProfileProvider>
         <Router>
           <MainLayout />
         </Router>
       </ProfileProvider>
+      </TeamProvider>
     </AuthProvider>
   );
 }
@@ -64,7 +72,6 @@ export default function App() {
 // ---------- Layout Shell (NavBar + Routes) ----------
 function MainLayout() {
   const [loading] = useState(false);
-  const navigate = useNavigate();
 
   return (
     <div className="app-wrapper">
@@ -80,6 +87,7 @@ function MainLayout() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
           <Route path="/reset" element={<ResetPassword />} />
+
           {/* --- Profile Routes (Protected) --- */}
           <Route
             path="/profile/*"
@@ -89,6 +97,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Resume Builder Pipeline (Protected) --- */}
           <Route
             path="/resume"
@@ -146,6 +155,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Jobs Dashboard (Protected) --- */}
           <Route
             path="/jobs"
@@ -155,6 +165,17 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
+          {/* --- Networking (Protected) --- */}
+          <Route
+            path="/networking"
+            element={
+              <ProtectedRoute>
+                <Networking />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"
@@ -164,6 +185,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Archived Jobs (Protected) --- */}
           <Route
             path="/archived"
@@ -173,23 +195,19 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
-          {/* --- Company Research (Protected) --- */}
+
+          {/* --- Company Research (Redirect to Interviews) --- */}
           <Route
             path="/company-research"
-            element={
-              <ProtectedRoute>
-                <CompanyResearch />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/interviews/company-research" replace />}
           />
+
+          {/* --- Salary Research (Redirect to Interviews) --- */}
           <Route
             path="/salary-research"
-            element={
-              <ProtectedRoute>
-                <SalaryResearch />
-              </ProtectedRoute>
-            }
+            element={<Navigate to="/interviews/salary-research" replace />}
           />
+
           {/* --- Job Match (Protected) --- */}
           <Route
             path="/job-match"
@@ -199,6 +217,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Match Compare (Protected) --- */}
           <Route
             path="/match/compare"
@@ -208,6 +227,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Skills Gap (Protected) --- */}
           <Route
             path="/skills-gap/:jobId"
@@ -217,18 +237,49 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
-          {/* --- Interviews (Protected) --- */}
+
+          {/* --- Interview Preparation (Nested + Protected) --- */}
           <Route
             path="/interviews"
             element={
               <ProtectedRoute>
-                <Interviews />
+                <InterviewsLayout />
+              </ProtectedRoute>
+            }
+          >
+            {/* Default redirect to insights */}
+            <Route index element={<Navigate to="insights" replace />} />
+
+            {/* Nested routes */}
+            <Route path="insights" element={<InterviewInsights />} />
+            <Route path="question-bank" element={<QuestionBank />} />
+            <Route path="response-coaching" element={<ResponseCoaching />} />
+            <Route path="mock-interview" element={<MockInterview />} />
+            <Route path="follow-up" element={<FollowUpTemplates />} />
+            <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
+            <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}
+          </Route>
+
+          {/* --- Cover Letter (UC-055, Protected) --- */}
+          <Route
+            path="/cover-letter"
+            element={
+              <ProtectedRoute>
+                <CoverLetter />
               </ProtectedRoute>
             }
           />
-          {/* --- Cover Letter (UC-055)  --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
-          {/* ✅ NEW */}
+
+          {/* --- Mentor Routes (Protected) --- */}
+          <Route
+            path="/mentor/*"
+            element={
+              <ProtectedRoute>
+                <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Legacy / Alias --- */}
           <Route
             path="/resume/templates"
@@ -238,6 +289,7 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+
           {/* --- Fallback --- */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

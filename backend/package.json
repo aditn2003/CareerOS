@@ -9,8 +9,8 @@
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand --forceExit --testTimeout=30000"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.18.0",
-    "@supabase/supabase-js": "^2.46.1",
+    "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

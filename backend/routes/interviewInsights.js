@@ -10,11 +10,50 @@ const router = express.Router();
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 const SERP_API_KEY = process.env.SERP_API_KEY;
 
-// Initialize Supabase client
+// Initialize Supabase client with proper configuration
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_ANON_KEY,
+  {
+    db: {
+      schema: 'public',
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: {
+        'x-application-name': 'ats-interview-prep',
+      },
+    },
+  }
 );
+
+// Helper function to retry database operations
+async function retryDatabaseOperation(operation, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      // Check if it's a connection error
+      if (error.code === 'XX000' || error.message?.includes('shutdown') || error.message?.includes('termination')) {
+        console.warn(`⚠️ Database connection error (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        if (attempt === maxRetries) {
+          throw new Error('Database connection failed after multiple retries');
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 100));
+        continue;
+      }
+      
+      // If it's not a connection error, throw immediately
+      throw error;
+    }
+  }
+}
 
 const http = axios.create({
   timeout: 15000,
@@ -163,7 +202,16 @@ Using all provided data, produce JSON in EXACTLY this shape:
   "recommendations": ["..."],
   "timeline": "...",
   "tips": ["..."],
-  "checklist": ["..."]
+  "checklist": {
+    "research": ["Verify: ...", "Research: ...", "Review: ..."],
+    "technical": ["Prepare: ...", "Practice: ...", "Review: ..."],
+    "logistics": ["Confirm: ...", "Test: ...", "Prepare: ..."],
+    "attire": "Suggested attire based on company culture",
+    "portfolio": ["Prepare: ...", "Review: ...", "Update: ..."],
+    "confidence": ["Exercise: ...", "Practice: ...", "Review: ..."],
+    "questions": ["Prepare question about: ...", "Ask about: ..."],
+    "followUp": ["Send thank-you within: ...", "Follow up on: ...", "Connect via: ..."]
+  }
 }
 
 STRICT RULES:
@@ -172,7 +220,15 @@ STRICT RULES:
 - Stages must match what ${company} typically does for ${role}.
 - Recommendations must be specific: tools, languages, systems, soft skills for that role.
 - Timeline must be realistic for ${company} hiring this role.
-- Checklist must contain high-value preparation tasks tailored to ${role}.
+- CHECKLIST REQUIREMENTS (UC-081):
+  * research: Company research verification items (3-5 items)
+  * technical: Role-specific technical preparation tasks (3-5 items for technical roles, 0-2 for non-technical)
+  * logistics: Location, timing, technology setup verification (3-4 items)
+  * attire: Specific attire suggestion based on ${company} culture (string)
+  * portfolio: Work sample/portfolio preparation (2-4 items for creative/technical roles, 0-2 for others)
+  * confidence: Confidence-building exercises and activities (3-4 items)
+  * questions: Thoughtful questions to prepare for interviewer (3-5 items)
+  * followUp: Post-interview follow-up task reminders (3-4 items)
 - No filler. No vague content.
 - ALWAYS return valid JSON only.
 `;
@@ -327,6 +383,7 @@ REQUIREMENTS:
 router.get("/", async (req, res) => {
   const company = req.query.company?.trim();
   const role = req.query.role?.trim() || "";
+  const userId = req.query.userId?.trim() || "1";
 
   if (!company)
     return res.status(400).json({ success: false, message: "Missing ?company=" });
@@ -344,6 +401,52 @@ router.get("/", async (req, res) => {
 
     if (!ai)
       return res.status(500).json({ success: false, message: "AI generation failed" });
+
+    // Check if there's a saved checklist for this user/company/role
+    const userIdInt = parseInt(userId, 10);
+    
+    const { data: savedChecklist, error: fetchError } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_checklist_items")
+        .select("checklist_data")
+        .eq("user_id", userIdInt)
+        .eq("company", company)
+        .eq("role", role)
+        .single();
+    });
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 = no rows found, which is fine
+      console.error("❌ Error fetching saved checklist:", fetchError);
+    }
+
+    if (savedChecklist && savedChecklist.checklist_data) {
+      // Use saved checklist
+      console.log(`✅ Using saved checklist for: ${company} (${role})`);
+      ai.checklist = savedChecklist.checklist_data;
+    } else {
+      // Save the newly generated checklist
+      console.log(`💾 Saving new checklist for: ${company} (${role})`);
+      
+      await retryDatabaseOperation(async () => {
+        const { error } = await supabase
+          .from("interview_checklist_items")
+          .upsert({
+            user_id: userIdInt,
+            company,
+            role,
+            checklist_data: ai.checklist,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,company,role'
+          });
+        
+        if (error) throw error;
+        return { success: true };
+      });
+      
+      console.log(`✅ Checklist saved successfully`);
+    }
 
     console.log(`✅ Completed interview insights for: ${company} (${role})`);
     return res.json({ success: true, data: ai });
@@ -397,10 +500,11 @@ router.get("/questions", async (req, res) => {
 
 /* -----------------------------------------------------
    🆕 UC-075: Track Practiced Questions with Supabase
+   UPDATED: Now accepts questionText and tracks practice_count
 ----------------------------------------------------- */
 router.post("/questions/practice", async (req, res) => {
   try {
-    const { userId, questionId, questionCategory, response } = req.body;
+    const { userId, questionId, questionText, questionCategory, response } = req.body;
 
     if (!userId || !questionId) {
       return res.status(400).json({
@@ -420,6 +524,16 @@ router.post("/questions/practice", async (req, res) => {
 
     // Calculate response length
     const responseLength = response ? response.length : 0;
+    
+    // Get practice count from existing record
+    const { data: existing } = await supabase
+      .from("practiced_questions")
+      .select("practice_count")
+      .eq("user_id", userIdInt)
+      .eq("question_id", questionId)
+      .single();
+    
+    const practiceCount = existing ? (existing.practice_count || 0) + 1 : 1;
 
     // Upsert the practiced question (insert or update if exists)
     const { data, error } = await supabase
@@ -427,9 +541,11 @@ router.post("/questions/practice", async (req, res) => {
       .upsert({
         user_id: userIdInt,
         question_id: questionId,
+        question_text: questionText || null,
         question_category: questionCategory || null,
         response: response || null,
         response_length: responseLength,
+        practice_count: practiceCount,
         practiced_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id,question_id'
@@ -446,7 +562,7 @@ router.post("/questions/practice", async (req, res) => {
       });
     }
 
-    console.log(`✅ Marked question ${questionId} as practiced for user ${userIdInt}`);
+    console.log(`✅ Marked question ${questionId} as practiced for user ${userIdInt} (count: ${practiceCount})`);
     
     // Get total practiced count
     const { count } = await supabase
@@ -460,6 +576,7 @@ router.post("/questions/practice", async (req, res) => {
       data: {
         questionId,
         practicedAt: data.practiced_at,
+        practiceCount: practiceCount,
         totalPracticed: count || 0
       }
     });
@@ -665,6 +782,825 @@ router.delete("/questions/practice/:questionId", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete practiced question"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-081: Toggle Checklist Item Completion
+----------------------------------------------------- */
+router.post("/checklist/toggle", async (req, res) => {
+  try {
+    const { userId, company, role, category, item } = req.body;
+
+    if (!userId || !company || !role || !item) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: userId, company, role, item"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Check if item already exists
+    const { data: existing } = await supabase
+      .from("interview_checklist_completion")
+      .select("*")
+      .eq("user_id", userIdInt)
+      .eq("company", company)
+      .eq("role", role)
+      .eq("checklist_item", item)
+      .single();
+
+    if (existing) {
+      // Toggle completion status
+      const newStatus = !existing.is_completed;
+      const { data, error } = await supabase
+        .from("interview_checklist_completion")
+        .update({
+          is_completed: newStatus,
+          completed_at: newStatus ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Database error while updating checklist",
+          error: error.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          isCompleted: data.is_completed,
+          completedAt: data.completed_at
+        }
+      });
+    } else {
+      // Create new checklist item
+      const { data, error } = await supabase
+        .from("interview_checklist_completion")
+        .insert({
+          user_id: userIdInt,
+          company,
+          role,
+          checklist_category: category || "general",
+          checklist_item: item,
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Database error while creating checklist item",
+          error: error.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          isCompleted: data.is_completed,
+          completedAt: data.completed_at
+        }
+      });
+    }
+  } catch (err) {
+    console.error("❌ Error toggling checklist:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to toggle checklist item"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-081: Get Checklist Completion Status
+----------------------------------------------------- */
+router.get("/checklist/status", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+    const company = req.query.company?.trim();
+    const role = req.query.role?.trim();
+
+    if (!userId || !company || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId=, ?company=, or ?role= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Get all completed items for this user/company/role
+    const { data, error } = await supabase
+      .from("interview_checklist_completion")
+      .select("*")
+      .eq("user_id", userIdInt)
+      .eq("company", company)
+      .eq("role", role)
+      .eq("is_completed", true);
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching checklist status",
+        error: error.message
+      });
+    }
+
+    // Convert to map for easy lookup
+    const completedItems = {};
+    (data || []).forEach((item) => {
+      completedItems[item.checklist_item] = {
+        completed: true,
+        completedAt: item.completed_at
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        userId: userIdInt,
+        company,
+        role,
+        completedItems,
+        totalCompleted: data?.length || 0
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching checklist status:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch checklist status"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-081: Get Checklist Statistics
+----------------------------------------------------- */
+router.get("/checklist/stats", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+    const company = req.query.company?.trim();
+    const role = req.query.role?.trim();
+
+    if (!userId || !company || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId=, ?company=, or ?role= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Get all checklist items for this user/company/role
+    const { data, error } = await supabase
+      .from("interview_checklist_completion")
+      .select("*")
+      .eq("user_id", userIdInt)
+      .eq("company", company)
+      .eq("role", role);
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching checklist stats",
+        error: error.message
+      });
+    }
+
+    const items = data || [];
+    const completed = items.filter(i => i.is_completed).length;
+    const total = items.length;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // Category breakdown
+    const categoryStats = {};
+    items.forEach((item) => {
+      const cat = item.checklist_category || "general";
+      if (!categoryStats[cat]) {
+        categoryStats[cat] = { total: 0, completed: 0 };
+      }
+      categoryStats[cat].total++;
+      if (item.is_completed) {
+        categoryStats[cat].completed++;
+      }
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        userId: userIdInt,
+        company,
+        role,
+        totalItems: total,
+        completedItems: completed,
+        percentage,
+        categoryStats
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching checklist stats:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch checklist statistics"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-081: Regenerate Checklist
+   Delete saved checklist to force generation of new one
+----------------------------------------------------- */
+router.delete("/checklist/regenerate", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+    const company = req.query.company?.trim();
+    const role = req.query.role?.trim();
+
+    if (!userId || !company || !role) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId=, ?company=, or ?role= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Delete saved checklist
+    const { error } = await supabase
+      .from("interview_checklist_items")
+      .delete()
+      .eq("user_id", userIdInt)
+      .eq("company", company)
+      .eq("role", role);
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while deleting checklist",
+        error: error.message
+      });
+    }
+
+    console.log(`✅ Deleted saved checklist for ${company} (${role}) - will regenerate on next fetch`);
+
+    return res.json({
+      success: true,
+      message: "Checklist will be regenerated on next load"
+    });
+  } catch (err) {
+    console.error("❌ Error regenerating checklist:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to regenerate checklist"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-082: Generate Follow-Up Email Template
+----------------------------------------------------- */
+async function generateFollowUpTemplate(
+  templateType,
+  company,
+  role,
+  interviewerName,
+  interviewerTitle,
+  interviewDate,
+  conversationHighlights
+) {
+  const prompt = `
+You are generating a professional interview follow-up email template.
+
+CONTEXT:
+- Template Type: ${templateType}
+- Company: ${company}
+- Role: ${role}
+- Interviewer: ${interviewerName}${interviewerTitle ? ` (${interviewerTitle})` : ''}
+- Interview Date: ${interviewDate}
+- Key Conversation Points: ${conversationHighlights?.join(', ') || 'General discussion'}
+
+Generate a JSON response with this EXACT structure:
+
+{
+  "subjectLine": "Concise, professional subject line",
+  "emailBody": "Full email body with proper formatting and line breaks",
+  "suggestedTiming": {
+    "sendDate": "YYYY-MM-DD",
+    "timeOfDay": "Morning (9-11 AM)" or "Afternoon (1-3 PM)" or "Evening (4-6 PM)",
+    "reasoning": "Why this timing is optimal"
+  },
+  "personalizationTips": [
+    "Tip 1 for customizing this template",
+    "Tip 2 for making it more personal"
+  ],
+  "dosList": ["Do this", "Do that"],
+  "dontsList": ["Don't do this", "Don't do that"]
+}
+
+TEMPLATE TYPE GUIDELINES:
+
+${templateType === 'thank_you' ? `
+THANK YOU EMAIL (Send 24-48 hours after interview):
+- Express genuine gratitude for their time
+- Reference specific conversation points (${conversationHighlights?.[0] || 'technical discussion'})
+- Reiterate interest in the role and company
+- Mention something unique you learned about the company
+- Keep it concise (3-4 paragraphs)
+- End with enthusiasm and next steps
+` : ''}
+
+${templateType === 'status_inquiry' ? `
+STATUS INQUIRY (Send 1-2 weeks after interview if no response):
+- Polite and professional tone
+- Acknowledge they're likely busy
+- Briefly reiterate your interest
+- Ask for timeline update
+- Offer to provide additional information
+- Keep it short and to the point
+` : ''}
+
+${templateType === 'feedback_request' ? `
+FEEDBACK REQUEST (Send after receiving rejection):
+- Thank them for the opportunity
+- Express genuine interest in learning and growth
+- Politely request constructive feedback
+- Mention it will help your professional development
+- Keep tone positive and forward-looking
+- Don't sound bitter or entitled
+` : ''}
+
+${templateType === 'networking' ? `
+NETWORKING FOLLOW-UP (Send after rejection to maintain relationship):
+- Thank them for the interview experience
+- Express desire to stay connected
+- Mention specific insights you gained
+- Ask to connect on LinkedIn
+- Offer to be a resource if relevant
+- Keep door open for future opportunities
+` : ''}
+
+IMPORTANT:
+- Use [INTERVIEWER_NAME], [COMPANY], [ROLE] as placeholders
+- Professional but warm tone
+- No typos or grammatical errors
+- Appropriate length for template type
+- Include proper email formatting (line breaks, paragraphs)
+
+Return ONLY valid JSON.
+`;
+
+  try {
+    const { data } = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You generate professional, personalized interview follow-up email templates."
+          },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7
+      },
+      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+    );
+
+    return JSON.parse(data.choices[0].message.content);
+  } catch (err) {
+    console.error("❌ OpenAI Follow-Up Template Error:", err.message);
+    return null;
+  }
+}
+
+/* -----------------------------------------------------
+   🆕 UC-082: POST /follow-up/generate
+   Generate follow-up email template
+----------------------------------------------------- */
+router.post("/follow-up/generate", async (req, res) => {
+  try {
+    const {
+      userId,
+      company,
+      role,
+      templateType,
+      interviewerName,
+      interviewerTitle,
+      interviewDate,
+      conversationHighlights
+    } = req.body;
+
+    if (!userId || !company || !role || !templateType) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: userId, company, role, templateType"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Validate template type
+    const validTypes = ['thank_you', 'status_inquiry', 'feedback_request', 'networking'];
+    if (!validTypes.includes(templateType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid template type. Must be one of: ${validTypes.join(', ')}`
+      });
+    }
+
+    console.log(`🔄 Generating ${templateType} template for ${company} (${role})`);
+
+    // Generate template with AI
+    const template = await generateFollowUpTemplate(
+      templateType,
+      company,
+      role,
+      interviewerName || 'the interviewer',
+      interviewerTitle,
+      interviewDate || new Date().toISOString().split('T')[0],
+      conversationHighlights
+    );
+
+    if (!template) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to generate template"
+      });
+    }
+
+    // Calculate suggested send date
+    let suggestedDate = new Date();
+    switch (templateType) {
+      case 'thank_you':
+        suggestedDate.setDate(suggestedDate.getDate() + 1); // Next day
+        break;
+      case 'status_inquiry':
+        suggestedDate.setDate(suggestedDate.getDate() + 10); // 10 days from now
+        break;
+      case 'feedback_request':
+      case 'networking':
+        suggestedDate.setDate(suggestedDate.getDate() + 2); // 2 days from now
+        break;
+    }
+
+    // Save to database
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .insert({
+          user_id: userIdInt,
+          company,
+          role,
+          template_type: templateType,
+          template_content: template.emailBody,
+          subject_line: template.subjectLine,
+          interviewer_name: interviewerName || null,
+          interviewer_title: interviewerTitle || null,
+          interview_date: interviewDate || null,
+          conversation_highlights: conversationHighlights || [],
+          suggested_send_date: template.suggestedTiming?.sendDate || suggestedDate.toISOString().split('T')[0],
+          suggested_send_time: template.suggestedTiming?.timeOfDay || 'Morning (9-11 AM)'
+        })
+        .select()
+        .single();
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while saving template",
+        error: error.message
+      });
+    }
+
+    console.log(`✅ Generated ${templateType} template (ID: ${data.id})`);
+
+    return res.json({
+      success: true,
+      data: {
+        ...data,
+        personalizationTips: template.personalizationTips,
+        dosList: template.dosList,
+        dontsList: template.dontsList,
+        timingReasoning: template.suggestedTiming?.reasoning
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error generating follow-up template:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to generate follow-up template"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-082: GET /follow-up/templates
+   Get all follow-up templates for user
+----------------------------------------------------- */
+router.get("/follow-up/templates", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+    const company = req.query.company?.trim();
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Build query
+    let query = supabase
+      .from("interview_follow_ups")
+      .select("*")
+      .eq("user_id", userIdInt)
+      .order("created_at", { ascending: false });
+
+    // Filter by company if provided
+    if (company) {
+      query = query.eq("company", company);
+    }
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await query;
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching templates",
+        error: error.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        templates: data || [],
+        total: data?.length || 0
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching templates:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch templates"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-082: PUT /follow-up/:id/mark-sent
+   Mark template as sent
+----------------------------------------------------- */
+router.put("/follow-up/:id/mark-sent", async (req, res) => {
+  try {
+    const templateId = parseInt(req.params.id, 10);
+    const { userId } = req.body;
+
+    if (isNaN(templateId) || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid template ID or missing userId"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .update({
+          is_sent: true,
+          sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", templateId)
+        .eq("user_id", userIdInt)
+        .select()
+        .single();
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while marking as sent",
+        error: error.message
+      });
+    }
+
+    console.log(`✅ Marked template ${templateId} as sent`);
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error("❌ Error marking template as sent:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to mark template as sent"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-082: PUT /follow-up/:id/track-response
+   Track response to follow-up
+----------------------------------------------------- */
+router.put("/follow-up/:id/track-response", async (req, res) => {
+  try {
+    const templateId = parseInt(req.params.id, 10);
+    const { userId, responseReceived, responseType, notes } = req.body;
+
+    if (isNaN(templateId) || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid template ID or missing userId"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .update({
+          response_received: responseReceived || true,
+          response_date: new Date().toISOString(),
+          response_type: responseType || 'neutral',
+          notes: notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", templateId)
+        .eq("user_id", userIdInt)
+        .select()
+        .single();
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while tracking response",
+        error: error.message
+      });
+    }
+
+    console.log(`✅ Tracked response for template ${templateId}: ${responseType}`);
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error("❌ Error tracking response:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to track response"
+    });
+  }
+});
+
+/* -----------------------------------------------------
+   🆕 UC-082: GET /follow-up/stats
+   Get follow-up statistics
+----------------------------------------------------- */
+router.get("/follow-up/stats", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .select("*")
+        .eq("user_id", userIdInt);
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching stats",
+        error: error.message
+      });
+    }
+
+    const templates = data || [];
+    const totalTemplates = templates.length;
+    const sentTemplates = templates.filter(t => t.is_sent).length;
+    const responsesReceived = templates.filter(t => t.response_received).length;
+    const responseRate = sentTemplates > 0 
+      ? Math.round((responsesReceived / sentTemplates) * 100) 
+      : 0;
+
+    // Break down by type
+    const byType = {
+      thank_you: templates.filter(t => t.template_type === 'thank_you').length,
+      status_inquiry: templates.filter(t => t.template_type === 'status_inquiry').length,
+      feedback_request: templates.filter(t => t.template_type === 'feedback_request').length,
+      networking: templates.filter(t => t.template_type === 'networking').length
+    };
+
+    // Response types
+    const byResponseType = {
+      positive: templates.filter(t => t.response_type === 'positive').length,
+      negative: templates.filter(t => t.response_type === 'negative').length,
+      neutral: templates.filter(t => t.response_type === 'neutral').length,
+      no_response: templates.filter(t => t.response_type === 'no_response').length
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        totalTemplates,
+        sentTemplates,
+        responsesReceived,
+        responseRate,
+        byType,
+        byResponseType
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching follow-up stats:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch statistics"
     });
   }
 });

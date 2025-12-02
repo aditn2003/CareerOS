@@ -14,16 +14,26 @@ import {
   FaArchive,
   FaStar,
   FaComments,
-  FaDollarSign, // 💰 NEW ICON
-  FaBuilding,
   FaEnvelope, // ✅ Icon for Cover Letter
+  FaUserGraduate, // ✅ Icon for Mentor
+  FaNetworkWired, // ✅ Icon for Networking
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTeam } from "../contexts/TeamContext";
 
 export default function NavBar() {
   const { authed, logout } = useAuth();
+  const { teamState } = useTeam() || {};
   const navigate = useNavigate();
+
+  // Show Mentor button to anyone who has a team (admin, mentor, or candidate)
+  // or if they're a candidate/member waiting to be part of a team
+  const showMentorButton =
+    teamState?.hasTeam ||
+    teamState?.isMentor ||
+    teamState?.isCandidate ||
+    (teamState?.primaryTeam && teamState?.primaryTeam?.status);
 
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
@@ -71,26 +81,27 @@ export default function NavBar() {
               <FaChartBar /> Statistics
             </NavLink>
 
-            {/* 🗄️ Archived */}
+            {/* 🌐 Networking */}
+            <NavLink to="/networking">
+              <FaNetworkWired /> Networking
+            </NavLink>
 
+            {/* 🗄️ Archived */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>
 
-            {/* 🏢 Company Research */}
-            <NavLink to="/company-research">
-              <FaBuilding /> Company Research
-            </NavLink>
-
-            {/* 💰 Salary Research */}
-            <NavLink to="/salary-research">
-              <FaDollarSign /> Salary Research
-            </NavLink>
-
-            {/* 🗨️ INTERVIEW INSIGHTS */}
+            {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
               <FaComments /> Interviews
             </NavLink>
+
+            {/* 👨‍🏫 Mentor */}
+            {showMentorButton && (
+              <NavLink to="/mentor">
+                <FaUserGraduate /> Mentor
+              </NavLink>
+            )}
 
             {/* 👤 Profile */}
             <NavLink to="/profile/info">
@@ -98,7 +109,6 @@ export default function NavBar() {
             </NavLink>
 
             {/* 🚪 Logout */}
-
             <button onClick={handleLogout} className="logout-btn">
               <FaSignOutAlt /> Logout
             </button>

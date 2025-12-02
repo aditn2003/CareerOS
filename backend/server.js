@@ -1,13 +1,12 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
-
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import pkg from "pg";
+//import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
 import employmentRoutes from "./routes/employment.js";
@@ -33,10 +32,22 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
+import pool from "./db/pool.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import teamRoutes from "./routes/team.js";
+import responseCoachingRoutes from "./routes/responseCoaching.js";
+import mockInterviewsRoutes from "./routes/mockInterviews.js";
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
 import puppeteer from "puppeteer";
+import successAnalysisRoutes from "./routes/successAnalysis.js";
+import goalsRoutes from "./routes/goals.js";
+import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
+import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
+import networkingRoutes from "./routes/networking.js";
+import offersRoutes from "./routes/offers.js";
+import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -46,7 +57,7 @@ console.log(
   "🔑 GOOGLE_API_KEY loaded:",
   process.env.GOOGLE_API_KEY ? "✅ yes" : "❌ no"
 );
-const { Pool } = pkg;
+//const { Pool } = pkg;
 const app = express();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,29 +81,69 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
+// Configure SSL for Supabase connections
+// Supabase requires SSL for all connections
+const dbUrl = process.env.DATABASE_URL || '';
+const isSupabase = dbUrl.includes('supabase') || 
+                   dbUrl.includes('pooler.supabase') ||
+                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
+
 const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
+  connectionString: dbUrl,
 };
 
-if (process.env.NODE_ENV === 'test') {
-    // Limit to 1 connection during tests to prevent Supabase "MaxClients" error
-    poolConfig.max = 1;
-    poolConfig.idleTimeoutMillis = 1000; // Close idle clients quickly
+// Force SSL for Supabase connections
+if (isSupabase) {
+  poolConfig.ssl = { 
+    rejectUnauthorized: false 
+  };
+  console.log("🔒 SSL enabled for Supabase connection");
 }
 
-const pool = new Pool(poolConfig);
+// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
+// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
+const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
+const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
 
-// Only log connection if not in test mode to keep logs clean
-if (process.env.NODE_ENV !== 'test') {
-  pool
-    .connect()
-    .then(() => console.log("✅ Connected to PostgreSQL"))
-    .catch((err) => console.error("❌ DB connection error:", err.message));
-}
+const pool = new Pool({
+  ...poolConfig,
+  max: poolSize, // Maximum connections (2 for Supabase Session mode - very conservative)
+  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
+  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
+  connectionTimeoutMillis: 5000, // Return error after 5 seconds
+  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
+  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
+});
+// const pool = new Pool({
+//   ...poolConfig,
+//   max: 10, // Maximum number of clients in the pool
+//   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+//   connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
+// });
+
+// Handle pool errors gracefully - don't terminate on error, try to reconnect
+pool.on('error', (err) => {
+  console.error('⚠️ Unexpected error on idle client:', err.message);
+  // Don't throw - let the pool handle reconnection automatically
+});
+
+// REMOVED: Periodic health check consumes connections unnecessarily
+// Connections will be created on-demand when needed
+
+pool
+  .connect()
+  .then((client) => {
+    console.log("✅ Connected to PostgreSQL");
+    // Release the test connection
+    client.release();
+  })
+  .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const ACCOUNT_TYPES = new Set(["candidate", "team_admin"]);
+const DEFAULT_ACCOUNT_TYPE = "candidate";
 
 function makeToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
@@ -111,6 +162,7 @@ app.post("/register", async (req, res) => {
     confirmPassword = "",
     firstName = "",
     lastName = "",
+    accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
     if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
@@ -129,21 +181,69 @@ app.post("/register", async (req, res) => {
         .status(400)
         .json({ error: "First and last name are required" });
     }
+    const normalizedAccountType = (accountType || DEFAULT_ACCOUNT_TYPE)
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (!ACCOUNT_TYPES.has(normalizedAccountType)) {
+      return res.status(400).json({ error: "Invalid account type" });
+    }
 
     const lower = email.toLowerCase();
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
-      lower,
-    ]);
-    if (existing.rows.length > 0)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const existing = await client.query(
+        "SELECT id FROM users WHERE email=$1",
+        [lower]
+      );
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
       return res.status(409).json({ error: "Email already in use" });
+      }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      "INSERT INTO users (email, password_hash, first_name, last_name, provider) VALUES ($1,$2,$3,$4,'local') RETURNING id",
-      [lower, passwordHash, firstName.trim(), lastName.trim()]
+      const userResult = await client.query(
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
+        [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
     );
-    const token = makeToken({ id: result.rows[0].id, email: lower });
+      const userId = userResult.rows[0].id;
+
+      if (normalizedAccountType === "team_admin") {
+        const nameParts = [
+          userResult.rows[0].first_name?.trim(),
+          userResult.rows[0].last_name?.trim(),
+        ].filter(Boolean);
+        const teamName =
+          nameParts.length > 0
+            ? `${nameParts.join(" ")} Team`
+            : "New Team";
+
+        const teamResult = await client.query(
+          "INSERT INTO teams (name, owner_id) VALUES ($1,$2) RETURNING id",
+          [teamName, userId]
+        );
+
+        await client.query(
+          "INSERT INTO team_members (team_id, user_id, role, status) VALUES ($1,$2,'admin','active')",
+          [teamResult.rows[0].id, userId]
+        );
+      }
+
+      await client.query("COMMIT");
+      const token = makeToken({ id: userId, email: lower });
     return res.status(201).json({ message: "Registered", token });
+    } catch (dbErr) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        console.error("Rollback failed:", rollbackErr.message);
+      }
+      throw dbErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -264,7 +364,7 @@ app.get("/me", auth, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, email, first_name AS firstName, last_name AS lastName FROM users WHERE id=$1",
-      [req.userId]
+      [req.user.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -280,7 +380,7 @@ app.put("/me", auth, async (req, res) => {
   try {
     await pool.query(
       "UPDATE users SET first_name=$1, last_name=$2 WHERE id=$3",
-      [firstName, lastName, req.userId]
+      [firstName, lastName, req.user.id]
     );
     res.json({ message: "Updated" });
   } catch (err) {
@@ -312,7 +412,7 @@ app.post("/delete", auth, async (req, res) => {
   try {
     const { password = "" } = req.body;
     const userRes = await pool.query("SELECT * FROM users WHERE id=$1", [
-      req.userId,
+      req.user.id,
     ]);
     if (userRes.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -321,7 +421,7 @@ app.post("/delete", auth, async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash || "");
     if (!ok) return res.status(401).json({ error: "Invalid password" });
 
-    await pool.query("DELETE FROM users WHERE id=$1", [req.userId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [req.user.id]);
     res.json({ message: "Account deleted" });
   } catch (err) {
     console.error(err);
@@ -356,7 +456,7 @@ app.post("/google", async (req, res) => {
     ]);
     if (result.rows.length === 0) {
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider) VALUES ($1,$2,$3,'google') RETURNING id",
+        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
         [email, firstName, lastName]
       );
     }
@@ -378,6 +478,7 @@ app.use("/api", educationRoutes);
 app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -390,10 +491,19 @@ app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/cover-letter", coverLetterRoutes);
+app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
-app.use("/api", jobImportRoutes);
+app.use("/api/success-analysis", successAnalysisRoutes);
+app.use("/api/goals", goalsRoutes);
+app.use("/api/interview-analysis", interviewAnalysisRoutes);
+app.use("/api/networking-analysis", networkingAnalysisRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/offers", offersRoutes);
+app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+
+app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
 
 
 // ===== Global Error Handler =====
@@ -556,7 +666,7 @@ async function sendDeadlineReminders() {
   }
 }
 app.use("/api", jobImportRoutes);
-app.use("/api/jobs", jobRoutes);
+//app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -566,7 +676,10 @@ app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
+app.use("/api/response-coaching", responseCoachingRoutes);
+app.use("/api/mock-interviews", mockInterviewsRoutes);
 
+app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
@@ -579,6 +692,8 @@ app.post("/test-reminders", async (req, res) => {
     res.status(500).json({ error: "Failed to run reminder job" });
   }
 });
+
+
 
 // ===== Start Server =====
 // FIX: Only start the server if we are NOT testing
