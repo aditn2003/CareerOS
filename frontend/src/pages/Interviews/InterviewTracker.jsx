@@ -15,6 +15,8 @@ function InterviewTracker() {
     company: "",
     role: "",
     interviewDate: "",
+    interviewTime: "", // NEW: Time field
+    durationMinutes: 60, // NEW: Duration
     interviewType: "technical",
     interviewFormat: "remote",
     selfRating: 3,
@@ -26,7 +28,17 @@ function InterviewTracker() {
     outcome: "pending",
     offerAmount: "",
     mockInterviewsCompleted: 0,
-    notes: ""
+    notes: "",
+    // NEW: Scheduling fields
+    interviewRound: 1,
+    interviewerName: "",
+    interviewerEmail: "",
+    videoLink: "",
+    locationAddress: "",
+    dialInNumber: "",
+    meetingId: "",
+    meetingPassword: "",
+    syncToCalendar: false
   });
 
   const userId = getUserId();
@@ -117,8 +129,11 @@ function InterviewTracker() {
         company: formData.company,
         role: formData.role,
         interviewDate: formData.interviewDate,
+        interviewTime: formData.interviewTime || null,
+        durationMinutes: parseInt(formData.durationMinutes) || 60,
         interviewType: formData.interviewType,
         interviewFormat: formData.interviewFormat,
+        interviewRound: parseInt(formData.interviewRound) || 1,
         selfRating: parseInt(formData.selfRating),
         confidenceLevel: parseInt(formData.confidenceLevel),
         difficultyRating: parseInt(formData.difficultyRating),
@@ -128,7 +143,15 @@ function InterviewTracker() {
         outcome: formData.outcome,
         offerAmount: formData.offerAmount ? parseFloat(formData.offerAmount) : null,
         mockInterviewsCompleted: parseInt(formData.mockInterviewsCompleted),
-        notes: formData.notes
+        notes: formData.notes,
+        interviewerName: formData.interviewerName || null,
+        interviewerEmail: formData.interviewerEmail || null,
+        videoLink: formData.videoLink || null,
+        locationAddress: formData.locationAddress || null,
+        dialInNumber: formData.dialInNumber || null,
+        meetingId: formData.meetingId || null,
+        meetingPassword: formData.meetingPassword || null,
+        syncToCalendar: formData.syncToCalendar
       };
 
       if (editingId) {
@@ -158,6 +181,8 @@ function InterviewTracker() {
       company: "",
       role: "",
       interviewDate: "",
+      interviewTime: "",
+      durationMinutes: 60,
       interviewType: "technical",
       interviewFormat: "remote",
       selfRating: 3,
@@ -169,7 +194,16 @@ function InterviewTracker() {
       outcome: "pending",
       offerAmount: "",
       mockInterviewsCompleted: 0,
-      notes: ""
+      notes: "",
+      interviewRound: 1,
+      interviewerName: "",
+      interviewerEmail: "",
+      videoLink: "",
+      locationAddress: "",
+      dialInNumber: "",
+      meetingId: "",
+      meetingPassword: "",
+      syncToCalendar: false
     });
   }
 
@@ -286,6 +320,42 @@ function InterviewTracker() {
                   </div>
 
                   <div className="form-group">
+                    <label>Interview Time</label>
+                    <input
+                      type="time"
+                      name="interviewTime"
+                      value={formData.interviewTime}
+                      onChange={handleInputChange}
+                    />
+                    <small>What time is the interview?</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Duration (minutes)</label>
+                    <input
+                      type="number"
+                      name="durationMinutes"
+                      value={formData.durationMinutes}
+                      onChange={handleInputChange}
+                      min="15"
+                      step="15"
+                    />
+                    <small>Expected interview length</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Round Number</label>
+                    <input
+                      type="number"
+                      name="interviewRound"
+                      value={formData.interviewRound}
+                      onChange={handleInputChange}
+                      min="1"
+                    />
+                    <small>Which round? (1, 2, 3...)</small>
+                  </div>
+
+                  <div className="form-group">
                     <label>Interview Type *</label>
                     <select
                       name="interviewType"
@@ -371,6 +441,98 @@ function InterviewTracker() {
                     />
                     <small>How many practice sessions before this?</small>
                   </div>
+                </div>
+
+                {/* Interview Logistics */}
+                <div className="form-section">
+                  <h3>📍 Interview Logistics</h3>
+                  
+                  <div className="form-group">
+                    <label>Interviewer Name (Optional)</label>
+                    <input
+                      type="text"
+                      name="interviewerName"
+                      value={formData.interviewerName}
+                      onChange={handleInputChange}
+                      placeholder="e.g., John Smith"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Interviewer Email (Optional)</label>
+                    <input
+                      type="email"
+                      name="interviewerEmail"
+                      value={formData.interviewerEmail}
+                      onChange={handleInputChange}
+                      placeholder="john@company.com"
+                    />
+                  </div>
+
+                  {formData.interviewFormat === 'remote' && (
+                    <>
+                      <div className="form-group">
+                        <label>Video Link</label>
+                        <input
+                          type="url"
+                          name="videoLink"
+                          value={formData.videoLink}
+                          onChange={handleInputChange}
+                          placeholder="https://zoom.us/j/..."
+                        />
+                        <small>Zoom, Google Meet, Teams link</small>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Meeting ID (Optional)</label>
+                        <input
+                          type="text"
+                          name="meetingId"
+                          value={formData.meetingId}
+                          onChange={handleInputChange}
+                          placeholder="123 456 7890"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Meeting Password (Optional)</label>
+                        <input
+                          type="text"
+                          name="meetingPassword"
+                          value={formData.meetingPassword}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      {formData.interviewTime && formData.videoLink && (
+                        <div className="form-group">
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              name="syncToCalendar"
+                              checked={formData.syncToCalendar}
+                              onChange={handleInputChange}
+                            />
+                            <span>📅 Sync to Google Calendar & send reminders</span>
+                          </label>
+                          <small>Get email reminders 24h and 2h before interview</small>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {formData.interviewFormat === 'in_person' && (
+                    <div className="form-group">
+                      <label>Location Address</label>
+                      <textarea
+                        name="locationAddress"
+                        value={formData.locationAddress}
+                        onChange={handleInputChange}
+                        rows="2"
+                        placeholder="123 Main St, City, State"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Areas & Feedback */}

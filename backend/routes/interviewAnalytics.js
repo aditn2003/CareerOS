@@ -2,6 +2,7 @@
 import express from "express";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
+import { syncToGoogleCalendar, sendInterviewConfirmation } from "../utils/schedulingHelpers.js";
 
 const router = express.Router();
 
@@ -560,8 +561,11 @@ router.post("/outcome", async (req, res) => {
       company,
       role,
       interviewDate,
+      interviewTime,
+      durationMinutes,
       interviewType,
       interviewFormat,
+      interviewRound,
       difficultyRating,
       selfRating,
       confidenceLevel,
@@ -577,7 +581,16 @@ router.post("/outcome", async (req, res) => {
       mockInterviewsCompleted,
       usedAiCoaching,
       notes,
-      lessonsLearned
+      lessonsLearned,
+      // NEW: Scheduling fields
+      interviewerName,
+      interviewerEmail,
+      videoLink,
+      locationAddress,
+      dialInNumber,
+      meetingId,
+      meetingPassword,
+      syncToCalendar
     } = req.body;
 
     if (!userId || !company || !role || !interviewDate || !interviewType) {
@@ -604,8 +617,11 @@ router.post("/outcome", async (req, res) => {
           company,
           role,
           interview_date: interviewDate,
+          interview_time: interviewTime || null,
+          duration_minutes: durationMinutes || 60,
           interview_type: interviewType,
           interview_format: interviewFormat || null,
+          interview_round: interviewRound || 1,
           difficulty_rating: difficultyRating || null,
           self_rating: selfRating || null,
           confidence_level: confidenceLevel || null,
@@ -621,7 +637,16 @@ router.post("/outcome", async (req, res) => {
           mock_interviews_completed: mockInterviewsCompleted || 0,
           used_ai_coaching: usedAiCoaching || false,
           notes: notes || null,
-          lessons_learned: lessonsLearned || null
+          lessons_learned: lessonsLearned || null,
+          // NEW: Scheduling fields
+          interviewer_name: interviewerName || null,
+          interviewer_email: interviewerEmail || null,
+          video_link: videoLink || null,
+          location_address: locationAddress || null,
+          dial_in_number: dialInNumber || null,
+          meeting_id: meetingId || null,
+          meeting_password: meetingPassword || null,
+          interview_status: 'scheduled'
         })
         .select()
         .single();
@@ -629,7 +654,7 @@ router.post("/outcome", async (req, res) => {
 
     if (error) {
       console.error("❌ Supabase error:", error);
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
         message: "Database error while saving interview outcome",
         error: error.message
@@ -637,6 +662,54 @@ router.post("/outcome", async (req, res) => {
     }
 
     console.log(`✅ Interview outcome recorded (ID: ${data.id})`);
+
+    // NEW: Calendar sync and email confirmation
+    try {
+      // Sync to Google Calendar if requested
+      if (syncToCalendar && interviewTime && videoLink) {
+        try {
+          const eventId = await syncToGoogleCalendar(data, supabase);
+          if (eventId) {
+            await supabase
+              .from("interview_outcomes")
+              .update({ 
+                google_calendar_event_id: eventId,
+                calendar_sync_status: 'synced',
+                last_synced_at: new Date().toISOString()
+              })
+              .eq("id", data.id);
+            console.log(`✅ Synced to Google Calendar: ${eventId}`);
+          }
+        } catch (calErr) {
+          console.error("❌ Calendar sync failed:", calErr.message);
+          await supabase
+            .from("interview_outcomes")
+            .update({ calendar_sync_status: 'failed' })
+            .eq("id", data.id);
+        }
+      }
+
+      // Send confirmation email if has time
+      if (interviewTime) {
+        try {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("email")
+            .eq("id", userIdInt)
+            .single();
+          
+          if (userData?.email) {
+            await sendInterviewConfirmation(data, userData.email);
+            console.log(`✅ Confirmation email sent to ${userData.email}`);
+          }
+        } catch (emailErr) {
+          console.error("❌ Email send failed:", emailErr.message);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Post-creation tasks error:", err.message);
+      // Don't fail the whole request
+    }
 
     return res.json({
       success: true,

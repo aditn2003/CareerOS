@@ -108,15 +108,7 @@ if (isSupabase) {
 const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
 const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
 
-const pool = new Pool({
-  ...poolConfig,
-  max: poolSize, // Maximum connections (2 for Supabase Session mode - very conservative)
-  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
-  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
-  connectionTimeoutMillis: 5000, // Return error after 5 seconds
-  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
-  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
-});
+
 // const pool = new Pool({
 //   ...poolConfig,
 //   max: 10, // Maximum number of clients in the pool
