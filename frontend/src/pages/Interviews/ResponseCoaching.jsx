@@ -256,21 +256,21 @@ export default function ResponseCoaching() {
                 </div>
               </div>
 
-              <div className="action-buttons">
-                <button
-                  className="btn-primary btn-large"
-                  onClick={submitForCoaching}
-                  disabled={analyzing || !responseText.trim()}
-                >
-                  {analyzing ? "Analyzing..." : "🚀 Get AI Coaching"}
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => fetchHistory(selectedQuestion.id)}
-                >
-                  📊 View History
-                </button>
-              </div>
+              <div className="coaching-actions">
+  <button
+    className="btn btn-primary"
+    onClick={submitForCoaching}
+    disabled={analyzing || !responseText.trim()}
+  >
+    {analyzing ? "🚀 Analyzing..." : "🚀 Get AI Coaching"}
+  </button>
+  <button
+    className="btn btn-secondary"
+    onClick={() => fetchHistory(selectedQuestion.id)}
+  >
+    📊 View History
+  </button>
+</div>
             </>
           )}
         </div>
