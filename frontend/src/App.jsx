@@ -30,8 +30,11 @@ import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-07
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
 import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
+import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-083
 import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
+import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
+
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -247,6 +250,8 @@ function MainLayout() {
             <Route path="follow-up" element={<FollowUpTemplates />} />
             <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
             <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}
+            <Route path="salary-negotiation" element={<SalaryNegotiation />} /> {/* ✅ UC-083 */}
+            <Route path="analytics" element={<InterviewAnalytics />} />
           </Route>
 
           {/* --- Cover Letter (UC-055, Protected) --- */}
