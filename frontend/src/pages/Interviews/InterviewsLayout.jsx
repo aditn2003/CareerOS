@@ -56,6 +56,24 @@ export default function InterviewsLayout() {
         >
           💰 Salary Research
         </Link>
+        <Link
+          to="/interviews/salary-negotiation"
+          className={`nav-tab ${location.pathname === '/interviews/salary-negotiation' ? 'active' : ''}`}
+        >
+          💵 Negotiation
+        </Link>
+        <Link
+          to="/interviews/tracker"
+          className={`nav-tab ${location.pathname === '/interviews/tracker' ? 'active' : ''}`}
+        >
+          📋 Tracker
+        </Link>
+        <Link
+          to="/interviews/analytics"
+          className={`nav-tab ${location.pathname === '/interviews/analytics' ? 'active' : ''}`}
+        >
+          📊 Analytics
+        </Link>
       </nav>
 
       {/* Render child routes */}
