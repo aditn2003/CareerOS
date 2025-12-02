@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import TaskModal from "../../components/TaskModal";
+import FeedbackModal from "../../components/FeedbackModal";
 import "./TaskManagementTab.css";
 
 export default function TaskManagementTab() {
@@ -19,6 +20,7 @@ export default function TaskManagementTab() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
+  const [feedbackModal, setFeedbackModal] = useState(null); // { candidateId, candidateName, taskId }
 
   const loadTasks = useCallback(async () => {
     if (!teamId) {
@@ -280,8 +282,8 @@ export default function TaskManagementTab() {
                 </div>
               </div>
 
-              {/* Status Update (for candidates or mentors) */}
-              {task.status !== "completed" && (
+              {/* Status Update - ONLY for candidates */}
+              {isCandidate && task.candidate_id === currentUserId && task.status !== "completed" && (
                 <div className="task-status-actions">
                   {task.status === "pending" && (
                     <button
@@ -301,18 +303,34 @@ export default function TaskManagementTab() {
                       {updatingStatus === task.id ? "Updating..." : "Mark Complete"}
                     </button>
                   )}
-                  {canCreateTasks && (
-                    <select
-                      className="task-status-select"
-                      value={task.status}
-                      onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
-                      disabled={updatingStatus === task.id}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  )}
+                  <select
+                    className="task-status-select"
+                    value={task.status}
+                    onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
+                    disabled={updatingStatus === task.id}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Feedback Button - ONLY for mentors (admins cannot create feedback, only edit/delete) */}
+              {isMentor && (
+                <div className="task-feedback-actions">
+                  <button
+                    className="btn-primary"
+                    onClick={() => setFeedbackModal({
+                      candidateId: task.candidate_id,
+                      candidateName: task.candidate_name,
+                      taskId: task.id,
+                      taskTitle: task.title,
+                    })}
+                    title="Add feedback on this task"
+                  >
+                    💬 Add Feedback
+                  </button>
                 </div>
               )}
             </div>
@@ -333,6 +351,22 @@ export default function TaskManagementTab() {
             setEditingTask(null);
           }}
           onSuccess={handleModalSuccess}
+        />
+      )}
+
+      {/* Feedback Modal */}
+      {feedbackModal && (
+        <FeedbackModal
+          teamId={teamId}
+          candidateId={feedbackModal.candidateId}
+          candidateName={feedbackModal.candidateName}
+          taskId={feedbackModal.taskId}
+          taskTitle={feedbackModal.taskTitle}
+          onClose={() => setFeedbackModal(null)}
+          onSuccess={() => {
+            setFeedbackModal(null);
+            // Feedback is linked to task, no need to reload tasks
+          }}
         />
       )}
     </section>

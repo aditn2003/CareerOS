@@ -22,6 +22,10 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     resume_id: "",
     cover_letter_id: "",
 
+    // ⭐ CUSTOMIZATION LEVELS
+    resume_customization: "none",
+    cover_letter_customization: "none",
+
     // ⭐ REQUIRED SKILLS (string input → array)
     required_skills: "",
   });
@@ -54,7 +58,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
         if (resCovers.ok) {
           const data = await resCovers.json();
+          console.log("📄 Cover letters data:", data);
+          console.log("📄 Cover letters array:", data.cover_letters);
+          console.log("📄 User letters:", data.user_letters);
+          console.log("📄 Templates:", data.templates);
+          // Use the combined list from backend (already includes templates with prefixed IDs)
           setCoverLetters(data.cover_letters || []);
+        } else {
+          console.error("❌ Cover letters response not OK:", resCovers.status, resCovers.statusText);
         }
       } catch (err) {
         console.error("❌ Failed to load materials:", err);
@@ -308,6 +319,17 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         ))}
       </select>
 
+      <label>Resume Customization Level</label>
+      <select
+        value={form.resume_customization}
+        onChange={(e) => setForm({ ...form, resume_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic resume</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
+      </select>
+
       <label>Cover Letter Used</label>
       <select
         value={form.cover_letter_id}
@@ -316,9 +338,20 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="">Select a Cover Letter</option>
         {coverLetters.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.title}
+            {c.title} {c.isTemplate ? '(Global Template)' : ''}
           </option>
         ))}
+      </select>
+
+      <label>Cover Letter Customization Level</label>
+      <select
+        value={form.cover_letter_customization}
+        onChange={(e) => setForm({ ...form, cover_letter_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic cover letter</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
       </select>
 
       {/* BUTTONS */}

@@ -37,6 +37,7 @@ import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
 import InterviewTracker from './pages/Interviews/InterviewTracker';
 
 
+import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -63,11 +64,11 @@ export default function App() {
   return (
     <AuthProvider>
       <TeamProvider>
-        <ProfileProvider>
-          <Router>
-            <MainLayout />
-          </Router>
-        </ProfileProvider>
+      <ProfileProvider>
+        <Router>
+          <MainLayout />
+        </Router>
+      </ProfileProvider>
       </TeamProvider>
     </AuthProvider>
   );
@@ -166,6 +167,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <Jobs />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Networking (Protected) --- */}
+          <Route
+            path="/networking"
+            element={
+              <ProtectedRoute>
+                <Networking />
               </ProtectedRoute>
             }
           />

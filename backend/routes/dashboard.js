@@ -14,8 +14,9 @@ router.get("/stats", async (req, res) => {
     const userId = req.user.id;
 
     // Date filters (frontend passes startDate & endDate)
-    const startDate = req.query.startDate || "2000-01-01";
-    const endDate = req.query.endDate || "2100-01-01";
+    // Add time component to include full days
+    const startDate = req.query.startDate ? `${req.query.startDate} 00:00:00` : "2000-01-01 00:00:00";
+    const endDate = req.query.endDate ? `${req.query.endDate} 23:59:59` : "2100-12-31 23:59:59";
 
     // 🔍 DEBUG LOGS - START
     console.log('========================================');
@@ -39,7 +40,7 @@ router.get("/stats", async (req, res) => {
               MAX("applicationDate") as latest_date
        FROM jobs 
        WHERE user_id = $1 
-         AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3`,
+         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp`,
       [userId, startDate, endDate]
     );
     console.log('🧪 Jobs in date range:', testDateQuery.rows[0]);
@@ -69,7 +70,7 @@ router.get("/stats", async (req, res) => {
       FROM jobs
       WHERE user_id = $1 
         AND COALESCE("isarchived", false) = false
-        AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3
+        AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
     );
@@ -92,7 +93,7 @@ router.get("/stats", async (req, res) => {
         FROM jobs
         WHERE user_id = $1 
         AND COALESCE("isarchived", false) = false
-        AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3
+        AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
         `,
         [userId, startDate, endDate]
     );
@@ -103,13 +104,13 @@ router.get("/stats", async (req, res) => {
       `
       SELECT 
         AVG(
-          EXTRACT(EPOCH FROM (first_response_date - "applicationDate")) / 3600
+          EXTRACT(EPOCH FROM (first_response_date - "applicationDate"::timestamp)) / 3600
         ) AS avg_response_hours
       FROM jobs
       WHERE user_id = $1 
         AND first_response_date IS NOT NULL
         AND "applicationDate" IS NOT NULL
-        AND "applicationDate" BETWEEN $2 AND $3
+        AND "applicationDate"::timestamp BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
     );
@@ -123,12 +124,12 @@ router.get("/stats", async (req, res) => {
         `
         WITH app_trend AS (
             SELECT 
-              DATE_TRUNC('week', COALESCE("applicationDate", created_at)) AS week_start,
+              DATE_TRUNC('week', COALESCE("applicationDate"::timestamp, created_at)) AS week_start,
               COUNT(*) AS applications
             FROM jobs
             WHERE user_id = $1
               AND COALESCE("isarchived", false) = false
-              AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3
+              AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
             GROUP BY week_start
           ),
           
@@ -140,7 +141,7 @@ router.get("/stats", async (req, res) => {
             WHERE user_id = $1
               AND status = 'Interview'
               AND interview_date IS NOT NULL
-              AND interview_date BETWEEN $2 AND $3
+              AND interview_date BETWEEN $2::timestamp AND $3::timestamp
             GROUP BY week_start
           ),
           
@@ -152,7 +153,7 @@ router.get("/stats", async (req, res) => {
             WHERE user_id = $1
               AND status = 'Offer'
               AND offer_date IS NOT NULL
-              AND offer_date BETWEEN $2 AND $3
+              AND offer_date BETWEEN $2::timestamp AND $3::timestamp
             GROUP BY week_start
           )
           
@@ -185,7 +186,7 @@ router.get("/stats", async (req, res) => {
       FROM jobs
       WHERE user_id = $1 
         AND COALESCE("isarchived", false) = false
-        AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3
+        AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
     );
@@ -208,7 +209,7 @@ router.get("/stats", async (req, res) => {
       FROM jobs
       WHERE user_id = $1 
         AND COALESCE("isarchived", false) = false
-        AND COALESCE("applicationDate", created_at) BETWEEN $2 AND $3
+        AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       GROUP BY status
       `,
       [userId, startDate, endDate]
@@ -217,13 +218,34 @@ router.get("/stats", async (req, res) => {
     console.log('⏱ Stage Times Result:', stageTimes.rows);
 
     // -----------------------------
-    // 6️⃣ GOALS (hardcoded)
+    // 6️⃣ GOALS (from user settings or defaults)
     // -----------------------------
-    const goals = {
+    const DEFAULT_GOALS = {
       monthlyApplications: 30,
-      interviewRateTarget: 0.3,
+      interviewRateTarget: 0.30,
       offerRateTarget: 0.05,
     };
+
+    let goals = { ...DEFAULT_GOALS };
+    
+    try {
+      const goalsResult = await pool.query(
+        `SELECT monthly_applications, interview_rate_target, offer_rate_target 
+         FROM user_goals 
+         WHERE user_id = $1`,
+        [userId]
+      );
+      
+      if (goalsResult.rows.length > 0) {
+        goals = {
+          monthlyApplications: Number(goalsResult.rows[0].monthly_applications) || 30,
+          interviewRateTarget: Number(goalsResult.rows[0].interview_rate_target) || 0.30,
+          offerRateTarget: Number(goalsResult.rows[0].offer_rate_target) || 0.05,
+        };
+      }
+    } catch (err) {
+      console.warn("Could not fetch user goals, using defaults:", err.message);
+    }
 
     // -----------------------------
     // 7️⃣ INSIGHTS
@@ -234,10 +256,50 @@ router.get("/stats", async (req, res) => {
 // -----------------------------
    
   
-  const industryBenchmarks = {
+  // Real industry benchmarks (based on job search research)
+  const INDUSTRY_BENCHMARKS = {
+    interviewRate: 0.12,        // 12% - typical interview callback rate
+    offerRate: 0.03,            // 3% - typical offer rate from applications
+    avgResponseDays: 10,        // 10 days average response time
+  };
+
+  // User's actual performance
+  const userPerformance = {
     interviewRate: Number(benchmarkQuery.rows[0].interview_rate) || 0,
     offerRate: Number(benchmarkQuery.rows[0].offer_rate) || 0,
-    avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0
+    avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0,
+  };
+
+  // Calculate comparison (positive = better than industry)
+  const industryComparison = {
+    industry: INDUSTRY_BENCHMARKS,
+    user: userPerformance,
+    comparison: {
+      interviewRate: {
+        user: userPerformance.interviewRate,
+        industry: INDUSTRY_BENCHMARKS.interviewRate,
+        difference: userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate,
+        percentBetter: INDUSTRY_BENCHMARKS.interviewRate > 0 
+          ? ((userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate) / INDUSTRY_BENCHMARKS.interviewRate * 100)
+          : 0,
+        status: userPerformance.interviewRate >= INDUSTRY_BENCHMARKS.interviewRate ? 'above' : 'below'
+      },
+      offerRate: {
+        user: userPerformance.offerRate,
+        industry: INDUSTRY_BENCHMARKS.offerRate,
+        difference: userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate,
+        percentBetter: INDUSTRY_BENCHMARKS.offerRate > 0 
+          ? ((userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate) / INDUSTRY_BENCHMARKS.offerRate * 100)
+          : 0,
+        status: userPerformance.offerRate >= INDUSTRY_BENCHMARKS.offerRate ? 'above' : 'below'
+      },
+      responseTime: {
+        userHours: userPerformance.avgResponseHours,
+        userDays: userPerformance.avgResponseHours / 24,
+        industryDays: INDUSTRY_BENCHMARKS.avgResponseDays,
+        status: (userPerformance.avgResponseHours / 24) <= INDUSTRY_BENCHMARKS.avgResponseDays ? 'above' : 'below'
+      }
+    }
   };
   
     const safeMetrics = {
@@ -277,7 +339,7 @@ router.get("/stats", async (req, res) => {
       })),
       goals,
       actionableInsights: insights,
-      industryBenchmarks
+      industryComparison
     };
 
     console.log('✅ Sending response with:', safeMetrics);

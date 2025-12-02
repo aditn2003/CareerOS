@@ -1,0 +1,38 @@
+.contacts-tab {
+  width: 100%;
+}
+
+.contacts-tab label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.contacts-tab input,
+.contacts-tab select,
+.contacts-tab textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.contacts-tab input:focus,
+.contacts-tab select:focus,
+.contacts-tab textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.loading {
+  text-align: center;
+  padding: 48px;
+  color: #6b7280;
+  font-size: 1.1rem;
+}
+

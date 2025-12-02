@@ -11,12 +11,28 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
   const [expandedFeedbackId, setExpandedFeedbackId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [loadingReplies, setLoadingReplies] = useState({});
-  const [viewMode, setViewMode] = useState("threads"); // "list" or "threads"
-  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false); // Guard to prevent concurrent loads
-
-  const isMentor = teamState?.isMentor || teamState?.isAdmin;
+  
+  // Admins can view feedback like mentors, but cannot create feedback (only view/edit/delete)
+  const isMentor = teamState?.isMentor || teamState?.isAdmin; // Admins see candidates like mentors
+  const isAdmin = teamState?.isAdmin;
   const isCandidate = teamState?.isCandidate;
   const currentUserId = teamState?.primaryTeam?.userId;
+  
+  // Only admins can toggle between list and threads view
+  // Mentors and candidates only see threads view (no toggle option)
+  const showViewToggle = isAdmin && !hideViewToggle;
+  const [viewMode, setViewMode] = useState("threads"); // "list" or "threads"
+  
+  // Force threads view for mentors and candidates - they can never switch to list view
+  // Only admins can toggle views
+  useEffect(() => {
+    const isActualMentor = teamState?.isMentor && !isAdmin; // Only actual mentors, not admins
+    if ((isActualMentor || isCandidate) && viewMode !== "threads") {
+      setViewMode("threads");
+    }
+  }, [teamState?.isMentor, isAdmin, isCandidate, viewMode]);
+  
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false); // Guard to prevent concurrent loads
 
   // Load people in the team (candidates for mentors, mentors for candidates)
   useEffect(() => {
@@ -152,7 +168,8 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
                 ? `Feedback for ${[selectedPerson.firstName, selectedPerson.lastName].filter(Boolean).join(" ") || selectedPerson.email}`
                 : "Team Feedback"}
             </h3>
-            {!hideViewToggle && (
+            {/* Only show view toggle for admins - mentors and candidates only see threads view */}
+            {showViewToggle && (
               <div className="feedback-view-toggle">
                 <button
                   className={`view-toggle-btn ${viewMode === "list" ? "active" : ""}`}
@@ -302,12 +319,19 @@ function FeedbackThreadItem({
     });
   };
 
-  const getFeedbackTypeLabel = (type) => {
-    switch (type) {
+  const getFeedbackTypeLabel = (feedback) => {
+    // If feedback has taskId or taskTitle, it's task feedback regardless of stored type
+    if (feedback.taskId || feedback.taskTitle) {
+      return "Task Feedback";
+    }
+    
+    switch (feedback.feedbackType) {
       case "job":
         return "Job Feedback";
       case "skill":
         return "Skill Feedback";
+      case "task":
+        return "Task Feedback";
       default:
         return "General Feedback";
     }
@@ -324,7 +348,7 @@ function FeedbackThreadItem({
       <div className="feedback-thread-header">
         <div className="feedback-thread-info">
           <div className="feedback-top-row">
-            <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
+            <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback)}</span>
             {feedback.jobTitle && (
               <span className="feedback-job-badge">
                 {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
@@ -332,6 +356,11 @@ function FeedbackThreadItem({
             )}
             {feedback.skillName && (
               <span className="feedback-skill-badge">{feedback.skillName}</span>
+            )}
+            {feedback.taskTitle && (
+              <span className="feedback-task-badge">
+                📋 {feedback.taskTitle}
+              </span>
             )}
           </div>
           <div className="feedback-meta-row">
@@ -548,7 +577,7 @@ function FeedbackListView({ feedbackList }) {
           <div className="feedback-header">
             <div className="feedback-meta">
               <div className="feedback-top-row">
-                <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
+                <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback)}</span>
                 {feedback.jobTitle && (
                   <span className="feedback-job-badge">
                     {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
@@ -556,6 +585,11 @@ function FeedbackListView({ feedbackList }) {
                 )}
                 {feedback.skillName && (
                   <span className="feedback-skill-badge">{feedback.skillName}</span>
+                )}
+                {feedback.taskTitle && (
+                  <span className="feedback-task-badge">
+                    📋 {feedback.taskTitle}
+                  </span>
                 )}
               </div>
               <div className="feedback-meta-row">
