@@ -266,6 +266,10 @@ await pool.query(
    5. HISTORY (Optional)
    ========================================================== */
    router.get("/history/:userId", async (req, res) => {
+    // Note: This endpoint doesn't require auth as it's used for public history viewing
+    // If you want to add auth, uncomment below:
+    // const header = req.headers.authorization;
+    // if (!header) return res.status(401).json({ error: "Unauthorized" });
     try {
       const { rows } = await pool.query(
         `
