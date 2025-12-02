@@ -1214,6 +1214,61 @@ Return ONLY valid JSON.
     return null;
   }
 }
+/* -----------------------------------------------------
+   🆕 UC-082: DELETE /follow-up/:id
+   Delete a follow-up template
+----------------------------------------------------- */
+router.delete("/follow-up/:id", async (req, res) => {
+  try {
+    const templateId = parseInt(req.params.id, 10);
+    const userId = req.query.userId?.trim();
+
+    if (isNaN(templateId) || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid template ID or missing userId"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    const { error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .delete()
+        .eq("id", templateId)
+        .eq("user_id", userIdInt);
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while deleting template",
+        error: error.message
+      });
+    }
+
+    console.log(`✅ Deleted template ${templateId} for user ${userIdInt}`);
+
+    return res.json({
+      success: true,
+      message: "Template deleted successfully"
+    });
+  } catch (err) {
+    console.error("❌ Error deleting template:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete template"
+    });
+  }
+});
 
 /* -----------------------------------------------------
    🆕 UC-082: POST /follow-up/generate
