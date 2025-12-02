@@ -35,9 +35,11 @@ import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import teamRoutes from "./routes/team.js";
+import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
 
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
+import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -386,7 +388,6 @@ app.post("/delete", auth, async (req, res) => {
   }
 });
 
-// ========== UC-003 & UC-004: OAuth (demo stubs) ==========
 // ========== UC-003 & UC-004: Google OAuth ==========
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -437,10 +438,18 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/resumes", resumeRoutes);
+app.use("/api", resumePresetsRoutes);
+app.use("/api", sectionPresetsRoutes);
+app.use("/api", jobDescriptionsRoutes);
+app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/match", matchRoutes);
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/interview-insights", interviewInsights);
+app.use("/api/cover-letter", coverLetterRoutes);
 app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
@@ -453,7 +462,8 @@ app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
 
-app.use("/api/team", teamRoutes);
+app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
+
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -465,10 +475,9 @@ app.use((err, req, res, next) => {
 app.get("/", (_req, res) => res.json({ ok: true }));
 
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB ======
-import cron from "node-cron";
 
 // run every day at 9:00 AM server time
-cron.schedule("0 9 * * *", async () => {
+crons.schedule("0 9 * * *", async () => {
   console.log("📬 Running daily job deadline reminder...");
 
   try {
@@ -628,15 +637,13 @@ app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
+app.use('/api/salary-negotiation', salaryNegotiationRoutes);
+app.use('/api/interview-analytics', interviewAnalyticsRoutes);
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
-crons.schedule("0 9 * * *", async () => {
-  console.log("📬 Running daily job deadline reminder...");
-  // 🧠 your code logic here (the pool.query, resend email sending, etc.)
-});
 app.post("/test-reminders", async (req, res) => {
   try {
     await sendDeadlineReminders();
@@ -648,5 +655,13 @@ app.post("/test-reminders", async (req, res) => {
 });
 
 
+
 // ===== Start Server =====
-app.listen(4000, () => console.log("✅ API running at http://localhost:4000"));
+// FIX: Only start the server if we are NOT testing
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`✅ API running at http://localhost:${PORT}`));
+}
+
+// Export for tests
+export { app, pool };
