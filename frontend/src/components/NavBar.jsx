@@ -16,6 +16,7 @@ import {
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter
   FaUserGraduate, // ✅ Icon for Mentor
+  FaNetworkWired, // ✅ Icon for Networking
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -86,17 +87,6 @@ export default function NavBar() {
               <FaComments /> Interviews
             </NavLink>
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
-
-            {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
-            </NavLink>
-
-            {/* 👨‍🏫 Mentor */}
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
