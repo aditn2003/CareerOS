@@ -5,12 +5,14 @@ import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import { useAuth } from "../../contexts/AuthContext";
 import {
-  FaBriefcase,
-  FaUser,
-  FaComment,
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaArrowRight,
+  FaBriefcase,
+  FaUser,
+  FaComment,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaArrowRight,
+  FaFileAlt,
+  FaEnvelope,
 } from "react-icons/fa";
 import "./SharedJobsTab.css";
 
@@ -23,15 +25,17 @@ export default function SharedJobsTab() {
   const isCandidate = teamState?.isCandidate;
   const currentUserId = teamState?.userId;
 
-  const [sharedJobs, setSharedJobs] = useState([]);
-  const [myJobs, setMyJobs] = useState([]); // For mentors to select jobs to share
-  const [progress, setProgress] = useState(null); // For mentor progress dashboard
-  const [loading, setLoading] = useState(true);
-  const [loadingJobs, setLoadingJobs] = useState(false);
-  const [error, setError] = useState(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [editingComments, setEditingComments] = useState(null); // { sharedJobId, comments }
-  const [viewMode, setViewMode] = useState("jobs"); // "jobs" or "progress" (for mentors)
+  const [sharedJobs, setSharedJobs] = useState([]);
+  const [myJobs, setMyJobs] = useState([]); // For mentors to select jobs to share
+  const [progress, setProgress] = useState(null); // For mentor progress dashboard
+  const [applicationMaterials, setApplicationMaterials] = useState(null); // For application materials
+  const [loading, setLoading] = useState(true);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
+  const [error, setError] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [editingComments, setEditingComments] = useState(null); // { sharedJobId, comments }
+  const [viewMode, setViewMode] = useState("jobs"); // "jobs", "progress", or "materials" (for mentors)
 
   // Load shared jobs
   const loadSharedJobs = useCallback(async () => {
@@ -67,24 +71,42 @@ export default function SharedJobsTab() {
     }
   }, [token, isMentor, isAdmin]);
 
-  // Load progress dashboard (mentors/admins only)
-  const loadProgress = useCallback(async () => {
-    if (!teamId || (!isMentor && !isAdmin)) return;
-    try {
-      const { data } = await api.get(`/api/team/${teamId}/shared-jobs/progress`);
-      setProgress(data);
-    } catch (err) {
-      console.error("Failed to load progress:", err);
-    }
-  }, [teamId, isMentor, isAdmin]);
+  // Load progress dashboard (mentors/admins only)
+  const loadProgress = useCallback(async () => {
+    if (!teamId || (!isMentor && !isAdmin)) return;
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/shared-jobs/progress`);
+      setProgress(data);
+    } catch (err) {
+      console.error("Failed to load progress:", err);
+    }
+  }, [teamId, isMentor, isAdmin]);
 
-  useEffect(() => {
-    loadSharedJobs();
-    if (isMentor || isAdmin) {
-      loadMyJobs();
-      loadProgress();
-    }
-  }, [loadSharedJobs, loadMyJobs, loadProgress, isMentor, isAdmin]);
+  // Load application materials (mentors/admins only)
+  const loadApplicationMaterials = useCallback(async () => {
+    if (!teamId || (!isMentor && !isAdmin)) return;
+    setLoadingMaterials(true);
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/shared-jobs/application-materials`);
+      setApplicationMaterials(data);
+    } catch (err) {
+      console.error("Failed to load application materials:", err);
+      setError(err.response?.data?.error || "Failed to load application materials.");
+    } finally {
+      setLoadingMaterials(false);
+    }
+  }, [teamId, isMentor, isAdmin]);
+
+  useEffect(() => {
+    loadSharedJobs();
+    if (isMentor || isAdmin) {
+      loadMyJobs();
+      loadProgress();
+      if (viewMode === "materials") {
+        loadApplicationMaterials();
+      }
+    }
+  }, [loadSharedJobs, loadMyJobs, loadProgress, loadApplicationMaterials, isMentor, isAdmin, viewMode]);
 
   const handleShareJob = async (jobId, comments) => {
     if (!teamId) return;
@@ -172,41 +194,57 @@ export default function SharedJobsTab() {
             <button className="btn-primary" onClick={() => setShowShareModal(true)}>
               <FaBriefcase /> Share Job
             </button>
-            {canViewProgress && (
-              <div className="view-toggle">
-                <button
-                  className={`toggle-btn ${viewMode === "jobs" ? "active" : ""}`}
-                  onClick={() => setViewMode("jobs")}
-                >
-                  Shared Jobs
-                </button>
-                <button
-                  className={`toggle-btn ${viewMode === "progress" ? "active" : ""}`}
-                  onClick={() => setViewMode("progress")}
-                >
-                  Progress Dashboard
-                </button>
-              </div>
-            )}
+            {canViewProgress && (
+              <div className="view-toggle">
+                <button
+                  className={`toggle-btn ${viewMode === "jobs" ? "active" : ""}`}
+                  onClick={() => setViewMode("jobs")}
+                >
+                  Shared Jobs
+                </button>
+                <button
+                  className={`toggle-btn ${viewMode === "progress" ? "active" : ""}`}
+                  onClick={() => setViewMode("progress")}
+                >
+                  Progress Dashboard
+                </button>
+                <button
+                  className={`toggle-btn ${viewMode === "materials" ? "active" : ""}`}
+                  onClick={() => {
+                    setViewMode("materials");
+                    if (!applicationMaterials) {
+                      loadApplicationMaterials();
+                    }
+                  }}
+                >
+                  Job Application Materials
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {error && <div className="error-banner">{error}</div>}
 
-      {viewMode === "progress" && canViewProgress ? (
-        <ProgressDashboard progress={progress} />
-      ) : (
-        <SharedJobsList
-          sharedJobs={sharedJobs}
-          isCandidate={isCandidate}
-          editingComments={editingComments}
-          setEditingComments={setEditingComments}
-          onUpdateComments={handleUpdateComments}
-          onExportJob={handleExportJob}
-          formatDate={formatDate}
-        />
-      )}
+      {viewMode === "progress" && canViewProgress ? (
+        <ProgressDashboard progress={progress} />
+      ) : viewMode === "materials" && canViewProgress ? (
+        <ApplicationMaterials
+          materials={applicationMaterials}
+          loading={loadingMaterials}
+        />
+      ) : (
+        <SharedJobsList
+          sharedJobs={sharedJobs}
+          isCandidate={isCandidate}
+          editingComments={editingComments}
+          setEditingComments={setEditingComments}
+          onUpdateComments={handleUpdateComments}
+          onExportJob={handleExportJob}
+          formatDate={formatDate}
+        />
+      )}
 
       {showShareModal && (
         <ShareJobModal
@@ -515,9 +553,89 @@ function ProgressDashboard({ progress }) {
                 <FaExclamationTriangle /> No candidates have exported this job yet.
               </div>
             )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Application Materials Component
+function ApplicationMaterials({ materials, loading }) {
+  if (loading) {
+    return <div className="materials-loading">Loading application materials...</div>;
+  }
+
+  if (!materials || !materials.materials || materials.materials.length === 0) {
+    return (
+      <div className="materials-empty">
+        <p>No application materials found for any candidates.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="application-materials-container">
+      {materials.materials.map((candidate) => (
+        <div key={candidate.candidateId} className="candidate-materials-card">
+          <div className="candidate-materials-header">
+            <h4>
+              <FaUser /> {candidate.candidateName}
+            </h4>
+            <span className="job-count-badge">
+              {candidate.jobs.length} job{candidate.jobs.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div className="candidate-jobs-list">
+            {candidate.jobs.map((job) => (
+              <div key={job.jobId} className="job-materials-item">
+                <div className="job-materials-header">
+                  <div>
+                    <h5>{job.jobTitle}</h5>
+                    <span className="job-company">{job.jobCompany}</span>
+                    <span className={`job-status-badge status-${job.jobStatus?.toLowerCase() || "unknown"}`}>
+                      {job.jobStatus || "Unknown"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="materials-list">
+                  {job.resume ? (
+                    <div className="material-item">
+                      <FaFileAlt className="material-icon" />
+                      <div className="material-info">
+                        <span className="material-title">{job.resume.title}</span>
+                        <span className="material-format">{job.resume.format.toUpperCase()}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="material-item no-material">
+                      <FaFileAlt className="material-icon" />
+                      <span className="no-material-text">No resume found</span>
+                    </div>
+                  )}
+
+                  {job.coverLetter ? (
+                    <div className="material-item">
+                      <FaEnvelope className="material-icon" />
+                      <div className="material-info">
+                        <span className="material-title">{job.coverLetter.title}</span>
+                        <span className="material-format">{job.coverLetter.format.toUpperCase()}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="material-item no-material">
+                      <FaEnvelope className="material-icon" />
+                      <span className="no-material-text">No cover letter found</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }

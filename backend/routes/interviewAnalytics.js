@@ -4,25 +4,32 @@ import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { syncToGoogleCalendar, sendInterviewConfirmation } from "../utils/schedulingHelpers.js";
 
-const router = express.Router();
+// Factory function for dependency injection (for testing)
+function createInterviewAnalyticsRoutes(supabaseClient = null, openaiApiKey = null) {
+  const router = express.Router();
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+  const OPENAI_KEY = openaiApiKey || process.env.OPENAI_API_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  throw new Error("Missing Supabase credentials");
-}
+  // Use injected client or create default one
+  let supabase;
+  if (supabaseClient) {
+    supabase = supabaseClient;
+  } else {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      throw new Error("Missing Supabase credentials");
+    }
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      db: { schema: 'public' },
+      auth: { persistSession: false }
+    });
+  }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  db: { schema: 'public' },
-  auth: { persistSession: false }
-});
-
-/* ============================================================
-   HELPER: Retry database operations
-============================================================ */
-async function retryDatabaseOperation(operation, maxRetries = 3) {
+  /* ============================================================
+     HELPER: Retry database operations
+  ============================================================ */
+  async function retryDatabaseOperation(operation, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await operation();
@@ -34,10 +41,10 @@ async function retryDatabaseOperation(operation, maxRetries = 3) {
   }
 }
 
-/* ============================================================
-   HELPER: Generate AI Insights
-============================================================ */
-async function generateInsights(analyticsData, userId) {
+  /* ============================================================
+     HELPER: Generate AI Insights
+  ============================================================ */
+  async function generateInsights(analyticsData, userId) {
   try {
     if (!analyticsData || analyticsData.totalInterviews < 2) {
       return {
@@ -124,13 +131,13 @@ Return ONLY valid JSON, no markdown formatting.`;
       }
     };
   }
-}
+  }
 
-/* ============================================================
-   GET /analytics
-   Get comprehensive interview performance analytics
-============================================================ */
-router.get("/analytics", async (req, res) => {
+  /* ============================================================
+     GET /analytics
+     Get comprehensive interview performance analytics
+  ============================================================ */
+  router.get("/analytics", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const timeRange = req.query.timeRange || 'all';
@@ -547,13 +554,13 @@ router.get("/analytics", async (req, res) => {
       error: err.message || "Failed to generate analytics" 
     });
   }
-});
+  });
 
-/* ============================================================
-   POST /outcome
-   Record interview outcome
-============================================================ */
-router.post("/outcome", async (req, res) => {
+  /* ============================================================
+     POST /outcome
+     Record interview outcome
+  ============================================================ */
+  router.post("/outcome", async (req, res) => {
   try {
     const {
       userId,
@@ -720,13 +727,13 @@ router.post("/outcome", async (req, res) => {
       message: "Failed to record interview outcome"
     });
   }
-});
+  });
 
-/* ============================================================
-   PUT /outcome/:id
-   Update interview outcome
-============================================================ */
-router.put("/outcome/:id", async (req, res) => {
+  /* ============================================================
+     PUT /outcome/:id
+     Update interview outcome
+  ============================================================ */
+  router.put("/outcome/:id", async (req, res) => {
   try {
     const outcomeId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -836,8 +843,14 @@ router.put("/outcome/:id", async (req, res) => {
 /* ============================================================
    DELETE /outcome/:id
    Delete interview outcome
-============================================================ */
 router.delete("/outcome/:id", async (req, res) => {
+  });
+
+  /* ============================================================
+     DELETE /outcome/:id
+     Delete interview outcome
+  ============================================================ */
+  router.delete("/outcome/:id", async (req, res) => {
   try {
     const outcomeId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -909,13 +922,13 @@ router.delete("/outcome/:id", async (req, res) => {
       message: "Failed to delete interview outcome"
     });
   }
-});
+  });
 
-/* ============================================================
-   GET /outcomes
-   Get list of interview outcomes for user
-============================================================ */
-router.get("/outcomes", async (req, res) => {
+  /* ============================================================
+     GET /outcomes
+     Get list of interview outcomes for user
+  ============================================================ */
+  router.get("/outcomes", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -960,6 +973,14 @@ router.get("/outcomes", async (req, res) => {
       message: "Failed to fetch interviews"
     });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createInterviewAnalyticsRoutes();
 export default router;
+
+// Export factory function for testing
+export { createInterviewAnalyticsRoutes };

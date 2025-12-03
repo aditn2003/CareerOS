@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { api } from "../api";
 import { useTeam } from "../contexts/TeamContext";
 import "./FeedbackThreads.css";
 
-export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
+export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddFeedback = null }) {
   const { teamState } = useTeam();
   const [people, setPeople] = useState([]); // Candidates for mentors, Mentors for candidates
   const [selectedPersonId, setSelectedPersonId] = useState(null);
@@ -30,9 +30,15 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
     if ((isActualMentor || isCandidate) && viewMode !== "threads") {
       setViewMode("threads");
     }
-  }, [teamState?.isMentor, isAdmin, isCandidate, viewMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamState?.isMentor, isAdmin, isCandidate]); // Removed viewMode from deps to prevent infinite loop
   
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false); // Guard to prevent concurrent loads
+
+  // Stable callback for loading replies state
+  const handleLoadingReplies = useCallback((feedbackId, loading) => {
+    setLoadingReplies((prev) => ({ ...prev, [feedbackId]: loading }));
+  }, []);
 
   // Load people in the team (candidates for mentors, mentors for candidates)
   useEffect(() => {
@@ -138,15 +144,34 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
                 <div
                   key={person.userId}
                   className={`candidate-item ${isSelected ? "selected" : ""}`}
-                  onClick={() => setSelectedPersonId(person.userId)}
+                  style={{ position: "relative" }}
                 >
-                  <div className="candidate-avatar">
-                    {fullName.charAt(0).toUpperCase()}
+                  <div 
+                    style={{ display: "flex", alignItems: "center", flex: 1, cursor: "pointer" }}
+                    onClick={() => setSelectedPersonId(person.userId)}
+                  >
+                    <div className="candidate-avatar">
+                      {fullName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="candidate-info">
+                      <div className="candidate-name">{fullName}</div>
+                      <div className="candidate-email">{person.email}</div>
+                    </div>
                   </div>
-                  <div className="candidate-info">
-                    <div className="candidate-name">{fullName}</div>
-                    <div className="candidate-email">{person.email}</div>
-                  </div>
+                  {/* Add Feedback Button - Only for mentors viewing candidates */}
+                  {!isCandidate && isMentor && onAddFeedback && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddFeedback(person.userId, fullName);
+                      }}
+                      className="add-feedback-btn"
+                      title="Add Feedback"
+                      aria-label="Add Feedback"
+                    >
+                      +
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -217,9 +242,7 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false }) {
                     )
                   }
                   loadingReplies={loadingReplies[feedback.id]}
-                  onLoadingReplies={(loading) =>
-                    setLoadingReplies((prev) => ({ ...prev, [feedback.id]: loading }))
-                  }
+                  onLoadingReplies={(loading) => handleLoadingReplies(feedback.id, loading)}
                 />
               ))}
             </div>
@@ -247,11 +270,18 @@ function FeedbackThreadItem({
   const [submitting, setSubmitting] = useState(false);
 
   const [repliesLoaded, setRepliesLoaded] = useState(false);
+  
+  // Use ref to store the callback to avoid dependency issues
+  const onLoadingRepliesRef = useRef(onLoadingReplies);
+  useEffect(() => {
+    onLoadingRepliesRef.current = onLoadingReplies;
+  }, [onLoadingReplies]);
 
-  const loadReplies = useCallback(async () => {
-    if (!isExpanded || repliesLoaded) return; // Don't reload if already loaded
+  const loadReplies = useCallback(async (forceReload = false) => {
+    if (!isExpanded) return; // Don't load if not expanded
+    if (repliesLoaded && !forceReload) return; // Don't reload if already loaded unless forced
 
-    onLoadingReplies(true);
+    onLoadingRepliesRef.current(true);
     try {
       const { data } = await api.get(
         `/api/team/${teamId}/feedback/${feedback.id}/replies`
@@ -262,13 +292,20 @@ function FeedbackThreadItem({
       console.error("Failed to load replies:", err);
       setReplies([]);
     } finally {
-      onLoadingReplies(false);
+      onLoadingRepliesRef.current(false);
     }
-  }, [isExpanded, teamId, feedback.id, onLoadingReplies, repliesLoaded]);
+  }, [isExpanded, teamId, feedback.id, repliesLoaded]);
 
   useEffect(() => {
     if (isExpanded) {
       loadReplies();
+      // Set up polling to refresh replies every 5 seconds when expanded
+      // This ensures mentors see candidate replies and vice versa
+      const pollInterval = setInterval(() => {
+        loadReplies(true); // Force reload
+      }, 5000); // Poll every 5 seconds
+
+      return () => clearInterval(pollInterval);
     } else {
       // Reset loaded state when collapsed so it reloads when expanded again
       setRepliesLoaded(false);
@@ -288,19 +325,7 @@ function FeedbackThreadItem({
       setReplyContent("");
       setReplyingTo(null);
       // Reload replies to get the new one
-      onLoadingReplies(true);
-      setRepliesLoaded(false);
-      try {
-        const { data } = await api.get(
-          `/api/team/${teamId}/feedback/${feedback.id}/replies`
-        );
-        setReplies(data?.replies || []);
-        setRepliesLoaded(true);
-      } catch (err) {
-        console.error("Failed to reload replies:", err);
-      } finally {
-        onLoadingReplies(false);
-      }
+      await loadReplies(true); // Force reload after submitting
     } catch (err) {
       console.error("Failed to submit reply:", err);
       alert(err.response?.data?.error || "Failed to submit reply");

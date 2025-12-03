@@ -16,6 +16,7 @@ export default function MentorNavBar() {
     { key: "feedback", label: "Feedback" },
     { key: "tasks", label: "Task Management" },
     { key: "shared-jobs", label: "Job Posts" },
+    { key: "analytics", label: "Team Analytics" },
     ...(showActivityFeed ? [{ key: "activity", label: "Activity Feed" }] : []),
   ];
 

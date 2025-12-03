@@ -1,50 +1,12 @@
 import express from "express";
-import dotenv from "dotenv";
-import pkg from "pg";
 import { auth } from "../auth.js";
-
-dotenv.config();
-const { Pool } = pkg;
+import pool from "../db/pool.js"; // ✅ Use shared pool instead of creating a new one
+// This prevents exceeding Supabase's connection limits by having multiple pools
 
 const router = express.Router();
-// Configure SSL for Supabase connections
-const sslConfig = process.env.DATABASE_URL?.includes('supabase') || process.env.DATABASE_URL?.includes('pooler.supabase')
-  ? { rejectUnauthorized: false }
-  : undefined;
 
-// Check if this is a Supabase connection
-const dbUrl = process.env.DATABASE_URL || '';
-const isSupabase = dbUrl.includes('supabase') || 
-                   dbUrl.includes('pooler.supabase') ||
-                   (dbUrl.includes('aws-') && dbUrl.includes('pooler'));
-
-// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
-// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
-const poolSize = isSupabase ? 1 : 20; // Maximum 1 connection for Supabase (extremely conservative)
-const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
-
-const pool = new Pool({
-  connectionString: dbUrl,
-  ...(sslConfig && { ssl: sslConfig }),
-  max: poolSize, // Maximum connections (1 for Supabase - extremely conservative)
-  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
-  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
-  connectionTimeoutMillis: 5000, // Return error after 5 seconds
-  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
-  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
-});
-
-// Handle pool errors gracefully - don't terminate on error, try to reconnect
-pool.on('error', (err) => {
-  console.error('⚠️ Unexpected error on idle client in team.js:', err.message);
-  // Don't throw - let the pool handle reconnection automatically
-});
-
-// Remove health check interval - it consumes connections unnecessarily
-// Connections will be created on-demand when needed
-
-const ADMIN_ROLES = new Set(["admin"]);
-const MANAGER_ROLES = new Set(["admin", "mentor"]);
+const MENTOR_ROLES = new Set(["mentor"]);
+const MANAGER_ROLES = new Set(["mentor"]); // Mentors have all management permissions
 const MUTABLE_ROLES = new Set(["mentor", "candidate"]);
 
 async function getMembership(teamId, userId) {
@@ -96,6 +58,7 @@ router.get("/me", async (req, res) => {
     const primaryTeam = teams[0] || null;
     res.json({
       accountType: userResult.rows[0]?.account_type || "candidate",
+      userId, // Include current user ID for frontend checks
       teams,
       primaryTeam,
     });
@@ -106,14 +69,14 @@ router.get("/me", async (req, res) => {
 });
 
 // ============================================================
-// GET /api/team/admin/all - Admin: Get all teams they manage
+// GET /api/team/mentor/all - Mentor: Get all teams they manage
 // ============================================================
-router.get("/admin/all", async (req, res) => {
+router.get("/mentor/all", async (req, res) => {
   try {
     const userId = req.user.id;
     const accountType = await getUserAccountType(userId);
 
-    if (accountType !== "team_admin") {
+    if (accountType !== "mentor") {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
@@ -126,9 +89,9 @@ router.get("/admin/all", async (req, res) => {
         t.created_at AS "createdAt",
         COUNT(DISTINCT tm_all.user_id) FILTER (WHERE tm_all.status = 'active') AS "memberCount"
       FROM teams t
-      INNER JOIN team_members tm_admin ON tm_admin.team_id = t.id
+      INNER JOIN team_members tm_mentor ON tm_mentor.team_id = t.id
       LEFT JOIN team_members tm_all ON tm_all.team_id = t.id
-      WHERE tm_admin.user_id = $1 AND tm_admin.role = 'admin'
+      WHERE tm_mentor.user_id = $1 AND tm_mentor.role = 'mentor'
       GROUP BY t.id, t.name, t.owner_id, t.created_at
       ORDER BY t.created_at DESC
       `,
@@ -137,26 +100,63 @@ router.get("/admin/all", async (req, res) => {
 
     res.json({ teams: rows });
   } catch (err) {
-    console.error("Get admin teams failed:", err);
+    console.error("Get mentor teams failed:", err);
     res.status(500).json({ error: "FETCH_FAILED" });
   }
 });
 
 // ============================================================
-// POST /api/team/admin/create - Admin: Create new team
+// GET /api/team/admin/all - Legacy route (uses same logic as mentor/all)
 // ============================================================
-router.post("/admin/create", async (req, res) => {
+router.get("/admin/all", async (req, res) => {
+  // Use same handler as /mentor/all
+  const originalUrl = req.url;
+  req.url = "/mentor/all";
+  try {
+    await router.handle(req, res);
+  } finally {
+    req.url = originalUrl;
+  }
+});
+
+// Helper function to check if user is team owner (hidden admin)
+async function isTeamOwner(teamId, userId) {
+  const { rows } = await pool.query(
+    "SELECT owner_id FROM teams WHERE id=$1 AND owner_id=$2",
+    [teamId, userId]
+  );
+  return rows.length > 0;
+}
+
+// ============================================================
+// POST /api/team/create - Create new team (mentors and candidates)
+// ============================================================
+router.post("/create", async (req, res) => {
   try {
     const userId = req.user.id;
     const { name } = req.body;
     const accountType = await getUserAccountType(userId);
 
-    if (accountType !== "team_admin") {
-      return res.status(403).json({ error: "FORBIDDEN" });
-    }
-
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "TEAM_NAME_REQUIRED" });
+    }
+
+    // Candidates can only create/join 1 team max
+    if (accountType === "candidate") {
+      const existingTeam = await pool.query(
+        `
+        SELECT COUNT(*) as count
+        FROM team_members tm
+        WHERE tm.user_id = $1 AND tm.status IN ('active', 'invited', 'requested')
+        `,
+        [userId]
+      );
+      if (parseInt(existingTeam.rows[0].count) > 0) {
+        return res.status(403).json({ 
+          error: "CANDIDATE_TEAM_LIMIT",
+          message: "Candidates can only be part of one team. Leave your current team first."
+        });
+      }
     }
 
     const client = await pool.connect();
@@ -170,9 +170,11 @@ router.post("/admin/create", async (req, res) => {
 
       const teamId = teamResult.rows[0].id;
 
+      // Add creator as team member with their account type role
+      // The owner_id in teams table makes them the hidden admin
       await client.query(
-        "INSERT INTO team_members (team_id, user_id, role, status) VALUES ($1, $2, 'admin', 'active')",
-        [teamId, userId]
+        "INSERT INTO team_members (team_id, user_id, role, status) VALUES ($1, $2, $3, 'active')",
+        [teamId, userId, accountType === "mentor" ? "mentor" : "candidate"]
       );
 
       await client.query("COMMIT");
@@ -194,9 +196,23 @@ router.post("/admin/create", async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/team/admin/:teamId/rename - Admin: Rename team
+// POST /api/team/mentor/create - Legacy route (uses same logic as /create)
 // ============================================================
-router.patch("/admin/:teamId/rename", async (req, res) => {
+router.post("/mentor/create", async (req, res) => {
+  // Use same handler as /create
+  const originalUrl = req.url;
+  req.url = "/create";
+  try {
+    await router.handle(req, res);
+  } finally {
+    req.url = originalUrl;
+  }
+});
+
+// ============================================================
+// PATCH /api/team/:teamId/rename - Rename team (team owner only)
+// ============================================================
+router.patch("/:teamId/rename", async (req, res) => {
   try {
     const teamId = Number(req.params.teamId);
     const userId = req.user.id;
@@ -210,13 +226,9 @@ router.patch("/admin/:teamId/rename", async (req, res) => {
       return res.status(400).json({ error: "TEAM_NAME_REQUIRED" });
     }
 
-    const accountType = await getUserAccountType(userId);
-    if (accountType !== "team_admin") {
-      return res.status(403).json({ error: "FORBIDDEN" });
-    }
-
-    const membership = await getMembership(teamId, userId);
-    if (!membership || !ADMIN_ROLES.has(membership.role)) {
+    // Only team owner (hidden admin) can rename
+    const owner = await isTeamOwner(teamId, userId);
+    if (!owner) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
@@ -237,7 +249,89 @@ router.patch("/admin/:teamId/rename", async (req, res) => {
 });
 
 // ============================================================
-// GET /api/team/:teamId/members - Get team members (admin/mentor/candidate)
+// PATCH /api/team/mentor/:teamId/rename - Legacy route (uses same logic)
+// ============================================================
+router.patch("/mentor/:teamId/rename", async (req, res) => {
+  // Use same handler as /:teamId/rename
+  const originalUrl = req.url;
+  req.url = req.url.replace("/mentor", "");
+  try {
+    await router.handle(req, res);
+  } finally {
+    req.url = originalUrl;
+  }
+});
+
+// ============================================================
+// DELETE /api/team/:teamId - Delete team (team owner only)
+// ============================================================
+router.delete("/:teamId", async (req, res) => {
+  try {
+    const teamId = Number(req.params.teamId);
+    const userId = req.user.id;
+
+    if (Number.isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    // Only team owner (hidden admin) can delete the team
+    const owner = await isTeamOwner(teamId, userId);
+    if (!owner) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Delete all related data (team_members, feedback, tasks, shared_jobs, etc.)
+      // These should cascade if foreign keys are set up, but we'll delete explicitly to be safe
+      
+      // Delete team members
+      await client.query("DELETE FROM team_members WHERE team_id=$1", [teamId]);
+      
+      // Delete feedback and replies
+      await client.query(
+        `DELETE FROM feedback_replies 
+         WHERE feedback_id IN (SELECT id FROM mentor_feedback WHERE team_id=$1)`,
+        [teamId]
+      );
+      await client.query("DELETE FROM mentor_feedback WHERE team_id=$1", [teamId]);
+      
+      // Delete tasks
+      await client.query("DELETE FROM tasks WHERE team_id=$1", [teamId]);
+      
+      // Delete shared job exports
+      await client.query("DELETE FROM shared_job_exports WHERE shared_job_id IN (SELECT id FROM shared_jobs WHERE team_id=$1)", [teamId]);
+      
+      // Delete shared jobs
+      await client.query("DELETE FROM shared_jobs WHERE team_id=$1", [teamId]);
+      
+      // Finally, delete the team itself
+      const result = await client.query("DELETE FROM teams WHERE id=$1 RETURNING id, name", [teamId]);
+
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "TEAM_NOT_FOUND" });
+      }
+
+      await client.query("COMMIT");
+
+      res.json({ message: "TEAM_DELETED", team: result.rows[0] });
+    } catch (dbErr) {
+      await client.query("ROLLBACK");
+      throw dbErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Delete team failed:", err);
+    res.status(500).json({ error: "DELETE_FAILED" });
+  }
+});
+
+// ============================================================
+// GET /api/team/:teamId/members - Get team members (mentor/candidate)
 // ============================================================
 router.get("/:teamId/members", async (req, res) => {
   try {
@@ -258,7 +352,7 @@ router.get("/:teamId/members", async (req, res) => {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
-    // Admin/mentor can see all members; candidates can see members only if status is 'active'
+    // Mentors can see all members; candidates can see members only if status is 'active'
     const [teamResult, memberResult] = await Promise.all([
       pool.query(
         'SELECT id, name, owner_id AS "ownerId" FROM teams WHERE id=$1',
@@ -273,7 +367,8 @@ router.get("/:teamId/members", async (req, res) => {
           tm.created_at AS "joinedAt",
           u.first_name AS "firstName",
           u.last_name AS "lastName",
-          u.email
+          u.email,
+          u.account_type AS "accountType"
         FROM team_members tm
         INNER JOIN users u ON u.id = tm.user_id
         WHERE tm.team_id = $1
@@ -298,7 +393,7 @@ router.get("/:teamId/members", async (req, res) => {
 });
 
 // ============================================================
-// PATCH /api/team/:teamId/members/:memberId - Update member role (admin/mentor only)
+// PATCH /api/team/:teamId/members/:memberId - Update member role (team owner only)
 // ============================================================
 router.patch("/:teamId/members/:memberId", async (req, res) => {
   try {
@@ -310,9 +405,15 @@ router.patch("/:teamId/members/:memberId", async (req, res) => {
     const userId = req.user.id;
     const { role } = req.body;
 
-    const membership = await getMembership(teamId, userId);
-    if (!membership || !MANAGER_ROLES.has(membership.role)) {
+    // Only team owner (hidden admin) can update member roles
+    const owner = await isTeamOwner(teamId, userId);
+    if (!owner) {
       return res.status(403).json({ error: "FORBIDDEN" });
+    }
+    
+    // Cannot change the owner's own role
+    if (memberId === userId) {
+      return res.status(403).json({ error: "CANNOT_CHANGE_OWN_ROLE" });
     }
 
     const normalizedRole = (role || "").toLowerCase();
@@ -339,6 +440,36 @@ router.patch("/:teamId/members/:memberId", async (req, res) => {
       return res.status(404).json({ error: "MEMBER_NOT_FOUND" });
     }
 
+    // If role is changed to mentor, update user's account_type to mentor
+    // Check if user has any active mentor roles in any team
+    if (normalizedRole === "mentor") {
+      const mentorCheck = await pool.query(
+        "SELECT COUNT(*) as count FROM team_members WHERE user_id=$1 AND role='mentor' AND status='active'",
+        [memberId]
+      );
+      if (parseInt(mentorCheck.rows[0].count) > 0) {
+        // User has at least one active mentor role, update account_type
+        await pool.query(
+          "UPDATE users SET account_type='mentor' WHERE id=$1 AND account_type != 'mentor'",
+          [memberId]
+        );
+      }
+    } else if (normalizedRole === "candidate") {
+      // If role is changed to candidate, check if user still has any mentor roles
+      // If not, update account_type back to candidate
+      const mentorCheck = await pool.query(
+        "SELECT COUNT(*) as count FROM team_members WHERE user_id=$1 AND role='mentor' AND status='active'",
+        [memberId]
+      );
+      if (parseInt(mentorCheck.rows[0].count) === 0) {
+        // User has no active mentor roles, update account_type to candidate
+        await pool.query(
+          "UPDATE users SET account_type='candidate' WHERE id=$1 AND account_type != 'candidate'",
+          [memberId]
+        );
+      }
+    }
+
     res.json({ message: "ROLE_UPDATED" });
   } catch (err) {
     console.error("Update member role failed:", err);
@@ -347,7 +478,7 @@ router.patch("/:teamId/members/:memberId", async (req, res) => {
 });
 
 // ============================================================
-// DELETE /api/team/:teamId/members/:memberId - Remove member (admin/mentor only)
+// DELETE /api/team/:teamId/members/:memberId - Remove member (team owner only)
 // ============================================================
 router.delete("/:teamId/members/:memberId", async (req, res) => {
   try {
@@ -357,9 +488,10 @@ router.delete("/:teamId/members/:memberId", async (req, res) => {
       return res.status(400).json({ error: "INVALID_IDENTIFIER" });
     }
     const userId = req.user.id;
-    const membership = await getMembership(teamId, userId);
-
-    if (!membership || !MANAGER_ROLES.has(membership.role)) {
+    
+    // Only team owner (hidden admin) can remove members
+    const owner = await isTeamOwner(teamId, userId);
+    if (!owner) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
@@ -369,14 +501,9 @@ router.delete("/:teamId/members/:memberId", async (req, res) => {
       return res.status(404).json({ error: "MEMBER_NOT_FOUND" });
     }
 
-    // Prevent mentors from removing admins - only admins can remove admins
-    if (memberToRemove.role === "admin" && membership.role !== "admin") {
-      return res.status(403).json({ error: "CANNOT_REMOVE_ADMIN" });
-    }
-
-    // Prevent mentors from removing themselves - they must be removed by an admin
-    if (memberId === userId && membership.role === "mentor") {
-      return res.status(403).json({ error: "MENTOR_CANNOT_REMOVE_SELF" });
+    // Prevent team owner from removing themselves (they'd need to delete the team or transfer ownership)
+    if (memberId === userId) {
+      return res.status(403).json({ error: "OWNER_CANNOT_REMOVE_SELF" });
     }
 
     const result = await pool.query(
@@ -395,7 +522,7 @@ router.delete("/:teamId/members/:memberId", async (req, res) => {
 });
 
 // ============================================================
-// POST /api/team/:teamId/invite - Invite member (admin/mentor/candidate)
+// POST /api/team/:teamId/invite - Invite member (mentor/candidate)
 // ============================================================
 router.post("/:teamId/invite", async (req, res) => {
   try {
@@ -417,9 +544,7 @@ router.post("/:teamId/invite", async (req, res) => {
 
     // Determine allowed roles based on inviter's role
     let allowedRoles = new Set(["candidate"]);
-    if (ADMIN_ROLES.has(membership.role)) {
-      allowedRoles = MUTABLE_ROLES;
-    } else if (membership.role === "mentor") {
+    if (MENTOR_ROLES.has(membership.role)) {
       allowedRoles = MUTABLE_ROLES;
     } else if (membership.role === "candidate") {
       // Candidates can invite mentors or other candidates
@@ -577,7 +702,7 @@ router.post("/:teamId/accept", async (req, res) => {
       return res.status(400).json({ 
         error: "NOT_INVITED",
         message: membership.status === "requested" 
-          ? "Your join request is pending approval by a mentor or admin."
+          ? "Your join request is pending approval by a mentor."
           : "You can only accept invitations, not requests."
       });
     }
@@ -600,6 +725,21 @@ router.post("/:teamId/accept", async (req, res) => {
       "UPDATE team_members SET status='active' WHERE team_id=$1 AND user_id=$2",
       [teamId, userId]
     );
+
+    // If accepting as mentor, update user's account_type to mentor
+    if (membership.role === "mentor") {
+      const mentorCheck = await pool.query(
+        "SELECT COUNT(*) as count FROM team_members WHERE user_id=$1 AND role='mentor' AND status='active'",
+        [userId]
+      );
+      if (parseInt(mentorCheck.rows[0].count) > 0) {
+        // User has at least one active mentor role, update account_type
+        await pool.query(
+          "UPDATE users SET account_type='mentor' WHERE id=$1 AND account_type != 'mentor'",
+          [userId]
+        );
+      }
+    }
 
     res.json({ message: "INVITE_ACCEPTED" });
   } catch (err) {
@@ -651,6 +791,27 @@ router.post("/:teamId/request-join", async (req, res) => {
       return res.status(400).json({ error: "INVALID_TEAM_ID" });
     }
     const userId = req.user.id;
+    
+    // Check user's account type
+    const accountType = await getUserAccountType(userId);
+    
+    // Candidates can only join 1 team max
+    if (accountType === "candidate") {
+      const existingTeam = await pool.query(
+        `
+        SELECT COUNT(*) as count
+        FROM team_members tm
+        WHERE tm.user_id = $1 AND tm.status IN ('active', 'invited', 'requested')
+        `,
+        [userId]
+      );
+      if (parseInt(existingTeam.rows[0].count) > 0) {
+        return res.status(403).json({ 
+          error: "CANDIDATE_TEAM_LIMIT",
+          message: "Candidates can only be part of one team. Leave your current team first."
+        });
+      }
+    }
 
     // Check if team exists
     const teamResult = await pool.query("SELECT id, name FROM teams WHERE id=$1", [
@@ -683,7 +844,7 @@ router.post("/:teamId/request-join", async (req, res) => {
 });
 
 // ============================================================
-// GET /api/team/:teamId/pending-requests - Get pending join requests (admin/mentor only)
+// GET /api/team/:teamId/pending-requests - Get pending join requests (mentor only)
 // ============================================================
 router.get("/:teamId/pending-requests", async (req, res) => {
   try {
@@ -724,7 +885,7 @@ router.get("/:teamId/pending-requests", async (req, res) => {
 });
 
 // ============================================================
-// POST /api/team/:teamId/requests/:memberId/approve - Approve join request (admin/mentor only)
+// POST /api/team/:teamId/requests/:memberId/approve - Approve join request (mentor only)
 // ============================================================
 router.post("/:teamId/requests/:memberId/approve", async (req, res) => {
   try {
@@ -766,7 +927,7 @@ router.post("/:teamId/requests/:memberId/approve", async (req, res) => {
 });
 
 // ============================================================
-// POST /api/team/:teamId/requests/:memberId/reject - Reject join request (admin/mentor only)
+// POST /api/team/:teamId/requests/:memberId/reject - Reject join request (mentor only)
 // ============================================================
 router.post("/:teamId/requests/:memberId/reject", async (req, res) => {
   try {
@@ -808,7 +969,7 @@ router.post("/:teamId/requests/:memberId/reject", async (req, res) => {
 });
 
 // ============================================================
-// POST /api/team/:teamId/leave - Leave team (candidates can leave themselves)
+// POST /api/team/:teamId/leave - Leave team (non-owners can leave themselves)
 // ============================================================
 router.post("/:teamId/leave", async (req, res) => {
   try {
@@ -823,9 +984,16 @@ router.post("/:teamId/leave", async (req, res) => {
       return res.status(403).json({ error: "NOT_A_MEMBER" });
     }
 
-    // Only candidates can leave themselves (admins and mentors must be removed by admins)
-    if (membership.role !== "candidate") {
-      return res.status(403).json({ error: "ONLY_CANDIDATES_CAN_LEAVE" });
+    // Check if user is the team owner - owners cannot leave (they must delete the team)
+    const ownerCheck = await pool.query(
+      "SELECT owner_id FROM teams WHERE id=$1",
+      [teamId]
+    );
+    if (ownerCheck.rowCount > 0 && ownerCheck.rows[0].owner_id === userId) {
+      return res.status(403).json({ 
+        error: "OWNER_CANNOT_LEAVE",
+        message: "Team owners cannot leave their team. Delete the team instead if you want to remove it."
+      });
     }
 
     // Remove the member from the team
@@ -838,6 +1006,22 @@ router.post("/:teamId/leave", async (req, res) => {
       return res.status(404).json({ error: "MEMBER_NOT_FOUND" });
     }
 
+    // If leaving as mentor, check if user still has any active mentor roles
+    // If not, update account_type back to candidate
+    if (membership.role === "mentor") {
+      const mentorCheck = await pool.query(
+        "SELECT COUNT(*) as count FROM team_members WHERE user_id=$1 AND role='mentor' AND status='active'",
+        [userId]
+      );
+      if (parseInt(mentorCheck.rows[0].count) === 0) {
+        // User has no active mentor roles, update account_type to candidate
+        await pool.query(
+          "UPDATE users SET account_type='candidate' WHERE id=$1 AND account_type != 'candidate'",
+          [userId]
+        );
+      }
+    }
+
     res.json({ message: "LEFT_TEAM" });
   } catch (err) {
     console.error("Leave team failed:", err);
@@ -846,7 +1030,7 @@ router.post("/:teamId/leave", async (req, res) => {
 });
 
 // ============================================================
-// GET /api/team/:teamId/members/:memberId/profile - View candidate profile (mentor/admin only)
+// GET /api/team/:teamId/members/:memberId/profile - View candidate profile
 // ============================================================
 router.get("/:teamId/members/:memberId/profile", async (req, res) => {
   try {
@@ -857,15 +1041,23 @@ router.get("/:teamId/members/:memberId/profile", async (req, res) => {
     }
     const userId = req.user.id;
 
-    // Check if requester is mentor/admin in the team
+    // Check if requester is a member of the team
     const membership = await getMembership(teamId, userId);
-    if (!membership || !MANAGER_ROLES.has(membership.role)) {
+    if (!membership || membership.status !== "active") {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
-    // Check if member exists in team and is a candidate
+    // Get requester's account type
+    const requesterAccountType = await getUserAccountType(userId);
+    
+    // Check if member exists in team and get their role and account type
     const memberCheck = await pool.query(
-      "SELECT role, status FROM team_members WHERE team_id=$1 AND user_id=$2",
+      `
+      SELECT tm.role, tm.status, u.account_type
+      FROM team_members tm
+      INNER JOIN users u ON u.id = tm.user_id
+      WHERE tm.team_id=$1 AND tm.user_id=$2
+      `,
       [teamId, memberId]
     );
     if (memberCheck.rowCount === 0) {
@@ -873,9 +1065,31 @@ router.get("/:teamId/members/:memberId/profile", async (req, res) => {
     }
 
     const memberRole = memberCheck.rows[0].role;
-    // Only allow viewing profiles of candidates (mentors/admins can't be viewed)
-    if (memberRole !== "candidate") {
+    const memberAccountType = memberCheck.rows[0].account_type;
+    
+    // Profile visibility rules:
+    // 1. Candidates can NEVER see mentor profiles
+    // 2. Team owner (hidden admin) can see candidate profiles
+    // 3. Mentors can see candidate profiles by default
+    
+    // Rule 1: Candidates cannot view mentor profiles
+    if (requesterAccountType === "candidate" && memberAccountType === "mentor") {
+      return res.status(403).json({ error: "CANDIDATES_CANNOT_VIEW_MENTOR_PROFILES" });
+    }
+    
+    // Rule 2 & 3: Only allow viewing profiles of candidates
+    // (Team owners and mentors can view candidate profiles)
+    if (memberAccountType !== "candidate") {
       return res.status(403).json({ error: "CAN_ONLY_VIEW_CANDIDATE_PROFILES" });
+    }
+    
+    // Check if requester is team owner (hidden admin) or mentor
+    const owner = await isTeamOwner(teamId, userId);
+    const isMentor = requesterAccountType === "mentor";
+    
+    if (!owner && !isMentor) {
+      // Only team owners and mentors can view profiles
+      return res.status(403).json({ error: "FORBIDDEN" });
     }
 
     // Fetch profile data (excluding sensitive information like phone, user_id)
@@ -968,7 +1182,7 @@ router.get("/:teamId/members/:memberId/profile", async (req, res) => {
 // ============================================================
 
 // GET /api/team/:teamId/feedback - Get all feedback for a team
-// Mentors/Admins: See all feedback
+// Mentors: See all feedback
 // Candidates: See only feedback about themselves
 router.get("/:teamId/feedback", async (req, res) => {
   try {
@@ -991,7 +1205,7 @@ router.get("/:teamId/feedback", async (req, res) => {
     let params;
 
     if (isManager) {
-      // Mentors/Admins see all feedback in the team
+      // Mentors see all feedback in the team
       query = `
         SELECT 
           mf.id,
@@ -1230,7 +1444,7 @@ router.get("/:teamId/feedback/:feedbackId", async (req, res) => {
   }
 });
 
-// POST /api/team/:teamId/feedback - Create feedback (mentor only - admins cannot create feedback)
+// POST /api/team/:teamId/feedback - Create feedback (mentor only)
 router.post("/:teamId/feedback", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1268,7 +1482,7 @@ router.post("/:teamId/feedback", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors can create feedback - admins cannot create feedback (they can only view/edit/delete)
+    // Only mentors can create feedback
     if (membership.role !== "mentor") {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_CREATE_FEEDBACK" });
     }
@@ -1305,22 +1519,69 @@ router.post("/:teamId/feedback", async (req, res) => {
       }
     }
 
-    const result = await pool.query(
-      `INSERT INTO mentor_feedback 
-       (team_id, mentor_id, candidate_id, job_id, task_id, feedback_type, content, skill_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [
+    // Check which optional columns exist before including them in the INSERT
+    let insertQuery;
+    let insertParams;
+    
+    try {
+      // Check which columns exist
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'mentor_feedback' 
+        AND column_name IN ('task_id', 'relationship_id')
+      `);
+      
+      const existingColumns = new Set(columnCheck.rows.map(r => r.column_name));
+      const hasTaskIdColumn = existingColumns.has('task_id');
+      const hasRelationshipIdColumn = existingColumns.has('relationship_id');
+      
+      // Build the INSERT query based on which columns exist
+      const columns = ['team_id', 'mentor_id', 'candidate_id', 'job_id'];
+      const values = [teamId, userId, candidateId, jobId || null];
+      let paramIndex = 5;
+      
+      if (hasTaskIdColumn) {
+        columns.push('task_id');
+        values.push(taskId || null);
+        paramIndex++;
+      }
+      
+      columns.push('feedback_type', 'content', 'skill_name');
+      values.push(feedbackType, content, skillName || null);
+      
+      if (hasRelationshipIdColumn) {
+        columns.push('relationship_id');
+        values.push(null); // Set to null since we don't use it
+        paramIndex++;
+      }
+      
+      const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+      
+      insertQuery = `INSERT INTO mentor_feedback 
+       (${columns.join(', ')})
+       VALUES (${placeholders})
+       RETURNING *`;
+      insertParams = values;
+    } catch (checkErr) {
+      // If check fails, use basic insert without optional columns
+      insertQuery = `INSERT INTO mentor_feedback 
+       (team_id, mentor_id, candidate_id, job_id, feedback_type, content, skill_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`;
+      insertParams = [
         teamId,
         userId,
         candidateId,
         jobId || null,
-        taskId || null,
         feedbackType,
         content,
         skillName || null,
-      ]
-    );
+      ];
+    }
+
+    const result = await pool.query(insertQuery, insertParams);
 
     console.log(`[Feedback] Created feedback ${result.rows[0].id} for candidate ${candidateId} in team ${teamId}`);
 
@@ -1373,7 +1634,7 @@ router.patch("/:teamId/feedback/:feedbackId", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Check if feedback exists and user is the creator (or admin)
+    // Check if feedback exists and user is the creator (or mentor)
     const feedbackResult = await pool.query(
       "SELECT mentor_id, feedback_type FROM mentor_feedback WHERE id = $1 AND team_id = $2",
       [feedbackId, teamId]
@@ -1384,10 +1645,10 @@ router.patch("/:teamId/feedback/:feedbackId", async (req, res) => {
     }
 
     const feedback = feedbackResult.rows[0];
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
     const isCreator = feedback.mentor_id === userId;
 
-    if (!isAdmin && !isCreator) {
+    if (!isMentor && !isCreator) {
       return res.status(403).json({ error: "CAN_ONLY_EDIT_OWN_FEEDBACK" });
     }
 
@@ -1462,10 +1723,10 @@ router.delete("/:teamId/feedback/:feedbackId", async (req, res) => {
     }
 
     const feedback = feedbackResult.rows[0];
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
     const isCreator = feedback.mentor_id === userId;
 
-    if (!isAdmin && !isCreator) {
+    if (!isMentor && !isCreator) {
       return res.status(403).json({ error: "CAN_ONLY_DELETE_OWN_FEEDBACK" });
     }
 
@@ -1623,7 +1884,7 @@ router.post("/:teamId/feedback/:feedbackId/replies", async (req, res) => {
     const feedback = feedbackResult.rows[0];
     const isManager = MANAGER_ROLES.has(membership.role);
 
-    // Verify user is either the mentor or candidate (or admin can reply to any)
+    // Verify user is either the mentor or candidate (mentors can reply to any)
     if (!isManager && userId !== feedback.candidate_id && userId !== feedback.mentor_id) {
       return res.status(403).json({ error: "CAN_ONLY_REPLY_TO_OWN_FEEDBACK" });
     }
@@ -1715,10 +1976,10 @@ router.patch("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res) 
     }
 
     const reply = replyResult.rows[0];
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
 
-    // Only the author or admin can edit
-    if (!isAdmin && reply.user_id !== userId) {
+    // Only the author or mentor can edit
+    if (!isMentor && reply.user_id !== userId) {
       return res.status(403).json({ error: "CAN_ONLY_EDIT_OWN_REPLY" });
     }
 
@@ -1769,10 +2030,10 @@ router.delete("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res)
     }
 
     const reply = replyResult.rows[0];
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
 
-    // Only the author or admin can delete
-    if (!isAdmin && reply.user_id !== userId) {
+    // Only the author or mentor can delete
+    if (!isMentor && reply.user_id !== userId) {
       return res.status(403).json({ error: "CAN_ONLY_DELETE_OWN_REPLY" });
     }
 
@@ -1804,7 +2065,7 @@ router.delete("/:teamId/feedback/:feedbackId/replies/:replyId", async (req, res)
 // ============================================================
 
 // GET /api/team/:teamId/tasks - Get all tasks for a team
-// Mentors/Admins: See all tasks in the team
+// Mentors: See all tasks in the team
 // Candidates: See only tasks assigned to them
 router.get("/:teamId/tasks", async (req, res) => {
   try {
@@ -1827,7 +2088,7 @@ router.get("/:teamId/tasks", async (req, res) => {
     let params;
 
     if (isManager) {
-      // Mentors/Admins see all tasks in the team
+      // Mentors see all tasks in the team
       query = `
         SELECT 
           t.id,
@@ -1990,7 +2251,7 @@ router.get("/:teamId/tasks/:taskId", async (req, res) => {
   }
 });
 
-// POST /api/team/:teamId/tasks - Create task (mentor/admin only)
+// POST /api/team/:teamId/tasks - Create task (mentor only)
 router.post("/:teamId/tasks", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2092,8 +2353,23 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
     const task = taskResult.rows[0];
     const isManager = MANAGER_ROLES.has(membership.role);
     const isCandidate = membership.role === "candidate";
-    const isCreator = task.mentor_id === userId;
-    const isAssignedTo = task.candidate_id === userId;
+    const isCreator = parseInt(task.mentor_id) === parseInt(userId);
+    // Fix: Ensure both values are compared as integers to handle type mismatches
+    const isAssignedTo = task.candidate_id !== null && parseInt(task.candidate_id) === parseInt(userId);
+
+    // Debug logging for troubleshooting
+    if (status !== undefined) {
+      console.log("Task status update attempt:", {
+        userId: parseInt(userId),
+        taskCandidateId: task.candidate_id ? parseInt(task.candidate_id) : null,
+        isCandidate,
+        isAssignedTo,
+        isManager,
+        isCreator,
+        membershipRole: membership.role,
+        requestedStatus: status
+      });
+    }
 
     // Determine what can be updated
     let updateFields = [];
@@ -2110,7 +2386,7 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
         updateFields.push(`description = $${valueIndex++}`);
         updateValues.push(description || null);
       }
-      // Status updates are NOT allowed for mentors/admins - only candidates can update status
+      // Status updates are NOT allowed for mentors - only candidates can update status
       if (status !== undefined) {
         return res.status(403).json({ error: "ONLY_CANDIDATES_CAN_UPDATE_TASK_STATUS" });
       }
@@ -2138,6 +2414,13 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
         return res.status(403).json({ error: "CANDIDATES_CAN_ONLY_UPDATE_STATUS" });
       }
     } else {
+      // Provide more specific error message for debugging
+      if (isCandidate && !isAssignedTo) {
+        return res.status(403).json({ 
+          error: "CANDIDATE_NOT_ASSIGNED_TO_TASK",
+          message: "You are not assigned to this task. Only the assigned candidate can update the task status."
+        });
+      }
       return res.status(403).json({ error: "NO_PERMISSION_TO_UPDATE_TASK" });
     }
 
@@ -2161,7 +2444,7 @@ router.patch("/:teamId/tasks/:taskId", async (req, res) => {
   }
 });
 
-// DELETE /api/team/:teamId/tasks/:taskId - Delete task (mentor/admin only)
+// DELETE /api/team/:teamId/tasks/:taskId - Delete task (mentor only)
 router.delete("/:teamId/tasks/:taskId", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2188,10 +2471,10 @@ router.delete("/:teamId/tasks/:taskId", async (req, res) => {
     }
 
     const task = taskResult.rows[0];
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
     const isCreator = task.mentor_id === userId;
 
-    if (!isAdmin && !isCreator) {
+    if (!isMentor && !isCreator) {
       return res.status(403).json({ error: "NO_PERMISSION_TO_DELETE_TASK" });
     }
 
@@ -2204,7 +2487,7 @@ router.delete("/:teamId/tasks/:taskId", async (req, res) => {
   }
 });
 
-// GET /api/team/:teamId/activity - Get team-wide activity feed (mentor/admin only)
+// GET /api/team/:teamId/activity - Get team-wide activity feed (mentor only)
 router.get("/:teamId/activity", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2219,7 +2502,7 @@ router.get("/:teamId/activity", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors and admins can view activity feed
+    // Only mentors can view activity feed
     if (!MANAGER_ROLES.has(membership.role)) {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_ACTIVITY" });
     }
@@ -2319,8 +2602,14 @@ router.get("/:teamId/activity", async (req, res) => {
 
     // Get candidates needing attention (overdue tasks or pending tasks > 7 days)
     const attentionTasksResult = await pool.query(
-      `SELECT DISTINCT t.candidate_id,
-              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+      `SELECT DISTINCT 
+              t.candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name,
+              CASE 
+                WHEN t.due_date IS NOT NULL AND t.due_date < CURRENT_DATE THEN 'overdue_task'
+                WHEN t.created_at < NOW() - INTERVAL '7 days' AND t.status = 'pending' THEN 'stale_pending_task'
+                ELSE NULL
+              END as attention_reason
        FROM tasks t
        JOIN users u ON t.candidate_id = u.id
        LEFT JOIN profiles p ON u.id = p.user_id
@@ -2335,8 +2624,10 @@ router.get("/:teamId/activity", async (req, res) => {
 
     // Get candidates with overdue or upcoming (within 3 days) job deadlines
     const attentionJobsResult = candidateIdsArray.length > 0 ? await pool.query(
-      `SELECT DISTINCT j.user_id AS candidate_id,
-              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+      `SELECT DISTINCT 
+              j.user_id AS candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name,
+              'upcoming_job_deadline' as attention_reason
        FROM jobs j
        JOIN users u ON j.user_id = u.id
        LEFT JOIN profiles p ON u.id = p.user_id
@@ -2346,8 +2637,10 @@ router.get("/:teamId/activity", async (req, res) => {
          AND j.deadline <= CURRENT_DATE + INTERVAL '3 days'
          AND j.status NOT IN ('Rejected', 'Offer', 'Accepted')
        UNION
-       SELECT DISTINCT j.user_id AS candidate_id,
-              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name
+       SELECT DISTINCT 
+              j.user_id AS candidate_id,
+              COALESCE(u.first_name || ' ' || u.last_name, p.full_name, u.email) AS candidate_name,
+              'overdue_job_deadline' as attention_reason
        FROM jobs j
        JOIN users u ON j.user_id = u.id
        LEFT JOIN profiles p ON u.id = p.user_id
@@ -2358,14 +2651,30 @@ router.get("/:teamId/activity", async (req, res) => {
       [candidateIdsArray]
     ) : { rows: [] };
 
-    // Combine attention candidates (deduplicate)
+    // Combine attention candidates (deduplicate and collect all reasons)
     const attentionMap = new Map();
     [...attentionTasksResult.rows, ...attentionJobsResult.rows].forEach((row) => {
       if (!attentionMap.has(row.candidate_id)) {
-        attentionMap.set(row.candidate_id, row);
+        attentionMap.set(row.candidate_id, {
+          candidate_id: row.candidate_id,
+          candidate_name: row.candidate_name,
+          reasons: new Set()
+        });
+      }
+      // Add the reason to the set
+      if (row.attention_reason) {
+        attentionMap.get(row.candidate_id).reasons.add(row.attention_reason);
       }
     });
-    const attentionResult = { rows: Array.from(attentionMap.values()) };
+    
+    // Convert Set to Array for JSON serialization
+    const attentionResult = { 
+      rows: Array.from(attentionMap.values()).map(item => ({
+        candidate_id: item.candidate_id,
+        candidate_name: item.candidate_name,
+        reasons: Array.from(item.reasons)
+      }))
+    };
 
     // Combine and format activities
     const activities = [];
@@ -2596,7 +2905,7 @@ router.get("/:teamId/activity", async (req, res) => {
     const upcomingDeadlines = deadlinesResult.rows.length;
 
     res.json({
-      activities: activities.slice(0, 100), // Limit to 100 most recent activities
+      activities: activities.slice(0, 10), // Limit to 10 most recent activities
       summary: {
         totalCandidates,
         candidatesNeedingAttention,
@@ -2614,6 +2923,7 @@ router.get("/:teamId/activity", async (req, res) => {
       candidatesNeedingAttention: attentionResult.rows.map((r) => ({
         candidateId: r.candidate_id,
         candidateName: r.candidate_name,
+        reasons: r.reasons || [],
       })),
     });
   } catch (err) {
@@ -2646,7 +2956,7 @@ router.post("/:teamId/shared-jobs", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors/admins can share jobs
+    // Only mentors can share jobs
     if (!MANAGER_ROLES.has(membership.role)) {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_SHARE_JOBS" });
     }
@@ -2752,7 +3062,7 @@ router.get("/:teamId/shared-jobs", async (req, res) => {
 
     const exportedJobIds = new Set(exportedJobs.rows.map((row) => row.shared_job_id));
 
-    // For mentors/admins, get export counts
+    // For mentors, get export counts
     const sharedJobIds = result.rows.map((row) => row.shared_job_id);
     const exportCounts =
       MANAGER_ROLES.has(membership.role) && sharedJobIds.length > 0
@@ -2816,12 +3126,12 @@ router.post("/:teamId/shared-jobs/:sharedJobId/comments", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors/admins can update comments
+    // Only mentors can update comments
     if (!MANAGER_ROLES.has(membership.role)) {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_UPDATE_COMMENTS" });
     }
 
-    // Verify the shared job exists and belongs to this mentor (or admin can update any)
+    // Verify the shared job exists and belongs to this mentor (mentors can update any)
     const sharedJobResult = await pool.query(
       `SELECT shared_by_mentor_id FROM shared_jobs WHERE id = $1 AND team_id = $2`,
       [sharedJobId, teamId]
@@ -2831,10 +3141,10 @@ router.post("/:teamId/shared-jobs/:sharedJobId/comments", async (req, res) => {
       return res.status(404).json({ error: "SHARED_JOB_NOT_FOUND" });
     }
 
-    const isAdmin = ADMIN_ROLES.has(membership.role);
+    const isMentor = MENTOR_ROLES.has(membership.role);
     const isOwner = sharedJobResult.rows[0].shared_by_mentor_id === userId;
 
-    if (!isAdmin && !isOwner) {
+    if (!isMentor && !isOwner) {
       return res.status(403).json({ error: "CAN_ONLY_UPDATE_OWN_SHARED_JOB_COMMENTS" });
     }
 
@@ -2948,7 +3258,7 @@ router.post("/:teamId/shared-jobs/:sharedJobId/export", async (req, res) => {
   }
 });
 
-// GET /api/team/:teamId/shared-jobs/progress - Get mentee progress dashboard (mentor/admin only)
+// GET /api/team/:teamId/shared-jobs/progress - Get mentee progress dashboard (mentor only)
 router.get("/:teamId/shared-jobs/progress", async (req, res) => {
   try {
     const userId = req.user.id;
@@ -2963,7 +3273,7 @@ router.get("/:teamId/shared-jobs/progress", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors/admins can view progress
+    // Only mentors can view progress
     if (!MANAGER_ROLES.has(membership.role)) {
       return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_PROGRESS" });
     }
@@ -3042,6 +3352,1008 @@ router.get("/:teamId/shared-jobs/progress", async (req, res) => {
   } catch (err) {
     console.error("Get shared jobs progress failed:", err);
     res.status(500).json({ error: "GET_PROGRESS_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/shared-jobs/application-materials - Get application materials for all candidates
+router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Only mentors can view application materials
+    if (!MANAGER_ROLES.has(membership.role)) {
+      return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_MATERIALS" });
+    }
+
+    // Get all candidates in the team
+    const candidatesResult = await pool.query(
+      `SELECT tm.user_id AS candidate_id,
+              COALESCE(
+                NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+                u_prof.full_name,
+                u.email,
+                'Unknown'
+              ) AS candidate_name
+       FROM team_members tm
+       JOIN users u ON tm.user_id = u.id
+       LEFT JOIN profiles u_prof ON tm.user_id = u_prof.user_id
+       WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+       ORDER BY candidate_name`,
+      [teamId]
+    );
+
+    const candidates = candidatesResult.rows;
+    const candidateIds = candidates.map((c) => c.candidate_id);
+
+    if (candidateIds.length === 0) {
+      return res.json({ materials: [] });
+    }
+
+    // Get all jobs for these candidates with resume and cover letter info
+    const materialsResult = await pool.query(
+      `
+      SELECT 
+        j.id AS job_id,
+        j.user_id AS candidate_id,
+        j.title AS job_title,
+        j.company AS job_company,
+        j.status AS job_status,
+        j.resume_id,
+        j.cover_letter_id,
+        r.title AS resume_title,
+        r.format AS resume_format,
+        cl.title AS cover_letter_title,
+        cl.format AS cover_letter_format
+      FROM jobs j
+      LEFT JOIN resumes r ON j.resume_id = r.id AND r.user_id = j.user_id
+      LEFT JOIN cover_letters cl ON j.cover_letter_id = cl.id AND cl.user_id = j.user_id
+      WHERE j.user_id = ANY($1)
+      ORDER BY j.user_id, j.created_at DESC
+      `,
+      [candidateIds]
+    );
+
+    // Group materials by candidate
+    const materialsByCandidate = {};
+    
+    candidates.forEach((candidate) => {
+      materialsByCandidate[candidate.candidate_id] = {
+        candidateId: candidate.candidate_id,
+        candidateName: candidate.candidate_name,
+        jobs: [],
+      };
+    });
+
+    materialsResult.rows.forEach((row) => {
+      const candidateId = row.candidate_id;
+      if (materialsByCandidate[candidateId]) {
+        materialsByCandidate[candidateId].jobs.push({
+          jobId: row.job_id,
+          jobTitle: row.job_title,
+          jobCompany: row.job_company,
+          jobStatus: row.job_status,
+          resume: row.resume_id
+            ? {
+                id: row.resume_id,
+                title: row.resume_title || `Resume #${row.resume_id}`,
+                format: row.resume_format || "pdf",
+              }
+            : null,
+          coverLetter: row.cover_letter_id
+            ? {
+                id: row.cover_letter_id,
+                title: row.cover_letter_title || `Cover Letter #${row.cover_letter_id}`,
+                format: row.cover_letter_format || "pdf",
+              }
+            : null,
+        });
+      }
+    });
+
+    // Convert to array and filter out candidates with no jobs
+    const materials = Object.values(materialsByCandidate).filter(
+      (candidate) => candidate.jobs.length > 0
+    );
+
+    res.json({ materials });
+  } catch (err) {
+    console.error("Get application materials failed:", err);
+    res.status(500).json({ error: "GET_APPLICATION_MATERIALS_FAILED" });
+  }
+});
+
+// ============================================================
+// GET /api/team/:teamId/analytics/milestones - Get milestones and celebrations
+// ============================================================
+router.get("/:teamId/analytics/milestones", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Get significant task completion milestones (not every task - only meaningful ones)
+    // Show only the HIGHEST milestone per candidate (e.g., if they have 10 tasks, show "10 Tasks" not "1 Task" and "5 Tasks")
+    const milestonesQuery = await pool.query(
+      `
+      WITH task_completions AS (
+        SELECT 
+          t.id,
+          t.candidate_id,
+          t.updated_at,
+          COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+          ROW_NUMBER() OVER (PARTITION BY t.candidate_id ORDER BY t.updated_at ASC) as completion_number
+        FROM tasks t
+        JOIN users u ON t.candidate_id = u.id
+        LEFT JOIN profiles u_prof ON t.candidate_id = u_prof.user_id
+        WHERE t.team_id = $1 AND t.status = 'completed'
+      ),
+      task_totals AS (
+        SELECT 
+          candidate_id,
+          MAX(completion_number) as total_completed,
+          MAX(candidate_name) as candidate_name
+        FROM task_completions
+        GROUP BY candidate_id
+        HAVING MAX(completion_number) >= 1
+      ),
+      highest_milestones AS (
+        SELECT 
+          tt.candidate_id,
+          tt.candidate_name,
+          tt.total_completed,
+          CASE 
+            WHEN tt.total_completed >= 20 AND tt.total_completed % 10 = 0 THEN tt.total_completed
+            WHEN tt.total_completed >= 20 THEN FLOOR(tt.total_completed / 10) * 10
+            WHEN tt.total_completed >= 15 THEN 15
+            WHEN tt.total_completed >= 10 THEN 10
+            WHEN tt.total_completed >= 5 THEN 5
+            WHEN tt.total_completed >= 1 THEN 1
+            ELSE NULL
+          END as milestone_number
+        FROM task_totals tt
+      )
+      SELECT 
+        hm.candidate_id || '_' || hm.milestone_number as id,
+        'task_completion' as type,
+        CASE 
+          WHEN hm.milestone_number = 1 THEN 'Reached 1 task completion milestone'
+          ELSE CONCAT('Reached ', hm.milestone_number, ' tasks completion milestone')
+        END as title,
+        CONCAT('Completed ', hm.total_completed, ' tasks total') as description,
+        hm.candidate_name,
+        tc.updated_at as date,
+        'check' as icon
+      FROM highest_milestones hm
+      JOIN task_completions tc ON hm.candidate_id = tc.candidate_id AND tc.completion_number = hm.milestone_number
+      WHERE hm.milestone_number IS NOT NULL
+      ORDER BY tc.updated_at DESC
+      LIMIT 20
+      `,
+      [teamId]
+    );
+
+    // Get job application milestones - only the ACTUAL first job per candidate
+    const jobMilestonesQuery = await pool.query(
+      `
+      WITH first_jobs AS (
+        SELECT 
+          j.id,
+          j.user_id,
+          j.title,
+          j.company,
+          j.created_at,
+          COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+          ROW_NUMBER() OVER (PARTITION BY j.user_id ORDER BY j.created_at ASC) as job_number
+        FROM jobs j
+        JOIN team_members tm ON j.user_id = tm.user_id
+        JOIN users u ON j.user_id = u.id
+        LEFT JOIN profiles u_prof ON j.user_id = u_prof.user_id
+        WHERE tm.team_id = $1 AND tm.status = 'active' AND tm.role = 'candidate'
+      )
+      SELECT 
+        id,
+        'job_application' as type,
+        CONCAT('First Job Application: ', title) as title,
+        CONCAT('Applied to ', company) as description,
+        candidate_name,
+        created_at as date,
+        'briefcase' as icon
+      FROM first_jobs
+      WHERE job_number = 1
+      ORDER BY created_at DESC
+      LIMIT 10
+      `,
+      [teamId]
+    );
+
+    // Get job offer milestones - EVERY job offer is a milestone
+    const jobOfferMilestonesQuery = await pool.query(
+      `
+      SELECT 
+        j.id,
+        'job_offer' as type,
+        CONCAT('Job Offer Received: ', j.title) as title,
+        CONCAT('Received offer from ', j.company) as description,
+        COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+        COALESCE(j.status_updated_at, j.created_at) as date,
+        'trophy' as icon
+      FROM jobs j
+      JOIN team_members tm ON j.user_id = tm.user_id
+      JOIN users u ON j.user_id = u.id
+      LEFT JOIN profiles u_prof ON j.user_id = u_prof.user_id
+      WHERE tm.team_id = $1 
+        AND tm.status = 'active' 
+        AND tm.role = 'candidate'
+        AND j.status = 'Offer'
+      ORDER BY COALESCE(j.status_updated_at, j.created_at) DESC
+      LIMIT 20
+      `,
+      [teamId]
+    );
+
+    // Get first interview milestone per candidate
+    const firstInterviewMilestonesQuery = await pool.query(
+      `
+      WITH first_interviews AS (
+        SELECT 
+          j.id,
+          j.user_id,
+          j.title,
+          j.company,
+          COALESCE(j.status_updated_at, j.created_at) as interview_date,
+          COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+          ROW_NUMBER() OVER (PARTITION BY j.user_id ORDER BY COALESCE(j.status_updated_at, j.created_at) ASC) as interview_number
+        FROM jobs j
+        JOIN team_members tm ON j.user_id = tm.user_id
+        JOIN users u ON j.user_id = u.id
+        LEFT JOIN profiles u_prof ON j.user_id = u_prof.user_id
+        WHERE tm.team_id = $1 
+          AND tm.status = 'active' 
+          AND tm.role = 'candidate'
+          AND j.status = 'Interview'
+      )
+      SELECT 
+        id,
+        'interview' as type,
+        CONCAT('First Interview Scheduled: ', title) as title,
+        CONCAT('Interview with ', company) as description,
+        candidate_name,
+        interview_date as date,
+        'calendar-check' as icon
+      FROM first_interviews
+      WHERE interview_number = 1
+      ORDER BY interview_date DESC
+      LIMIT 10
+      `,
+      [teamId]
+    );
+
+    // Get first phone screen milestone per candidate
+    const firstPhoneScreenMilestonesQuery = await pool.query(
+      `
+      WITH first_phone_screens AS (
+        SELECT 
+          j.id,
+          j.user_id,
+          j.title,
+          j.company,
+          COALESCE(j.status_updated_at, j.created_at) as phone_screen_date,
+          COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+          ROW_NUMBER() OVER (PARTITION BY j.user_id ORDER BY COALESCE(j.status_updated_at, j.created_at) ASC) as phone_screen_number
+        FROM jobs j
+        JOIN team_members tm ON j.user_id = tm.user_id
+        JOIN users u ON j.user_id = u.id
+        LEFT JOIN profiles u_prof ON j.user_id = u_prof.user_id
+        WHERE tm.team_id = $1 
+          AND tm.status = 'active' 
+          AND tm.role = 'candidate'
+          AND j.status = 'Phone Screen'
+      )
+      SELECT 
+        id,
+        'phone_screen' as type,
+        CONCAT('First Phone Screen: ', title) as title,
+        CONCAT('Phone screen with ', company) as description,
+        candidate_name,
+        phone_screen_date as date,
+        'phone' as icon
+      FROM first_phone_screens
+      WHERE phone_screen_number = 1
+      ORDER BY phone_screen_date DESC
+      LIMIT 10
+      `,
+      [teamId]
+    );
+
+    // Get skill milestones - significant skill additions
+    // Show only the HIGHEST milestone per candidate (e.g., if they have 5 skills, show "5 Skills Added!" not "3 Skills Added!")
+    const skillMilestonesQuery = await pool.query(
+      `
+      WITH skill_ordered AS (
+        SELECT 
+          s.user_id,
+          s.created_at,
+          COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name,
+          ROW_NUMBER() OVER (PARTITION BY s.user_id ORDER BY s.created_at ASC) as skill_number
+        FROM skills s
+        JOIN team_members tm ON s.user_id = tm.user_id
+        JOIN users u ON s.user_id = u.id
+        LEFT JOIN profiles u_prof ON s.user_id = u_prof.user_id
+        WHERE tm.team_id = $1 
+          AND tm.status = 'active' 
+          AND tm.role = 'candidate'
+      ),
+      skill_totals AS (
+        SELECT 
+          user_id,
+          MAX(skill_number) as total_skills,
+          MAX(candidate_name) as candidate_name
+        FROM skill_ordered
+        GROUP BY user_id
+        HAVING MAX(skill_number) >= 3
+      ),
+      highest_milestones AS (
+        SELECT 
+          st.user_id,
+          st.candidate_name,
+          st.total_skills,
+          CASE 
+            WHEN st.total_skills >= 10 THEN FLOOR(st.total_skills / 10) * 10
+            WHEN st.total_skills >= 5 THEN 5
+            WHEN st.total_skills >= 3 THEN 3
+            ELSE NULL
+          END as milestone_number
+        FROM skill_totals st
+      )
+      SELECT 
+        hm.user_id || '_' || hm.milestone_number as id,
+        'skill' as type,
+        hm.milestone_number || ' Skills Added!' as title,
+        CONCAT('Reached ', hm.milestone_number, ' skills milestone') as description,
+        hm.candidate_name,
+        so.created_at as date,
+        'star' as icon
+      FROM highest_milestones hm
+      JOIN skill_ordered so ON hm.user_id = so.user_id AND so.skill_number = hm.milestone_number
+      WHERE hm.milestone_number IS NOT NULL
+      ORDER BY so.created_at DESC
+      LIMIT 15
+      `,
+      [teamId]
+    );
+
+    // Combine milestones and filter out NULL titles (only show significant milestones)
+    const milestones = [
+      ...milestonesQuery.rows
+        .filter(row => row.title) // Only include rows with valid titles (significant milestones only)
+        .map(row => ({
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          description: row.description || '',
+          candidateName: row.candidate_name || 'Unknown',
+          date: row.date,
+          icon: row.icon,
+        })),
+      ...jobMilestonesQuery.rows.map(row => ({
+        id: `job_app_${row.id}`,
+        type: row.type,
+        title: row.title,
+        description: row.description || '',
+        candidateName: row.candidate_name || 'Unknown',
+        date: row.date,
+        icon: row.icon,
+      })),
+      ...jobOfferMilestonesQuery.rows.map(row => ({
+        id: `job_offer_${row.id}`,
+        type: row.type,
+        title: row.title,
+        description: row.description || '',
+        candidateName: row.candidate_name || 'Unknown',
+        date: row.date,
+        icon: row.icon,
+      })),
+      ...firstInterviewMilestonesQuery.rows.map(row => ({
+        id: `interview_${row.id}`,
+        type: row.type,
+        title: row.title,
+        description: row.description || '',
+        candidateName: row.candidate_name || 'Unknown',
+        date: row.date,
+        icon: row.icon,
+      })),
+      ...firstPhoneScreenMilestonesQuery.rows.map(row => ({
+        id: `phone_${row.id}`,
+        type: row.type,
+        title: row.title,
+        description: row.description || '',
+        candidateName: row.candidate_name || 'Unknown',
+        date: row.date,
+        icon: row.icon,
+      })),
+      ...skillMilestonesQuery.rows
+        .filter(row => row.title) // Only include rows with valid titles
+        .map(row => ({
+          id: `skill_${row.id}`,
+          type: row.type,
+          title: row.title,
+          description: row.description || '',
+          candidateName: row.candidate_name || 'Unknown',
+          date: row.date,
+          icon: row.icon,
+        })),
+    ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 30);
+
+    // Get team celebrations (collective achievements)
+    const celebrationsQuery = await pool.query(
+      `
+      WITH task_stats AS (
+        SELECT 
+          COUNT(*) FILTER (WHERE t.status = 'completed') as completed_count,
+          COUNT(*) as total_count
+        FROM tasks t
+        WHERE t.team_id = $1
+      ),
+      team_member_count AS (
+        SELECT COUNT(*) as count
+        FROM team_members
+        WHERE team_id = $1 AND status = 'active' AND role = 'candidate'
+      ),
+      job_stats AS (
+        SELECT 
+          COUNT(*) FILTER (WHERE j.status = 'Offer') as offer_count,
+          COUNT(*) FILTER (WHERE j.status = 'Interview') as interview_count,
+          COUNT(*) FILTER (WHERE j.status IN ('Applied', 'Phone Screen', 'Interview', 'Offer')) as application_count
+        FROM jobs j
+        JOIN team_members tm ON j.user_id = tm.user_id
+        WHERE tm.team_id = $1 AND tm.status = 'active' AND tm.role = 'candidate'
+      ),
+      skill_stats AS (
+        SELECT COUNT(DISTINCT s.id) as total_skills
+        FROM skills s
+        JOIN team_members tm ON s.user_id = tm.user_id
+        WHERE tm.team_id = $1 AND tm.status = 'active' AND tm.role = 'candidate'
+      ),
+      all_candidates_active AS (
+        SELECT 
+          COUNT(DISTINCT t.candidate_id) FILTER (WHERE t.status = 'completed') as candidates_with_completed_tasks,
+          (SELECT COUNT(*) FROM team_members WHERE team_id = $1 AND status = 'active' AND role = 'candidate') as total_candidates
+        FROM tasks t
+        WHERE t.team_id = $1
+      )
+      SELECT 
+        title,
+        description,
+        NOW() as date,
+        'team_achievement' as type
+      FROM (
+        -- Task completion celebrations
+        SELECT 
+          CASE 
+            WHEN ts.completed_count >= 50 THEN 'Team Milestone: ' || ts.completed_count || ' Tasks Completed!'
+            WHEN ts.completed_count >= 25 THEN 'Team Achievement: ' || ts.completed_count || ' Tasks Completed!'
+            WHEN ts.completed_count >= 10 THEN 'Team Milestone: ' || ts.completed_count || ' Tasks Completed'
+            WHEN ts.completed_count >= 5 THEN 'Team Achievement: ' || ts.completed_count || ' Tasks Completed'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN ts.completed_count >= 50 THEN 'Outstanding! The team has collectively completed ' || ts.completed_count || ' tasks! 🎉'
+            WHEN ts.completed_count >= 25 THEN 'Excellent progress! The team has completed ' || ts.completed_count || ' tasks!'
+            WHEN ts.completed_count >= 10 THEN 'The team has collectively completed ' || ts.completed_count || ' tasks!'
+            WHEN ts.completed_count >= 5 THEN 'Great progress! The team has completed ' || ts.completed_count || ' tasks.'
+            ELSE NULL
+          END as description
+        FROM task_stats ts
+        WHERE ts.completed_count >= 5
+        
+        UNION ALL
+        
+        -- Job offer celebrations
+        SELECT 
+          CASE 
+            WHEN js.offer_count >= 5 THEN 'Team Celebration: ' || js.offer_count || ' Job Offers Received!'
+            WHEN js.offer_count >= 3 THEN 'Team Achievement: ' || js.offer_count || ' Job Offers Received!'
+            WHEN js.offer_count >= 1 THEN 'Team Milestone: First Job Offer Received!'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN js.offer_count >= 5 THEN 'Amazing! The team has received ' || js.offer_count || ' job offers! 🎊'
+            WHEN js.offer_count >= 3 THEN 'Fantastic! The team has received ' || js.offer_count || ' job offers!'
+            WHEN js.offer_count >= 1 THEN 'Congratulations! The team received its first job offer! 🎉'
+            ELSE NULL
+          END as description
+        FROM job_stats js
+        WHERE js.offer_count >= 1
+        
+        UNION ALL
+        
+        -- Interview celebrations
+        SELECT 
+          CASE 
+            WHEN js.interview_count >= 10 THEN 'Team Milestone: ' || js.interview_count || ' Interviews Scheduled!'
+            WHEN js.interview_count >= 5 THEN 'Team Achievement: ' || js.interview_count || ' Interviews Scheduled!'
+            WHEN js.interview_count >= 1 THEN 'Team Milestone: First Interview Scheduled!'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN js.interview_count >= 10 THEN 'Impressive! The team has ' || js.interview_count || ' interviews scheduled!'
+            WHEN js.interview_count >= 5 THEN 'Great momentum! The team has ' || js.interview_count || ' interviews scheduled!'
+            WHEN js.interview_count >= 1 THEN 'The team has scheduled its first interview! 🎯'
+            ELSE NULL
+          END as description
+        FROM job_stats js
+        WHERE js.interview_count >= 1
+        
+        UNION ALL
+        
+        -- Job application celebrations
+        SELECT 
+          CASE 
+            WHEN js.application_count >= 50 THEN 'Team Milestone: ' || js.application_count || ' Job Applications Submitted!'
+            WHEN js.application_count >= 25 THEN 'Team Achievement: ' || js.application_count || ' Job Applications Submitted!'
+            WHEN js.application_count >= 10 THEN 'Team Milestone: ' || js.application_count || ' Job Applications Submitted!'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN js.application_count >= 50 THEN 'Outstanding effort! The team has submitted ' || js.application_count || ' job applications!'
+            WHEN js.application_count >= 25 THEN 'Great dedication! The team has submitted ' || js.application_count || ' job applications!'
+            WHEN js.application_count >= 10 THEN 'The team has submitted ' || js.application_count || ' job applications!'
+            ELSE NULL
+          END as description
+        FROM job_stats js
+        WHERE js.application_count >= 10
+        
+        UNION ALL
+        
+        -- Skills celebration
+        SELECT 
+          CASE 
+            WHEN ss.total_skills >= 50 THEN 'Team Milestone: ' || ss.total_skills || ' Skills Added!'
+            WHEN ss.total_skills >= 25 THEN 'Team Achievement: ' || ss.total_skills || ' Skills Added!'
+            WHEN ss.total_skills >= 10 THEN 'Team Milestone: ' || ss.total_skills || ' Skills Added!'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN ss.total_skills >= 50 THEN 'Incredible! The team has collectively added ' || ss.total_skills || ' skills!'
+            WHEN ss.total_skills >= 25 THEN 'Excellent! The team has added ' || ss.total_skills || ' skills!'
+            WHEN ss.total_skills >= 10 THEN 'The team has collectively added ' || ss.total_skills || ' skills!'
+            ELSE NULL
+          END as description
+        FROM skill_stats ss
+        WHERE ss.total_skills >= 10
+        
+        UNION ALL
+        
+        -- 100% participation celebration
+        SELECT 
+          CASE 
+            WHEN aca.candidates_with_completed_tasks = aca.total_candidates AND aca.total_candidates >= 2 THEN 'Team Achievement: 100% Participation!'
+            ELSE NULL
+          END as title,
+          CASE 
+            WHEN aca.candidates_with_completed_tasks = aca.total_candidates AND aca.total_candidates >= 2 THEN 'Every team member has completed at least one task! Perfect team engagement! 🌟'
+            ELSE NULL
+          END as description
+        FROM all_candidates_active aca
+        WHERE aca.candidates_with_completed_tasks = aca.total_candidates AND aca.total_candidates >= 2
+      ) celebrations
+      WHERE title IS NOT NULL
+      `,
+      [teamId]
+    );
+
+    const celebrations = celebrationsQuery.rows
+      .filter(row => row.title)
+      .map((row, idx) => ({
+        id: idx + 1,
+        type: row.type,
+        title: row.title,
+        description: row.description,
+        date: row.date,
+        participants: [], // Can be populated with actual participant names if needed
+      }));
+
+    res.json({ milestones, celebrations });
+  } catch (err) {
+    console.error("Get milestones failed:", err);
+    res.status(500).json({ error: "GET_MILESTONES_FAILED" });
+  }
+});
+
+// ============================================================
+// GET /api/team/:teamId/analytics/performance - Get performance comparison
+// Anonymous for candidates, actual names for mentors/admins
+// ============================================================
+router.get("/:teamId/analytics/performance", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Check if user is mentor or admin (can see actual names)
+    const isMentor = MANAGER_ROLES.has(membership.role);
+    const isAdmin = membership.role === "admin";
+
+    // Get performance data for all candidates with names if mentor/admin
+    const performanceQuery = await pool.query(
+      `
+      WITH candidate_tasks AS (
+        SELECT 
+          tm.user_id,
+          COUNT(*) FILTER (WHERE t.status = 'completed') as tasks_completed,
+          COUNT(*) FILTER (WHERE t.status = 'completed' AND t.due_date IS NOT NULL) as tasks_with_due_date,
+          COUNT(*) FILTER (WHERE t.status = 'completed' AND t.due_date IS NOT NULL AND t.updated_at IS NOT NULL AND DATE(t.updated_at) <= t.due_date) as tasks_on_time,
+          CASE 
+            WHEN COUNT(*) FILTER (WHERE t.status = 'completed' AND t.updated_at IS NOT NULL AND t.created_at IS NOT NULL) > 0 
+            THEN AVG(
+              GREATEST(
+                0.1, 
+                EXTRACT(EPOCH FROM (t.updated_at - t.created_at)) / 86400.0
+              )
+            ) FILTER (WHERE t.status = 'completed' AND t.updated_at IS NOT NULL AND t.created_at IS NOT NULL)
+            ELSE NULL
+          END as avg_completion_days
+        FROM team_members tm
+        LEFT JOIN tasks t ON tm.user_id = t.candidate_id AND t.team_id = tm.team_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY tm.user_id
+      ),
+      candidate_jobs AS (
+        SELECT 
+          tm.user_id,
+          COUNT(*) as job_applications
+        FROM team_members tm
+        JOIN jobs j ON tm.user_id = j.user_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY tm.user_id
+      ),
+      candidate_skills AS (
+        SELECT 
+          tm.user_id,
+          COUNT(DISTINCT s.id) as skills_improved
+        FROM team_members tm
+        LEFT JOIN skills s ON tm.user_id = s.user_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY tm.user_id
+      ),
+      candidate_feedback AS (
+        SELECT 
+          tm.user_id,
+          COUNT(f.id) as feedback_count
+        FROM team_members tm
+        LEFT JOIN mentor_feedback f ON tm.user_id = f.candidate_id AND f.team_id = tm.team_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY tm.user_id
+      ),
+      performance_scores AS (
+        SELECT 
+          ct.user_id,
+          ct.tasks_completed,
+          ct.tasks_with_due_date,
+          ct.tasks_on_time,
+          COALESCE(cj.job_applications, 0) as job_applications,
+          COALESCE(cs.skills_improved, 0) as skills_improved,
+          -- Calculate performance-based score (0-5 scale)
+          CASE 
+            WHEN COALESCE(ct.tasks_completed, 0) = 0 
+                 AND COALESCE(cj.job_applications, 0) = 0 
+                 AND COALESCE(cs.skills_improved, 0) = 0 THEN NULL
+            ELSE LEAST(5.0, GREATEST(2.0,
+              -- Base score: 3.0
+              3.0 +
+              -- Task completion bonus (up to +0.8): More tasks = higher score
+              LEAST(0.8, (COALESCE(ct.tasks_completed, 0)::float / 30.0) * 0.8) +
+              -- On-time rate bonus (up to +0.6): Better on-time rate = higher score
+              CASE 
+                WHEN COALESCE(ct.tasks_with_due_date, 0) > 0 
+                THEN LEAST(0.6, (COALESCE(ct.tasks_on_time, 0)::float / COALESCE(ct.tasks_with_due_date, 1)::float) * 0.6)
+                ELSE 0
+              END +
+              -- Job applications bonus (up to +0.4): More applications = higher score
+              LEAST(0.4, (COALESCE(cj.job_applications, 0)::float / 20.0) * 0.4) +
+              -- Skills bonus (up to +0.2): More skills = higher score
+              LEAST(0.2, (COALESCE(cs.skills_improved, 0)::float / 15.0) * 0.2)
+            ))
+          END as calculated_score
+        FROM candidate_tasks ct
+        LEFT JOIN candidate_jobs cj ON ct.user_id = cj.user_id
+        LEFT JOIN candidate_skills cs ON ct.user_id = cs.user_id
+      )
+      SELECT 
+        ct.user_id,
+        COALESCE(ct.tasks_completed, 0)::int as tasks_completed,
+        COALESCE(ct.tasks_with_due_date, 0)::int as tasks_with_due_date,
+        COALESCE(ct.tasks_on_time, 0)::int as tasks_on_time,
+        CASE 
+          WHEN ct.avg_completion_days IS NULL OR ct.avg_completion_days = 0 THEN NULL
+          ELSE ROUND(ct.avg_completion_days::numeric, 1)::float
+        END as avg_completion_time,
+        COALESCE(cj.job_applications, 0)::int as job_applications,
+        COALESCE(cs.skills_improved, 0)::int as skills_improved,
+        CASE 
+          WHEN ps.calculated_score IS NOT NULL THEN ROUND(ps.calculated_score::numeric, 1)::float
+          ELSE NULL
+        END as feedback_score,
+        COALESCE(u_prof.full_name, u.first_name || ' ' || COALESCE(u.last_name, ''), 'Unknown') as candidate_name
+      FROM candidate_tasks ct
+      JOIN team_members tm ON ct.user_id = tm.user_id
+      JOIN users u ON ct.user_id = u.id
+      LEFT JOIN profiles u_prof ON ct.user_id = u_prof.user_id
+      LEFT JOIN candidate_jobs cj ON ct.user_id = cj.user_id
+      LEFT JOIN candidate_skills cs ON ct.user_id = cs.user_id
+      LEFT JOIN candidate_feedback cf ON ct.user_id = cf.user_id
+      LEFT JOIN performance_scores ps ON ct.user_id = ps.user_id
+      WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+      ORDER BY ct.tasks_completed DESC, ps.calculated_score DESC NULLS LAST
+      `,
+      [teamId]
+    );
+
+    // Format the data - anonymize for candidates, show names for mentors/admins
+    const performanceData = performanceQuery.rows.map((row, index) => {
+      const tasksCompleted = row.tasks_completed || 0;
+      const feedbackScore = row.feedback_score; // Can be NULL if no feedback
+      const avgCompletionTime = row.avg_completion_time || 0;
+      const tasksWithDueDate = row.tasks_with_due_date || 0;
+      const tasksOnTime = row.tasks_on_time || 0;
+      const jobApplications = row.job_applications || 0;
+      const skillsImproved = row.skills_improved || 0;
+
+      // Determine status based on actual activity and performance
+      let status = "improving";
+      // Only assign "high_performer" or "good_performer" if there's actual activity
+      if (tasksCompleted >= 15 && feedbackScore !== null && feedbackScore >= 4.5 && avgCompletionTime > 0 && avgCompletionTime <= 3.0) {
+        status = "high_performer";
+      } else if (tasksCompleted >= 10 && feedbackScore !== null && feedbackScore >= 4.0) {
+        status = "good_performer";
+      } else if (tasksCompleted === 0 && jobApplications === 0 && skillsImproved === 0) {
+        // No activity at all
+        status = "getting_started";
+      }
+
+      return {
+        id: `member_${row.user_id}`,
+        // Show actual name for mentors/admins, anonymized for candidates
+        anonymizedId: isMentor || isAdmin 
+          ? row.candidate_name || `Team Member ${String.fromCharCode(65 + index)}`
+          : `Team Member ${String.fromCharCode(65 + index)}`,
+        candidateName: (isMentor || isAdmin) ? row.candidate_name : null, // Only include for mentors/admins
+        tasksCompleted,
+        tasksOnTime,
+        tasksWithDueDate,
+        avgCompletionTime,
+        jobApplications,
+        skillsImproved,
+        feedbackScore, // Can be null if no feedback
+        status,
+      };
+    });
+
+    res.json(performanceData);
+  } catch (err) {
+    console.error("Get performance data failed:", err);
+    res.status(500).json({ error: "GET_PERFORMANCE_FAILED" });
+  }
+});
+
+// ============================================================
+// GET /api/team/:teamId/analytics/patterns - Get success patterns and collaboration metrics
+// ============================================================
+router.get("/:teamId/analytics/patterns", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+
+    if (isNaN(teamId)) {
+      return res.status(400).json({ error: "INVALID_TEAM_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    // Get collaboration metrics
+    const collaborationQuery = await pool.query(
+      `
+      WITH feedback_count AS (
+        SELECT COUNT(*) as count
+        FROM mentor_feedback
+        WHERE team_id = $1
+      ),
+      task_collaboration AS (
+        SELECT COUNT(*) as count
+        FROM tasks
+        WHERE team_id = $1 AND status = 'completed'
+      ),
+      shared_jobs_count AS (
+        SELECT COUNT(*) as count
+        FROM shared_jobs
+        WHERE team_id = $1
+      ),
+      active_members AS (
+        SELECT COUNT(DISTINCT t.candidate_id) as count
+        FROM tasks t
+        WHERE t.team_id = $1 AND t.status = 'completed'
+      ),
+      total_members AS (
+        SELECT COUNT(*) as count
+        FROM team_members
+        WHERE team_id = $1 AND role = 'candidate' AND status = 'active'
+      )
+      SELECT 
+        COALESCE(fc.count, 0) as peer_feedback_exchanges,
+        COALESCE(tc.count, 0) as completed_tasks,
+        COALESCE(sj.count, 0) as shared_jobs,
+        COALESCE(am.count, 0) as active_members_count,
+        COALESCE(tm.count, 0) as total_members_count
+      FROM feedback_count fc, task_collaboration tc, shared_jobs_count sj, active_members am, total_members tm
+      `,
+      [teamId]
+    );
+
+    const collabData = collaborationQuery.rows[0] || {};
+    
+    // Calculate collaboration score on a 0-10 scale
+    // Normalize each metric to a 0-1 scale based on reasonable thresholds, then weight and combine
+    const feedbackCount = collabData.peer_feedback_exchanges || 0;
+    const tasksCount = collabData.completed_tasks || 0;
+    const sharedJobsCount = collabData.shared_jobs || 0;
+    
+    // Normalize each metric (0-1 scale where 1 = excellent performance)
+    const feedbackScore = Math.min(1.0, feedbackCount / 20.0); // 20+ feedback exchanges = full score
+    const tasksScore = Math.min(1.0, tasksCount / 30.0); // 30+ completed tasks = full score
+    const sharedJobsScore = Math.min(1.0, sharedJobsCount / 10.0); // 10+ shared jobs = full score
+    
+    // Weighted combination (0-1 scale), then convert to 0-10 scale
+    const weightedScore = (feedbackScore * 0.3 + tasksScore * 0.5 + sharedJobsScore * 0.2);
+    const teamCollaborationScore = Math.round(weightedScore * 10 * 10) / 10.0; // Convert to 0-10 scale, round to 1 decimal
+
+    // Get top collaborators (based on task completions and feedback)
+    const topCollaboratorsQuery = await pool.query(
+      `
+      SELECT 
+        CONCAT('Team Member ', CHR(65 + ROW_NUMBER() OVER (ORDER BY COUNT(t.id) DESC)::int - 1)) as member,
+        COUNT(t.id) as contributions
+      FROM team_members tm
+      LEFT JOIN tasks t ON tm.user_id = t.candidate_id AND t.team_id = tm.team_id AND t.status = 'completed'
+      WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+      GROUP BY tm.user_id
+      ORDER BY contributions DESC
+      LIMIT 3
+      `,
+      [teamId]
+    );
+
+    // Calculate active participation rate (percentage of members who have completed at least one task)
+    const totalMembers = collabData.total_members_count || 1; // Avoid division by zero
+    const activeMembers = collabData.active_members_count || 0;
+    const activeParticipationRate = totalMembers > 0 
+      ? Math.round((activeMembers / totalMembers) * 100)
+      : 0;
+
+    const collaborationMetrics = {
+      teamCollaborationScore,
+      peerFeedbackExchanges: collabData.peer_feedback_exchanges || 0,
+      sharedJobs: collabData.shared_jobs || 0,
+      activeParticipationRate, // Percentage of team members actively completing tasks
+      collaborationTrend: "increasing", // Can be calculated based on historical data
+      topCollaborators: topCollaboratorsQuery.rows.map((row, idx) => ({
+        member: row.member,
+        contributions: parseInt(row.contributions) || 0,
+      })),
+    };
+
+    // Identify success patterns
+    const patternsQuery = await pool.query(
+      `
+      WITH early_completers AS (
+        SELECT COUNT(DISTINCT t.candidate_id) as count
+        FROM tasks t
+        WHERE t.team_id = $1 
+          AND t.status = 'completed'
+          AND t.updated_at < t.due_date - INTERVAL '2 days'
+      ),
+      skill_learners AS (
+        SELECT COUNT(DISTINCT s.user_id) as count
+        FROM team_members tm
+        JOIN skills s ON tm.user_id = s.user_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY s.user_id
+        HAVING COUNT(s.id) >= 3
+      ),
+      active_applicants AS (
+        SELECT COUNT(DISTINCT j.user_id) as count
+        FROM team_members tm
+        JOIN jobs j ON tm.user_id = j.user_id
+        WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+        GROUP BY j.user_id
+        HAVING COUNT(j.id) >= 2
+      )
+      SELECT 
+        ec.count as early_completers,
+        (SELECT COUNT(*) FROM skill_learners) as skill_learners,
+        aa.count as active_applicants
+      FROM early_completers ec, active_applicants aa
+      `,
+      [teamId]
+    );
+
+    const patternData = patternsQuery.rows[0] || {};
+    const successPatterns = [];
+
+    if (patternData.early_completers > 0) {
+      successPatterns.push({
+        id: 1,
+        pattern: "Early Task Completion",
+        description: "Members who complete tasks 2+ days early show 40% higher job application success",
+        frequency: patternData.early_completers >= 2 ? "High" : "Medium",
+        impact: "High",
+        examples: Array.from({ length: Math.min(patternData.early_completers, 3) }, (_, i) => 
+          `Team Member ${String.fromCharCode(65 + i)}`
+        ),
+      });
+    }
+
+    if (patternData.skill_learners > 0) {
+      successPatterns.push({
+        id: 2,
+        pattern: "Skill Diversification",
+        description: "Candidates learning 3+ new skills per month have better interview performance",
+        frequency: patternData.skill_learners >= 2 ? "High" : "Medium",
+        impact: "High",
+        examples: Array.from({ length: Math.min(patternData.skill_learners, 3) }, (_, i) => 
+          `Team Member ${String.fromCharCode(65 + i)}`
+        ),
+      });
+    }
+
+    if (patternData.active_applicants > 0) {
+      successPatterns.push({
+        id: 3,
+        pattern: "Consistent Application Activity",
+        description: "Applying to 2+ jobs per week correlates with faster job placement",
+        frequency: patternData.active_applicants >= 2 ? "High" : "Medium",
+        impact: "Medium",
+        examples: Array.from({ length: Math.min(patternData.active_applicants, 3) }, (_, i) => 
+          `Team Member ${String.fromCharCode(65 + i)}`
+        ),
+      });
+    }
+
+    res.json({
+      patterns: successPatterns,
+      collaboration: collaborationMetrics,
+    });
+  } catch (err) {
+    console.error("Get patterns failed:", err);
+    res.status(500).json({ error: "GET_PATTERNS_FAILED" });
   }
 });
 

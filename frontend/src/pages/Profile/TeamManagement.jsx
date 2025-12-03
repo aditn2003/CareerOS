@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import CandidateProfileModal from "../../components/CandidateProfileModal";
-import FeedbackModal from "../../components/FeedbackModal";
-import FeedbackThreads from "../../components/FeedbackThreads";
 import "./TeamManagement.css";
 
 const errorMessages = {
@@ -22,7 +20,8 @@ const errorMessages = {
 // ADMIN VIEW: Manage all teams
 // ============================================================
 function AdminTeamManagement() {
-  const { refreshTeam } = useTeam();
+  const { teamState, refreshTeam } = useTeam();
+  const currentUserId = teamState?.userId;
   const [allTeams, setAllTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [members, setMembers] = useState([]);
@@ -39,10 +38,6 @@ function AdminTeamManagement() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(null);
-  const [feedbackList, setFeedbackList] = useState([]);
-  const [loadingFeedback, setLoadingFeedback] = useState(false);
-  const [feedbackModal, setFeedbackModal] = useState(null);
-  const [feedbackViewMode, setFeedbackViewMode] = useState("list"); // "list" or "threads"
 
   const showBanner = (type, message) => {
     if (!message) return;
@@ -53,7 +48,16 @@ function AdminTeamManagement() {
   const loadAllTeams = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/api/team/admin/all");
+      // Try mentor/all first, fallback to admin/all for backward compatibility
+      let data;
+      try {
+        const response = await api.get("/api/team/mentor/all");
+        data = response.data;
+      } catch (err) {
+        // Fallback to admin/all if mentor/all doesn't work
+        const response = await api.get("/api/team/admin/all");
+        data = response.data;
+      }
       setAllTeams(data?.teams || []);
       if (data?.teams?.length > 0 && !selectedTeamId) {
         setSelectedTeamId(data.teams[0].id);
@@ -101,24 +105,6 @@ function AdminTeamManagement() {
     []
   );
 
-  const loadFeedback = useCallback(async (teamId) => {
-    if (!teamId) {
-      setFeedbackList([]);
-      return;
-    }
-    setLoadingFeedback(true);
-    try {
-      const { data } = await api.get(`/api/team/${teamId}/feedback`);
-      console.log(`[Feedback] Loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
-      setFeedbackList(data?.feedback || []);
-    } catch (err) {
-      console.error("Failed to load feedback:", err);
-      setFeedbackList([]);
-    } finally {
-      setLoadingFeedback(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadAllTeams();
   }, []);
@@ -127,9 +113,8 @@ function AdminTeamManagement() {
     if (selectedTeamId) {
       loadMembers(selectedTeamId);
       loadPendingRequests(selectedTeamId);
-      loadFeedback(selectedTeamId);
     }
-  }, [selectedTeamId, loadMembers, loadPendingRequests, loadFeedback]);
+  }, [selectedTeamId, loadMembers, loadPendingRequests]);
 
   const handleCreateTeam = async (e) => {
     e.preventDefault();
@@ -139,12 +124,13 @@ function AdminTeamManagement() {
     }
     setCreatingTeam(true);
     try {
-      await api.post("/api/team/admin/create", { name: newTeamName.trim() });
+      await api.post("/api/team/create", { name: newTeamName.trim() });
       setNewTeamName("");
       await loadAllTeams();
       showBanner("success", "Team created successfully!");
     } catch (err) {
-      showBanner("error", err.response?.data?.error || "Failed to create team.");
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create team.";
+      showBanner("error", errorMsg);
     } finally {
       setCreatingTeam(false);
     }
@@ -156,7 +142,7 @@ function AdminTeamManagement() {
       return;
     }
     try {
-      await api.patch(`/api/team/admin/${teamId}/rename`, {
+      await api.patch(`/api/team/${teamId}/rename`, {
         name: renameValue.trim(),
       });
       setRenamingTeamId(null);
@@ -165,6 +151,36 @@ function AdminTeamManagement() {
       showBanner("success", "Team renamed successfully!");
     } catch (err) {
       showBanner("error", err.response?.data?.error || "Failed to rename team.");
+    }
+  };
+
+  const handleDeleteTeam = async (teamId, teamName) => {
+    const confirmMessage = `Are you sure you want to delete "${teamName}"? This action cannot be undone. All team members, feedback, tasks, and shared jobs will be permanently deleted.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    // Double confirmation for destructive action
+    if (!window.confirm(`This will permanently delete "${teamName}" and all its data. Are you absolutely sure?`)) {
+      return;
+    }
+    
+    setInviteBusy(true);
+    try {
+      await api.delete(`/api/team/${teamId}`);
+      await loadAllTeams();
+      // Clear selection if deleted team was selected
+      if (selectedTeamId === teamId) {
+        setSelectedTeamId(null);
+      }
+      showBanner("success", "Team deleted successfully!");
+    } catch (err) {
+      const code = err.response?.data?.error;
+      const message = err.response?.data?.message;
+      showBanner("error", message || errorMessages[code] || "Failed to delete team.");
+    } finally {
+      setInviteBusy(false);
     }
   };
 
@@ -216,6 +232,26 @@ function AdminTeamManagement() {
     }
   };
 
+  const handleLeaveTeam = async () => {
+    if (!selectedTeamId) return;
+    if (!window.confirm(`Are you sure you want to leave "${selectedTeam?.name}"?`)) {
+      return;
+    }
+    setInviteBusy(true);
+    try {
+      await api.post(`/api/team/${selectedTeamId}/leave`);
+      await loadAllTeams();
+      setSelectedTeamId(null);
+      showBanner("success", "You have left the team.");
+    } catch (err) {
+      const code = err.response?.data?.error;
+      const message = err.response?.data?.message;
+      showBanner("error", message || errorMessages[code] || "Failed to leave team.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
   const handleApproveRequest = async (memberId) => {
     setBusyMember(memberId);
     try {
@@ -239,17 +275,6 @@ function AdminTeamManagement() {
       showBanner("error", err.response?.data?.error || "Failed to reject request.");
     } finally {
       setBusyMember(null);
-    }
-  };
-
-  const handleDeleteFeedback = async (feedbackId) => {
-    if (!confirm("Are you sure you want to delete this feedback?")) return;
-    try {
-      await api.delete(`/api/team/${selectedTeamId}/feedback/${feedbackId}`);
-      await loadFeedback(selectedTeamId);
-      showBanner("success", "Feedback deleted.");
-    } catch (err) {
-      showBanner("error", err.response?.data?.error || "Failed to delete feedback.");
     }
   };
 
@@ -304,35 +329,62 @@ function AdminTeamManagement() {
                       {team.memberCount || 0} members
                     </div>
                   </div>
-                  {renamingTeamId === team.id ? (
-                    <div className="rename-input-group">
-                      <input
-                        type="text"
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => handleRenameTeam(team.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleRenameTeam(team.id);
-                          if (e.key === "Escape") {
-                            setRenamingTeamId(null);
-                            setRenameValue("");
-                          }
-                        }}
-                        autoFocus
-                      />
-                    </div>
-                  ) : (
-                    <button
-                      className="btn-rename"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenamingTeamId(team.id);
-                        setRenameValue(team.name);
-                      }}
-                    >
-                      Rename
-                    </button>
-                  )}
+                  <div style={{ display: "flex", gap: "4px", marginTop: "4px" }}>
+                    {renamingTeamId === team.id ? (
+                      <div className="rename-input-group" style={{ flex: 1 }}>
+                        <input
+                          type="text"
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => handleRenameTeam(team.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameTeam(team.id);
+                            if (e.key === "Escape") {
+                              setRenamingTeamId(null);
+                              setRenameValue("");
+                            }
+                          }}
+                          autoFocus
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        {team.ownerId === currentUserId && (
+                          <>
+                            <button
+                              className="btn-rename"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRenamingTeamId(team.id);
+                                setRenameValue(team.name);
+                              }}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              className="btn-danger"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTeam(team.id, team.name);
+                              }}
+                              disabled={inviteBusy}
+                              style={{
+                                backgroundColor: "#dc3545",
+                                color: "white",
+                                border: "none",
+                                padding: "4px 8px",
+                                borderRadius: "4px",
+                                cursor: inviteBusy ? "not-allowed" : "pointer",
+                                fontSize: "0.85em"
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -344,7 +396,7 @@ function AdminTeamManagement() {
             <h4>{selectedTeam.name}</h4>
 
             <form onSubmit={handleInvite} className="team-invite">
-              <h5>Invite a member</h5>
+              <h5>Invite Members</h5>
               <div className="team-invite-row">
                 <input
                   type="email"
@@ -419,7 +471,18 @@ function AdminTeamManagement() {
             )}
 
             <div className="team-members">
-              <h5>Members</h5>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h5>Members</h5>
+                {selectedTeam.ownerId !== currentUserId && (
+                  <button
+                    className="btn-secondary btn-leave-team"
+                    onClick={handleLeaveTeam}
+                    disabled={inviteBusy}
+                  >
+                    Leave Team
+                  </button>
+                )}
+              </div>
               {members.length === 0 ? (
                 <p>No members yet.</p>
               ) : (
@@ -438,12 +501,30 @@ function AdminTeamManagement() {
                       const fullName = [member.firstName, member.lastName]
                         .filter(Boolean)
                         .join(" ") || "Unnamed";
-                      const isSelf = member.userId === selectedTeam.ownerId && member.role === "admin";
-                      const canEditRole = member.role !== "admin";
+                      const teamOwnerId = selectedTeam?.ownerId;
+                      const isMemberOwner = member.userId === teamOwnerId;
+                      const isSelf = member.userId === currentUserId;
+                      // Team owners cannot have their role changed
+                      const canEditRole = !isMemberOwner;
 
                       return (
                         <tr key={member.userId}>
-                          <td>{fullName}</td>
+                          <td>
+                            {fullName}
+                            {isMemberOwner && (
+                              <span style={{ 
+                                marginLeft: "8px", 
+                                padding: "2px 6px", 
+                                backgroundColor: "#e3f2fd", 
+                                color: "#1976d2", 
+                                borderRadius: "3px", 
+                                fontSize: "0.75em",
+                                fontWeight: "500"
+                              }}>
+                                Owner
+                              </span>
+                            )}
+                          </td>
                           <td>{member.email}</td>
                           <td>
                             {canEditRole ? (
@@ -458,7 +539,18 @@ function AdminTeamManagement() {
                                 <option value="mentor">Mentor</option>
                               </select>
                             ) : (
-                              member.role
+                              <select
+                                value={member.role}
+                                disabled
+                                style={{ 
+                                  opacity: 0.6, 
+                                  cursor: "not-allowed",
+                                  backgroundColor: "#f3f4f6",
+                                  color: "#6b7280"
+                                }}
+                              >
+                                <option value={member.role}>{member.role}</option>
+                              </select>
                             )}
                           </td>
                           <td>
@@ -468,26 +560,46 @@ function AdminTeamManagement() {
                           </td>
                           <td>
                             <div className="member-actions">
-                              {member.role === "candidate" && (
-                                <>
-                                  <button
-                                    className="btn-view-profile"
-                                    onClick={() =>
-                                      setViewingProfile({
-                                        id: member.userId,
-                                        name: fullName,
-                                      })
-                                    }
-                                  >
-                                    View Profile
-                                  </button>
-                                  {/* Admins cannot create feedback - they can only view/edit/delete */}
-                                </>
-                              )}
+                              {/* Profile visibility rules:
+                                  1. Candidates can NEVER see mentor profiles
+                                  2. Team owner (hidden admin) can see candidate profiles
+                                  3. Mentors can see candidate profiles by default */}
+                              {(() => {
+                                const viewerAccountType = teamState?.accountType;
+                                const currentUserId = teamState?.userId;
+                                const isTeamOwner = selectedTeam?.ownerId === currentUserId;
+                                const isViewerMentor = viewerAccountType === "mentor";
+                                const isMemberCandidate = member.accountType === "candidate";
+                                const isMemberMentor = member.accountType === "mentor";
+                                
+                                // Rule 1: Candidates cannot view mentor profiles
+                                if (viewerAccountType === "candidate" && isMemberMentor) {
+                                  return null;
+                                }
+                                
+                                // Rule 2 & 3: Show for candidates if viewer is owner or mentor
+                                if (isMemberCandidate && (isTeamOwner || isViewerMentor)) {
+                                  return (
+                                    <button
+                                      className="btn-view-profile"
+                                      onClick={() =>
+                                        setViewingProfile({
+                                          id: member.userId,
+                                          name: fullName,
+                                        })
+                                      }
+                                    >
+                                      View Profile
+                                    </button>
+                                  );
+                                }
+                                
+                                return null;
+                              })()}
                               <button
                                 className="btn-secondary"
                                 onClick={() => handleRemove(member.userId)}
-                                disabled={isSelf || busyMember === member.userId}
+                                disabled={isMemberOwner || isSelf || busyMember === member.userId}
                               >
                                 Remove
                               </button>
@@ -501,111 +613,6 @@ function AdminTeamManagement() {
               )}
             </div>
 
-            {/* Feedback Section */}
-            {selectedTeam && (
-              <div className="team-feedback-section">
-                <div className="feedback-section-header">
-                  <h4>Team Feedback</h4>
-                  <div className="feedback-view-toggle">
-                    <button
-                      className={`view-toggle-btn ${feedbackViewMode === "list" ? "active" : ""}`}
-                      onClick={() => setFeedbackViewMode("list")}
-                    >
-                      List View
-                    </button>
-                    <button
-                      className={`view-toggle-btn ${feedbackViewMode === "threads" ? "active" : ""}`}
-                      onClick={() => setFeedbackViewMode("threads")}
-                    >
-                      Conversations
-                    </button>
-                  </div>
-                </div>
-
-                {feedbackViewMode === "threads" ? (
-                  <FeedbackThreads teamId={selectedTeamId} hideViewToggle={true} />
-                ) : (
-                  <>
-                    {loadingFeedback ? (
-                      <p>Loading feedback...</p>
-                    ) : feedbackList.length === 0 ? (
-                      <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
-                    ) : (
-                      <div className="feedback-list">
-                        {feedbackList.map((feedback) => {
-                          const formatDate = (dateString) => {
-                            return new Date(dateString).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            });
-                          };
-
-                          const getFeedbackTypeLabel = (type) => {
-                            switch (type) {
-                              case "job": return "Job Feedback";
-                              case "skill": return "Skill Feedback";
-                              default: return "General Feedback";
-                            }
-                          };
-
-                          const isOwnFeedback = feedback.mentorId === selectedTeam.ownerId;
-                          const canEdit = isOwnFeedback || true; // Admin can edit all
-
-                          return (
-                            <div key={feedback.id} className="feedback-item">
-                              <div className="feedback-header">
-                                <div className="feedback-meta">
-                                  <div className="feedback-top-row">
-                                    <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
-                                    {feedback.jobTitle && (
-                                      <span className="feedback-job-badge">
-                                        {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
-                                      </span>
-                                    )}
-                                    {feedback.skillName && (
-                                      <span className="feedback-skill-badge">{feedback.skillName}</span>
-                                    )}
-                                  </div>
-                                  <div className="feedback-meta-row">
-                                    <span className="feedback-candidate">{feedback.candidateName}</span>
-                                    <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
-                                  </div>
-                                </div>
-                                {canEdit && (
-                                  <div className="feedback-actions">
-                                    <button
-                                      className="btn-edit-feedback"
-                                      onClick={() =>
-                                        setFeedbackModal({
-                                          candidateId: feedback.candidateId,
-                                          candidateName: feedback.candidateName,
-                                          feedbackId: feedback.id,
-                                          existingFeedback: feedback,
-                                        })
-                                      }
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      className="btn-delete-feedback"
-                                      onClick={() => handleDeleteFeedback(feedback.id)}
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="feedback-content">{feedback.content}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -620,18 +627,6 @@ function AdminTeamManagement() {
         />
       )}
 
-      {/* Feedback Modal */}
-      {feedbackModal && selectedTeamId && (
-        <FeedbackModal
-          teamId={selectedTeamId}
-          candidateId={feedbackModal.candidateId}
-          candidateName={feedbackModal.candidateName}
-          feedbackId={feedbackModal.feedbackId || null}
-          existingFeedback={feedbackModal.existingFeedback || null}
-          onClose={() => setFeedbackModal(null)}
-          onSuccess={() => loadFeedback(selectedTeamId)}
-        />
-      )}
     </section>
   );
 }
@@ -653,10 +648,6 @@ function MentorTeamManagement() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [viewingProfile, setViewingProfile] = useState(null);
-  const [feedbackList, setFeedbackList] = useState([]);
-  const [loadingFeedback, setLoadingFeedback] = useState(false);
-  const [feedbackModal, setFeedbackModal] = useState(null); // { candidateId, candidateName, feedbackId?: number }
-  const [feedbackViewMode, setFeedbackViewMode] = useState("list"); // "list" or "threads"
 
   const showBanner = (type, message) => {
     setBanner({ type, message });
@@ -698,30 +689,10 @@ function MentorTeamManagement() {
     }
   }, [teamId]);
 
-  const loadFeedback = useCallback(async () => {
-    if (!teamId) {
-      setFeedbackList([]);
-      return;
-    }
-    setLoadingFeedback(true);
-    try {
-      const { data } = await api.get(`/api/team/${teamId}/feedback`);
-      console.log(`[Feedback] Loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
-      setFeedbackList(data?.feedback || []);
-    } catch (err) {
-      console.error("Failed to load feedback:", err);
-      console.error("Error response:", err.response?.data);
-      setFeedbackList([]);
-    } finally {
-      setLoadingFeedback(false);
-    }
-  }, [teamId]);
-
   useEffect(() => {
     loadMembers();
     loadPendingRequests();
-    loadFeedback();
-  }, [loadMembers, loadPendingRequests, loadFeedback]);
+  }, [loadMembers, loadPendingRequests]);
 
   const handleInvite = async (e) => {
     e.preventDefault();
@@ -798,17 +769,6 @@ function MentorTeamManagement() {
     }
   };
 
-  const handleDeleteFeedback = async (feedbackId) => {
-    if (!confirm("Are you sure you want to delete this feedback?")) return;
-    try {
-      await api.delete(`/api/team/${teamId}/feedback/${feedbackId}`);
-      await loadFeedback();
-      showBanner("success", "Feedback deleted.");
-    } catch (err) {
-      showBanner("error", err.response?.data?.error || "Failed to delete feedback.");
-    }
-  };
-
   if (!teamId) {
     return (
       <section className="profile-box">
@@ -818,9 +778,24 @@ function MentorTeamManagement() {
     );
   }
 
+  const teamOwnerId = teamState?.primaryTeam?.ownerId;
+  const currentUserId = teamState?.userId;
+  const isTeamOwner = teamOwnerId === currentUserId;
+
   return (
     <section className="profile-box">
-      <h3>{teamName || "My Team"}</h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+        <h3>{teamName || "My Team"}</h3>
+        {!isTeamOwner && (
+          <button
+            className="btn-secondary btn-leave-team"
+            onClick={handleLeaveTeam}
+            disabled={inviteBusy}
+          >
+            Leave Team
+          </button>
+        )}
+      </div>
       <p>Manage your team members.</p>
 
       {banner.message && (
@@ -880,7 +855,7 @@ function MentorTeamManagement() {
       )}
 
       <form onSubmit={handleInvite} className="team-invite">
-        <h4>Invite a member</h4>
+        <h4>Invite Members</h4>
         <div className="team-invite-row">
           <input
             type="email"
@@ -924,16 +899,33 @@ function MentorTeamManagement() {
                 const fullName = [member.firstName, member.lastName]
                   .filter(Boolean)
                   .join(" ") || "Unnamed";
-                const canEditRole = member.role !== "admin";
-                // Mentors cannot remove admins or themselves - only admins can remove admins
-                // Get current user ID from teamState to check if this is the mentor themselves
-                const currentUserId = teamState?.primaryTeam?.userId;
+                const teamOwnerId = teamState?.primaryTeam?.ownerId;
+                const currentUserId = teamState?.userId;
+                const isMemberOwner = member.userId === teamOwnerId;
                 const isSelf = member.userId === currentUserId;
-                const canRemove = member.role !== "admin" && !isSelf;
+                // Team owners cannot have their role changed
+                const canEditRole = !isMemberOwner;
+                // Mentors cannot remove owners or themselves
+                const canRemove = !isMemberOwner && !isSelf;
 
                 return (
                   <tr key={member.userId}>
-                    <td>{fullName}</td>
+                    <td>
+                      {fullName}
+                      {isMemberOwner && (
+                        <span style={{ 
+                          marginLeft: "8px", 
+                          padding: "2px 6px", 
+                          backgroundColor: "#e3f2fd", 
+                          color: "#1976d2", 
+                          borderRadius: "3px", 
+                          fontSize: "0.75em",
+                          fontWeight: "500"
+                        }}>
+                          Owner
+                        </span>
+                      )}
+                    </td>
                     <td>{member.email}</td>
                     <td>
                       {canEditRole ? (
@@ -948,7 +940,18 @@ function MentorTeamManagement() {
                           <option value="mentor">Mentor</option>
                         </select>
                       ) : (
-                        member.role
+                        <select
+                          value={member.role}
+                          disabled
+                          style={{ 
+                            opacity: 0.6, 
+                            cursor: "not-allowed",
+                            backgroundColor: "#f3f4f6",
+                            color: "#6b7280"
+                          }}
+                        >
+                          <option value={member.role}>{member.role}</option>
+                        </select>
                       )}
                     </td>
                     <td>
@@ -958,32 +961,42 @@ function MentorTeamManagement() {
                     </td>
                     <td>
                       <div className="member-actions">
-                        {member.role === "candidate" && (
-                          <>
-                            <button
-                              className="btn-view-profile"
-                              onClick={() =>
-                                setViewingProfile({
-                                  id: member.userId,
-                                  name: fullName,
-                                })
-                              }
-                            >
-                              View Profile
-                            </button>
-                            <button
-                              className="btn-feedback"
-                              onClick={() =>
-                                setFeedbackModal({
-                                  candidateId: member.userId,
-                                  candidateName: fullName,
-                                })
-                              }
-                            >
-                              Add Feedback
-                            </button>
-                          </>
-                        )}
+                        {/* Profile visibility rules:
+                            1. Candidates can NEVER see mentor profiles
+                            2. Team owner (hidden admin) can see candidate profiles
+                            3. Mentors can see candidate profiles by default */}
+                        {(() => {
+                          const viewerAccountType = teamState?.accountType;
+                          const currentUserId = teamState?.userId;
+                          const isTeamOwner = teamState?.primaryTeam?.ownerId === currentUserId;
+                          const isViewerMentor = viewerAccountType === "mentor";
+                          const isMemberCandidate = member.accountType === "candidate";
+                          const isMemberMentor = member.accountType === "mentor";
+                          
+                          // Rule 1: Candidates cannot view mentor profiles
+                          if (viewerAccountType === "candidate" && isMemberMentor) {
+                            return null;
+                          }
+                          
+                          // Rule 2 & 3: Show for candidates if viewer is owner or mentor
+                          if (isMemberCandidate && (isTeamOwner || isViewerMentor)) {
+                            return (
+                              <button
+                                className="btn-view-profile"
+                                onClick={() =>
+                                  setViewingProfile({
+                                    id: member.userId,
+                                    name: fullName,
+                                  })
+                                }
+                              >
+                                View Profile
+                              </button>
+                            );
+                          }
+                          
+                          return null;
+                        })()}
                         {canRemove && (
                           <button
                             className="btn-secondary"
@@ -1003,110 +1016,6 @@ function MentorTeamManagement() {
         )}
       </div>
 
-      {/* Feedback Section */}
-      <div className="team-feedback-section">
-        <div className="feedback-section-header">
-          <h4>Team Feedback</h4>
-          <div className="feedback-view-toggle">
-            <button
-              className={`view-toggle-btn ${feedbackViewMode === "list" ? "active" : ""}`}
-              onClick={() => setFeedbackViewMode("list")}
-            >
-              List View
-            </button>
-            <button
-              className={`view-toggle-btn ${feedbackViewMode === "threads" ? "active" : ""}`}
-              onClick={() => setFeedbackViewMode("threads")}
-            >
-              Conversations
-            </button>
-          </div>
-        </div>
-
-        {feedbackViewMode === "threads" ? (
-          <FeedbackThreads teamId={teamId} hideViewToggle={true} />
-        ) : (
-          <>
-            {loadingFeedback ? (
-              <p>Loading feedback...</p>
-            ) : feedbackList.length === 0 ? (
-              <p>No feedback yet. Add feedback for candidates using the "Add Feedback" button above.</p>
-            ) : (
-              <div className="feedback-list">
-                {feedbackList.map((feedback) => {
-                  const formatDate = (dateString) => {
-                    return new Date(dateString).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    });
-                  };
-
-                  const getFeedbackTypeLabel = (type) => {
-                    switch (type) {
-                      case "job": return "Job Feedback";
-                      case "skill": return "Skill Feedback";
-                      default: return "General Feedback";
-                    }
-                  };
-
-                  const isOwnFeedback = feedback.mentorId === teamState?.primaryTeam?.userId;
-                  const canEdit = isOwnFeedback || teamState?.isAdmin;
-
-                  return (
-                    <div key={feedback.id} className="feedback-item">
-                      <div className="feedback-header">
-                        <div className="feedback-meta">
-                          <div className="feedback-top-row">
-                            <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback.feedbackType)}</span>
-                            {feedback.jobTitle && (
-                              <span className="feedback-job-badge">
-                                {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
-                              </span>
-                            )}
-                            {feedback.skillName && (
-                              <span className="feedback-skill-badge">{feedback.skillName}</span>
-                            )}
-                          </div>
-                          <div className="feedback-meta-row">
-                            <span className="feedback-candidate">{feedback.candidateName}</span>
-                            <span className="feedback-date">{formatDate(feedback.createdAt)}</span>
-                          </div>
-                        </div>
-                        {canEdit && (
-                          <div className="feedback-actions">
-                            <button
-                              className="btn-edit-feedback"
-                              onClick={() =>
-                                setFeedbackModal({
-                                  candidateId: feedback.candidateId,
-                                  candidateName: feedback.candidateName,
-                                  feedbackId: feedback.id,
-                                  existingFeedback: feedback,
-                                })
-                              }
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn-delete-feedback"
-                              onClick={() => handleDeleteFeedback(feedback.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <div className="feedback-content">{feedback.content}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
       {/* Candidate Profile Modal */}
       {viewingProfile && (
         <CandidateProfileModal
@@ -1117,18 +1026,6 @@ function MentorTeamManagement() {
         />
       )}
 
-      {/* Feedback Modal */}
-      {feedbackModal && (
-        <FeedbackModal
-          teamId={teamId}
-          candidateId={feedbackModal.candidateId}
-          candidateName={feedbackModal.candidateName}
-          feedbackId={feedbackModal.feedbackId || null}
-          existingFeedback={feedbackModal.existingFeedback || null}
-          onClose={() => setFeedbackModal(null)}
-          onSuccess={loadFeedback}
-        />
-      )}
     </section>
   );
 }
@@ -1140,16 +1037,25 @@ function CandidateTeamManagement() {
   const { teamState, refreshTeam } = useTeam();
   const teamId = teamState?.primaryTeam?.id;
   const teamName = teamState?.primaryTeam?.name;
+  const teamOwnerId = teamState?.primaryTeam?.ownerId;
   const inviteStatus = teamState?.primaryTeam?.status;
+  const currentUserId = teamState?.userId;
+  const isTeamOwner = teamOwnerId === currentUserId;
+  
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState({ type: null, message: "" });
   const [mentorEmail, setMentorEmail] = useState("");
   const [peerEmail, setPeerEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("candidate");
   const [inviteBusy, setInviteBusy] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [renamingTeam, setRenamingTeam] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
 
   const showBanner = (type, message) => {
     setBanner({ type, message });
@@ -1278,14 +1184,16 @@ function CandidateTeamManagement() {
     try {
       await api.post(`/api/team/${teamId}/invite`, {
         email: peerEmail,
-        role: "candidate",
+        role: isTeamOwner ? inviteRole : "candidate", // Team owners can choose role
       });
       setPeerEmail("");
+      setInviteRole("candidate"); // Reset to default
       await loadMembers();
-      showBanner("success", "Invite sent to peer.");
+      showBanner("success", "Invite sent.");
     } catch (err) {
       const code = err.response?.data?.error;
-      showBanner("error", errorMessages[code] || "Failed to send invite.");
+      const message = err.response?.data?.message;
+      showBanner("error", message || errorMessages[code] || "Failed to send invite.");
     } finally {
       setInviteBusy(false);
     }
@@ -1309,18 +1217,107 @@ function CandidateTeamManagement() {
     }
   };
 
+  const handleDeleteTeam = async () => {
+    if (!teamId) return;
+    const teamNameToDelete = teamName || "this team";
+    const confirmMessage = `Are you sure you want to delete "${teamNameToDelete}"? This action cannot be undone. All team members, feedback, tasks, and shared jobs will be permanently deleted.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    // Double confirmation for destructive action
+    if (!window.confirm(`This will permanently delete "${teamNameToDelete}" and all its data. Type the team name to confirm: ${teamNameToDelete}`)) {
+      return;
+    }
+    
+    setInviteBusy(true);
+    try {
+      await api.delete(`/api/team/${teamId}`);
+      await refreshTeam();
+      showBanner("success", "Team deleted successfully.");
+    } catch (err) {
+      const code = err.response?.data?.error;
+      const message = err.response?.data?.message;
+      showBanner("error", message || errorMessages[code] || "Failed to delete team.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleRenameTeam = async () => {
+    if (!renameValue.trim() || !teamId) {
+      showBanner("error", "Please enter a team name.");
+      return;
+    }
+    setInviteBusy(true);
+    try {
+      await api.patch(`/api/team/${teamId}/rename`, {
+        name: renameValue.trim(),
+      });
+      setRenamingTeam(false);
+      setRenameValue("");
+      await refreshTeam();
+      showBanner("success", "Team renamed successfully!");
+    } catch (err) {
+      const code = err.response?.data?.error;
+      const message = err.response?.data?.message;
+      showBanner("error", message || errorMessages[code] || "Failed to rename team.");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const handleCreateTeam = async (e) => {
+    e.preventDefault();
+    if (!newTeamName.trim()) {
+      showBanner("error", "Please enter a team name.");
+      return;
+    }
+    setCreatingTeam(true);
+    try {
+      await api.post("/api/team/create", { name: newTeamName.trim() });
+      setNewTeamName("");
+      await refreshTeam();
+      showBanner("success", "Team created successfully!");
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create team.";
+      showBanner("error", errorMsg);
+    } finally {
+      setCreatingTeam(false);
+    }
+  };
+
   // No team - show join/request options
   if (!teamId) {
     return (
       <section className="profile-box">
         <h3>Team Management</h3>
-        <p>Join a team or request a mentor to get started.</p>
 
         {banner.message && (
           <div className={`banner ${banner.type}-banner`}>{banner.message}</div>
         )}
 
         <div className="no-team-options">
+          <form onSubmit={handleCreateTeam} className="team-create">
+            <h4>Create Your Own Team</h4>
+            <p className="team-invite-subtext">
+              Create a team and invite members. As the team creator, you'll have full management permissions.
+            </p>
+            <div className="team-invite-row">
+              <input
+                type="text"
+                placeholder="Team name"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                required
+              />
+              <button type="submit" disabled={creatingTeam}>
+                {creatingTeam ? "Creating..." : "Create Team"}
+              </button>
+            </div>
+          </form>
+
           <form onSubmit={handleSearchTeams} className="team-search">
             <h4>Search and Join a Team</h4>
             <div className="team-invite-row">
@@ -1411,61 +1408,197 @@ function CandidateTeamManagement() {
   // Team exists and status is active/invited - show full team management
   return (
     <section className="profile-box">
-      <h3>{teamName || "My Team"}</h3>
-      <p>Request mentors or invite peers to your team.</p>
+      <div className="team-header">
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
+          {renamingTeam ? (
+            <>
+              <input
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameTeam();
+                  if (e.key === "Escape") {
+                    setRenamingTeam(false);
+                    setRenameValue("");
+                  }
+                }}
+                autoFocus
+                style={{
+                  padding: "6px 12px",
+                  fontSize: "1.2em",
+                  fontWeight: "bold",
+                  border: "1px solid #ccc",
+                  borderRadius: "4px",
+                  flex: 1
+                }}
+              />
+              <button
+                onClick={handleRenameTeam}
+                disabled={inviteBusy}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#1976d2",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: inviteBusy ? "not-allowed" : "pointer"
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => {
+                  setRenamingTeam(false);
+                  setRenameValue("");
+                }}
+                disabled={inviteBusy}
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#666",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: inviteBusy ? "not-allowed" : "pointer"
+                }}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
+                <h3>{teamName || "My Team"}</h3>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {isTeamOwner && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setRenameValue(teamName || "");
+                          setRenamingTeam(true);
+                        }}
+                        disabled={inviteBusy}
+                        style={{
+                          padding: "4px 8px",
+                          backgroundColor: "transparent",
+                          color: "#1976d2",
+                          border: "1px solid #1976d2",
+                          borderRadius: "4px",
+                          cursor: inviteBusy ? "not-allowed" : "pointer",
+                          fontSize: "0.85em"
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        className="btn-danger"
+                        onClick={handleDeleteTeam}
+                        disabled={inviteBusy}
+                        style={{
+                          backgroundColor: "#dc3545",
+                          color: "white",
+                          border: "none",
+                          padding: "4px 12px",
+                          borderRadius: "4px",
+                          cursor: inviteBusy ? "not-allowed" : "pointer",
+                          fontSize: "0.9em",
+                          fontWeight: "500"
+                        }}
+                      >
+                        {inviteBusy ? "Deleting..." : "Delete Team"}
+                      </button>
+                    </>
+                  )}
+                  {!isTeamOwner && (
+                    <button
+                      className="btn-secondary btn-leave-team"
+                      onClick={handleLeaveTeam}
+                      disabled={inviteBusy}
+                    >
+                      Leave Team
+                    </button>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {banner.message && (
         <div className={`banner ${banner.type}-banner`}>{banner.message}</div>
       )}
 
       <div className="candidate-actions">
-        <form onSubmit={handleRequestMentor} className="team-invite">
-          <h4>Request a Mentor</h4>
-          <p className="team-invite-subtext">
-            Request a mentor by email. The mentor will be invited to join your team.
-          </p>
-          <div className="team-invite-row">
-            <input
-              type="email"
-              placeholder="mentor@example.com"
-              value={mentorEmail}
-              onChange={(e) => setMentorEmail(e.target.value)}
-              required
-            />
-            <button type="submit" disabled={inviteBusy}>
-              {inviteBusy ? "Sending..." : "Request Mentor"}
-            </button>
-          </div>
-        </form>
+        {isTeamOwner ? (
+          <>
+            {/* Team owner can invite both mentors and candidates */}
+            <form onSubmit={handleInvitePeer} className="team-invite">
+              <h4>Invite Members</h4>
+              <div className="team-invite-row">
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={peerEmail}
+                  onChange={(e) => setPeerEmail(e.target.value)}
+                  required
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  style={{ marginRight: "8px" }}
+                >
+                  <option value="candidate">Candidate</option>
+                  <option value="mentor">Mentor</option>
+                </select>
+                <button type="submit" disabled={inviteBusy}>
+                  {inviteBusy ? "Sending..." : "Send Invite"}
+                </button>
+              </div>
+            </form>
+          </>
+        ) : (
+          <>
+            {/* Regular members can request mentors and invite peers */}
+            <form onSubmit={handleRequestMentor} className="team-invite">
+              <h4>Request a Mentor</h4>
+              <div className="team-invite-row">
+                <input
+                  type="email"
+                  placeholder="mentor@example.com"
+                  value={mentorEmail}
+                  onChange={(e) => setMentorEmail(e.target.value)}
+                  required
+                />
+                <button type="submit" disabled={inviteBusy}>
+                  {inviteBusy ? "Sending..." : "Request Mentor"}
+                </button>
+              </div>
+            </form>
 
-        <form onSubmit={handleInvitePeer} className="team-invite">
-          <h4>Invite a Peer</h4>
-          <div className="team-invite-row">
-            <input
-              type="email"
-              placeholder="peer@example.com"
-              value={peerEmail}
-              onChange={(e) => setPeerEmail(e.target.value)}
-              required
-            />
-            <button type="submit" disabled={inviteBusy}>
-              {inviteBusy ? "Sending..." : "Invite Peer"}
-            </button>
-          </div>
-        </form>
+            <form onSubmit={handleInvitePeer} className="team-invite">
+              <h4>Invite a Peer</h4>
+              <div className="team-invite-row">
+                <input
+                  type="email"
+                  placeholder="peer@example.com"
+                  value={peerEmail}
+                  onChange={(e) => setPeerEmail(e.target.value)}
+                  required
+                />
+                <button type="submit" disabled={inviteBusy}>
+                  {inviteBusy ? "Sending..." : "Invite Peer"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
 
-      <div className="team-members">
+      <div className="team-members" style={{ marginTop: "2rem" }}>
         <div className="members-card-header">
           <h4>Team Members</h4>
-          <button
-            className="btn-secondary"
-            onClick={handleLeaveTeam}
-            disabled={inviteBusy}
-            style={{ marginLeft: "auto" }}
-          >
-            {inviteBusy ? "Leaving..." : "Leave Team"}
-          </button>
+          
         </div>
         {loading ? (
           <p>Loading team members...</p>
@@ -1479,6 +1612,7 @@ function CandidateTeamManagement() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
+                {isTeamOwner && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -1486,10 +1620,26 @@ function CandidateTeamManagement() {
                 const fullName = [member.firstName, member.lastName]
                   .filter(Boolean)
                   .join(" ") || "Unnamed";
+                const isMemberOwner = member.userId === teamOwnerId;
 
                 return (
                   <tr key={member.userId}>
-                    <td>{fullName}</td>
+                    <td>
+                      {fullName}
+                      {isMemberOwner && (
+                        <span style={{ 
+                          marginLeft: "8px", 
+                          padding: "2px 6px", 
+                          backgroundColor: "#e3f2fd", 
+                          color: "#1976d2", 
+                          borderRadius: "3px", 
+                          fontSize: "0.75em",
+                          fontWeight: "500"
+                        }}>
+                          Owner
+                        </span>
+                      )}
+                    </td>
                     <td>{member.email}</td>
                     <td>
                       <span className={`role-badge role-${member.role}`}>
@@ -1501,6 +1651,33 @@ function CandidateTeamManagement() {
                         {member.status}
                       </span>
                     </td>
+                    {isTeamOwner && (
+                      <td>
+                        {!isMemberOwner && (
+                          <button
+                            className="btn-secondary"
+                            onClick={async () => {
+                              if (window.confirm(`Are you sure you want to remove ${fullName} from the team?`)) {
+                                setInviteBusy(true);
+                                try {
+                                  await api.delete(`/api/team/${teamId}/members/${member.userId}`);
+                                  await loadMembers();
+                                  showBanner("success", "Member removed.");
+                                } catch (err) {
+                                  showBanner("error", err.response?.data?.error || "Failed to remove member.");
+                                } finally {
+                                  setInviteBusy(false);
+                                }
+                              }
+                            }}
+                            disabled={inviteBusy}
+                            style={{ fontSize: "0.9em", padding: "4px 8px" }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

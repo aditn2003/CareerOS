@@ -6,32 +6,39 @@ import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
-const router = express.Router();
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const SERP_API_KEY = process.env.SERP_API_KEY;
+// Factory function for dependency injection (for testing)
+function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = null, serpApiKey = null) {
+  const router = express.Router();
+  const OPENAI_KEY = openaiApiKey || process.env.OPENAI_API_KEY;
+  const SERP_API_KEY = serpApiKey || process.env.SERP_API_KEY;
 
-// Initialize Supabase client with proper configuration
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-  {
-    db: {
-      schema: 'public',
-    },
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'x-application-name': 'ats-interview-prep',
-      },
-    },
+  // Use injected client or create default one
+  let supabase;
+  if (supabaseClient) {
+    supabase = supabaseClient;
+  } else {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      {
+        db: {
+          schema: 'public',
+        },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        global: {
+          headers: {
+            'x-application-name': 'ats-interview-prep',
+          },
+        },
+      }
+    );
   }
-);
 
-// Helper function to retry database operations
-async function retryDatabaseOperation(operation, maxRetries = 3) {
+  // Helper function to retry database operations
+  async function retryDatabaseOperation(operation, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
@@ -53,26 +60,26 @@ async function retryDatabaseOperation(operation, maxRetries = 3) {
       throw error;
     }
   }
-}
+  }
 
-const http = axios.create({
-  timeout: 15000,
-  headers: {
-    "User-Agent": "ATS-InterviewBot/1.0 (contact: team@ats.com)",
-  },
-});
+  const http = axios.create({
+    timeout: 15000,
+    headers: {
+      "User-Agent": "ATS-InterviewBot/1.0 (contact: team@ats.com)",
+    },
+  });
 
-/* -----------------------------------------------------
-   Clean slug for Indeed URLs
------------------------------------------------------ */
-function slugify(str) {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
+  /* -----------------------------------------------------
+     Clean slug for Indeed URLs
+  ----------------------------------------------------- */
+  function slugify(str) {
+    return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
 
-/* -----------------------------------------------------
-   1. SERP — Google Search (now role-aware)
------------------------------------------------------ */
-async function getSerpSnippets(company, role) {
+  /* -----------------------------------------------------
+     1. SERP — Google Search (now role-aware)
+  ----------------------------------------------------- */
+  async function getSerpSnippets(company, role) {
   if (!SERP_API_KEY) {
     console.warn("⚠️ SERP_API_KEY missing. Returning fallback empty array.");
     return [];
@@ -105,10 +112,10 @@ async function getSerpSnippets(company, role) {
   }
 }
 
-/* -----------------------------------------------------
-   2. Indeed Scrape (still useful even without role)
------------------------------------------------------ */
-async function scrapeIndeed(company) {
+  /* -----------------------------------------------------
+     2. Indeed Scrape (still useful even without role)
+  ----------------------------------------------------- */
+  async function scrapeIndeed(company) {
   const slug = slugify(company);
   const urls = [
     `https://www.indeed.com/cmp/${slug}/interviews`,
@@ -130,13 +137,13 @@ async function scrapeIndeed(company) {
     } catch {}
   }
 
-  return "";
-}
+    return "";
+  }
 
-/* -----------------------------------------------------
-   3. Reddit + Glassdoor (now also role-aware)
------------------------------------------------------ */
-async function getCommunitySnippets(company, role) {
+  /* -----------------------------------------------------
+     3. Reddit + Glassdoor (now also role-aware)
+  ----------------------------------------------------- */
+  async function getCommunitySnippets(company, role) {
   if (!SERP_API_KEY) return [];
 
   const query = role
@@ -163,12 +170,12 @@ async function getCommunitySnippets(company, role) {
     console.error("❌ Community SERP error:", err.message);
     return [];
   }
-}
+  }
 
-/* -----------------------------------------------------
-   4. OpenAI Role-Aware Enrichment
------------------------------------------------------ */
-async function enrichInterviewInsights(company, role, serp, indeed, community) {
+  /* -----------------------------------------------------
+     4. OpenAI Role-Aware Enrichment
+  ----------------------------------------------------- */
+  async function enrichInterviewInsights(company, role, serp, indeed, community) {
   const context = `
 Company: ${company}
 Role: ${role || "N/A"}
@@ -258,12 +265,12 @@ STRICT RULES:
     console.error("❌ OpenAI Interview Insights Error:", err.message);
     return null;
   }
-}
+  }
 
-/* -----------------------------------------------------
-   🆕 UC-075: Generate Role-Specific Question Bank with Difficulty Levels
------------------------------------------------------ */
-async function generateQuestionBank(role, industry, difficulty) {
+  /* -----------------------------------------------------
+     🆕 UC-075: Generate Role-Specific Question Bank with Difficulty Levels
+  ----------------------------------------------------- */
+  async function generateQuestionBank(role, industry, difficulty) {
   if (!OPENAI_KEY) {
     // Return fallback questions with difficulty levels
     return {
@@ -375,12 +382,12 @@ REQUIREMENTS:
       company_specific: []
     };
   }
-}
+  }
 
-/* -----------------------------------------------------
-   MAIN ROUTE — NOW ROLE AWARE
------------------------------------------------------ */
-router.get("/", async (req, res) => {
+  /* -----------------------------------------------------
+     MAIN ROUTE — NOW ROLE AWARE
+  ----------------------------------------------------- */
+  router.get("/", async (req, res) => {
   const company = req.query.company?.trim();
   const role = req.query.role?.trim() || "";
   const userId = req.query.userId?.trim() || "1";
@@ -459,10 +466,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------
-   🆕 UC-075: Get Question Bank by Role/Industry/Difficulty
------------------------------------------------------ */
-router.get("/questions", async (req, res) => {
+  /* -----------------------------------------------------
+     🆕 UC-075: Get Question Bank by Role/Industry/Difficulty
+  ----------------------------------------------------- */
+  router.get("/questions", async (req, res) => {
   const role = req.query.role?.trim() || "";
   const industry = req.query.industry?.trim() || "Technology";
   const difficulty = req.query.difficulty?.trim() || "all";
@@ -502,7 +509,7 @@ router.get("/questions", async (req, res) => {
    🆕 UC-075: Track Practiced Questions with Supabase
    UPDATED: Now accepts questionText and tracks practice_count
 ----------------------------------------------------- */
-router.post("/questions/practice", async (req, res) => {
+  router.post("/questions/practice", async (req, res) => {
   try {
     const { userId, questionId, questionText, questionCategory, response } = req.body;
 
@@ -592,7 +599,7 @@ router.post("/questions/practice", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Get User's Practiced Questions from Supabase
 ----------------------------------------------------- */
-router.get("/questions/practiced", async (req, res) => {
+  router.get("/questions/practiced", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const category = req.query.category?.trim(); // Optional filter by category
@@ -656,7 +663,7 @@ router.get("/questions/practiced", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Get Practice Statistics from Supabase
 ----------------------------------------------------- */
-router.get("/questions/stats", async (req, res) => {
+  router.get("/questions/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -736,7 +743,7 @@ router.get("/questions/stats", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Delete Practiced Question
 ----------------------------------------------------- */
-router.delete("/questions/practice/:questionId", async (req, res) => {
+  router.delete("/questions/practice/:questionId", async (req, res) => {
   try {
     const { questionId } = req.params;
     const userId = req.query.userId?.trim();
@@ -789,7 +796,7 @@ router.delete("/questions/practice/:questionId", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Toggle Checklist Item Completion
 ----------------------------------------------------- */
-router.post("/checklist/toggle", async (req, res) => {
+  router.post("/checklist/toggle", async (req, res) => {
   try {
     const { userId, company, role, category, item } = req.body;
 
@@ -893,7 +900,7 @@ router.post("/checklist/toggle", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Get Checklist Completion Status
 ----------------------------------------------------- */
-router.get("/checklist/status", async (req, res) => {
+  router.get("/checklist/status", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -963,7 +970,7 @@ router.get("/checklist/status", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Get Checklist Statistics
 ----------------------------------------------------- */
-router.get("/checklist/stats", async (req, res) => {
+  router.get("/checklist/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1044,7 +1051,7 @@ router.get("/checklist/stats", async (req, res) => {
    🆕 UC-081: Regenerate Checklist
    Delete saved checklist to force generation of new one
 ----------------------------------------------------- */
-router.delete("/checklist/regenerate", async (req, res) => {
+  router.delete("/checklist/regenerate", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1097,10 +1104,10 @@ router.delete("/checklist/regenerate", async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------
-   🆕 UC-082: Generate Follow-Up Email Template
------------------------------------------------------ */
-async function generateFollowUpTemplate(
+  /* -----------------------------------------------------
+     🆕 UC-082: Generate Follow-Up Email Template
+  ----------------------------------------------------- */
+  async function generateFollowUpTemplate(
   templateType,
   company,
   role,
@@ -1213,12 +1220,13 @@ Return ONLY valid JSON.
     console.error("❌ OpenAI Follow-Up Template Error:", err.message);
     return null;
   }
-}
-/* -----------------------------------------------------
-   🆕 UC-082: DELETE /follow-up/:id
-   Delete a follow-up template
------------------------------------------------------ */
-router.delete("/follow-up/:id", async (req, res) => {
+  }
+
+  /* -----------------------------------------------------
+     🆕 UC-082: DELETE /follow-up/:id
+     Delete a follow-up template
+  ----------------------------------------------------- */
+  router.delete("/follow-up/:id", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -1274,7 +1282,7 @@ router.delete("/follow-up/:id", async (req, res) => {
    🆕 UC-082: POST /follow-up/generate
    Generate follow-up email template
 ----------------------------------------------------- */
-router.post("/follow-up/generate", async (req, res) => {
+  router.post("/follow-up/generate", async (req, res) => {
   try {
     const {
       userId,
@@ -1402,7 +1410,7 @@ router.post("/follow-up/generate", async (req, res) => {
    🆕 UC-082: GET /follow-up/templates
    Get all follow-up templates for user
 ----------------------------------------------------- */
-router.get("/follow-up/templates", async (req, res) => {
+  router.get("/follow-up/templates", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1467,7 +1475,7 @@ router.get("/follow-up/templates", async (req, res) => {
    🆕 UC-082: PUT /follow-up/:id/mark-sent
    Mark template as sent
 ----------------------------------------------------- */
-router.put("/follow-up/:id/mark-sent", async (req, res) => {
+  router.put("/follow-up/:id/mark-sent", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const { userId } = req.body;
@@ -1523,7 +1531,7 @@ router.put("/follow-up/:id/mark-sent", async (req, res) => {
    🆕 UC-082: PUT /follow-up/:id/track-response
    Track response to follow-up
 ----------------------------------------------------- */
-router.put("/follow-up/:id/track-response", async (req, res) => {
+  router.put("/follow-up/:id/track-response", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const { userId, responseReceived, responseType, notes } = req.body;
@@ -1581,7 +1589,7 @@ router.put("/follow-up/:id/track-response", async (req, res) => {
    🆕 UC-082: GET /follow-up/stats
    Get follow-up statistics
 ----------------------------------------------------- */
-router.get("/follow-up/stats", async (req, res) => {
+  router.get("/follow-up/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -1658,6 +1666,14 @@ router.get("/follow-up/stats", async (req, res) => {
       message: "Failed to fetch statistics"
     });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createInterviewInsightsRoutes();
 export default router;
+
+// Export factory function for testing
+export { createInterviewInsightsRoutes };

@@ -298,18 +298,52 @@ export default function ActivityFeedTab() {
           )}
 
           {/* Candidates Needing Attention */}
-          {candidatesNeedingAttention.length > 0 && (
-            <div className="activity-sidebar-section">
-              <h4><FaExclamationTriangle /> Need Attention</h4>
+          <div className="activity-sidebar-section">
+            <h4><FaExclamationTriangle /> Need Attention</h4>
+            {candidatesNeedingAttention.length > 0 ? (
               <div className="attention-list">
-                {candidatesNeedingAttention.map((candidate) => (
-                  <div key={candidate.candidateId} className="attention-item">
-                    <span className="attention-candidate">{candidate.candidateName}</span>
-                  </div>
-                ))}
+                {candidatesNeedingAttention.map((candidate) => {
+                  const getReasonLabel = (reason) => {
+                    switch (reason) {
+                      case 'overdue_task':
+                        return 'Overdue tasks';
+                      case 'stale_pending_task':
+                        return 'Pending tasks > 7 days';
+                      case 'upcoming_job_deadline':
+                        return 'Job deadline within 3 days';
+                      case 'overdue_job_deadline':
+                        return 'Overdue job deadline';
+                      default:
+                        return reason;
+                    }
+                  };
+
+                  return (
+                    <div key={candidate.candidateId} className="attention-item">
+                      <div className="attention-content">
+                        <div className="attention-candidate-name">{candidate.candidateName}</div>
+                        <div className="attention-reasons">
+                          {candidate.reasons && candidate.reasons.length > 0 ? (
+                            <ul className="attention-reasons-list">
+                              {candidate.reasons.map((reason, idx) => (
+                                <li key={idx}>{getReasonLabel(reason)}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span className="attention-no-reason">Needs attention</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            ) : (
+              <p style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic', marginTop: '0.5rem' }}>
+                No candidates need attention at this time.
+              </p>
+            )}
+          </div>
 
           {/* Quick Action Buttons */}
           <div className="activity-sidebar-section">

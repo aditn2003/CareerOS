@@ -105,6 +105,10 @@
   cursor: not-allowed;
 }
 
+.team-members {
+  margin-top: 2rem;
+}
+
 .members-card-header {
   display: flex;
   justify-content: space-between;
@@ -192,15 +196,7 @@
   gap: 1.5rem;
 }
 
-.team-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 1rem;
-}
+
 
 .create-team-form {
   display: flex;
@@ -494,8 +490,8 @@
 }
 
 .status-active {
-  background: #d1fae5;
-  color: #065f46;
+  background: #10b981;
+  color: #ffffff;
 }
 
 .status-invited {
@@ -591,6 +587,16 @@
 .btn-secondary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-leave-team {
+  font-size: 0.875rem !important;
+  padding: 6px 12px !important;
+  white-space: nowrap !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: fit-content !important;
+  flex-shrink: 0 !important;
 }
 
 /* ============================================================

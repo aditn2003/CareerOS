@@ -5,26 +5,21 @@ import OpenAI from "openai";
 
 const { Pool } = pkg;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-const router = express.Router();
-
-// 🔑 OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Factory function for dependency injection (for testing)
+function createCoverLetterTemplatesRoutes(dbPool = null, openaiClient = null) {
+  const router = express.Router();
+  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const openai = openaiClient || new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ========================================================================
    UC-057 + Template CRUD
    (This file handles AI cover letters and template library)
 ========================================================================= */
 
-/* ==============================
-   GET — all cover letter templates
-============================== */
-router.get("/templates", async (_req, res) => {
+  /* ==============================
+     GET — all cover letter templates
+  ============================== */
+  router.get("/templates", async (_req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, industry, category, content,
@@ -43,12 +38,12 @@ router.get("/templates", async (_req, res) => {
       message: "Failed to fetch cover letter templates from the database",
     });
   }
-});
+  });
 
-/* ==============================
-   POST — create new template (custom)
-============================== */
-router.post("/templates", async (req, res) => {
+  /* ==============================
+     POST — create new template (custom)
+  ============================== */
+  router.post("/templates", async (req, res) => {
   try {
     const {
       name = "",
@@ -77,12 +72,12 @@ router.post("/templates", async (req, res) => {
     console.error("❌ Error creating cover letter template:", err);
     res.status(500).json({ message: "Failed to create cover letter template" });
   }
-});
+  });
 
-/* ==============================
-   Template Analytics — VIEW count
-============================== */
-router.post("/templates/:id/track-view", async (req, res) => {
+  /* ==============================
+     Template Analytics — VIEW count
+  ============================== */
+  router.post("/templates/:id/track-view", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -99,12 +94,12 @@ router.post("/templates/:id/track-view", async (req, res) => {
     console.error("❌ Error tracking cover letter view:", err);
     res.status(500).json({ message: "Failed to track template view" });
   }
-});
+  });
 
-/* ==============================
-   Template Analytics — USE count
-============================== */
-router.post("/templates/:id/track-use", async (req, res) => {
+  /* ==============================
+     Template Analytics — USE count
+  ============================== */
+  router.post("/templates/:id/track-use", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -121,15 +116,12 @@ router.post("/templates/:id/track-use", async (req, res) => {
     console.error("❌ Error tracking template use:", err);
     res.status(500).json({ message: "Failed to track template use" });
   }
-});
+  });
 
-/* ========================================================================
-   UC-057 — AI Cover Letter Generation with Company Research
-========================================================================= */
-/* ========================================================================
-   UC-057 — AI Cover Letter Generation with Company Research
-========================================================================= */
-router.post("/generate", async (req, res) => {
+  /* ========================================================================
+     UC-057 — AI Cover Letter Generation with Company Research
+  ========================================================================= */
+  router.post("/generate", async (req, res) => {
   try {
     const {
       userName = "",
@@ -251,13 +243,12 @@ ${variationInstruction}
       message: "Failed to generate AI cover letter",
     });
   }
-});
+  });
 
-
-/* ==============================
-   UC-057 — SAVE AI-GENERATED COVER LETTER
-============================== */
-router.post("/save-ai", async (req, res) => {
+  /* ==============================
+     UC-057 — SAVE AI-GENERATED COVER LETTER
+  ============================== */
+  router.post("/save-ai", async (req, res) => {
   try {
     const { user_id, title, content } = req.body;
 
@@ -283,11 +274,12 @@ router.post("/save-ai", async (req, res) => {
       message: "Failed to save AI cover letter",
     });
   }
-});
-/* ==============================
-   UC-057 — GET SAVED AI COVER LETTERS
-============================== */
-router.get("/saved/:userId", async (req, res) => {
+  });
+
+  /* ==============================
+     UC-057 — GET SAVED AI COVER LETTERS
+  ============================== */
+  router.get("/saved/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -304,11 +296,12 @@ router.get("/saved/:userId", async (req, res) => {
     console.error("❌ Error fetching saved AI letters:", err);
     res.status(500).json({ success: false, message: "Failed to fetch letters" });
   }
-});
-/* ==============================
-   UC-057 — DELETE SAVED AI LETTER
-============================== */
-router.delete("/saved/:id", async (req, res) => {
+  });
+
+  /* ==============================
+     UC-057 — DELETE SAVED AI LETTER
+  ============================== */
+  router.delete("/saved/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -322,11 +315,12 @@ router.delete("/saved/:id", async (req, res) => {
     console.error("❌ Error deleting AI letter:", err);
     res.status(500).json({ success: false, message: "Failed to delete letter" });
   }
-});
-/* ==============================
-   UC-057 — EDIT SAVED AI LETTER
-============================== */
-router.put("/saved/:id", async (req, res) => {
+  });
+
+  /* ==============================
+     UC-057 — EDIT SAVED AI LETTER
+  ============================== */
+  router.put("/saved/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { content, name } = req.body;
@@ -344,6 +338,14 @@ router.put("/saved/:id", async (req, res) => {
     console.error("❌ Error editing AI letter:", err);
     res.status(500).json({ success: false, message: "Failed to update letter" });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createCoverLetterTemplatesRoutes();
 export default router;
+
+// Export factory function for testing
+export { createCoverLetterTemplatesRoutes };
