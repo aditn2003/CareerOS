@@ -27,8 +27,7 @@ import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
 import Interviews from "./pages/Interviews/Interviews";
 import SalaryResearch from "./pages/Salary/SalaryResearch";
 import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
-import NetworkContacts from "./components/NetworkContacts"; // ✅ ADDED (UC-10x - Professional Network)
-import ReferralRequests from "./components/ReferralRequests"; // ✅ ADDED (UC-087 - Referral Management)
+import NetworkLayout from "./pages/Network/NetworkLayout"; // ✅ ADDED (Consolidated Network/Referrals/Networking)
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -231,25 +230,33 @@ function MainLayout() {
           {/* --- Cover Letter (UC-055)  --- */}
           <Route path="/cover-letter" element={<CoverLetter />} />{" "}
           {/* ✅ NEW */}
-          {/* --- Professional Network (UC-10x) --- */}
+          {/* --- Consolidated Network & Relationships (UC-10x, UC-087, UC-088) --- */}
           <Route
             path="/network"
             element={
               <ProtectedRoute>
-                <NetworkContacts />
+                <NetworkLayout />
               </ProtectedRoute>
             }
           />
-          {/* --- Referral Requests (UC-087) --- */}
+          {/* --- Legacy Routes (Redirect to /network) --- */}
           <Route
             path="/referrals"
             element={
               <ProtectedRoute>
-                <ReferralRequests />
+                <Navigate to="/network" replace />
               </ProtectedRoute>
             }
           />
-          {/* ✅ NEW */}
+          <Route
+            path="/networking"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/network" replace />
+              </ProtectedRoute>
+            }
+          />
+          {/* ✅ CONSOLIDATED */}
           {/* --- Legacy / Alias --- */}
           <Route
             path="/resume/templates"

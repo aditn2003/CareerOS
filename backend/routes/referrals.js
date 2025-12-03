@@ -43,7 +43,15 @@ router.get('/requests', authMiddleware, async (req, res) => {
     if (status) query = query.eq('status', status);
     if (contact_id) query = query.eq('contact_id', contact_id);
     if (job_id) query = query.eq('job_id', job_id);
-    if (outcome) query = query.eq('referral_outcome', outcome);
+    
+    // Handle outcome filter - "unknown" means NULL values
+    if (outcome) {
+      if (outcome === 'unknown') {
+        query = query.is('referral_outcome', null);
+      } else {
+        query = query.eq('referral_outcome', outcome);
+      }
+    }
 
     const { data, error } = await query;
 
@@ -178,7 +186,8 @@ router.put('/requests/:id', authMiddleware, async (req, res) => {
     if (referral_submitted_date) updateData.referral_submitted_date = referral_submitted_date;
     if (relationship_strength_after) updateData.relationship_strength_after = relationship_strength_after;
     if (relationship_impact) updateData.relationship_impact = relationship_impact;
-    if (referral_outcome) updateData.referral_outcome = referral_outcome;
+    // Handle referral_outcome - explicitly allow null for "Unknown"
+    if (referral_outcome !== undefined) updateData.referral_outcome = referral_outcome || null;
     if (followup_score) updateData.followup_score = followup_score;
     if (gratitude_expressed !== undefined) updateData.gratitude_expressed = gratitude_expressed;
     if (referrer_notes) updateData.referrer_notes = referrer_notes;
@@ -556,8 +565,8 @@ router.get('/recommendations/timing/:contact_id', authMiddleware, async (req, re
       return res.status(404).json({ error: 'Contact not found' });
     }
 
-    // Get recent referral requests to this contact
-    const { data: recentReferrals, error: refError } = await supabase
+    // Get ALL referral requests to this contact (regardless of status)
+    const { data: allReferrals, error: refError } = await supabase
       .from('referral_requests')
       .select('requested_date, status')
       .eq('contact_id', req.params.contact_id)
@@ -572,8 +581,14 @@ router.get('/recommendations/timing/:contact_id', authMiddleware, async (req, re
     let recommendedTiming = 'good';
     let reason = '';
     let daysToWait = 0;
+    let totalReferralCount = allReferrals?.length || 0;
 
-    if (recentReferrals && recentReferrals.length > 0) {
+    // Check if already MORE THAN 2 total referrals to this contact
+    if (totalReferralCount > 2) {
+      recommendedTiming = 'multiple';
+      reason = `You've already made ${totalReferralCount} referrals to this contact. Consider reaching out to someone new to avoid overusing your network.`;
+      daysToWait = 0;
+    } else if (allReferrals && allReferrals.length > 0) {
       const lastRequest = new Date(recentReferrals[0].requested_date);
       const daysSinceLast = Math.floor((now - lastRequest) / (1000 * 60 * 60 * 24));
 
@@ -594,7 +609,7 @@ router.get('/recommendations/timing/:contact_id', authMiddleware, async (req, re
       recommendedTiming,
       reason,
       daysToWait: daysToWait > 0 ? daysToWait : 0,
-      recentReferralCount: recentReferrals?.length || 0
+      recentReferralCount: allReferrals?.length || 0
     });
   } catch (err) {
     console.error('Error getting timing recommendations:', err);

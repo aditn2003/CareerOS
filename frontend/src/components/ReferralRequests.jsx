@@ -273,6 +273,23 @@ const ReferralRequests = () => {
     }
   };
 
+  // Reset form to initial state
+  const resetForm = () => {
+    setFormData({
+      contact_id: '',
+      job_id: '',
+      job_title: '',
+      company: '',
+      referral_message: '',
+      why_good_fit: '',
+      industry_keywords: '',
+      request_timing_score: 5,
+      personalization_score: 5,
+    });
+    setSuggestedContacts([]);
+    setTimingRecommendations(null);
+  };
+
   // Get status badge color
   const getStatusColor = (status) => {
     const colors = {
@@ -303,17 +320,16 @@ const ReferralRequests = () => {
     <div className="referral-requests-container">
       {/* Header */}
       <div className="referral-header">
-        <div className="header-content">
-          <h1>Referral Request Manager</h1>
-          <p>Track and manage referral requests to leverage your network for job opportunities</p>
+        <h1>Referral Requests</h1>
+        <div className="header-actions">
+          <button
+            className="btn-primary"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <Plus size={16} />
+            New Referral
+          </button>
         </div>
-        <button
-          className="btn-primary"
-          onClick={() => setShowCreateModal(true)}
-        >
-          <Plus size={20} />
-          New Referral Request
-        </button>
       </div>
 
       {/* Messages */}
@@ -385,18 +401,6 @@ const ReferralRequests = () => {
             <div className="analytics-content">
               <p className="analytics-label">Success Rate</p>
               <p className="analytics-value">{analytics.successRate}</p>
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <div className="analytics-icon" style={{ color: '#FF9800' }}>
-              <Clock size={32} />
-            </div>
-            <div className="analytics-content">
-              <p className="analytics-label">Avg Response Time</p>
-              <p className="analytics-value">
-                {analytics.averageResponseTimeDays ? `${analytics.averageResponseTimeDays}d` : 'N/A'}
-              </p>
             </div>
           </div>
         </div>
@@ -511,13 +515,13 @@ const ReferralRequests = () => {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="modal-overlay" onClick={() => { resetForm(); setShowCreateModal(false); }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Create Referral Request</h2>
               <button
                 className="btn-close"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => { resetForm(); setShowCreateModal(false); }}
               >
                 ✕
               </button>
@@ -588,7 +592,7 @@ const ReferralRequests = () => {
                   <button
                     type="button"
                     className="btn-secondary"
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => { resetForm(); setShowCreateModal(false); }}
                   >
                     Cancel
                   </button>
@@ -634,23 +638,6 @@ const ReferralRequests = () => {
                 />
               </div>
 
-              {jobs.length > 0 && (
-                <div className="form-group">
-                  <label>Select Job Application (Optional)</label>
-                  <select
-                    value={formData.job_id}
-                    onChange={(e) => handleJobChange(e.target.value)}
-                  >
-                    <option value="">-- Select a job --</option>
-                    {jobs.map((job) => (
-                      <option key={job.id} value={job.id}>
-                        {job.title} at {job.company}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               {suggestedContacts.length > 0 && (
                 <div className="form-section">
                   <h4>Suggested Referral Contacts</h4>
@@ -694,12 +681,23 @@ const ReferralRequests = () => {
 
               {timingRecommendations && (
                 <div className="timing-recommendation" style={{
-                  backgroundColor: timingRecommendations.recommendedTiming === 'wait' ? '#FFE0E0' : '#E0F0FF',
-                  borderLeft: `4px solid ${timingRecommendations.recommendedTiming === 'wait' ? '#F44336' : '#2196F3'}`
+                  backgroundColor: 
+                    timingRecommendations.recommendedTiming === 'wait' ? '#FFE0E0' :
+                    timingRecommendations.recommendedTiming === 'multiple' ? '#FFF3CD' :
+                    '#E0F0FF',
+                  borderLeft: `4px solid ${
+                    timingRecommendations.recommendedTiming === 'wait' ? '#F44336' :
+                    timingRecommendations.recommendedTiming === 'multiple' ? '#FF9800' :
+                    '#2196F3'
+                  }`
                 }}>
                   <Info size={16} />
                   <div>
-                    <strong>Timing Recommendation:</strong>
+                    <strong>
+                      {timingRecommendations.recommendedTiming === 'multiple' 
+                        ? '⚠️ Multiple Referrals' 
+                        : 'Timing Recommendation:'}
+                    </strong>
                     <p>{timingRecommendations.reason}</p>
                     {timingRecommendations.daysToWait > 0 && (
                       <p>Wait {timingRecommendations.daysToWait} more days</p>
@@ -707,32 +705,6 @@ const ReferralRequests = () => {
                   </div>
                 </div>
               )}
-
-              <div className="form-group">
-                <label>Job Title *</label>
-                <input
-                  type="text"
-                  value={formData.job_title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, job_title: e.target.value })
-                  }
-                  placeholder="e.g., Senior Software Engineer"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Company *</label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) =>
-                    setFormData({ ...formData, company: e.target.value })
-                  }
-                  placeholder="e.g., Google"
-                  required
-                />
-              </div>
 
               <div className="form-group">
                 <label>Why Are They a Good Fit?</label>
@@ -813,7 +785,7 @@ const ReferralRequests = () => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => { resetForm(); setShowCreateModal(false); }}
                 >
                   Cancel
                 </button>
