@@ -666,7 +666,7 @@ router.post("/outcome", async (req, res) => {
     // NEW: Calendar sync and email confirmation
     try {
       // Sync to Google Calendar if requested
-      if (syncToCalendar && interviewTime && videoLink) {
+      if (syncToCalendar) {
         try {
           const eventId = await syncToGoogleCalendar(data, supabase);
           if (eventId) {
@@ -689,22 +689,20 @@ router.post("/outcome", async (req, res) => {
         }
       }
 
-      // Send confirmation email if has time
-      if (interviewTime) {
-        try {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", userIdInt)
-            .single();
-          
-          if (userData?.email) {
-            await sendInterviewConfirmation(data, userData.email);
-            console.log(`✅ Confirmation email sent to ${userData.email}`);
-          }
-        } catch (emailErr) {
-          console.error("❌ Email send failed:", emailErr.message);
+      // Send confirmation email
+      try {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", userIdInt)
+          .single();
+        
+        if (userData?.email) {
+          await sendInterviewConfirmation(data, userData.email);
+          console.log(`✅ Confirmation email sent to ${userData.email}`);
         }
+      } catch (emailErr) {
+        console.error("❌ Email send failed:", emailErr.message);
       }
     } catch (err) {
       console.error("❌ Post-creation tasks error:", err.message);
@@ -748,20 +746,25 @@ router.put("/outcome/:id", async (req, res) => {
       });
     }
 
+    const { syncToCalendar, ...bodyWithoutSync } = req.body;
+
     const updates = {};
     const allowedFields = [
       'outcome', 'feedback_received', 'next_round_scheduled', 'offer_amount',
       'offer_received_date', 'self_rating', 'confidence_level', 'difficulty_rating',
-      'strengths', 'weaknesses', 'notes', 'lessons_learned'
+      'strengths', 'weaknesses', 'notes', 'lessons_learned',
+      'interview_time', 'duration_minutes', 'interview_round',
+      'interviewer_name', 'interviewer_email', 'video_link', 'location_address',
+      'dial_in_number', 'meeting_id', 'meeting_password'
     ];
 
-    Object.keys(req.body).forEach(key => {
-      if (allowedFields.includes(key) && req.body[key] !== undefined) {
-        updates[key] = req.body[key];
+    Object.keys(bodyWithoutSync).forEach(key => {
+      if (allowedFields.includes(key) && bodyWithoutSync[key] !== undefined) {
+        updates[key] = bodyWithoutSync[key];
       }
     });
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 0 && !syncToCalendar) {
       return res.status(400).json({
         success: false,
         message: "No valid fields to update"
@@ -782,12 +785,40 @@ router.put("/outcome/:id", async (req, res) => {
       console.error("❌ Supabase error:", error);
       return res.status(500).json({
         success: false,
-        message: "Database error while updating interview outcome",
+        message: "Failed to update interview outcome",
         error: error.message
       });
     }
 
     console.log(`✅ Interview outcome updated (ID: ${outcomeId})`);
+
+    // Handle calendar sync if requested and not already synced
+    try {
+      if (syncToCalendar && data.calendar_sync_status !== 'synced') {
+        try {
+          const eventId = await syncToGoogleCalendar(data, supabase);
+          if (eventId) {
+            await supabase
+              .from("interview_outcomes")
+              .update({ 
+                google_calendar_event_id: eventId,
+                calendar_sync_status: 'synced',
+                last_synced_at: new Date().toISOString()
+              })
+              .eq("id", outcomeId);
+            console.log(`✅ Synced to Google Calendar: ${eventId}`);
+          }
+        } catch (calErr) {
+          console.error("❌ Calendar sync failed:", calErr.message);
+          await supabase
+            .from("interview_outcomes")
+            .update({ calendar_sync_status: 'failed' })
+            .eq("id", outcomeId);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Post-update tasks error:", err.message);
+    }
 
     return res.json({
       success: true,
@@ -801,7 +832,7 @@ router.put("/outcome/:id", async (req, res) => {
     });
   }
 });
-
+      
 /* ============================================================
    DELETE /outcome/:id
    Delete interview outcome
@@ -810,6 +841,7 @@ router.delete("/outcome/:id", async (req, res) => {
   try {
     const outcomeId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
+    const deleteFromCalendar = req.query.deleteFromCalendar === 'true';
 
     if (isNaN(outcomeId) || !userId) {
       return res.status(400).json({
@@ -826,6 +858,27 @@ router.delete("/outcome/:id", async (req, res) => {
       });
     }
 
+    // First, get the interview to check calendar sync status
+    const { data: interview } = await supabase
+      .from("interview_outcomes")
+      .select("*")
+      .eq("id", outcomeId)
+      .eq("user_id", userIdInt)
+      .single();
+
+    // Delete from Google Calendar if requested and synced
+    if (deleteFromCalendar && interview?.google_calendar_event_id) {
+      try {
+        const { deleteFromGoogleCalendar } = await import("../utils/schedulingHelpers.js");
+        await deleteFromGoogleCalendar(interview.google_calendar_event_id, userIdInt, supabase);
+        console.log(`✅ Deleted from Google Calendar: ${interview.google_calendar_event_id}`);
+      } catch (calErr) {
+        console.error("❌ Calendar deletion failed:", calErr.message);
+        // Continue with database deletion even if calendar deletion fails
+      }
+    }
+
+    // Delete from database
     const { error } = await retryDatabaseOperation(async () => {
       return await supabase
         .from("interview_outcomes")

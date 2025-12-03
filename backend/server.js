@@ -51,6 +51,8 @@ import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import calendarRoutes from "./routes/calendar.js";
+
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -466,6 +468,7 @@ app.post("/google", async (req, res) => {
 });
 
 // ===== Routes =====
+app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", auth, employmentRoutes);
@@ -668,6 +671,7 @@ app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
 app.use('/api/salary-negotiation', salaryNegotiationRoutes);
 app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =

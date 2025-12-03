@@ -11,8 +11,8 @@ dotenv.config();
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.VITE_GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET || "", // You'll need to add this
-  `${process.env.FRONTEND_URL}/calendar/callback`
+  process.env.GOOGLE_CLIENT_SECRET || "",
+  "http://localhost:4000/api/calendar/callback"
 );
 
 export async function getCalendarAuthUrl(userId) {

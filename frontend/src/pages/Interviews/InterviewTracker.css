@@ -523,4 +523,151 @@
     .benefit-grid {
       grid-template-columns: 1fr;
     }
+
+    /* ADD THESE STYLES TO InterviewTracker.css */
+
+/* Header Actions - Multiple Buttons */
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Connect Calendar Button */
+.connect-calendar-btn {
+  background: linear-gradient(135deg, #4f22ea 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connect-calendar-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
+}
+
+/* Calendar Status */
+.calendar-status {
+  color: #10b981;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 16px;
+  background: #d1fae5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Update existing add-interview-btn to work in flex container */
+.add-interview-btn {
+  background: linear-gradient(135deg, #4f22ea 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-interview-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
+}
+/* ADD THESE STYLES TO InterviewTracker.css */
+
+/* Header Actions - Multiple Buttons */
+.header-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Calendar Connected Container */
+.calendar-connected-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #d1fae5;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+/* Connect Calendar Button */
+.connect-calendar-btn {
+  background: linear-gradient(135deg, #4f22ea 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.connect-calendar-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
+}
+
+/* Calendar Status */
+.calendar-status {
+  color: #059669;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Disconnect Button */
+.disconnect-calendar-btn {
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnect-calendar-btn:hover {
+  background: #fee2e2;
+  border-color: #dc2626;
+}
+
+/* Update existing add-interview-btn to work in flex container */
+.add-interview-btn {
+  background: linear-gradient(135deg, #4f22ea 0%, #6366f1 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-interview-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 34, 234, 0.3);
+}
   }
+

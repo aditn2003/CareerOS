@@ -10,6 +10,7 @@ function InterviewTracker() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [calendarConnected, setCalendarConnected] = useState(false);
   const [formData, setFormData] = useState({
     jobId: "",
     company: "",
@@ -46,6 +47,7 @@ function InterviewTracker() {
   useEffect(() => {
     fetchInterviews();
     fetchJobs();
+    checkCalendarStatus();
   }, []);
 
   // Debug: Log jobs state
@@ -81,6 +83,62 @@ function InterviewTracker() {
     } catch (err) {
       console.error("❌ Error fetching jobs:", err);
       console.error("Error details:", err.response?.data);
+    }
+  }
+
+  async function checkCalendarStatus() {
+    try {
+      const res = await api.get("/api/calendar/status", {
+        params: { userId }
+      });
+      
+      if (res.data.success) {
+        setCalendarConnected(res.data.connected);
+      }
+    } catch (err) {
+      console.error("Error checking calendar status:", err);
+      setCalendarConnected(false);
+    }
+  }
+
+  async function connectGoogleCalendar() {
+    try {
+      const res = await api.get("/api/calendar/auth-url", {
+        params: { userId }
+      });
+      
+      if (res.data.success) {
+        // Open OAuth in popup
+        const width = 600;
+        const height = 700;
+        const left = window.screen.width / 2 - width / 2;
+        const top = window.screen.height / 2 - height / 2;
+        
+        window.open(
+          res.data.authUrl,
+          'Google Calendar Authorization',
+          `width=${width},height=${height},left=${left},top=${top}`
+        );
+        
+        // Check status after popup closes (poll every 2 seconds)
+        const checkInterval = setInterval(async () => {
+          const statusRes = await api.get("/api/calendar/status", {
+            params: { userId }
+          });
+          
+          if (statusRes.data.connected) {
+            setCalendarConnected(true);
+            clearInterval(checkInterval);
+            alert("✅ Google Calendar connected successfully!");
+          }
+        }, 2000);
+        
+        // Stop checking after 2 minutes
+        setTimeout(() => clearInterval(checkInterval), 120000);
+      }
+    } catch (err) {
+      console.error("Error connecting calendar:", err);
+      alert("Failed to connect calendar. Please try again.");
     }
   }
 
@@ -207,11 +265,26 @@ function InterviewTracker() {
     });
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(interview) {
     if (!window.confirm("Are you sure you want to delete this interview?")) return;
     
+    // Check if interview is synced to calendar
+    const isSynced = interview.calendar_sync_status === 'synced' && interview.google_calendar_event_id;
+    let deleteFromCalendar = false;
+    
+    if (isSynced) {
+      deleteFromCalendar = window.confirm(
+        "This interview is synced to your Google Calendar.\n\nDo you also want to delete it from your calendar?"
+      );
+    }
+    
     try {
-      await api.delete(`/api/interview-analytics/outcome/${id}?userId=${userId}`);
+      await api.delete(`/api/interview-analytics/outcome/${interview.id}`, {
+        params: { 
+          userId,
+          deleteFromCalendar: deleteFromCalendar ? 'true' : 'false'
+        }
+      });
       alert("Interview deleted successfully!");
       fetchInterviews();
     } catch (err) {
@@ -227,16 +300,50 @@ function InterviewTracker() {
           <h1 className="page-title">📋 Interview Tracker</h1>
           <p className="page-subtitle">Record and manage your interview outcomes</p>
         </div>
-        <button 
-          className="add-interview-btn"
-          onClick={() => {
-            setShowForm(true);
-            setEditingId(null);
-            resetForm();
-          }}
-        >
-          ➕ Add Interview
-        </button>
+        <div className="header-actions">
+          {!calendarConnected ? (
+            <button 
+              className="connect-calendar-btn"
+              onClick={connectGoogleCalendar}
+              title="Connect Google Calendar to sync interviews and get reminders"
+            >
+              📅 Connect Google Calendar
+            </button>
+          ) : (
+            <div className="calendar-connected-container">
+              <span className="calendar-status">✅ Google Calendar Connected</span>
+              <button 
+                className="disconnect-calendar-btn"
+                onClick={async () => {
+                  if (window.confirm("Disconnect Google Calendar? Future interviews won't sync automatically.")) {
+                    try {
+                      await api.delete("/api/calendar/disconnect", {
+                        params: { userId }
+                      });
+                      setCalendarConnected(false);
+                      alert("Google Calendar disconnected");
+                    } catch (err) {
+                      console.error("Error disconnecting:", err);
+                      alert("Failed to disconnect calendar");
+                    }
+                  }
+                }}
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
+          <button 
+            className="add-interview-btn"
+            onClick={() => {
+              setShowForm(true);
+              setEditingId(null);
+              resetForm();
+            }}
+          >
+            ➕ Add Interview
+          </button>
+        </div>
       </div>
 
       {/* Add/Edit Form */}
@@ -504,20 +611,27 @@ function InterviewTracker() {
                         />
                       </div>
 
-                      {formData.interviewTime && formData.videoLink && (
-                        <div className="form-group">
-                          <label className="checkbox-label">
-                            <input
-                              type="checkbox"
-                              name="syncToCalendar"
-                              checked={formData.syncToCalendar}
-                              onChange={handleInputChange}
-                            />
-                            <span>📅 Sync to Google Calendar & send reminders</span>
-                          </label>
-                          <small>Get email reminders 24h and 2h before interview</small>
-                        </div>
-                      )}
+                      <div className="form-group">
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            name="syncToCalendar"
+                            checked={formData.syncToCalendar}
+                            onChange={handleInputChange}
+                            disabled={!calendarConnected || !formData.interviewDate || (editingId && formData.syncToCalendar)}
+                          />
+                          <span>📅 Add to Google Calendar</span>
+                        </label>
+                        <small>
+                          {!calendarConnected
+                            ? "⚠️ Google Calendar not connected - Click 'Connect Google Calendar' button above"
+                            : !formData.interviewDate
+                            ? "⚠️ Requires interview date"
+                            : editingId && formData.syncToCalendar
+                            ? "✅ Already synced to calendar"
+                            : "Confirmation email will be sent automatically"}
+                        </small>
+                      </div>
                     </>
                   )}
 
@@ -709,9 +823,12 @@ function InterviewTracker() {
                           jobId: interview.job_id || "",
                           company: interview.company,
                           role: interview.role,
-                          interviewDate: interview.interview_date,
+                          interviewDate: interview.interview_date?.split('T')[0] || interview.interview_date,
+                          interviewTime: interview.interview_time || "",
+                          durationMinutes: interview.duration_minutes || 60,
                           interviewType: interview.interview_type,
                           interviewFormat: interview.interview_format || 'remote',
+                          interviewRound: interview.interview_round || 1,
                           selfRating: interview.self_rating || 3,
                           confidenceLevel: interview.confidence_level || 3,
                           difficultyRating: interview.difficulty_rating || 3,
@@ -721,7 +838,16 @@ function InterviewTracker() {
                           outcome: interview.outcome || 'pending',
                           offerAmount: interview.offer_amount || '',
                           mockInterviewsCompleted: interview.mock_interviews_completed || 0,
-                          notes: interview.notes || ''
+                          notes: interview.notes || '',
+                          interviewerName: interview.interviewer_name || "",
+                          interviewerEmail: interview.interviewer_email || "",
+                          videoLink: interview.video_link || "",
+                          locationAddress: interview.location_address || "",
+                          dialInNumber: interview.dial_in_number || "",
+                          meetingId: interview.meeting_id || "",
+                          meetingPassword: interview.meeting_password || "",
+                          // Set syncToCalendar to true if already synced, otherwise false
+                          syncToCalendar: interview.calendar_sync_status === 'synced'
                         });
                         setShowForm(true);
                       }}
@@ -730,7 +856,7 @@ function InterviewTracker() {
                     </button>
                     <button 
                       className="delete-btn" 
-                      onClick={() => handleDelete(interview.id)}
+                      onClick={() => handleDelete(interview)}
                     >
                       🗑️
                     </button>
@@ -740,7 +866,7 @@ function InterviewTracker() {
                 <div className="interview-card-body">
                   <div className="info-row">
                     <span className="label">📅 Date:</span>
-                    <span>{new Date(interview.interview_date).toLocaleDateString()}</span>
+                    <span>{interview.interview_date?.split('T')[0] || interview.interview_date}</span>
                   </div>
                   <div className="info-row">
                     <span className="label">📋 Type:</span>
