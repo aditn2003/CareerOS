@@ -334,6 +334,7 @@ Return ONLY valid JSON.
           role,
           location: location || null,
           experience_years: experienceYears || null,
+          current_salary: currentSalary || null,  // ✅ Now saving current salary
           market_research: packageData.marketResearch,
           company_insights: packageData.companyInsights || null,
           role_insights: packageData.roleInsights || null,

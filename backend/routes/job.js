@@ -216,10 +216,10 @@ router.post("/", auth, async (req, res) => {
     // Use finalCoverLetterId instead of cover_letter_id to handle template conversions
     if (resume_id || finalCoverLetterId) {
       await pool.query(
-        `INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
-        VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [newJob.id, req.userId, resume_id || null, finalCoverLetterId || null, "initial_set"]
+        [newJob.id, req.userId, resume_id || null, finalCoverLetterId || null, "initial_set", JSON.stringify({})]
 
       );
       
@@ -585,12 +585,10 @@ router.put("/:id", auth, async (req, res) => {
     if (updates.resume_id || updates.cover_letter_id) {
       await pool.query(
         `
-        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
-        VALUES ($1, $2, $3, $4, $5)
-
-
+        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `,
-      [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated"]
+      [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated", JSON.stringify({})]
 
       );
     }
@@ -609,26 +607,91 @@ router.get("/:id/materials-history", auth, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Check if table exists first
+    const tableCheck = await pool.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'application_materials_history'
+      )`
+    );
+
+    if (!tableCheck.rows[0].exists) {
+      console.warn("⚠️ application_materials_history table does not exist");
+      return res.json({ history: [] }); // Return empty array instead of error
+    }
+
     const result = await pool.query(
       `
       SELECT 
         h.id,
         h.changed_at,
+        h.action,
+        h.resume_id,
+        h.cover_letter_id,
+        h.details,
         r.title AS resume_title,
         c.name AS cover_title
       FROM application_materials_history h
       LEFT JOIN resumes r ON r.id = h.resume_id
       LEFT JOIN cover_letters c ON c.id = h.cover_letter_id
-      WHERE h.job_id = $1
-      ORDER BY h.changed_at DESC;
-      `,
-      [id]
-    );
+          WHERE h.job_id = $1
+          ORDER BY h.changed_at DESC NULLS LAST;
+          `,
+          [req.params.id] // Use req.params.id from the route parameter
+        );
 
     res.json({ history: result.rows });
   } catch (err) {
-    console.error("❌ History fetch error:", err.message);
-    res.status(500).json({ error: "Failed to load materials history" });
+    console.error("❌ History fetch error:", err);
+    console.error("Error details:", {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      hint: err.hint,
+      stack: err.stack,
+      position: err.position
+    });
+    
+    // If table doesn't exist, return empty array instead of error
+    if (err.code === '42P01') { // undefined_table
+      console.warn("⚠️ application_materials_history table not found. Returning empty history.");
+      return res.json({ history: [] });
+    }
+    
+    // If column doesn't exist, try a simpler query
+    if (err.code === '42703') { // undefined_column
+      console.warn("⚠️ Some columns may not exist, trying simplified query");
+      try {
+        const simpleResult = await pool.query(
+          `
+          SELECT 
+            h.id,
+            h.changed_at,
+            h.action,
+            h.resume_id,
+            h.cover_letter_id
+          FROM application_materials_history h
+          WHERE h.job_id = $1
+          ORDER BY h.changed_at DESC NULLS LAST;
+          `,
+          [req.params.id] // Use req.params.id instead of id
+        );
+        return res.json({ history: simpleResult.rows });
+      } catch (simpleErr) {
+        console.error("❌ Simplified query also failed:", simpleErr);
+        // Return empty array as last resort
+        return res.json({ history: [] });
+      }
+    }
+    
+    res.status(500).json({ 
+      error: "Failed to load materials history",
+      details: err.message,
+      code: err.code,
+      hint: err.code === '42P01' ? "Run backend/db/add_application_materials_history.sql to create the table." : 
+            err.code === '42703' ? "Some columns may be missing. Check your database schema." : undefined
+    });
   }
 });
 
@@ -637,56 +700,187 @@ router.get("/:id/materials-history", auth, async (req, res) => {
 router.put("/:id/materials", auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { resume_id, cover_letter_id, resume_customization, cover_letter_customization } = req.body;
+    let { resume_id, cover_letter_id, resume_customization, cover_letter_customization } = req.body;
+
+    // Handle template cover letters: if cover_letter_id starts with "template_", 
+    // create a copy of the template as a user cover letter
+    let finalCoverLetterId = cover_letter_id || null;
+    
+    // Only process if it's a valid number or a template ID
+    if (cover_letter_id) {
+      const coverLetterIdStr = String(cover_letter_id);
+      
+      // Check if it's a template ID (starts with "template_")
+      if (coverLetterIdStr.startsWith('template_')) {
+        try {
+          const templateId = parseInt(coverLetterIdStr.replace('template_', ''), 10);
+          if (!isNaN(templateId)) {
+            // Fetch the template from cover_letter_templates table
+            const templateResult = await pool.query(
+              `SELECT name, content FROM cover_letter_templates WHERE id = $1`,
+              [templateId]
+            );
+            
+            if (templateResult.rows.length > 0) {
+              const template = templateResult.rows[0];
+              // Try different column combinations based on what exists in the table
+              try {
+                // Try with 'title' first
+                const newCoverLetterResult = await pool.query(
+                  `INSERT INTO cover_letters (user_id, title, content)
+                   VALUES ($1, $2, $3)
+                   RETURNING id`,
+                  [req.userId, `${template.name} (from template)`, template.content || '']
+                );
+                finalCoverLetterId = newCoverLetterResult.rows[0].id;
+                console.log(`✅ Created cover letter from template ${templateId}, new ID: ${finalCoverLetterId}`);
+              } catch (insertErr) {
+                if (insertErr.code === '42703') { // Column doesn't exist
+                  // Try with 'name' instead of 'title'
+                  try {
+                    const newCoverLetterResult = await pool.query(
+                      `INSERT INTO cover_letters (user_id, name, content)
+                       VALUES ($1, $2, $3)
+                       RETURNING id`,
+                      [req.userId, `${template.name} (from template)`, template.content || '']
+                    );
+                    finalCoverLetterId = newCoverLetterResult.rows[0].id;
+                    console.log(`✅ Created cover letter from template ${templateId} (using 'name'), new ID: ${finalCoverLetterId}`);
+                  } catch (insertErr2) {
+                    console.error("❌ Failed to create cover letter from template:", insertErr2.message);
+                    console.error("❌ Error details:", insertErr2);
+                    finalCoverLetterId = null;
+                  }
+                } else {
+                  console.error("❌ Failed to create cover letter from template:", insertErr.message);
+                  console.error("❌ Error details:", insertErr);
+                  finalCoverLetterId = null;
+                }
+              }
+            } else {
+              console.warn(`⚠️ Template ${templateId} not found`);
+              finalCoverLetterId = null;
+            }
+          } else {
+            console.warn(`⚠️ Invalid template ID format: ${coverLetterIdStr}`);
+            finalCoverLetterId = null;
+          }
+        } catch (templateErr) {
+          console.error("❌ Error processing template cover letter:", templateErr);
+          finalCoverLetterId = null;
+        }
+      } else {
+        // It's a regular cover letter ID, use it as-is (convert to number if it's a string)
+        finalCoverLetterId = isNaN(Number(cover_letter_id)) ? null : Number(cover_letter_id);
+      }
+    }
 
     // Validate customization levels
     const validLevels = ['none', 'light', 'heavy', 'tailored'];
     const safeResumeCustomization = validLevels.includes(resume_customization) ? resume_customization : 'none';
     const safeCoverLetterCustomization = validLevels.includes(cover_letter_customization) ? cover_letter_customization : 'none';
 
-    // Update the job with new resume + cover letter + customization levels
-    const updateQuery = `
-      UPDATE jobs 
-      SET resume_id = $1,
-          cover_letter_id = $2,
-          resume_customization = $3,
-          cover_letter_customization = $4
-      WHERE id = $5 AND user_id = $6
-      RETURNING *;
-    `;
-
-    const updateValues = [
-      resume_id || null,
-      cover_letter_id || null,
-      safeResumeCustomization,
-      safeCoverLetterCustomization,
-      id,
-      req.userId,
-    ];
-
-    const result = await pool.query(updateQuery, updateValues);
+    // Try to update with customization columns first
+    let result;
+    try {
+      const updateQuery = `
+        UPDATE jobs 
+        SET resume_id = $1,
+            cover_letter_id = $2,
+            resume_customization = $3,
+            cover_letter_customization = $4
+        WHERE id = $5 AND user_id = $6
+        RETURNING *;
+      `;
+      result = await pool.query(updateQuery, [
+        resume_id || null,
+        finalCoverLetterId, // Use the processed cover letter ID (template converted or original)
+        safeResumeCustomization,
+        safeCoverLetterCustomization,
+        id,
+        req.userId,
+      ]);
+    } catch (colErr) {
+      // If customization columns don't exist, fall back to basic update
+      if (colErr.code === '42703') { // undefined_column
+        console.warn("⚠️ Customization columns not found, updating only resume_id and cover_letter_id");
+        const basicUpdateQuery = `
+          UPDATE jobs 
+          SET resume_id = $1,
+              cover_letter_id = $2
+          WHERE id = $3 AND user_id = $4
+          RETURNING *;
+        `;
+        result = await pool.query(basicUpdateQuery, [
+          resume_id || null,
+          finalCoverLetterId, // Use the processed cover letter ID (template converted or original)
+          id,
+          req.userId,
+        ]);
+      } else {
+        // Re-throw if it's a different error
+        throw colErr;
+      }
+    }
 
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Job not found or unauthorized" });
 
     const updatedJob = result.rows[0];
 
-    // Insert a new materials history log
-    await pool.query(
-      `
-      INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action)
-      VALUES ($1, $2, $3, $4, $5)
-    `,
-    [id, req.userId, resume_id || null, cover_letter_id || null, "materials_updated"]
-    );
+    // Insert a new materials history log (if table exists)
+    try {
+      await pool.query(
+        `
+        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
+        VALUES ($1, $2, $3, $4, $5, $6)
+      `,
+      [id, req.userId, resume_id || null, finalCoverLetterId, "materials_updated", JSON.stringify({})]
+      );
+    } catch (historyErr) {
+      // If table doesn't exist, log warning but don't fail the update
+      if (historyErr.code === '42P01') { // undefined_table
+        console.warn("⚠️ application_materials_history table not found. Materials updated but history not recorded.");
+        console.warn("   Run backend/db/add_application_materials_history.sql to create the table.");
+      } else {
+        // Re-throw if it's a different error
+        throw historyErr;
+      }
+    }
 
     res.json({
       message: "Materials and customization levels updated successfully",
       job: updatedJob,
     });
   } catch (err) {
-    console.error("Materials update error:", err.message);
-    res.status(500).json({ error: "Failed to update materials" });
+    console.error("❌ Materials update error:", err);
+    console.error("Error details:", {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      hint: err.hint,
+      stack: err.stack
+    });
+    
+    let errorMessage = "Failed to update materials";
+    let errorHint = "";
+    
+    if (err.code === '42703') { // undefined_column
+      errorMessage = "Database column not found";
+      errorHint = "The resume_customization or cover_letter_customization columns may not exist. Please run the database migration.";
+    } else if (err.code === '42P01') { // undefined_table
+      errorMessage = "Database table not found";
+      errorHint = "The application_materials_history table may not exist. Please check your database schema.";
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      hint: errorHint,
+      details: err.message,
+      code: err.code
+    });
   }
 });
 

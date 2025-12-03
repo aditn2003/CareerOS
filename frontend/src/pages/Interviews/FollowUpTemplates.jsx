@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { getUserId } from "../../utils/auth";
 import "./FollowUpTemplates.css";
 
 export default function FollowUpTemplates() {
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState([]);
   const [activeCompany, setActiveCompany] = useState("");
   const [roleMap, setRoleMap] = useState({});
@@ -49,7 +51,11 @@ export default function FollowUpTemplates() {
 
         setRoleMap(finalMap);
 
-        if (uniqueCompanies.length > 0) {
+        // Check for company from URL query params (from Interview Tracker)
+        const companyFromUrl = searchParams.get("company");
+        if (companyFromUrl && uniqueCompanies.includes(companyFromUrl)) {
+          setActiveCompany(companyFromUrl);
+        } else if (uniqueCompanies.length > 0) {
           setActiveCompany(uniqueCompanies[0]);
         }
       } catch (err) {
@@ -57,7 +63,7 @@ export default function FollowUpTemplates() {
       }
     }
     loadJobs();
-  }, []);
+  }, [searchParams]);
 
   /* ============================================================
      Load templates when company changes

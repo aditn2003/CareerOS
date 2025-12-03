@@ -51,6 +51,11 @@ import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import compensationHistoryRoutes from "./routes/compensationHistory.js";
+import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
+import careerGoalsRoutes from "./routes/careerGoals.js";
+import calendarRoutes from "./routes/calendar.js";
+
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -411,6 +416,7 @@ app.post("/google", async (req, res) => {
 });
 
 // ===== Routes =====
+app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", auth, employmentRoutes);
@@ -443,6 +449,9 @@ app.use("/api/networking-analysis", networkingAnalysisRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+app.use("/api/compensation-history", compensationHistoryRoutes);
+app.use("/api/market-benchmarks", marketBenchmarksRoutes);
+app.use("/api/career-goals", careerGoalsRoutes);
 
 app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
 
@@ -621,6 +630,7 @@ app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
 app.use('/api/salary-negotiation', salaryNegotiationRoutes);
 app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =

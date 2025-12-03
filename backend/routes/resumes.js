@@ -625,10 +625,28 @@ ${textContent}
   }
   });
 
-  // ============================================================
-  // ✅ ENHANCED: AI Resume Optimization with Relevance Scoring
-  // ============================================================
-  router.post("/optimize", auth, async (req, res) => {
+// GET single resume by ID (must come after /:id/download to avoid route conflicts)
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT * FROM resumes WHERE id=$1 AND user_id=$2`,
+      [id, req.user.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    res.json({ resume: rows[0] });
+  } catch (err) {
+    console.error("❌ Fetch resume error:", err);
+    res.status(500).json({ error: err.message || "Failed to load resume" });
+  }
+});
+
+// ============================================================
+// ✅ ENHANCED: AI Resume Optimization with Relevance Scoring
+// ============================================================
+router.post("/optimize", auth, async (req, res) => {
   try {
     const { sections, jobDescription } = req.body;
 

@@ -171,16 +171,6 @@ function MainLayout() {
             }
           />
 
-          {/* --- Networking (Protected) --- */}
-          <Route
-            path="/networking"
-            element={
-              <ProtectedRoute>
-                <Networking />
-              </ProtectedRoute>
-            }
-          />
-
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"
