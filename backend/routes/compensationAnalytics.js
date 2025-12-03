@@ -982,8 +982,8 @@ router.get("/comprehensive", async (req, res) => {
         console.warn(`⚠️ Negative growth rate detected (${avgGrowthRate.toFixed(2)}%). This may indicate data quality issues or salary decreases. Using estimated growth rate instead.`);
       }
       
-      const role = compHistory[compHistory.length - 1]; // Get most recent role (compHistory is sorted ASC, oldest first)
-      const level = role.role_level || 'mid';
+      const role = compHistory && compHistory.length > 0 ? compHistory[compHistory.length - 1] : null; // Get most recent role (compHistory is sorted ASC, oldest first)
+      const level = role?.role_level || 'mid';
       
       // Estimated annual growth rates by level (conservative estimates)
       // Based on typical career progression patterns and industry reports

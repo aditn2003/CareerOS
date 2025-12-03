@@ -76,6 +76,8 @@ const styles = {
     border: '1px solid #e5e7eb',
     marginBottom: '24px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+    minWidth: 0,
+    minHeight: 0,
   },
   sectionTitle: {
     fontSize: '1rem',
@@ -178,7 +180,7 @@ function SectionIcon({ color, children }) {
 function ChartCard({ title, icon, iconColor, children }) {
   return (
     <Box sx={styles.chartCard}>
-      <Typography sx={styles.sectionTitle}>
+      <Typography component="div" sx={styles.sectionTitle}>
         <SectionIcon color={iconColor}>{icon}</SectionIcon>
         {title}
       </Typography>
