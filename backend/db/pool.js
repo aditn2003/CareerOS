@@ -43,4 +43,7 @@ pool.on('error', (err) => {
   // Don't throw - let the pool handle reconnection automatically
 });
 
+console.log(`📊 Database pool initialized (max: ${poolSize}, Supabase: ${isSupabase})`);
+
 export default pool;
+

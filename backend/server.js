@@ -35,9 +35,11 @@ import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import teamRoutes from "./routes/team.js";
+import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
 
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
+import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -52,6 +54,8 @@ import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 import compensationHistoryRoutes from "./routes/compensationHistory.js";
 import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 import careerGoalsRoutes from "./routes/careerGoals.js";
+import calendarRoutes from "./routes/calendar.js";
+
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -104,6 +108,12 @@ if (isSupabase) {
   console.log("🔒 SSL enabled for Supabase connection");
 }
 
+// Supabase Session mode has VERY strict connection limits (typically 4-5 total connections across ALL pools)
+// Use VERY small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
+const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
+const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
+
+
 // const pool = new Pool({
 //   ...poolConfig,
 //   max: 10, // Maximum number of clients in the pool
@@ -111,17 +121,14 @@ if (isSupabase) {
 //   connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection could not be established
 // });
 
-// Handle pool errors gracefully
+// Handle pool errors gracefully - don't terminate on error, try to reconnect
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
+  console.error('⚠️ Unexpected error on idle client:', err.message);
+  // Don't throw - let the pool handle reconnection automatically
 });
 
-// Handle connection errors
-pool.on('connect', (client) => {
-  client.on('error', (err) => {
-    console.error('Database client error:', err);
-  });
-});
+// REMOVED: Periodic health check consumes connections unnecessarily
+// Connections will be created on-demand when needed
 
 pool
   .connect()
@@ -193,14 +200,14 @@ app.post("/register", async (req, res) => {
       );
       if (existing.rows.length > 0) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ error: "Email already in use" });
+      return res.status(409).json({ error: "Email already in use" });
       }
 
-      const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
       const userResult = await client.query(
         "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
         [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
-      );
+    );
       const userId = userResult.rows[0].id;
 
       if (normalizedAccountType === "team_admin") {
@@ -226,7 +233,7 @@ app.post("/register", async (req, res) => {
 
       await client.query("COMMIT");
       const token = makeToken({ id: userId, email: lower });
-      return res.status(201).json({ message: "Registered", token });
+    return res.status(201).json({ message: "Registered", token });
     } catch (dbErr) {
       try {
         await client.query("ROLLBACK");
@@ -422,7 +429,6 @@ app.post("/delete", auth, async (req, res) => {
   }
 });
 
-// ========== UC-003 & UC-004: OAuth (demo stubs) ==========
 // ========== UC-003 & UC-004: Google OAuth ==========
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -464,6 +470,7 @@ app.post("/google", async (req, res) => {
 });
 
 // ===== Routes =====
+app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", auth, employmentRoutes);
@@ -473,10 +480,18 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/resumes", resumeRoutes);
+app.use("/api", resumePresetsRoutes);
+app.use("/api", sectionPresetsRoutes);
+app.use("/api", jobDescriptionsRoutes);
+app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/match", matchRoutes);
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/interview-insights", interviewInsights);
+app.use("/api/cover-letter", coverLetterRoutes);
 app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
@@ -492,7 +507,8 @@ app.use("/api/compensation-history", compensationHistoryRoutes);
 app.use("/api/market-benchmarks", marketBenchmarksRoutes);
 app.use("/api/career-goals", careerGoalsRoutes);
 
-app.use("/api/team", teamRoutes);
+app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
+
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -504,10 +520,9 @@ app.use((err, req, res, next) => {
 app.get("/", (_req, res) => res.json({ ok: true }));
 
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB ======
-import cron from "node-cron";
 
 // run every day at 9:00 AM server time
-cron.schedule("0 9 * * *", async () => {
+crons.schedule("0 9 * * *", async () => {
   console.log("📬 Running daily job deadline reminder...");
 
   try {
@@ -667,15 +682,14 @@ app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
+app.use('/api/salary-negotiation', salaryNegotiationRoutes);
+app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
-crons.schedule("0 9 * * *", async () => {
-  console.log("📬 Running daily job deadline reminder...");
-  // 🧠 your code logic here (the pool.query, resend email sending, etc.)
-});
 app.post("/test-reminders", async (req, res) => {
   try {
     await sendDeadlineReminders();
@@ -687,5 +701,13 @@ app.post("/test-reminders", async (req, res) => {
 });
 
 
+
 // ===== Start Server =====
-app.listen(4000, () => console.log("✅ API running at http://localhost:4000"));
+// FIX: Only start the server if we are NOT testing
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`✅ API running at http://localhost:${PORT}`));
+}
+
+// Export for tests
+export { app, pool };

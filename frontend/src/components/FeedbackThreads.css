@@ -263,7 +263,8 @@
 }
 
 .feedback-job-badge,
-.feedback-skill-badge {
+.feedback-skill-badge,
+.feedback-task-badge {
   background: #e0e7ff;
   color: #4338ca;
   padding: 4px 10px;
@@ -273,9 +274,19 @@
   display: inline-block;
 }
 
+.feedback-job-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .feedback-skill-badge {
   background: #fef3c7;
   color: #92400e;
+}
+
+.feedback-task-badge {
+  background: #ddd6fe;
+  color: #5b21b6;
 }
 
 .expand-toggle {

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { getUserId } from "../../utils/auth";
 import "./FollowUpTemplates.css";
 
 export default function FollowUpTemplates() {
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState([]);
   const [activeCompany, setActiveCompany] = useState("");
   const [roleMap, setRoleMap] = useState({});
@@ -49,7 +51,11 @@ export default function FollowUpTemplates() {
 
         setRoleMap(finalMap);
 
-        if (uniqueCompanies.length > 0) {
+        // Check for company from URL query params (from Interview Tracker)
+        const companyFromUrl = searchParams.get("company");
+        if (companyFromUrl && uniqueCompanies.includes(companyFromUrl)) {
+          setActiveCompany(companyFromUrl);
+        } else if (uniqueCompanies.length > 0) {
           setActiveCompany(uniqueCompanies[0]);
         }
       } catch (err) {
@@ -57,7 +63,7 @@ export default function FollowUpTemplates() {
       }
     }
     loadJobs();
-  }, []);
+  }, [searchParams]);
 
   /* ============================================================
      Load templates when company changes
@@ -187,6 +193,34 @@ export default function FollowUpTemplates() {
     } catch (err) {
       console.error("Error tracking response:", err);
       alert("Failed to track response. Please try again.");
+    }
+  }
+
+  /* ============================================================
+     Delete template
+  ============================================================ */
+  async function deleteTemplate(templateId) {
+    if (!window.confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/interview-insights/follow-up/${templateId}`, {
+        params: { userId }
+      });
+      
+      // Close the template view if we're viewing the deleted template
+      if (selectedTemplate && selectedTemplate.id === templateId) {
+        setSelectedTemplate(null);
+      }
+      
+      await fetchTemplates();
+      await fetchStats();
+      
+      alert("✅ Template deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting template:", err);
+      alert("Failed to delete template. Please try again.");
     }
   }
 
@@ -477,6 +511,25 @@ export default function FollowUpTemplates() {
                     📬 Response tracked: {selectedTemplate.response_type} on {new Date(selectedTemplate.response_date).toLocaleDateString()}
                   </div>
                 )}
+
+                {/* Delete Button in Template View */}
+                <button 
+                  className="delete-btn"
+                  onClick={() => deleteTemplate(selectedTemplate.id)}
+                  style={{ 
+                    backgroundColor: '#dc3545', 
+                    color: 'white',
+                    marginTop: '15px',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  🗑️ Delete Template
+                </button>
               </div>
             </div>
           )}
@@ -498,32 +551,67 @@ export default function FollowUpTemplates() {
                     <div 
                       key={template.id}
                       className="template-card"
-                      onClick={() => setSelectedTemplate(template)}
+                      style={{ position: 'relative' }}
                     >
-                      <div className="template-card-header">
-                        <span className="template-icon">
-                          {getTemplateTypeIcon(template.template_type)}
-                        </span>
-                        <span className="template-type">
-                          {getTemplateTypeLabel(template.template_type)}
-                        </span>
-                      </div>
-                      <div className="template-card-subject">
-                        {template.subject_line}
-                      </div>
-                      <div className="template-card-meta">
-                        <div>{template.role}</div>
-                        <div>{new Date(template.created_at).toLocaleDateString()}</div>
-                      </div>
-                      <div className="template-card-status">
-                        {template.is_sent ? (
-                          <span className="status-sent">✉️ Sent</span>
-                        ) : (
-                          <span className="status-draft">📝 Draft</span>
-                        )}
-                        {template.response_received && (
-                          <span className="status-response">📬 Response</span>
-                        )}
+                      {/* Delete Button on Card */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTemplate(template.id);
+                        }}
+                        style={{ 
+                          position: 'absolute', 
+                          top: '10px', 
+                          right: '10px', 
+                          background: 'rgba(220, 53, 69, 0.1)', 
+                          border: '1px solid rgba(220, 53, 69, 0.3)', 
+                          borderRadius: '4px',
+                          cursor: 'pointer', 
+                          fontSize: '18px',
+                          zIndex: 10,
+                          padding: '4px 8px',
+                          opacity: 0.7,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.background = 'rgba(220, 53, 69, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.7';
+                          e.currentTarget.style.background = 'rgba(220, 53, 69, 0.1)';
+                        }}
+                        title="Delete template"
+                      >
+                        🗑️
+                      </button>
+
+                      <div onClick={() => setSelectedTemplate(template)}>
+                        <div className="template-card-header">
+                          <span className="template-icon">
+                            {getTemplateTypeIcon(template.template_type)}
+                          </span>
+                          <span className="template-type">
+                            {getTemplateTypeLabel(template.template_type)}
+                          </span>
+                        </div>
+                        <div className="template-card-subject">
+                          {template.subject_line}
+                        </div>
+                        <div className="template-card-meta">
+                          <div>{template.role}</div>
+                          <div>{new Date(template.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div className="template-card-status">
+                          {template.is_sent ? (
+                            <span className="status-sent">✉️ Sent</span>
+                          ) : (
+                            <span className="status-draft">📝 Draft</span>
+                          )}
+                          {template.response_received && (
+                            <span className="status-response">📬 Response</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
