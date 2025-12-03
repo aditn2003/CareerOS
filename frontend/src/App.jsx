@@ -28,6 +28,7 @@ import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-
 import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
 import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
+import TechnicalPrep from "./pages/Interviews/TechnicalPrep"; // ✅ UC-078
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
 import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
 import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-083
@@ -260,6 +261,7 @@ function MainLayout() {
             <Route path="question-bank" element={<QuestionBank />} />
             <Route path="response-coaching" element={<ResponseCoaching />} />
             <Route path="mock-interview" element={<MockInterview />} />
+            <Route path="technical-prep" element={<TechnicalPrep />} /> {/* ✅ UC-078 */}
             <Route path="follow-up" element={<FollowUpTemplates />} />
             <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
             <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}

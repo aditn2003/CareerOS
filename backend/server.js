@@ -40,6 +40,7 @@ import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
 import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
+import technicalPrepRoutes from './routes/technicalPrep.js'; // ✅ UC-078
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -671,6 +672,7 @@ app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
 app.use('/api/salary-negotiation', salaryNegotiationRoutes);
 app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+app.use('/api/technical-prep', technicalPrepRoutes); // ✅ UC-078
 
 
 app.use("/api/jobs", jobRoutes);
