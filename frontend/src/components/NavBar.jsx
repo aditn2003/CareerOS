@@ -58,57 +58,66 @@ export default function NavBar() {
 
         {authed ? (
           <>
+            {/* ═══════════════════════════════════════════
+                DOCUMENTS - Build Your Profile
+            ═══════════════════════════════════════════ */}
             <NavLink to="/resume">
               <FaFileAlt /> Resume
             </NavLink>
 
-            {/* ✅ NEW Cover Letter TAB */}
             <NavLink to="/cover-letter">
               <FaEnvelope /> Cover Letter
             </NavLink>
 
+            {/* ═══════════════════════════════════════════
+                JOB SEARCH - Find & Match
+            ═══════════════════════════════════════════ */}
             <NavLink to="/jobs">
               <FaBriefcase /> Jobs
             </NavLink>
 
-            {/* ⭐ JOB MATCH */}
             <NavLink to="/job-match">
               <FaStar /> Job Match
             </NavLink>
 
-            {/* 📊 Statistics */}
-            <NavLink to="/statistics">
-              <FaChartBar /> Statistics
-            </NavLink>
-
-            {/* 🌐 Networking */}
-            <NavLink to="/networking">
-              <FaNetworkWired /> Networking
-            </NavLink>
-
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
-
-            {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
+            {/* ═══════════════════════════════════════════
+                INTERVIEWS - Prepare & Track
+            ═══════════════════════════════════════════ */}
             <NavLink to="/interviews">
               <FaComments /> Interviews
             </NavLink>
 
-            {/* 👨‍🏫 Mentor */}
+            {/* ═══════════════════════════════════════════
+                GROWTH - Network & Learn
+            ═══════════════════════════════════════════ */}
+            <NavLink to="/networking">
+              <FaNetworkWired /> Networking
+            </NavLink>
+
             {showMentorButton && (
               <NavLink to="/mentor">
                 <FaUserGraduate /> Mentor
               </NavLink>
             )}
 
-            {/* 👤 Profile */}
+            {/* ═══════════════════════════════════════════
+                INSIGHTS - Track Progress
+            ═══════════════════════════════════════════ */}
+            <NavLink to="/statistics">
+              <FaChartBar /> Statistics
+            </NavLink>
+
+            <NavLink to="/archived">
+              <FaArchive /> Archived
+            </NavLink>
+
+            {/* ═══════════════════════════════════════════
+                ACCOUNT
+            ═══════════════════════════════════════════ */}
             <NavLink to="/profile/info">
               <FaUser /> Profile
             </NavLink>
 
-            {/* 🚪 Logout */}
             <button onClick={handleLogout} className="logout-btn">
               <FaSignOutAlt /> Logout
             </button>

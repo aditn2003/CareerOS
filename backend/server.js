@@ -51,6 +51,8 @@ import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import calendarRoutes from "./routes/calendar.js";
+
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -108,15 +110,7 @@ if (isSupabase) {
 const poolSize = isSupabase ? 2 : 20; // Maximum 2 connections for Supabase (very conservative)
 const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase - allow full closure when idle
 
-const pool = new Pool({
-  ...poolConfig,
-  max: poolSize, // Maximum connections (2 for Supabase Session mode - very conservative)
-  min: minPoolSize, // Minimum connections (0 for Supabase to allow full closure)
-  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
-  connectionTimeoutMillis: 5000, // Return error after 5 seconds
-  allowExitOnIdle: isSupabase ? true : false, // Allow pool to fully close when idle for Supabase
-  keepAlive: false, // Disable keep-alive for Supabase to reduce connection overhead
-});
+
 // const pool = new Pool({
 //   ...poolConfig,
 //   max: 10, // Maximum number of clients in the pool
@@ -473,6 +467,7 @@ app.post("/google", async (req, res) => {
 });
 
 // ===== Routes =====
+app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", auth, employmentRoutes);
@@ -683,6 +678,7 @@ app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
 app.use('/api/salary-negotiation', salaryNegotiationRoutes);
 app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
