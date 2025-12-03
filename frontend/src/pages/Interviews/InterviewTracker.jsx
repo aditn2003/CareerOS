@@ -1,10 +1,12 @@
 // src/pages/Interviews/InterviewTracker.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../api";
 import { getUserId } from "../../utils/auth";
 import "./InterviewTracker.css";
 
 function InterviewTracker() {
+  const navigate = useNavigate();
   const [interviews, setInterviews] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -900,6 +902,41 @@ function InterviewTracker() {
                       <span className="offer-amount">${interview.offer_amount.toLocaleString()}</span>
                     </div>
                   )}
+                </div>
+
+                {/* Tools Section */}
+                <div className="interview-card-tools">
+                  <span className="tools-label">Tools:</span>
+                  <div className="tools-buttons">
+                    <button
+                      className="tool-btn research-btn"
+                      onClick={() => navigate(`/interviews/company-research?company=${encodeURIComponent(interview.company)}`)}
+                      title="Research company details"
+                    >
+                      🏢 Research
+                    </button>
+                    <button
+                      className="tool-btn insights-btn"
+                      onClick={() => navigate(`/interviews/insights?company=${encodeURIComponent(interview.company)}&role=${encodeURIComponent(interview.role)}`)}
+                      title="Get interview insights and prep tips"
+                    >
+                      📊 Insights
+                    </button>
+                    <button
+                      className="tool-btn followup-btn"
+                      onClick={() => navigate(`/interviews/follow-up?company=${encodeURIComponent(interview.company)}&role=${encodeURIComponent(interview.role)}`)}
+                      title="Generate follow-up email templates"
+                    >
+                      📧 Follow-Up
+                    </button>
+                    <button
+                      className="tool-btn negotiation-btn"
+                      onClick={() => navigate(`/interviews/salary-negotiation?company=${encodeURIComponent(interview.company)}&role=${encodeURIComponent(interview.role)}${interview.offer_amount ? `&offerAmount=${interview.offer_amount}` : ''}`)}
+                      title="Salary negotiation tools"
+                    >
+                      💵 Negotiate
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -687,35 +687,54 @@ export default function SalaryNegotiation() {
                     }
                   </div>
                 </div>
-                <div className="analysis-card">
-                  <h4>Recommended Counter</h4>
-                  <div className="analysis-value">
-                    <span className="value-above">{formatCurrency(selectedNegotiation.target_salary)}</span>
-                    <span className="value-label">
-                      (+{((selectedNegotiation.target_salary - selectedNegotiation.initial_offer_amount) / selectedNegotiation.initial_offer_amount * 100).toFixed(1)}% increase)
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="improvement-section">
-                <h4>Specific Gaps to Address:</h4>
-                <div className="gaps-grid">
-                  <div className="gap-item">
-                    <span className="gap-label">Base Salary:</span>
-                    <span className="gap-value">Target {formatCurrency(selectedNegotiation.target_salary)} to match market</span>
-                  </div>
-                  <div className="gap-item">
-                    <span className="gap-label">Signing Bonus:</span>
-                    <span className="gap-value">Request {formatCurrency(Math.round(selectedNegotiation.initial_offer_amount * 0.15))} to bridge gap</span>
-                  </div>
-                  {selectedNegotiation.pto_days && selectedNegotiation.pto_days < 20 && (
-                    <div className="gap-item">
-                      <span className="gap-label">PTO:</span>
-                      <span className="gap-value">{selectedNegotiation.pto_days} days is below 20-day average</span>
+                {selectedNegotiation.target_salary && (
+                  <div className="analysis-card">
+                    <h4>Recommended Counter</h4>
+                    <div className="analysis-value">
+                      <span className="value-above">{formatCurrency(selectedNegotiation.target_salary)}</span>
+                      {selectedNegotiation.initial_offer_amount && (
+                        <span className="value-label">
+                          (+{((selectedNegotiation.target_salary - selectedNegotiation.initial_offer_amount) / selectedNegotiation.initial_offer_amount * 100).toFixed(1)}% increase)
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+              {/* Only show gaps section if offer is below market */}
+              {selectedNegotiation.initial_offer_amount < selectedNegotiation.market_research.median && (
+                <div className="improvement-section">
+                  <h4>Specific Gaps to Address:</h4>
+                  <div className="gaps-grid">
+                    {selectedNegotiation.target_salary ? (
+                      <div className="gap-item">
+                        <span className="gap-label">Base Salary:</span>
+                        <span className="gap-value">Target {formatCurrency(selectedNegotiation.target_salary)} to match market</span>
+                      </div>
+                    ) : selectedNegotiation.market_research.median && (
+                      <div className="gap-item">
+                        <span className="gap-label">Base Salary:</span>
+                        <span className="gap-value">Target {formatCurrency(selectedNegotiation.market_research.median)} (market median)</span>
+                      </div>
+                    )}
+                    {/* Only suggest signing bonus if there's an actual gap to bridge */}
+                    {selectedNegotiation.market_research.median > selectedNegotiation.initial_offer_amount && (
+                      <div className="gap-item">
+                        <span className="gap-label">Signing Bonus:</span>
+                        <span className="gap-value">
+                          Request {formatCurrency(Math.round((selectedNegotiation.market_research.median - selectedNegotiation.initial_offer_amount) * 0.5))} to help bridge the {formatCurrency(selectedNegotiation.market_research.median - selectedNegotiation.initial_offer_amount)} gap
+                        </span>
+                      </div>
+                    )}
+                    {selectedNegotiation.pto_days && selectedNegotiation.pto_days < 20 && (
+                      <div className="gap-item">
+                        <span className="gap-label">PTO:</span>
+                        <span className="gap-value">{selectedNegotiation.pto_days} days is below 20-day average</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -723,6 +742,16 @@ export default function SalaryNegotiation() {
           <div className="section offer-tracking-section">
             <h3>💵 Offer Tracking</h3>
             <div className="offer-amounts">
+              {/* Current Salary - if provided */}
+              {selectedNegotiation.current_salary && (
+                <div className="offer-item current-salary-item">
+                  <label>Current Salary:</label>
+                  <div className="current-salary-display">
+                    {formatCurrency(selectedNegotiation.current_salary)}
+                  </div>
+                  <small style={{ color: '#6b7280', fontSize: '12px' }}>Your baseline</small>
+                </div>
+              )}
               <div className="offer-item">
                 <label>Initial Offer:</label>
                 <input
@@ -733,12 +762,47 @@ export default function SalaryNegotiation() {
                   })}
                   placeholder="Enter amount..."
                 />
+                {/* Show % increase from current salary */}
+                {selectedNegotiation.current_salary && selectedNegotiation.initial_offer_amount && (
+                  <small style={{ 
+                    color: selectedNegotiation.initial_offer_amount > selectedNegotiation.current_salary ? '#10b981' : '#ef4444', 
+                    fontSize: '12px',
+                    fontWeight: 600 
+                  }}>
+                    {selectedNegotiation.initial_offer_amount > selectedNegotiation.current_salary ? '+' : ''}
+                    {((selectedNegotiation.initial_offer_amount - selectedNegotiation.current_salary) / selectedNegotiation.current_salary * 100).toFixed(1)}% from current
+                  </small>
+                )}
               </div>
               <div className="offer-item">
                 <label>Target/Counter:</label>
                 <div className="target-amount">
-                  {formatCurrency(selectedNegotiation.target_salary)}
+                  {selectedNegotiation.target_salary 
+                    ? formatCurrency(selectedNegotiation.target_salary)
+                    : selectedNegotiation.market_research?.median && selectedNegotiation.initial_offer_amount
+                    ? formatCurrency(Math.max(
+                        selectedNegotiation.market_research.median,
+                        Math.round(selectedNegotiation.initial_offer_amount * 1.10)
+                      ))
+                    : selectedNegotiation.market_research?.median
+                    ? formatCurrency(selectedNegotiation.market_research.median)
+                    : "—"
+                  }
                 </div>
+                {/* Show % increase from current salary for target */}
+                {selectedNegotiation.current_salary && (selectedNegotiation.target_salary || selectedNegotiation.market_research?.median) && (
+                  <small style={{ color: '#10b981', fontSize: '12px', fontWeight: 600 }}>
+                    +{(((selectedNegotiation.target_salary || selectedNegotiation.market_research?.median) - selectedNegotiation.current_salary) / selectedNegotiation.current_salary * 100).toFixed(1)}% from current
+                  </small>
+                )}
+                {!selectedNegotiation.current_salary && !selectedNegotiation.target_salary && selectedNegotiation.market_research?.median && (
+                  <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                    {selectedNegotiation.initial_offer_amount && selectedNegotiation.initial_offer_amount >= selectedNegotiation.market_research.median
+                      ? "10% above offer"
+                      : "Market median"
+                    }
+                  </small>
+                )}
               </div>
               <div className="offer-item">
                 <label>Counter Offer:</label>
@@ -761,6 +825,12 @@ export default function SalaryNegotiation() {
                   })}
                   placeholder="Enter amount..."
                 />
+                {/* Show total raise achieved */}
+                {selectedNegotiation.current_salary && selectedNegotiation.final_accepted_amount && (
+                  <small style={{ color: '#10b981', fontSize: '12px', fontWeight: 600 }}>
+                    🎉 +{((selectedNegotiation.final_accepted_amount - selectedNegotiation.current_salary) / selectedNegotiation.current_salary * 100).toFixed(1)}% raise achieved!
+                  </small>
+                )}
               </div>
             </div>
           </div>
@@ -792,7 +862,14 @@ export default function SalaryNegotiation() {
             <div className="section benefits-section">
               <h3>🎁 Benefits to Negotiate</h3>
               <div className="benefits-grid">
-                {Object.entries(selectedNegotiation.benefits_guidance).map(([benefit, details]) => (
+                {Object.entries(selectedNegotiation.benefits_guidance)
+                  .filter(([benefit, details]) => {
+                    // Only show entries that have valid benefit properties
+                    // Filter out non-benefit data like EmailTemplates, NegotiationTips, etc.
+                    return details && typeof details === 'object' && 
+                           (details.importance || details.typical || details.negotiationTips);
+                  })
+                  .map(([benefit, details]) => (
                   <div key={benefit} className="benefit-card">
                     <h4>{benefit.charAt(0).toUpperCase() + benefit.slice(1)}</h4>
                     {details.importance && (
@@ -1041,6 +1118,59 @@ export default function SalaryNegotiation() {
               <div className="formula">
                 Base Salary + (Equity Value ÷ Vesting Years) + Expected Bonus + Benefits Value = Total Annual Comp
               </div>
+            </div>
+          </div>
+
+          {/* Timing Strategies */}
+          <div className="section timing-section">
+            <h3>⏰ Timing Strategies for Salary Discussions</h3>
+            <p className="section-intro">When and how to bring up compensation for maximum impact</p>
+            <div className="timing-grid">
+              <div className="timing-card">
+                <div className="timing-icon">🚫</div>
+                <h4>Don't Discuss First</h4>
+                <p>Never be the first to mention a number. Let them make the initial offer.</p>
+                <div className="timing-tip">If pressed early: "I'd like to learn more about the role before discussing compensation."</div>
+              </div>
+              <div className="timing-card">
+                <div className="timing-icon">✅</div>
+                <h4>Wait for Written Offer</h4>
+                <p>Don't negotiate until you have a formal written offer in hand.</p>
+                <div className="timing-tip">Verbal offers can change - always get it in writing first.</div>
+              </div>
+              <div className="timing-card">
+                <div className="timing-icon">📅</div>
+                <h4>Take 24-48 Hours</h4>
+                <p>Never accept on the spot. Ask for time to review the complete package.</p>
+                <div className="timing-tip">"Thank you! I'm very excited. May I take a day or two to review the details?"</div>
+              </div>
+              <div className="timing-card">
+                <div className="timing-icon">📞</div>
+                <h4>Counter via Phone/Video</h4>
+                <p>Send a brief email requesting a call to discuss, then negotiate verbally.</p>
+                <div className="timing-tip">Voice conversations are more personal and allow for real-time dialogue.</div>
+              </div>
+              <div className="timing-card">
+                <div className="timing-icon">🎯</div>
+                <h4>Best Days to Negotiate</h4>
+                <p>Tuesday-Thursday mornings are optimal. Avoid Mondays and Fridays.</p>
+                <div className="timing-tip">People are more receptive mid-week and early in the day.</div>
+              </div>
+              <div className="timing-card">
+                <div className="timing-icon">⚡</div>
+                <h4>Strike While Hot</h4>
+                <p>Counter within 2-3 days of receiving the offer - don't wait too long.</p>
+                <div className="timing-tip">Momentum matters - they're excited about you right now.</div>
+              </div>
+            </div>
+            <div className="timing-sequence">
+              <h4>Recommended Negotiation Sequence:</h4>
+              <ol className="sequence-list">
+                <li><strong>Day 1:</strong> Receive offer → Express enthusiasm → Request time to review</li>
+                <li><strong>Day 2:</strong> Research market data → Prepare talking points → Draft counter</li>
+                <li><strong>Day 3:</strong> Schedule call → Present counter → Listen to response</li>
+                <li><strong>Day 4-5:</strong> Evaluate revised offer → Make final decision</li>
+              </ol>
             </div>
           </div>
 
