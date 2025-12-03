@@ -758,10 +758,9 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
-  try {
     const result = await pool.query(query, params);
 
-    if (result.rows.length === 0)
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
