@@ -517,21 +517,8 @@ router.get("/", auth, async (req, res) => {
   }
 });
 
-router.delete("/:id", auth, async (req, res) => {
-  try {
-    await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
-      req.params.id,
-      req.user.id,
-    ]);
-    res.json({ message: "✅ Resume deleted" });
-  } catch (err) {
-    console.error("❌ Delete resume error:", err);
-    res.status(500).json({ error: err.message || "Failed to delete resume" });
-  }
-});
-
 /* ------------------------------------------------------------------
-   🔹 EXPORT (PDF/DOCX/TXT/HTML)
+   🔹 EXPORT (PDF/DOCX/TXT/HTML) - Must come before /:id route
 ------------------------------------------------------------------ */
 router.get("/:id/download", auth, async (req, res) => {
   try {
@@ -610,6 +597,24 @@ router.get("/:id/download", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Download resume error:", err);
     res.status(500).json({ error: err.message || "Failed to export resume" });
+  }
+});
+
+// GET single resume by ID (must come after /:id/download to avoid route conflicts)
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT * FROM resumes WHERE id=$1 AND user_id=$2`,
+      [id, req.user.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    res.json({ resume: rows[0] });
+  } catch (err) {
+    console.error("❌ Fetch resume error:", err);
+    res.status(500).json({ error: err.message || "Failed to load resume" });
   }
 });
 
