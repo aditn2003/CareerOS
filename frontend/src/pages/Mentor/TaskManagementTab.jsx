@@ -283,36 +283,52 @@ export default function TaskManagementTab() {
               </div>
 
               {/* Status Update - ONLY for candidates */}
-              {isCandidate && task.candidate_id === currentUserId && task.status !== "completed" && (
+              {isCandidate && task.candidate_id === currentUserId && (
                 <div className="task-status-actions">
                   {task.status === "pending" && (
                     <button
-                      className="btn-secondary"
+                      className="task-action-button task-action-start"
                       onClick={() => handleUpdateStatus(task.id, "in_progress")}
                       disabled={updatingStatus === task.id}
                     >
-                      {updatingStatus === task.id ? "Updating..." : "Start Task"}
+                      {updatingStatus === task.id ? (
+                        <>
+                          <span className="spinner"></span>
+                          <span>Starting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>▶</span>
+                          <span>Start Task</span>
+                        </>
+                      )}
                     </button>
                   )}
                   {task.status === "in_progress" && (
                     <button
-                      className="btn-primary"
+                      className="task-action-button task-action-complete"
                       onClick={() => handleUpdateStatus(task.id, "completed")}
                       disabled={updatingStatus === task.id}
                     >
-                      {updatingStatus === task.id ? "Updating..." : "Mark Complete"}
+                      {updatingStatus === task.id ? (
+                        <>
+                          <span className="spinner"></span>
+                          <span>Completing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>✓</span>
+                          <span>Mark Complete</span>
+                        </>
+                      )}
                     </button>
                   )}
-                  <select
-                    className="task-status-select"
-                    value={task.status}
-                    onChange={(e) => handleUpdateStatus(task.id, e.target.value)}
-                    disabled={updatingStatus === task.id}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
+                  {task.status === "completed" && (
+                    <div className="task-completed-indicator">
+                      <span className="completed-icon">✓</span>
+                      <span>Task Completed</span>
+                    </div>
+                  )}
                 </div>
               )}
 

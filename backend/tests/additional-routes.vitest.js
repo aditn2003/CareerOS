@@ -242,7 +242,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 // Mock data
-const mockUser = { id: 1, email: 'test@example.com', first_name: 'Test', last_name: 'User', password_hash: 'hash', account_type: 'team_admin' };
+const mockUser = { id: 1, email: 'test@example.com', first_name: 'Test', last_name: 'User', password_hash: 'hash', account_type: 'mentor' };
 const mockJob = { id: 1, user_id: 1, title: 'Dev', company: 'Corp', status: 'Applied', required_skills: ['JS'], description: 'Great job' };
 const mockTeam = { id: 1, name: 'Team', owner_id: 1 };
 const mockTeamMember = { id: 1, team_id: 1, user_id: 1, role: 'admin', status: 'active' };
@@ -282,7 +282,7 @@ function setupMockQuery() {
     
     // SELECT
     if (s.includes('select')) {
-      if (s.includes('account_type')) return Promise.resolve({ rows: [{ account_type: 'team_admin' }], rowCount: 1 });
+      if (s.includes('account_type')) return Promise.resolve({ rows: [{ account_type: 'mentor' }], rowCount: 1 });
       if (s.includes('from users')) return Promise.resolve({ rows: [mockUser], rowCount: 1 });
       if (s.includes('from jobs')) return Promise.resolve({ rows: [mockJob], rowCount: 1 });
       if (s.includes('from teams')) return Promise.resolve({ rows: [mockTeam], rowCount: 1 });

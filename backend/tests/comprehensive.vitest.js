@@ -352,14 +352,14 @@ describe('Backend Server & Routes - Comprehensive Coverage', () => {
         expect(res.status).toBe(400);
       });
 
-      it('should handle team_admin account type', async () => {
+      it('should handle mentor account type', async () => {
         const res = await request(app).post('/register').send({
           email: 'admin@example.com',
           password: 'Password123!',
           confirmPassword: 'Password123!',
           firstName: 'Admin',
           lastName: 'User',
-          accountType: 'team_admin',
+          accountType: 'mentor',
         });
         expect([200, 201, 409, 500]).toContain(res.status);
       });

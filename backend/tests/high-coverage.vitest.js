@@ -185,7 +185,7 @@ vi.mock('axios', () => {
 // ============================================
 
 const mockUser = { id: 1, email: 'test@example.com', first_name: 'Test', last_name: 'User', password_hash: 'hash', account_type: 'candidate' };
-const mockAdminUser = { id: 2, email: 'admin@example.com', first_name: 'Admin', last_name: 'User', password_hash: 'hash', account_type: 'team_admin' };
+const mockMentorUser = { id: 2, email: 'mentor@example.com', first_name: 'Mentor', last_name: 'User', password_hash: 'hash', account_type: 'mentor' };
 const mockJob = { id: 1, user_id: 1, title: 'Dev', company: 'Corp', status: 'Applied', required_skills: ['JS'], role_type: 'Software Engineering' };
 const mockProfile = { id: 1, user_id: 1, full_name: 'Test User', email: 'test@example.com', phone: '555-1234', location: 'NYC', title: 'Developer', bio: 'Bio', industry: 'Tech', experience: '5 years', picture_url: '/uploads/pic.jpg' };
 const mockSkill = { id: 1, user_id: 1, name: 'JavaScript', proficiency: 'Advanced', category: 'Programming' };

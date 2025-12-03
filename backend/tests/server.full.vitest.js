@@ -110,7 +110,7 @@ describe('Server.js - Full Coverage', () => {
       }
     });
 
-    it('should register team_admin and create team', async () => {
+    it('should register mentor and create team', async () => {
       const mockClient = {
         query: vi.fn()
           .mockResolvedValueOnce({ rows: [] }) // Check existing
@@ -129,7 +129,7 @@ describe('Server.js - Full Coverage', () => {
           confirmPassword: 'Password123',
           firstName: 'Admin',
           lastName: 'User',
-          accountType: 'team_admin',
+          accountType: 'mentor',
         });
 
       expect([201, 400, 409, 500]).toContain(res.status);

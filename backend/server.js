@@ -101,7 +101,7 @@ pool
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-const ACCOUNT_TYPES = new Set(["candidate", "team_admin"]);
+const ACCOUNT_TYPES = new Set(["candidate", "mentor"]);
 const DEFAULT_ACCOUNT_TYPE = "candidate";
 
 function makeToken(user) {
@@ -169,26 +169,8 @@ app.post("/register", async (req, res) => {
     );
       const userId = userResult.rows[0].id;
 
-      if (normalizedAccountType === "team_admin") {
-        const nameParts = [
-          userResult.rows[0].first_name?.trim(),
-          userResult.rows[0].last_name?.trim(),
-        ].filter(Boolean);
-        const teamName =
-          nameParts.length > 0
-            ? `${nameParts.join(" ")} Team`
-            : "New Team";
-
-        const teamResult = await client.query(
-          "INSERT INTO teams (name, owner_id) VALUES ($1,$2) RETURNING id",
-          [teamName, userId]
-        );
-
-        await client.query(
-          "INSERT INTO team_members (team_id, user_id, role, status) VALUES ($1,$2,'admin','active')",
-          [teamResult.rows[0].id, userId]
-        );
-      }
+      // No auto-team creation - users can create teams manually after registration
+      // Both mentors and candidates can create teams, with candidates limited to 1 team max
 
       await client.query("COMMIT");
       const token = makeToken({ id: userId, email: lower });
@@ -655,6 +637,49 @@ app.post("/test-reminders", async (req, res) => {
 });
 
 
+
+// ===== Global Error Handlers =====
+// Handle unhandled promise rejections (like database connection terminations)
+process.on('unhandledRejection', (reason, promise) => {
+  // Database connection termination errors are common with Supabase
+  if (reason && typeof reason === 'object') {
+    if (reason.code === 'XX000' || 
+        reason.message?.includes('shutdown') || 
+        reason.message?.includes('termination') ||
+        reason.message?.includes('db_termination')) {
+      console.error('⚠️ Database connection terminated. Pool will reconnect on next query.');
+      console.error('   Error code:', reason.code);
+      console.error('   Message:', reason.message);
+      // Don't crash - the pool will handle reconnection
+      return;
+    }
+  }
+  // For other unhandled rejections, log them but don't crash
+  console.error('⚠️ Unhandled Rejection at:', promise);
+  console.error('   Reason:', reason);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  // Database connection errors should not crash the server
+  if (error.code === 'XX000' || 
+      error.message?.includes('shutdown') || 
+      error.message?.includes('termination') ||
+      error.message?.includes('db_termination')) {
+    console.error('⚠️ Uncaught database connection error. Server will continue running.');
+    console.error('   Error code:', error.code);
+    console.error('   Message:', error.message);
+    // Don't exit - let the server continue
+    return;
+  }
+  // For other uncaught exceptions, log and exit gracefully
+  console.error('❌ Uncaught Exception:', error);
+  console.error('   Stack:', error.stack);
+  // Give time for logs to be written, then exit
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
 
 // ===== Start Server =====
 // FIX: Only start the server if we are NOT testing

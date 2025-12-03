@@ -49,7 +49,7 @@ describe('Registration Endpoint', () => {
     }
   });
 
-  it('should register a team_admin and create team', async () => {
+  it('should register a mentor and create team', async () => {
     const response = await request(app)
       .post('/register')
       .send({
@@ -58,7 +58,7 @@ describe('Registration Endpoint', () => {
         confirmPassword: 'Password123',
         firstName: 'Admin',
         lastName: 'User',
-        accountType: 'team_admin',
+        accountType: 'mentor',
       });
 
     // May return 201, 400 (validation), 409 (duplicate), or 500 (db error)
