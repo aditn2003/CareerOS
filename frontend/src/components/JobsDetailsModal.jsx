@@ -126,10 +126,21 @@ export default function JobDetailsModal({
             headers: { Authorization: `Bearer ${token}` },
           }
         );
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            console.warn(`⚠️ Cover letter ${job.cover_letter_id} not found. It may have been deleted.`);
+            setCoverLetter(null);
+            return;
+          }
+          throw new Error(`Failed to load cover letter: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (data.cover_letter) setCoverLetter(data.cover_letter);
       } catch (err) {
         console.error("❌ Failed to load linked cover letter:", err);
+        setCoverLetter(null);
       }
     }
 
@@ -170,10 +181,22 @@ export default function JobDetailsModal({
             headers: { Authorization: `Bearer ${token}` },
           }
         );
+        
+        if (!res.ok) {
+          if (res.status === 404) {
+            console.warn(`⚠️ Resume ${job.resume_id} not found. It may have been deleted.`);
+            // Clear the resume_id from the job if it doesn't exist
+            setResume(null);
+            return;
+          }
+          throw new Error(`Failed to load resume: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (data.resume) setResume(data.resume);
       } catch (err) {
         console.error("❌ Failed to load linked resume:", err);
+        setResume(null);
       }
     }
 
@@ -223,7 +246,10 @@ export default function JobDetailsModal({
       await loadHistory();
     } catch (err) {
       console.error("Failed to update materials:", err);
-      alert("Failed to update materials.");
+      const errorMessage = err.response?.data?.error || err.message || "Unknown error";
+      const errorHint = err.response?.data?.hint || "";
+      const errorDetails = err.response?.data?.details || "";
+      alert(`Failed to update materials.\n\nError: ${errorMessage}${errorHint ? `\n\nHint: ${errorHint}` : ''}${errorDetails ? `\n\nDetails: ${errorDetails}` : ''}`);
     }
   }
 
@@ -712,7 +738,7 @@ export default function JobDetailsModal({
                   <strong>{new Date(h.changed_at).toLocaleString()}</strong>
 
                   <div>
-                    {h.resume_title ? (
+                    {h.resume_title && h.resume_title.trim() !== '' ? (
                       <p>
                         📄 Resume: <strong>{h.resume_title}</strong>
                       </p>
@@ -720,7 +746,7 @@ export default function JobDetailsModal({
                       <p>📄 Resume: None</p>
                     )}
 
-                    {h.cover_title ? (
+                    {h.cover_title && h.cover_title.trim() !== '' ? (
                       <p>
                         ✉️ Cover Letter: <strong>{h.cover_title}</strong>
                       </p>

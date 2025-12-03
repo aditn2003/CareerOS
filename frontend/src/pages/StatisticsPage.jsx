@@ -34,6 +34,7 @@ import InterviewAnalysis from '../components/InterviewAnalysis';
 import NetworkingAnalysis from '../components/NetworkingAnalysis';
 import CompensationAnalysis from '../components/CompensationAnalysis';
 import ComprehensiveCompensationAnalysis from '../components/ComprehensiveCompensationAnalysis';
+import CareerGoals from '../components/CareerGoals';
 
 // Custom styles
 const styles = {
@@ -119,7 +120,7 @@ const styles = {
   },
 };
 
-const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+const COLORS = ['#3b82f6', '#10b981', '#06b6d4', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
 // Month names helper
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -356,9 +357,25 @@ const StatisticsPage = () => {
               borderBottom: '1px solid #e5e7eb',
               width: '100%',
               overflowX: 'auto',
-              '& .MuiTab-root': styles.tab,
-              '& .Mui-selected': { color: '#3b82f6' },
-              '& .MuiTabs-indicator': { backgroundColor: '#3b82f6', height: 2 },
+              '& .MuiTab-root': {
+                ...styles.tab,
+                color: '#000000', // Black font color
+                backgroundColor: '#ffffff', // White background
+                '&:hover': {
+                  color: '#000000', // Keep black text on hover
+                  backgroundColor: '#e9d5ff', // Light purple on hover
+                },
+              },
+              '& .Mui-selected': { 
+                color: '#000000', // Black text when selected
+                backgroundColor: '#e9d5ff', // Light purple background when selected
+                fontWeight: 700,
+              },
+              '& .MuiTabs-indicator': { 
+                backgroundColor: '#e9d5ff', // Light purple indicator
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+              },
               '& .MuiTabs-scrollButtons': {
                 '&.Mui-disabled': { opacity: 0.3 }
               },
@@ -372,6 +389,7 @@ const StatisticsPage = () => {
             <Tab label="Interview Analysis" />
             <Tab label="Networking Analysis" />
             <Tab label="Compensation Analysis" />
+            <Tab label="Career Goals" />
           </Tabs>
 
           {/* Tab 1: Job Statistics */}
@@ -387,7 +405,7 @@ const StatisticsPage = () => {
                   <KPICard title="Total Jobs" value={stats?.totalJobs || 0} color="#3b82f6" />
                   <KPICard title="Response Rate" value={`${stats?.responseRate || 0}%`} color="#10b981" />
                   <KPICard title="Avg. Time to Offer" value={`${stats?.avgTimeToOffer || 0} days`} color="#f59e0b" />
-                  <KPICard title="Deadline Adherence" value={`${stats?.adherenceRate || 0}%`} color="#8b5cf6" />
+                  <KPICard title="Deadline Adherence" value={`${stats?.adherenceRate || 0}%`} color="#06b6d4" />
                 </Box>
 
                 {/* Charts Grid */}
@@ -473,7 +491,7 @@ const StatisticsPage = () => {
                 {/* Charts Grid */}
                 <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3} mb={3}>
             {/* Industry Success */}
-                  <ChartCard title="Success by Industry" icon="I" iconColor="#8b5cf6">
+                  <ChartCard title="Success by Industry" icon="I" iconColor="#06b6d4">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={analysis.industryData || []}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -553,7 +571,7 @@ const StatisticsPage = () => {
 
                 {/* Customization Impact */}
                 {analysis.customizationData && (analysis.customizationData.resume?.length > 1 || analysis.customizationData.coverLetter?.length > 1) && (
-                  <ChartCard title="Customization Impact" icon="C" iconColor="#8b5cf6">
+                  <ChartCard title="Customization Impact" icon="C" iconColor="#06b6d4">
                     <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3}>
                       {analysis.customizationData.resume?.length > 1 && (
                         <Box>
@@ -721,6 +739,11 @@ const StatisticsPage = () => {
           {/* Tab 5: Compensation Analysis */}
           <TabPanel value={tabValue} index={4}>
             <ComprehensiveCompensationAnalysis />
+          </TabPanel>
+
+          {/* Tab 6: Career Goals */}
+          <TabPanel value={tabValue} index={5}>
+            <CareerGoals />
           </TabPanel>
         </Paper>
     </Container>

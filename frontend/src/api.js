@@ -197,4 +197,12 @@ export const duplicateTemplate = (id) =>
     export const updateCompensationHistory = (id, data) => api.put(`/api/compensation-history/${id}`, data);
     export const deleteCompensationHistory = (id) => api.delete(`/api/compensation-history/${id}`);
 
+    // Career Goals
+    export const getCareerGoals = () => api.get("/api/career-goals");
+    export const getCareerGoal = (id) => api.get(`/api/career-goals/${id}`);
+    export const createCareerGoal = (data) => api.post("/api/career-goals", data);
+    export const updateCareerGoal = (id, data) => api.put(`/api/career-goals/${id}`, data);
+    export const deleteCareerGoal = (id) => api.delete(`/api/career-goals/${id}`);
+    export const getGoalAnalytics = () => api.get("/api/career-goals/analytics/insights");
+
     

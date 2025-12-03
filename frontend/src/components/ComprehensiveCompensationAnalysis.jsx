@@ -40,7 +40,7 @@ import {
   Scatter,
 } from "recharts";
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#14b8a6'];
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#14b8a6', '#6366f1', '#0ea5e9'];
 
 // Tab Panel Component
 function TabPanel({ children, value, index }) {
@@ -109,7 +109,7 @@ function RecommendationCard({ recommendation }) {
           {recommendation.message}
         </Typography>
         <Typography variant="caption" sx={{ color: '#6b7280', fontStyle: 'italic' }}>
-          💡 {recommendation.action}
+          {recommendation.action}
         </Typography>
       </CardContent>
     </Card>
@@ -172,64 +172,153 @@ export default function ComprehensiveCompensationAnalysis() {
       
       // Get all offers
       const offersRes = await getOffers();
-      const offers = offersRes.data.offers || [];
+      const allOffers = offersRes.data.offers || [];
       
-      if (offers.length === 0) {
+      if (allOffers.length === 0) {
         alert("No offers found. Please create offers first to fetch market benchmarks.");
         setFetchingBenchmarks(false);
         return;
       }
 
-      setBenchmarkProgress({ current: 0, total: offers.length });
+      // Filter offers that have minimum required fields for benchmark fetching
+      // We need at least role_title, role_level, and location
+      const validOffers = allOffers.filter(offer => 
+        offer.role_title && 
+        offer.role_level && 
+        offer.location
+      );
+
+      // Identify which offers are missing fields
+      const invalidOffers = allOffers.filter(offer => 
+        !offer.role_title || 
+        !offer.role_level || 
+        !offer.location
+      ).map(offer => {
+        const missingFields = [];
+        if (!offer.role_title) missingFields.push('Role Title');
+        if (!offer.role_level) missingFields.push('Role Level');
+        if (!offer.location) missingFields.push('Location');
+        return {
+          company: offer.company || 'Unknown',
+          role: offer.role_title || 'N/A',
+          missingFields: missingFields.join(', ')
+        };
+      });
+
+      if (validOffers.length === 0) {
+        let message = `No valid offers found for benchmark fetching.\n\n`;
+        message += `Offers need the following fields:\n`;
+        message += `• Role Title\n`;
+        message += `• Role Level\n`;
+        message += `• Location\n\n`;
+        message += `Total offers: ${allOffers.length}\n`;
+        message += `Valid offers: ${validOffers.length}\n\n`;
+        if (invalidOffers.length > 0) {
+          message += `Offers missing fields:\n`;
+          invalidOffers.slice(0, 5).forEach(offer => {
+            message += `• ${offer.company} - ${offer.role}: Missing ${offer.missingFields}\n`;
+          });
+          if (invalidOffers.length > 5) {
+            message += `... and ${invalidOffers.length - 5} more\n`;
+          }
+          message += `\nPlease update these offers with the missing fields to fetch benchmarks.`;
+        }
+        alert(message);
+        setFetchingBenchmarks(false);
+        return;
+      }
+
+      console.log(`📊 Fetching benchmarks for ${validOffers.length} offer(s) out of ${allOffers.length} total offers`);
+      
+      setBenchmarkProgress({ current: 0, total: validOffers.length });
 
       let successCount = 0;
       let failCount = 0;
+      let skippedCount = 0;
+      const skippedOffers = [];
 
-      // Fetch benchmark for each offer
-      for (let i = 0; i < offers.length; i++) {
-        const offer = offers[i];
-        setBenchmarkProgress({ current: i + 1, total: offers.length });
+      // Fetch benchmark for each valid offer
+      for (let i = 0; i < validOffers.length; i++) {
+        const offer = validOffers[i];
+        setBenchmarkProgress({ current: i + 1, total: validOffers.length });
+        
+        console.log(`🔄 Processing offer ${i + 1}/${validOffers.length}: ${offer.company} - ${offer.role_title} (ID: ${offer.id})`);
         
         try {
-          // Only fetch if offer has required fields
-          if (offer.role_title && offer.role_level && offer.location) {
-            await autoFetchBenchmarkForOffer(offer.id);
-            successCount++;
-            
-            // Small delay to avoid rate limiting
-            if (i < offers.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
+          const response = await autoFetchBenchmarkForOffer(offer.id);
+          
+          if (response.data?.success) {
+            if (response.data.cached) {
+              console.log(`✅ Benchmark already exists for offer ${offer.id} (cached)`);
+              skippedCount++;
+            } else {
+              console.log(`✅ Successfully fetched benchmark for offer ${offer.id}`);
+              successCount++;
             }
           } else {
-            console.warn(`Skipping offer ${offer.id}: missing required fields`);
+            console.warn(`⚠️ Failed to fetch benchmark for offer ${offer.id}:`, response.data?.error || 'Unknown error');
             failCount++;
+            skippedOffers.push(`${offer.company} - ${offer.role_title}`);
+          }
+          
+          // Small delay to avoid rate limiting (1 second between requests)
+          if (i < validOffers.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (err) {
-          console.error(`Error fetching benchmark for offer ${offer.id}:`, err);
+          console.error(`❌ Error fetching benchmark for offer ${offer.id}:`, err);
           failCount++;
+          skippedOffers.push(`${offer.company} - ${offer.role_title}`);
         }
       }
 
       // Refresh data to show new benchmarks
       await loadData();
 
-      if (failCount > 0 && successCount === 0) {
-        // All failed - likely API key issue
-        alert(
-          `❌ Failed to fetch benchmarks\n\n` +
-          `All ${failCount} attempts failed. This is likely due to:\n` +
-          `• Expired or invalid Google API key\n` +
-          `• Missing GOOGLE_API_KEY in environment variables\n\n` +
-          `Please check your API key configuration and try again.`
-        );
-      } else {
-        alert(
-          `Benchmark fetch complete!\n` +
-          `✅ Successfully fetched: ${successCount}\n` +
-          `❌ Failed: ${failCount}\n\n` +
-          `Market comparison data will now be available.`
-        );
+      // Build detailed result message
+      let resultMessage = `Benchmark fetch complete!\n\n`;
+      resultMessage += `Total offers: ${allOffers.length}\n`;
+      resultMessage += `Valid offers (with required fields): ${validOffers.length}\n`;
+      if (invalidOffers.length > 0) {
+        resultMessage += `⚠️ Skipped (missing fields): ${invalidOffers.length}\n`;
       }
+      resultMessage += `\n`;
+      resultMessage += `✅ Successfully fetched: ${successCount}\n`;
+      if (skippedCount > 0) {
+        resultMessage += `📋 Already cached: ${skippedCount}\n`;
+      }
+      resultMessage += `❌ Failed: ${failCount}\n`;
+      
+      if (invalidOffers.length > 0) {
+        resultMessage += `\n⚠️ Offers skipped (missing required fields):\n`;
+        invalidOffers.slice(0, 5).forEach(offer => {
+          resultMessage += `• ${offer.company} - ${offer.role}: Missing ${offer.missingFields}\n`;
+        });
+        if (invalidOffers.length > 5) {
+          resultMessage += `... and ${invalidOffers.length - 5} more\n`;
+        }
+        resultMessage += `\n💡 Tip: Update these offers with Role Title, Role Level, and Location to fetch their benchmarks.`;
+      }
+      
+      if (failCount > 0 && skippedOffers.length > 0) {
+        resultMessage += `\n\n❌ Failed offers:\n${skippedOffers.slice(0, 5).join('\n')}`;
+        if (skippedOffers.length > 5) {
+          resultMessage += `\n... and ${skippedOffers.length - 5} more`;
+        }
+      }
+
+      if (failCount > 0 && successCount === 0 && skippedCount === 0) {
+        // All failed - likely API key issue
+        resultMessage += `\n\n⚠️ All attempts failed. This is likely due to:\n`;
+        resultMessage += `• Expired or invalid Google API key\n`;
+        resultMessage += `• Missing GOOGLE_API_KEY in environment variables\n`;
+        resultMessage += `• Rate limiting from Google API\n\n`;
+        resultMessage += `Please check your API key configuration and try again.`;
+      } else if (successCount > 0 || skippedCount > 0) {
+        resultMessage += `\n\n✅ Market comparison data is now available!`;
+      }
+
+      alert(resultMessage);
     } catch (err) {
       console.error("Error fetching benchmarks:", err);
       
@@ -242,7 +331,7 @@ export default function ComprehensiveCompensationAnalysis() {
       
       if (isApiKeyError) {
         alert(
-          `❌ Google API Key Error\n\n` +
+          `Google API Key Error\n\n` +
           `Your Google API key has expired or is not configured.\n\n` +
           `To fix this:\n` +
           `1. Go to https://console.cloud.google.com/apis/credentials\n` +
@@ -325,7 +414,7 @@ export default function ComprehensiveCompensationAnalysis() {
       // Reload data to show new role
       await loadData();
       
-      alert("✅ Role added successfully! Your compensation history has been updated.");
+      alert("Role added successfully! Your compensation history has been updated.");
     } catch (err) {
       console.error("Error adding role:", err);
       alert(`Failed to add role: ${err.response?.data?.error || err.message || "Unknown error"}`);
@@ -344,10 +433,10 @@ export default function ComprehensiveCompensationAnalysis() {
       setDeletingRoleId(roleId);
       await deleteCompensationHistory(roleId);
       await loadData(); // Refresh analytics
-      alert(`✅ Role "${roleTitle} at ${company}" has been removed from your compensation history.`);
+      alert(`Role "${roleTitle} at ${company}" has been removed from your compensation history.`);
     } catch (err) {
       console.error("Error deleting role:", err);
-      alert(`❌ Failed to delete role: ${err.response?.data?.error || err.message || "Unknown error"}`);
+      alert(`Failed to delete role: ${err.response?.data?.error || err.message || "Unknown error"}`);
     } finally {
       setDeletingRoleId(null);
     }
@@ -364,23 +453,23 @@ export default function ComprehensiveCompensationAnalysis() {
       await loadOffers(); // Refresh offers list
       
       if (response.data.warning) {
-        let warningMessage = `⚠️ Offer accepted!\n\n${response.data.warning}`;
+        let warningMessage = `Offer accepted!\n\n${response.data.warning}`;
         if (response.data.existingOffers && response.data.existingOffers.length > 0) {
           warningMessage += `\n\nExisting active offers:\n`;
           response.data.existingOffers.forEach(o => {
             warningMessage += `• ${o.company} - ${o.role_title}\n`;
           });
-          warningMessage += `\n💡 Tip: You can update previous roles' end dates in the Compensation Evolution tab to mark them as past positions.`;
+          warningMessage += `\nTip: You can update previous roles' end dates in the Compensation Evolution tab to mark them as past positions.`;
         }
         alert(warningMessage);
       } else {
-        alert("✅ Offer accepted! Compensation history entry created. Your compensation evolution timeline will now show this role.");
+        alert("Offer accepted! Compensation history entry created. Your compensation evolution timeline will now show this role.");
       }
     } catch (err) {
       console.error("Error accepting offer:", err);
       const errorMessage = err.response?.data?.details || err.response?.data?.error || err.message || "Unknown error";
       const errorHint = err.response?.data?.hint || "";
-      alert(`❌ Failed to accept offer.\n\nError: ${errorMessage}${errorHint ? `\n\n${errorHint}` : ''}\n\nCheck the browser console for more details.`);
+      alert(`Failed to accept offer.\n\nError: ${errorMessage}${errorHint ? `\n\n${errorHint}` : ''}\n\nCheck the browser console for more details.`);
     }
   };
 
@@ -485,7 +574,9 @@ export default function ComprehensiveCompensationAnalysis() {
       accepted: offerTracking.acceptedVsRejected?.accepted,
       offers: offerTracking,
       jobSalaryAnalysis,
-      salaryComparison: salaryComparison?.length || 0
+      salaryComparison: salaryComparison?.length || 0,
+      marketComparisons: marketComparisons?.length || 0,
+      marketComparisonsData: marketComparisons
     });
   } catch (processErr) {
     console.error("Error processing compensation data:", processErr);
@@ -689,7 +780,7 @@ export default function ComprehensiveCompensationAnalysis() {
             disabled={loading}
             sx={{ minWidth: '120px' }}
           >
-            {loading ? 'Refreshing...' : '🔄 Refresh'}
+            {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </Box>
       </Box>
@@ -707,6 +798,18 @@ export default function ComprehensiveCompensationAnalysis() {
             borderColor: 'divider',
             width: '100%',
             overflowX: 'auto',
+            '& .MuiTab-root': {
+              fontWeight: 600,
+              textTransform: 'none',
+              minHeight: '56px',
+            },
+            '& .Mui-selected': {
+              color: '#3b82f6',
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#3b82f6',
+              height: 3,
+            },
             '& .MuiTabs-scrollButtons': {
               '&.Mui-disabled': { opacity: 0.3 }
             },
@@ -791,24 +894,43 @@ export default function ComprehensiveCompensationAnalysis() {
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 2 }}>Offer Status Distribution</Typography>
                   {offerStatusData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <PieChart margin={{ top: 20, right: 30, bottom: 60, left: 30 }}>
                         <Pie
                           data={offerStatusData}
                           dataKey="value"
                           nameKey="name"
                           cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          innerRadius={45}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          cy="45%"
+                          outerRadius={65}
+                          innerRadius={30}
+                          paddingAngle={3}
+                          label={false}
                         >
                           {offerStatusData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip />
-                        <Legend />
+                        <Tooltip 
+                          formatter={(value, name) => {
+                            const total = offerStatusData.reduce((sum, d) => sum + d.value, 0);
+                            const percent = ((value / total) * 100).toFixed(1);
+                            return [`${value} (${percent}%)`, name];
+                          }} 
+                        />
+                        <Legend 
+                          verticalAlign="bottom" 
+                          height={60}
+                          iconType="circle"
+                          wrapperStyle={{ paddingTop: '20px' }}
+                          style={{ fontSize: '14px', wordWrap: 'break-word' }}
+                          formatter={(value) => {
+                            const entry = offerStatusData.find(d => d.name === value);
+                            const total = offerStatusData.reduce((sum, d) => sum + d.value, 0);
+                            const percent = entry ? ((entry.value / total) * 100).toFixed(0) : 0;
+                            return `${value}: ${entry?.value || 0} (${percent}%)`;
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -1128,11 +1250,11 @@ export default function ComprehensiveCompensationAnalysis() {
                   onClick={handleFetchBenchmarks}
                   disabled={fetchingBenchmarks || loading}
                   sx={{ mt: 1 }}
-                  startIcon={fetchingBenchmarks ? <CircularProgress size={16} /> : '🤖'}
+                  startIcon={fetchingBenchmarks ? <CircularProgress size={16} /> : null}
                 >
                   {fetchingBenchmarks 
                     ? `Fetching... (${benchmarkProgress.current}/${benchmarkProgress.total})`
-                    : '🤖 Fetch Market Benchmarks with AI'
+                    : 'Fetch Market Benchmarks with AI'
                   }
                 </Button>
                 {fetchingBenchmarks && (
@@ -1254,7 +1376,7 @@ export default function ComprehensiveCompensationAnalysis() {
                   size="small"
                   onClick={handleFetchBenchmarks}
                   disabled={fetchingBenchmarks || loading}
-                  startIcon={fetchingBenchmarks ? <CircularProgress size={14} /> : '🤖'}
+                  startIcon={fetchingBenchmarks ? <CircularProgress size={14} /> : null}
                 >
                   {fetchingBenchmarks 
                     ? `Fetching... (${benchmarkProgress.current}/${benchmarkProgress.total})`
@@ -1262,43 +1384,65 @@ export default function ComprehensiveCompensationAnalysis() {
                   }
                 </Button>
               </Box>
-              {marketComparisons.length > 0 ? (
+              {marketComparisons && marketComparisons.length > 0 ? (
                 <Box>
-                  {marketComparisons.map((comp, idx) => (
-                    <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                      <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {comp.company} - {comp.role}
+                  <Typography variant="body2" sx={{ color: '#6b7280', mb: 2, fontStyle: 'italic' }}>
+                    Showing {marketComparisons.length} market comparison{marketComparisons.length !== 1 ? 's' : ''}
+                  </Typography>
+                  {marketComparisons.map((comp, idx) => {
+                    // Ensure all required fields exist
+                    if (!comp || !comp.company || !comp.role) {
+                      return null;
+                    }
+                    
+                    const yourSalary = Number(comp.yourSalary) || 0;
+                    const marketMedian = Number(comp.marketMedian) || 0;
+                    const percentile = Number(comp.percentile) || 0;
+                    const difference = yourSalary - marketMedian;
+                    
+                    return (
+                      <Box key={comp.offerId || idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1, border: '1px solid #e5e7eb' }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              {comp.company} - {comp.role}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                              {comp.level || 'N/A'} • {comp.location || 'N/A'}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={`${percentile.toFixed(1)}th percentile`}
+                            color={comp.isUnderpaid ? 'error' : comp.isOverpaid ? 'success' : 'default'}
+                            size="small"
+                            sx={{ fontWeight: 600 }}
+                          />
+                        </Box>
+                        <Box display="flex" gap={2} mt={1} flexWrap="wrap">
+                          <Typography variant="body2">
+                            <strong>Your Salary:</strong> ${yourSalary.toLocaleString()}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                            {comp.level} • {comp.location}
+                          <Typography variant="body2">
+                            <strong>Market Median:</strong> ${marketMedian.toLocaleString()}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: difference < 0 ? '#dc2626' : '#16a34a',
+                              fontWeight: 600
+                            }}
+                          >
+                            <strong>Difference:</strong> {difference < 0 ? '-' : '+'}
+                            ${Math.abs(difference).toLocaleString()}
                           </Typography>
                         </Box>
-                        <Chip
-                          label={`${(Number(comp.percentile) || 0).toFixed(1)}th percentile`}
-                          color={comp.isUnderpaid ? 'error' : comp.isOverpaid ? 'success' : 'default'}
-                          size="small"
-                        />
                       </Box>
-                      <Box display="flex" gap={2} mt={1}>
-                        <Typography variant="body2">
-                          <strong>Your Salary:</strong> ${comp.yourSalary.toLocaleString()}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>Market Median:</strong> ${comp.marketMedian.toLocaleString()}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: comp.yourSalary < comp.marketMedian ? '#dc2626' : '#16a34a' }}>
-                          <strong>Difference:</strong> {comp.yourSalary < comp.marketMedian ? '-' : '+'}
-                          ${Math.abs(comp.yourSalary - comp.marketMedian).toLocaleString()}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
+                    );
+                  })}
                 </Box>
               ) : (
                 <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
-                  No market comparison data available
+                  No market comparison data available. Fetch benchmarks for your offers to see comparisons.
                 </Typography>
               )}
             </CardContent>
@@ -1313,7 +1457,7 @@ export default function ComprehensiveCompensationAnalysis() {
               variant="contained"
               color="primary"
               onClick={() => setShowAddRoleForm(true)}
-              startIcon="➕"
+              startIcon={null}
             >
               Add Past Role
             </Button>
@@ -1435,29 +1579,24 @@ export default function ComprehensiveCompensationAnalysis() {
             <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, color: 'white', fontWeight: 700 }}>
-                  🎉 Career Milestones & Achievements
+                  Career Milestones & Achievements
                 </Typography>
                 <Grid container spacing={2}>
                   {compensationEvolution.milestones.map((milestone, idx) => {
                     let title = '';
-                    let emoji = '🎯';
                     let description = '';
                     
                     if (milestone.type === 'first_100k') {
                       title = 'First $100K Salary';
-                      emoji = '💯';
                       description = `Reached $100K base salary milestone`;
                     } else if (milestone.type === 'first_150k') {
                       title = 'First $150K Salary';
-                      emoji = '🚀';
                       description = `Reached $150K base salary milestone`;
                     } else if (milestone.type === 'first_200k_tc') {
                       title = 'First $200K Total Comp';
-                      emoji = '⭐';
                       description = `Reached $200K total compensation milestone`;
                     } else if (milestone.type === 'promotion') {
                       title = 'Promotion';
-                      emoji = '📈';
                       description = `Promoted from ${milestone.from} to ${milestone.to}`;
                       if (milestone.increase) {
                         description += ` (+${Number(milestone.increase).toFixed(1)}% increase)`;
@@ -1468,21 +1607,18 @@ export default function ComprehensiveCompensationAnalysis() {
                       <Grid item xs={12} sm={6} md={3} key={idx}>
                         <Box sx={{ 
                           p: 2, 
-                          bgcolor: 'rgba(255, 255, 255, 0.15)', 
+                          bgcolor: 'rgba(59, 130, 246, 0.1)', 
                           borderRadius: 2,
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.2)'
+                          border: '2px solid #3b82f6',
+                          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%)'
                         }}>
-                          <Typography variant="h4" sx={{ mb: 1 }}>
-                            {emoji}
-                          </Typography>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'white', mb: 0.5 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1f2937', mb: 0.5 }}>
                             {title}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)', mb: 1, fontSize: '0.85rem' }}>
+                          <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '0.85rem' }}>
                             {description}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.8)', display: 'block' }}>
+                          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block' }}>
                             {milestone.value ? `$${Number(milestone.value).toLocaleString()}` : ''} • {new Date(milestone.date).toLocaleDateString()}
                           </Typography>
                         </Box>
