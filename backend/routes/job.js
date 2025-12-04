@@ -974,6 +974,7 @@ router.put("/:id/status", auth, async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
 
     // Log into application history
     await pool.query(
