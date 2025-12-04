@@ -79,9 +79,11 @@ function InterviewTracker() {
       
       console.log("📦 Jobs response:", res.data);
       
-      const jobsData = res.data.jobs || [];
-      console.log("✅ Jobs loaded:", jobsData.length, jobsData);
-      setJobs(jobsData);
+      const allJobs = res.data.jobs || [];
+      // Filter to only show jobs with "Interview" status
+      const interviewJobs = allJobs.filter(job => job.status === "Interview");
+      console.log("✅ Interview jobs loaded:", interviewJobs.length, interviewJobs);
+      setJobs(interviewJobs);
     } catch (err) {
       console.error("❌ Error fetching jobs:", err);
       console.error("Error details:", err.response?.data);
@@ -214,6 +216,13 @@ function InterviewTracker() {
         syncToCalendar: formData.syncToCalendar
       };
 
+      // Get previous outcome if editing
+      let previousOutcome = null;
+      if (editingId) {
+        const existingInterview = interviews.find(i => i.id === editingId);
+        previousOutcome = existingInterview?.outcome || null;
+      }
+
       if (editingId) {
         // Update existing
         await api.put(`/api/interview-analytics/outcome/${editingId}?userId=${userId}`, payload);
@@ -222,6 +231,31 @@ function InterviewTracker() {
         // Create new
         await api.post("/api/interview-analytics/outcome", payload);
         alert("Interview recorded successfully!");
+      }
+
+      // Sync job status if jobId exists and outcome changed to rejected/offer
+      if (payload.jobId && formData.outcome) {
+        const outcomeChanged = !previousOutcome || previousOutcome !== formData.outcome;
+        
+        if (outcomeChanged) {
+          let jobStatus = null;
+          
+          if (formData.outcome === 'rejected') {
+            jobStatus = 'Rejected';
+          } else if (formData.outcome === 'offer_received' || formData.outcome === 'offer_accepted') {
+            jobStatus = 'Offer';
+          }
+          
+          if (jobStatus) {
+            try {
+              await api.put(`/api/jobs/${payload.jobId}/status`, { status: jobStatus });
+              console.log(`✅ Job ${payload.jobId} status updated to ${jobStatus}`);
+            } catch (jobErr) {
+              console.error("Error updating job status:", jobErr);
+              // Don't fail the whole operation if job status update fails
+            }
+          }
+        }
       }
 
       // Reset form

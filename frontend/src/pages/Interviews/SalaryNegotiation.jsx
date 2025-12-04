@@ -60,21 +60,27 @@ export default function SalaryNegotiation() {
   }, []);
 
   /* ============================================================
-     Load companies from jobs
+     Load companies and roles from interview tracker
   ============================================================ */
   useEffect(() => {
-    async function loadJobs() {
+    async function loadInterviews() {
       try {
-        const res = await api.get("/api/jobs");
-        const jobs = res.data.jobs || [];
+        const res = await api.get("/api/interview-analytics/outcomes", {
+          params: { userId }
+        });
+        const interviews = res.data.success ? (res.data.data || []) : [];
 
-        const uniqueCompanies = [...new Set(jobs.map((j) => j.company))];
+        // Extract unique companies from interviews
+        const uniqueCompanies = [...new Set(interviews.map((i) => i.company).filter(Boolean))];
         setCompanies(uniqueCompanies);
 
+        // Build role map from interviews
         const roleMapTemp = {};
-        jobs.forEach((job) => {
-          if (!roleMapTemp[job.company]) roleMapTemp[job.company] = new Set();
-          roleMapTemp[job.company].add(job.title);
+        interviews.forEach((interview) => {
+          if (interview.company && interview.role) {
+            if (!roleMapTemp[interview.company]) roleMapTemp[interview.company] = new Set();
+            roleMapTemp[interview.company].add(interview.role);
+          }
         });
 
         const finalMap = {};
@@ -84,11 +90,11 @@ export default function SalaryNegotiation() {
 
         setRoleMap(finalMap);
       } catch (err) {
-        console.error("Error loading jobs:", err);
+        console.error("Error loading interviews:", err);
       }
     }
-    loadJobs();
-  }, []);
+    loadInterviews();
+  }, [userId]);
 
   /* ============================================================
      Load negotiations and stats on mount
