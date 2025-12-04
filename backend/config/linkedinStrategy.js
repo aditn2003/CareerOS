@@ -8,18 +8,19 @@ module.exports = function(passport) {
         clientID: process.env.LINKEDIN_CLIENT_ID,
         clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
         callbackURL: process.env.LINKEDIN_CALLBACK_URL,
-        scope: ['r_liteprofile', 'r_emailaddress'],
+        // Updated to use OpenID Connect scopes (LinkedIn's new standard)
+        scope: ['openid', 'profile', 'email'],
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          // Store LinkedIn profile data
+          // Store LinkedIn profile data from OpenID Connect response
           const linkedinUser = {
-            linkedinId: profile.id,
-            firstName: profile.name?.givenName,
-            lastName: profile.name?.familyName,
-            email: profile.emails?.[0]?.value,
+            linkedinId: profile.id || profile.sub,
+            firstName: profile.name?.givenName || profile.given_name,
+            lastName: profile.name?.familyName || profile.family_name,
+            email: profile.emails?.[0]?.value || profile.email,
             profileUrl: profile.profileUrl,
-            photo: profile.photos?.[0]?.value,
+            photo: profile.photos?.[0]?.value || profile.picture,
             headline: profile._json?.localizedHeadline,
             summary: profile._json?.localizedSummary,
             accessToken: accessToken,

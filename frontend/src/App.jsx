@@ -38,6 +38,8 @@ import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
 import InterviewTracker from './pages/Interviews/InterviewTracker';
+import LinkedInAuthSuccess from "./pages/LinkedInAuthSuccess"; // LinkedIn OAuth callback handler
+import LinkedInCallback from "./pages/LinkedInCallback"; // LinkedIn OAuth callback (new)
 
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
@@ -95,6 +97,10 @@ function MainLayout() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
           <Route path="/reset" element={<ResetPassword />} />
+          
+          {/* --- LinkedIn OAuth Callback Routes --- */}
+          <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
+          <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route

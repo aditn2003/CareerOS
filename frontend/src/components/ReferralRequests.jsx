@@ -113,17 +113,20 @@ const ReferralRequests = () => {
   const fetchJobs = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('🔍 Fetching jobs with token:', token ? 'present' : 'missing');
       const { data } = await axios.get(`${API_BASE}/jobs`, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 5000, // 5 second timeout
       });
-      console.log('Jobs response:', data);
+      console.log('📋 Jobs response:', data);
+      console.log('📋 Jobs count:', Array.isArray(data) ? data.length : (data?.jobs?.length || 0));
       // Ensure data is an array
-      setJobs(Array.isArray(data) ? data : data?.jobs || []);
+      const jobsList = Array.isArray(data) ? data : data?.jobs || [];
+      setJobs(jobsList);
+      console.log('📋 Jobs set to state:', jobsList.length, 'jobs');
     } catch (err) {
-      console.error('Error fetching jobs:', err.message);
+      console.error('❌ Error fetching jobs:', err.message, err.response?.data);
       setJobs([]);
-      setError(`Failed to load jobs: ${err.message}`);
     }
   };
 
@@ -595,9 +598,81 @@ const ReferralRequests = () => {
               </button>
             </div>
 
-            {jobs.length === 0 || contacts.length === 0 ? (
-              <div className="referral-form">
-                <div className="form-group">
+            <form onSubmit={handleCreateReferral} className="referral-form">
+              {/* Job Selection - From Pipeline or Manual */}
+              <div className="form-group">
+                <label>Select from Jobs Pipeline</label>
+                {jobs.length === 0 ? (
+                  <div style={{
+                    background: '#f3f4f6',
+                    border: '1px dashed #d1d5db',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '13px',
+                    color: '#6b7280',
+                    textAlign: 'center'
+                  }}>
+                    <span>No jobs in pipeline yet.</span>
+                    <br />
+                    <span style={{ fontSize: '12px' }}>Add jobs in the Jobs tab, or enter details manually below.</span>
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={formData.job_id}
+                      onChange={(e) => {
+                        if (e.target.value === '') {
+                          setFormData({ ...formData, job_id: '', job_title: '', company: '' });
+                        } else {
+                          handleJobChange(e.target.value);
+                        }
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #e0e0e0',
+                        fontSize: '14px',
+                        width: '100%',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      <option value="">-- Select a job or enter manually --</option>
+                      {jobs.filter(j => !j.is_archived && !j.isArchived).map((job) => (
+                        <option key={job.id} value={job.id}>
+                          {job.title} at {job.company} {job.status ? `(${job.status})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.job_id && (
+                      <div style={{
+                        background: '#f0fdf4',
+                        border: '1px solid #86efac',
+                        borderRadius: '6px',
+                        padding: '8px 12px',
+                        fontSize: '12px',
+                        color: '#166534',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                        <CheckCircle size={14} />
+                        Job selected - fields auto-filled below
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '12px',
+                padding: jobs.length > 0 ? '12px' : '0',
+                background: jobs.length > 0 ? '#f9fafb' : 'transparent',
+                borderRadius: '8px',
+                marginBottom: '12px'
+              }}>
+                <div className="form-group" style={{ margin: 0 }}>
                   <label>Job Title *</label>
                   <input
                     type="text"
@@ -607,10 +682,11 @@ const ReferralRequests = () => {
                     }
                     placeholder="e.g., Senior Software Engineer"
                     required
+                    style={{ background: formData.job_id ? '#e8f5e9' : 'white' }}
                   />
                 </div>
 
-                <div className="form-group">
+                <div className="form-group" style={{ margin: 0 }}>
                   <label>Company *</label>
                   <input
                     type="text"
@@ -620,115 +696,9 @@ const ReferralRequests = () => {
                     }
                     placeholder="e.g., Google"
                     required
+                    style={{ background: formData.job_id ? '#e8f5e9' : 'white' }}
                   />
                 </div>
-
-                <div className="form-group">
-                  <label>Select Contact to Refer *</label>
-                  {contacts.length === 0 ? (
-                    <p style={{ color: '#999', padding: '10px' }}>Loading your contacts...</p>
-                  ) : (
-                    <select
-                      value={formData.contact_id}
-                      onChange={(e) => handleContactChange(e.target.value)}
-                      required
-                    >
-                      <option value="">-- Select a contact --</option>
-                      {contacts.map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {contact.first_name} {contact.last_name}
-                          {contact.company ? ` (${contact.company})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <label style={{ margin: 0 }}>Referral Message</label>
-                    <button
-                      type="button"
-                      onClick={generateReferralTemplate}
-                      disabled={generatingTemplate || !formData.contact_id || !formData.job_title}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        backgroundColor: '#7c3aed',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: formData.contact_id && formData.job_title ? 'pointer' : 'not-allowed',
-                        opacity: formData.contact_id && formData.job_title ? 1 : 0.6,
-                        transition: 'all 0.2s'
-                      }}
-                      title={!formData.contact_id || !formData.job_title ? 'Select a contact and fill job details first' : 'Generate a personalized message template'}
-                    >
-                      <Zap size={14} />
-                      {generatingTemplate ? 'Generating...' : 'Generate Template'}
-                    </button>
-                  </div>
-                  <textarea
-                    value={formData.referral_message}
-                    onChange={(e) =>
-                      setFormData({ ...formData, referral_message: e.target.value })
-                    }
-                    placeholder="Write a personalized message or click 'Generate Template' to create one automatically"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => { resetForm(); setShowCreateModal(false); }}
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-primary" 
-                    disabled={contacts.length === 0}
-                    onClick={() => {
-                      if (formData.job_title && formData.company && formData.contact_id) {
-                        handleCreateReferral({ preventDefault: () => {} });
-                      }
-                    }}
-                  >
-                    {contacts.length === 0 ? 'Loading contacts...' : 'Create Referral Request'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-            <form onSubmit={handleCreateReferral} className="referral-form">
-              <div className="form-group">
-                <label>Job Title *</label>
-                <input
-                  type="text"
-                  value={formData.job_title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, job_title: e.target.value })
-                  }
-                  placeholder="e.g., Senior Software Engineer"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Company *</label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) =>
-                    setFormData({ ...formData, company: e.target.value })
-                  }
-                  placeholder="e.g., Google"
-                  required
-                />
               </div>
 
               {suggestedContacts.length > 0 && (
@@ -912,7 +882,6 @@ const ReferralRequests = () => {
                 </button>
               </div>
             </form>
-            )}
           </div>
         </div>
       )}

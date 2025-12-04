@@ -494,7 +494,8 @@ app.post("/google", async (req, res) => {
 app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
-app.use("/api", auth, employmentRoutes);
+// Employment routes - auth middleware is already applied inside the routes
+app.use("/api", employmentRoutes);
 app.use("/skills", skillsRouter);
 app.use("/api", educationRoutes);
 app.use("/api", certifications);
