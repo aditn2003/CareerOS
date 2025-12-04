@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { getUserId } from "../../utils/auth";
 import "./InterviewInsights.css";
 
 export default function InterviewInsights() {
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState([]);
   const [activeCompany, setActiveCompany] = useState("");
   const [roleMap, setRoleMap] = useState({});
@@ -14,21 +16,27 @@ export default function InterviewInsights() {
   const userId = getUserId();
 
   /* ============================================================
-     Load JOBS → build unique company list & role list per company
+     Load INTERVIEWS → build unique company list & role list per company
   ============================================================ */
   useEffect(() => {
-    async function loadJobs() {
+    async function loadInterviews() {
       try {
-        const res = await api.get("/api/jobs");
-        const jobs = res.data.jobs || [];
+        const res = await api.get("/api/interview-analytics/outcomes", {
+          params: { userId }
+        });
+        const interviews = res.data.success ? (res.data.data || []) : [];
 
-        const uniqueCompanies = [...new Set(jobs.map((j) => j.company))];
+        // Extract unique companies from interviews
+        const uniqueCompanies = [...new Set(interviews.map((i) => i.company).filter(Boolean))];
         setCompanies(uniqueCompanies);
 
+        // Build role map from interviews
         const roleMapTemp = {};
-        jobs.forEach((job) => {
-          if (!roleMapTemp[job.company]) roleMapTemp[job.company] = new Set();
-          roleMapTemp[job.company].add(job.title);
+        interviews.forEach((interview) => {
+          if (interview.company && interview.role) {
+            if (!roleMapTemp[interview.company]) roleMapTemp[interview.company] = new Set();
+            roleMapTemp[interview.company].add(interview.role);
+          }
         });
 
         const finalMap = {};
@@ -38,15 +46,19 @@ export default function InterviewInsights() {
 
         setRoleMap(finalMap);
 
-        if (uniqueCompanies.length > 0) {
+        // Check for company from URL query params (from Interview Tracker)
+        const companyFromUrl = searchParams.get("company");
+        if (companyFromUrl && uniqueCompanies.includes(companyFromUrl)) {
+          setActiveCompany(companyFromUrl);
+        } else if (uniqueCompanies.length > 0) {
           setActiveCompany(uniqueCompanies[0]);
         }
       } catch (err) {
-        console.error("Error loading jobs:", err);
+        console.error("Error loading interviews:", err);
       }
     }
-    loadJobs();
-  }, []);
+    loadInterviews();
+  }, [searchParams, userId]);
 
   /* ============================================================
      Load interview insights when company changes

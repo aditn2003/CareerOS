@@ -261,7 +261,6 @@ CREATE INDEX IF NOT EXISTS idx_networking_events_user_id ON networking_events(us
 CREATE INDEX IF NOT EXISTS idx_networking_referrals_user_id ON networking_referrals(user_id);
 CREATE INDEX IF NOT EXISTS idx_networking_referrals_contact_id ON networking_referrals(contact_id);
 CREATE TABLE IF NOT EXISTS companies (
-CREATE TABLE IF NOT EXISTS companies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
     size VARCHAR(100),
@@ -279,7 +278,6 @@ CREATE TABLE IF NOT EXISTS companies (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 -- resume_templates table
-CREATE TABLE IF NOT EXISTS resume_templates (
 CREATE TABLE IF NOT EXISTS resume_templates (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -429,3 +427,203 @@ CREATE TABLE public.users (
   created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
+CREATE TABLE IF NOT EXISTS resumes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    template_id INTEGER,
+    format VARCHAR(10) DEFAULT 'pdf',
+    sections JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+INSERT INTO resume_templates (
+        user_id,
+        name,
+        layout_type,
+        font,
+        color_scheme,
+        is_default
+    )
+VALUES (
+        NULL,
+        'Chronological',
+        'chronological',
+        'Inter',
+        'blue',
+        true
+    ),
+    (
+        NULL,
+        'Functional',
+        'functional',
+        'Arial',
+        'green',
+        false
+    ),
+    (
+        NULL,
+        'Hybrid',
+        'hybrid',
+        'Roboto',
+        'purple',
+        false
+    ) ON CONFLICT DO NOTHING;
+
+
+CREATE TABLE IF NOT EXISTS resume_presets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    section_order TEXT [],
+    -- e.g. ['profile', 'education', 'skills', 'projects']
+    visible_sections JSONB,
+    -- { "profile": true, "skills": false, ... }
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS section_presets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    section_name VARCHAR(100) NOT NULL,         -- e.g. "education", "skills"
+    preset_name VARCHAR(100) NOT NULL,          -- e.g. "Short Internship Version"
+    section_data JSONB NOT NULL,                -- stores the actual data (entries or object)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS job_descriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS company_research (
+  id SERIAL PRIMARY KEY,
+  company VARCHAR(255) UNIQUE NOT NULL,
+  basics JSONB,
+  mission_values_culture JSONB,
+  executives JSONB,
+  products_services JSONB,
+  competitive_landscape JSONB,
+  summary TEXT,
+  news JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE resumes
+ADD COLUMN IF NOT EXISTS preview_url TEXT,
+ADD COLUMN IF NOT EXISTS format TEXT DEFAULT 'pdf',
+ADD COLUMN IF NOT EXISTS template_name TEXT,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+ALTER TABLE public.jobs
+ADD COLUMN IF NOT EXISTS "offerDate" DATE;
+
+CREATE TABLE IF NOT EXISTS match_history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  job_id INTEGER NOT NULL,
+  match_score INTEGER NOT NULL,
+  skills_score INTEGER,
+  experience_score INTEGER,
+  education_score INTEGER,
+  strengths TEXT,
+  gaps TEXT,
+  improvements TEXT,
+  weights JSONB,         -- stores personalized weighting used
+  details JSONB,         -- raw AI response for future use
+  created_at TIMESTAMP DEFAULT NOW()
+);
+-- ======================================
+-- COVER LETTER TEMPLATES (UC-055)
+-- ======================================
+
+CREATE TABLE IF NOT EXISTS cover_letter_templates (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL, 
+    name VARCHAR(255) NOT NULL,
+    industry VARCHAR(255),
+    category VARCHAR(50),
+    content TEXT NOT NULL,
+    is_custom BOOLEAN DEFAULT FALSE,
+    view_count INTEGER DEFAULT 0,
+    use_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Seed global templates (shown to EVERY user)
+INSERT INTO cover_letter_templates 
+    (user_id, name, industry, category, content, is_custom)
+VALUES
+    (
+        NULL,
+        'Formal Software Engineer',
+        'Software Engineering',
+        'Formal',
+        'Dear Hiring Manager,\n\nI am writing to express my interest in the Software Engineer position at {{company}}. With {{years_experience}} years of experience in full-stack development and a strong background in {{skills}}, I am confident in my ability to contribute to your team.\n\nSincerely,\n{{your_name}}',
+        FALSE
+    ),
+    (
+        NULL,
+        'Technical Cybersecurity Analyst',
+        'Cybersecurity',
+        'Technical',
+        'Dear {{company}} Security Team,\n\nAs a cybersecurity enthusiast with hands-on experience in incident response, log analysis, and vulnerability management, I am excited to apply for the Cybersecurity Analyst role. In my recent work, I have used tools such as {{tools}} to detect and remediate threats.\n\nBest regards,\n{{your_name}}',
+        FALSE
+    ),
+    (
+        NULL,
+        'Creative Marketing Cover Letter',
+        'Marketing',
+        'Creative',
+        'Hi {{company}} Team,\n\nI am thrilled to apply for the Marketing position at {{company}}. I love telling stories with data and design, and I have led campaigns that increased engagement by {{metric}}.\n\nCheers,\n{{your_name}}',
+        FALSE
+    )
+ON CONFLICT DO NOTHING;
+
+ALTER TABLE jobs
+ADD COLUMN IF NOT EXISTS required_skills TEXT[];
+
+-- ======================================
+-- COVER LETTERS TABLE
+-- ======================================
+CREATE TABLE IF NOT EXISTS cover_letters (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    format VARCHAR(10) DEFAULT 'pdf',
+    content TEXT,
+    file_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cover_letters_user_id ON cover_letters(user_id);
+
+-- ======================================
+-- APPLICATION MATERIALS HISTORY TABLE
+-- ======================================
+CREATE TABLE IF NOT EXISTS application_materials_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL,
+    cover_letter_id INTEGER REFERENCES cover_letters(id) ON DELETE SET NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_application_materials_history_user_id ON application_materials_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_application_materials_history_job_id ON application_materials_history(job_id);
+
+-- ======================================
+-- ADD MISSING COLUMNS TO JOBS TABLE
+-- ======================================
+ALTER TABLE jobs
+ADD COLUMN IF NOT EXISTS "applicationDate" DATE,
+ADD COLUMN IF NOT EXISTS "isArchived" BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS cover_letter_id INTEGER REFERENCES cover_letters(id) ON DELETE SET NULL;
+

@@ -1,158 +1,552 @@
-/* ===============================
-   Navbar — Centered, Dynamic, and Adaptive
-================================= */
+/* ===============================================
+   NAVBAR - PREMIUM GLASSMORPHISM DESIGN
+   =============================================== */
+
 .navbar {
-  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4c1d95 60%, #5b21b6 100%);
   color: #fff;
   text-align: center;
   padding: 2rem 3rem;
-  border-radius: 20px;
-  width: min(95%, 1100px);
+  border-radius: 24px;
+  width: min(95%, 1200px);
   margin: 2rem auto;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.4rem;
+  gap: 1.6rem;
   box-sizing: border-box;
   overflow: hidden;
+  position: relative;
+  
+  /* Premium Shadow */
+  box-shadow: 
+    0 20px 60px rgba(91, 33, 182, 0.4),
+    0 8px 25px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  
+  /* Animated Border */
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* ===============================
-   Logo Container
-================================= */
+/* Animated Gradient Overlay */
+.navbar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    45deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.03) 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.03) 75%,
+    transparent 100%
+  );
+  background-size: 400% 400%;
+  animation: shimmerBg 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmerBg {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Floating Orb 1 */
+.navbar::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -10%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: floatOrb 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes floatOrb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-30px, 30px) scale(1.1); }
+  66% { transform: translate(20px, -20px) scale(0.9); }
+}
+
+/* ===============================================
+   LOGO CONTAINER
+   =============================================== */
+
 .navbar-logo {
-  height: 70px;
+  height: 80px;
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
+  z-index: 2;
+  cursor: pointer;
 }
 
 .navbar-logo > * {
-  transform: scale(1.5);
-  transition: transform 0.3s ease;
+  transform: scale(1.6);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  filter: drop-shadow(0 4px 20px rgba(167, 139, 250, 0.5));
 }
 
 .navbar-logo > *:hover {
-  transform: scale(1.7);
+  transform: scale(1.85) rotate(5deg);
+  filter: drop-shadow(0 8px 30px rgba(167, 139, 250, 0.8));
 }
 
-/* ===============================
-   Title Styling
-================================= */
+/* Pulse ring behind logo */
+.navbar-logo::before {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.2) 0%, transparent 70%);
+  animation: pulseRing 3s ease-in-out infinite;
+}
+
+@keyframes pulseRing {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.3); opacity: 0.2; }
+}
+
+/* ===============================================
+   TITLE STYLING
+   =============================================== */
+
+.navbar-title-container {
+  text-align: center;
+  margin: 0.5rem 0 1rem 0;
+  position: relative;
+}
+
 .navbar-title {
-  font-size: 2.6rem;
-  font-weight: 700;
+  font-size: 2.8rem;
+  font-weight: 800;
   color: #ffffff;
-  margin: 0.3rem 0 0.8rem 0;
-  letter-spacing: 0.6px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  margin: 0;
+  letter-spacing: -0.5px;
+  position: relative;
+  z-index: 2;
+  
+  /* Gradient Text */
+  background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 50%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  
+  /* Glow Effect */
+  text-shadow: 0 0 40px rgba(167, 139, 250, 0.5);
+  animation: titleGlow 3s ease-in-out infinite alternate;
 }
 
-/* ===============================
-   Menu Layout
-================================= */
+.navbar-subtitle {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0.4rem 0 0 0;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 2;
+  
+  /* Subtle glow */
+  text-shadow: 0 1px 4px rgba(167, 139, 250, 0.4);
+  opacity: 0.9;
+  
+  /* Smooth transition */
+  transition: all 0.3s ease;
+}
+
+@keyframes titleGlow {
+  from { filter: drop-shadow(0 0 20px rgba(167, 139, 250, 0.3)); }
+  to { filter: drop-shadow(0 0 40px rgba(167, 139, 250, 0.6)); }
+}
+
+/* Underline accent */
+.navbar-title-container::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #a78bfa, #c4b5fd, #a78bfa, transparent);
+  border-radius: 2px;
+  animation: underlineShimmer 2s linear infinite;
+}
+
+@keyframes underlineShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ===============================================
+   MENU LAYOUT
+   =============================================== */
+
 .navbar-right {
   display: flex;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap; /* ✅ Allows wrapping automatically */
-  gap: 1.2rem;
+  flex-wrap: wrap;
+  gap: 0.8rem;
   width: 100%;
-  max-width: 1000px;
+  max-width: 1100px;
+  position: relative;
+  z-index: 2;
+  padding: 0.5rem;
 }
 
-/* ===============================
-   Menu Buttons / Links
-================================= */
+/* ===============================================
+   MENU BUTTONS / LINKS - GLASSMORPHISM
+   =============================================== */
+
 .navbar-right a,
 .navbar-right button {
-  background: rgba(255, 255, 255, 0.15);
-  border: none;
-  color: #fff;
-  font-size: 1.05rem;
+  /* Glassmorphism Base */
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  padding: 0.8rem 1.6rem;
-  border-radius: 12px;
-  transition: all 0.25s ease-in-out;
+  padding: 0.75rem 1.4rem;
+  border-radius: 14px;
+  
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   text-decoration: none;
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.08);
+  
+  /* Smooth Transitions */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Subtle Shadow */
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  
+  position: relative;
+  overflow: hidden;
 }
 
-/* Hover animation */
+/* Shimmer effect on hover */
+.navbar-right a::before,
+.navbar-right button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+/* Icon styling */
+.navbar-right a svg,
+.navbar-right button svg {
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+/* ===============================================
+   HOVER EFFECTS - NEON GLOW
+   =============================================== */
+
 .navbar-right a:hover,
 .navbar-right button:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(167, 139, 250, 0.5);
+  transform: translateY(-4px) scale(1.02);
+  color: #ffffff;
+  
+  box-shadow: 
+    0 8px 25px rgba(124, 58, 237, 0.3),
+    0 0 20px rgba(167, 139, 250, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* ===============================
-   Active Page Indicator (high contrast)
-================================= */
+.navbar-right a:hover::before,
+.navbar-right button:hover::before {
+  left: 100%;
+}
+
+.navbar-right a:hover svg,
+.navbar-right button:hover svg {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 8px rgba(167, 139, 250, 0.8));
+}
+
+/* ===============================================
+   ACTIVE STATE - PREMIUM INDICATOR
+   =============================================== */
+
 .navbar-right a.active,
 .navbar-right button.active {
-  background: #ffffff;
-  color: #5c00c4;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(237, 233, 254, 0.95) 100%);
+  color: #5b21b6;
   font-weight: 700;
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.4);
+  border: 2px solid rgba(167, 139, 250, 0.5);
   transform: scale(1.05);
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  
+  box-shadow: 
+    0 8px 30px rgba(124, 58, 237, 0.4),
+    0 0 30px rgba(167, 139, 250, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 1);
+}
+
+.navbar-right a.active svg,
+.navbar-right button.active svg {
+  color: #7c3aed;
+  filter: drop-shadow(0 0 6px rgba(124, 58, 237, 0.5));
 }
 
 /* Active hover refinement */
 .navbar-right a.active:hover,
 .navbar-right button.active:hover {
-  background: #e6e6ff;
-  color: #7a3cff;
+  background: linear-gradient(135deg, #ffffff 0%, #ede9fe 100%);
+  color: #6d28d9;
+  transform: scale(1.08) translateY(-2px);
 }
 
-/* ===============================
-   Responsive Design
-================================= */
-@media (max-width: 900px) {
+/* Pulsing dot indicator for active */
+.navbar-right a.active::after,
+.navbar-right button.active::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  background: linear-gradient(135deg, #10b981, #34d399);
+  border-radius: 50%;
+  border: 2px solid white;
+  animation: activePulse 2s ease-in-out infinite;
+}
+
+@keyframes activePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+/* ===============================================
+   LOGOUT BUTTON - SPECIAL STYLING
+   =============================================== */
+
+.logout-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 
+    0 8px 25px rgba(239, 68, 68, 0.3),
+    0 0 20px rgba(239, 68, 68, 0.2) !important;
+}
+
+.logout-btn svg {
+  color: #fca5a5 !important;
+}
+
+.logout-btn:hover svg {
+  color: #fef2f2 !important;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8)) !important;
+}
+
+/* ===============================================
+   RESPONSIVE DESIGN
+   =============================================== */
+
+@media (max-width: 1024px) {
+  .navbar {
+    padding: 1.8rem 2rem;
+    gap: 1.4rem;
+  }
+  
+  .navbar-title {
+    font-size: 2.2rem;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.75rem;
+  }
+  
+  .navbar-right {
+    gap: 0.7rem;
+  }
+  
+  .navbar-right a,
+  .navbar-right button {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 768px) {
   .navbar {
     width: 95%;
     padding: 1.5rem 1rem;
+    border-radius: 20px;
+    margin: 1rem auto;
   }
 
   .navbar-title {
-    font-size: 2rem;
+    font-size: 1.8rem;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.7rem;
+    letter-spacing: 0.8px;
+  }
+  
+  .navbar-logo > * {
+    transform: scale(1.3);
   }
 
   .navbar-right {
     flex-wrap: wrap;
-    gap: 0.8rem;
+    gap: 0.6rem;
   }
 
   .navbar-right a,
   .navbar-right button {
-    flex: 1 1 40%;
+    flex: 1 1 calc(50% - 0.6rem);
     justify-content: center;
-    font-size: 1rem;
+    font-size: 0.85rem;
+    padding: 0.65rem 1rem;
+  }
+  
+  /* Hide floating orb on mobile */
+  .navbar::after {
+    display: none;
   }
 }
 
-/* ===============================
-   Dark Mode Support
-================================= */
+@media (max-width: 480px) {
+  .navbar {
+    padding: 1.2rem 0.8rem;
+  }
+  
+  .navbar-title {
+    font-size: 1.5rem;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+  }
+  
+  .navbar-right a,
+  .navbar-right button {
+    flex: 1 1 100%;
+    padding: 0.8rem 1rem;
+  }
+}
+
+/* ===============================================
+   DARK MODE SUPPORT
+   =============================================== */
+
 body.dark .navbar {
-  background: linear-gradient(135deg, #1f1b2e, #1d233a);
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 30%, #2d1b4e 60%, #1e1b4b 100%);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 8px 25px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 body.dark .navbar-right a,
 body.dark .navbar-right button {
-  color: #d6caff;
+  color: #e0e7ff;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark .navbar-right a:hover,
+body.dark .navbar-right button:hover {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(167, 139, 250, 0.4);
 }
 
 body.dark .navbar-right a.active,
 body.dark .navbar-right button.active {
-  background: #ffffff;
-  color: #3b1ecf;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f3ff 100%);
+  color: #4c1d95;
+}
+
+/* ===============================================
+   ACCESSIBILITY - FOCUS STATES
+   =============================================== */
+
+.navbar-right a:focus-visible,
+.navbar-right button:focus-visible {
+  outline: none;
+  box-shadow: 
+    0 0 0 3px rgba(167, 139, 250, 0.5),
+    0 8px 25px rgba(124, 58, 237, 0.3);
+}
+
+/* ===============================================
+   ANIMATIONS - ENTRANCE
+   =============================================== */
+
+.navbar {
+  animation: navbarSlideIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes navbarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.navbar-right a,
+.navbar-right button {
+  animation: buttonFadeIn 0.4s ease-out backwards;
+}
+
+.navbar-right a:nth-child(1) { animation-delay: 0.1s; }
+.navbar-right a:nth-child(2) { animation-delay: 0.15s; }
+.navbar-right a:nth-child(3) { animation-delay: 0.2s; }
+.navbar-right a:nth-child(4) { animation-delay: 0.25s; }
+.navbar-right a:nth-child(5) { animation-delay: 0.3s; }
+.navbar-right a:nth-child(6) { animation-delay: 0.35s; }
+.navbar-right a:nth-child(7) { animation-delay: 0.4s; }
+.navbar-right a:nth-child(8) { animation-delay: 0.45s; }
+.navbar-right a:nth-child(9) { animation-delay: 0.5s; }
+.navbar-right button:last-child { animation-delay: 0.55s; }
+
+@keyframes buttonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

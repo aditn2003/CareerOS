@@ -91,6 +91,25 @@
   text-overflow: ellipsis;
 }
 
+.add-feedback-btn {
+  background: transparent;
+  border: none;
+  color: #8b5cf6;
+  font-size: 1.4rem;
+  font-weight: 300;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  opacity: 0.5;
+  line-height: 1;
+  min-width: 28px;
+  height: 28px;
+}
+
 /* Right Side - Feedback Threads */
 .feedback-threads-main {
   flex: 1;
@@ -263,7 +282,8 @@
 }
 
 .feedback-job-badge,
-.feedback-skill-badge {
+.feedback-skill-badge,
+.feedback-task-badge {
   background: #e0e7ff;
   color: #4338ca;
   padding: 4px 10px;
@@ -273,9 +293,19 @@
   display: inline-block;
 }
 
+.feedback-job-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .feedback-skill-badge {
   background: #fef3c7;
   color: #92400e;
+}
+
+.feedback-task-badge {
+  background: #ddd6fe;
+  color: #5b21b6;
 }
 
 .expand-toggle {

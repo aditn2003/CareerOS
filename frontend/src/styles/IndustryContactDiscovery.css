@@ -1,0 +1,1044 @@
+/* ========================================================================
+   UC-092: Industry Contact Discovery Styles
+======================================================================== */
+
+.discovery-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.discovery-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.discovery-header h2 {
+  font-size: 2rem;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+}
+
+.discovery-header p {
+  color: #6b7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ============================================================
+   Messages
+============================================================ */
+.success-message {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid #10b981;
+  animation: slideIn 0.3s ease-out;
+}
+
+.error-message {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid #ef4444;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   Analytics Dashboard
+============================================================ */
+.discovery-analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.analytics-card {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+  color: #374151;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.analytics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.analytics-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.analytics-label {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Tab Navigation
+============================================================ */
+.discovery-tabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 1rem;
+}
+
+.discovery-tab-btn {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.discovery-tab-btn:hover {
+  color: #4f46e5;
+  border-bottom-color: #e0e7ff;
+}
+
+.discovery-tab-btn.active {
+  color: white;
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-bottom-color: transparent;
+  border-radius: 0.5rem;
+}
+
+/* ============================================================
+   Tab Content
+============================================================ */
+.discovery-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tab-section {
+  padding: 1rem 0;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tab-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Empty State
+============================================================ */
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  background: #f9fafb;
+  border-radius: 0.75rem;
+  border: 2px dashed #d1d5db;
+  color: #6b7280;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* ============================================================
+   Contact Grid & Cards
+============================================================ */
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.contact-card,
+.alumni-card,
+.event-card,
+.leader-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-card:hover,
+.alumni-card:hover,
+.event-card:hover,
+.leader-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.contact-header,
+.alumni-header,
+.event-header,
+.leader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.contact-header h4,
+.alumni-header h4,
+.event-header h4,
+.leader-header h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-new {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-contacted {
+  background-color: #fed7aa;
+  color: #92400e;
+}
+
+.badge-connected {
+  background-color: #bbf7d0;
+  color: #065f46;
+}
+
+.badge-ignored {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.speaker-badge {
+  background-color: #fcd34d;
+  color: #78350f;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.contact-details,
+.alumni-details,
+.event-details,
+.leader-details {
+  flex-grow: 1;
+  margin-bottom: 1rem;
+}
+
+.contact-details p,
+.alumni-details p,
+.event-details p,
+.leader-details p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.contact-details strong,
+.alumni-details strong,
+.event-details strong,
+.leader-details strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.contact-details p a,
+.leader-details p a {
+  color: #4f46e5;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.contact-details p a:hover,
+.leader-details p a:hover {
+  text-decoration: underline;
+}
+
+.contact-actions,
+.alumni-actions,
+.event-actions,
+.leader-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.status-select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.status-select:hover {
+  border-color: #9ca3af;
+}
+
+/* ============================================================
+   Leader Card Specific
+============================================================ */
+.influence-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  min-width: 60px;
+}
+
+.score-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.score-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Connection List
+============================================================ */
+.connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.connection-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem 2rem;
+  transition: all 0.2s ease;
+  display: grid;
+  grid-template-columns: 220px 1fr auto;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+.connection-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.connection-intro {
+  flex-shrink: 0;
+}
+
+.intro-flow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+.intro-person {
+  padding: 0.4rem 0.75rem;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+}
+
+.intro-person.mutual {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.intro-person.target {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.intro-flow .arrow {
+  color: #9ca3af;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.connection-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem 2rem;
+}
+
+.connection-details p {
+  margin: 0;
+  font-size: 1rem;
+  color: #4b5563;
+}
+
+.connection-details p strong {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.connection-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.connection-actions .btn-secondary {
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+}
+
+.connection-actions .btn-delete {
+  width: auto;
+  text-align: center;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+}
+
+.action-buttons-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.action-buttons-row .btn-edit,
+.action-buttons-row .btn-delete {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.connection-path {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.degree-label {
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.relationship {
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.relationship.strong {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.relationship.moderate {
+  background: #fed7aa;
+  color: #92400e;
+}
+
+.relationship.weak {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.intro-message {
+  margin: 0 0 1rem 0;
+  padding: 1rem;
+  background: #f9fafb;
+  border-left: 3px solid #4f46e5;
+  color: #4b5563;
+  line-height: 1.6;
+  font-style: italic;
+  border-radius: 0.375rem;
+}
+
+.connection-status {
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border-radius: 0.375rem;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   Buttons
+============================================================ */
+.btn-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: white;
+  color: #4f46e5;
+  padding: 0.6rem 1.2rem;
+  border: 1.5px solid #4f46e5;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.btn-secondary:hover {
+  background: #eef2ff;
+  transform: translateY(-1px);
+}
+
+.btn-secondary:active {
+  transform: translateY(0);
+}
+
+.btn-edit {
+  background: #fbbf24;
+  color: #78350f;
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.btn-edit:hover {
+  background: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.btn-edit:active {
+  transform: translateY(0);
+}
+
+.btn-delete {
+  background: #ef4444;
+  color: white;
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.btn-delete:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
+.btn-delete:active {
+  transform: translateY(0);
+}
+
+/* ============================================================
+   Modals
+============================================================ */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: visible;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  position: relative;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.modal-content form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.modal-content input:focus,
+.modal-content select:focus,
+.modal-content textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.modal-content input::placeholder {
+  color: #9ca3af;
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.form-group label {
+  cursor: pointer;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.form-row {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-row label {
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.form-row input[type="range"] {
+  cursor: pointer;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ============================================================
+   Autocomplete Dropdown
+============================================================ */
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  margin-top: -1px;
+}
+
+.dropdown-header {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dropdown-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.dropdown-item:hover {
+  background: #eef2ff;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-name {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.dropdown-details {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.dropdown-score {
+  font-size: 0.8rem;
+  color: #7c3aed;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+/* ============================================================
+   Modal Input Wrapper (for relative positioning)
+============================================================ */
+.modal-content input[type="text"],
+.modal-content input[type="email"],
+.modal-content input[type="url"] {
+  position: relative;
+}
+
+/* ============================================================
+   Responsive Design
+============================================================ */
+@media (max-width: 768px) {
+  .discovery-container {
+    padding: 1rem;
+  }
+
+  .discovery-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .discovery-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .discovery-tabs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .discovery-tab-btn {
+    width: 100%;
+    text-align: left;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .tab-header h3 {
+    width: 100%;
+    margin-bottom: 0;
+  }
+
+  .tab-header button {
+    width: 100%;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 1.5rem;
+  }
+
+  .analytics-card {
+    padding: 1rem;
+  }
+
+  .analytics-value {
+    font-size: 2rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions button {
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   Reminder Cards - Relationship Maintenance
+============================================================ */
+.reminders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reminder-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.reminder-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.reminder-card.urgent {
+  border-left: 4px solid #f59e0b;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+}
+
+.reminder-card.overdue {
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(135deg, #fee2e2 0%, #ffffff 100%);
+}
+
+.reminder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.reminder-header h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.reminder-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.375rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.normal-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.urgent-badge {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.overdue-badge {
+  background-color: #fecaca;
+  color: #991b1b;
+}
+
+.reminder-details {
+  margin-bottom: 1rem;
+  color: #6b7280;
+}
+
+.reminder-details p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+}
+
+.reminder-details strong {
+  color: #374151;
+  font-weight: 600;
+}
+
+.reminder-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.reminder-actions button {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  .discovery-container {
+    padding: 0.75rem;
+  }
+
+  .discovery-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .discovery-header p {
+    font-size: 0.9rem;
+  }
+
+  .contact-card,
+  .alumni-card,
+  .event-card,
+  .leader-card,
+  .reminder-card {
+    padding: 1rem;
+  }
+
+  .contact-header,
+  .alumni-header,
+  .event-header,
+  .leader-header,
+  .reminder-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .contact-header h4,
+  .alumni-header h4,
+  .event-header h4,
+  .leader-header h4,
+  .reminder-header h4 {
+    font-size: 1rem;
+  }
+
+  .tab-header {
+    padding-bottom: 0.5rem;
+  }
+
+  .tab-header h3 {
+    font-size: 1.25rem;
+  }
+}

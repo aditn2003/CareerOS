@@ -14,9 +14,11 @@ import {
   FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter
+  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
+  FaHandshake, // ✅ Icon for Referrals
+  FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
-  FaNetworkWired, // ✅ Icon for Networking
+  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -48,7 +50,10 @@ export default function NavBar() {
         <Logo size={80} />
       </div>
 
-      <h1 className="navbar-title">ATS for Candidates</h1>
+      <div className="navbar-title-container">
+        <h1 className="navbar-title">CareerOS</h1>
+        <p className="navbar-subtitle">Your Career Operating System</p>
+      </div>
 
       {/* Nav Links */}
       <nav className="navbar-right">
@@ -58,32 +63,33 @@ export default function NavBar() {
 
         {authed ? (
           <>
+            {/* ═══════════════════════════════════════════
+                DOCUMENTS - Build Your Profile
+            ═══════════════════════════════════════════ */}
             <NavLink to="/resume">
               <FaFileAlt /> Resume
             </NavLink>
 
-            {/* ✅ NEW Cover Letter TAB */}
             <NavLink to="/cover-letter">
               <FaEnvelope /> Cover Letter
             </NavLink>
 
+            {/* ═══════════════════════════════════════════
+                JOB SEARCH - Find & Match
+            ═══════════════════════════════════════════ */}
             <NavLink to="/jobs">
               <FaBriefcase /> Jobs
             </NavLink>
 
-            {/* ⭐ JOB MATCH */}
             <NavLink to="/job-match">
               <FaStar /> Job Match
             </NavLink>
 
-            {/* 📊 Statistics */}
-            <NavLink to="/statistics">
-              <FaChartBar /> Statistics
-            </NavLink>
-
-            {/* 🌐 Networking */}
-            <NavLink to="/networking">
-              <FaNetworkWired /> Networking
+            {/* ═══════════════════════════════════════════
+                INTERVIEWS - Prepare & Track
+            ═══════════════════════════════════════════ */}
+            <NavLink to="/interviews">
+              <FaComments /> Interviews
             </NavLink>
 
             {/* 🗄️ Archived */}
@@ -97,18 +103,43 @@ export default function NavBar() {
             </NavLink>
 
             {/* 👨‍🏫 Mentor */}
+            {/* ═══════════════════════════════════════════
+                GROWTH - Network & Learn
+            ═══════════════════════════════════════════ */}
+           
+
             {showMentorButton && (
               <NavLink to="/mentor">
                 <FaUserGraduate /> Mentor
               </NavLink>
             )}
 
+            {/* ═══════════════════════════════════════════
+                INSIGHTS - Track Progress
+            ═══════════════════════════════════════════ */}
+            <NavLink to="/statistics">
+              <FaChartBar /> Statistics
+            </NavLink>
+
+            {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
+            <NavLink to="/network">
+              <FaUsers /> Network
+            </NavLink>
+
+            
+
             {/* 👤 Profile */}
+            <NavLink to="/archived">
+              <FaArchive /> Archived
+            </NavLink>
+
+            {/* ═══════════════════════════════════════════
+                ACCOUNT
+            ═══════════════════════════════════════════ */}
             <NavLink to="/profile/info">
               <FaUser /> Profile
             </NavLink>
 
-            {/* 🚪 Logout */}
             <button onClick={handleLogout} className="logout-btn">
               <FaSignOutAlt /> Logout
             </button>

@@ -9,14 +9,23 @@ export default function FeedbackModal({
   candidateName,
   feedbackId = null, // null for create, ID for edit
   existingFeedback = null,
+  taskId = null, // For task-linked feedback
+  taskTitle = null, // Task title for display
   onClose,
   onSuccess,
 }) {
+  // When taskId is provided, feedbackType must be "task" and cannot be changed
+  // Check if taskId exists (could be number or string, but not null/undefined/empty string)
+  const isTaskFeedback = taskId != null && taskId !== "" && String(taskId).trim() !== "";
+  // For new feedback with taskId, always use "task". For editing, use existing type. Otherwise default to "general"
+  const initialFeedbackType = isTaskFeedback && !existingFeedback ? "task" : (existingFeedback?.feedbackType || "general");
+  
   const [formData, setFormData] = useState({
-    feedbackType: existingFeedback?.feedbackType || "general",
+    feedbackType: initialFeedbackType, // Always "task" when taskId is provided for new feedback
     content: existingFeedback?.content || "",
     jobId: existingFeedback?.jobId || "",
     skillName: existingFeedback?.skillName || "",
+    taskId: existingFeedback?.taskId || taskId || "",
   });
   const [candidateJobs, setCandidateJobs] = useState([]);
   const [candidateSkills, setCandidateSkills] = useState([]);
@@ -25,6 +34,17 @@ export default function FeedbackModal({
   const [loadingJobs, setLoadingJobs] = useState(false);
 
   const isEditMode = feedbackId !== null;
+
+  // Ensure feedbackType is "task" when taskId is provided (enforce on mount and when taskId changes)
+  useEffect(() => {
+    if (isTaskFeedback && !isEditMode && formData.feedbackType !== "task") {
+      setFormData(prev => ({
+        ...prev,
+        feedbackType: "task",
+        taskId: taskId || prev.taskId,
+      }));
+    }
+  }, [taskId, isTaskFeedback, isEditMode, formData.feedbackType]);
 
   useEffect(() => {
     if (candidateId && teamId) {
@@ -69,12 +89,16 @@ export default function FeedbackModal({
     setLoading(true);
 
     try {
+      // Ensure feedbackType is "task" if taskId is provided (enforce this even if somehow changed)
+      const finalFeedbackType = (taskId !== null && taskId !== undefined && taskId !== "") ? "task" : formData.feedbackType;
+      
       const payload = {
         candidateId,
-        feedbackType: formData.feedbackType,
+        feedbackType: finalFeedbackType,
         content: formData.content.trim(),
-        jobId: formData.feedbackType === "job" ? parseInt(formData.jobId) || null : null,
-        skillName: formData.feedbackType === "skill" ? formData.skillName.trim() || null : null,
+        jobId: finalFeedbackType === "job" ? parseInt(formData.jobId) || null : null,
+        skillName: finalFeedbackType === "skill" ? formData.skillName.trim() || null : null,
+        taskId: finalFeedbackType === "task" ? parseInt(taskId || formData.taskId) || null : null,
       };
 
       if (isEditMode) {
@@ -107,7 +131,10 @@ export default function FeedbackModal({
         </button>
 
         <h2>{isEditMode ? "Edit Feedback" : "Add Feedback"}</h2>
-        <p className="feedback-modal-subtitle">Feedback for {candidateName}</p>
+        <p className="feedback-modal-subtitle">
+          Feedback for {candidateName}
+          {taskTitle && ` - Task: ${taskTitle}`}
+        </p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -121,15 +148,22 @@ export default function FeedbackModal({
                   feedbackType: e.target.value,
                   jobId: "",
                   skillName: "",
+                  taskId: e.target.value === "task" ? (taskId || "") : "",
                 });
               }}
               required
-              disabled={isEditMode}
+              disabled={isEditMode || isTaskFeedback} // Disable if editing or if taskId is provided (task-related feedback)
             >
               <option value="general">General Progress</option>
+              <option value="task">Task Related</option>
               <option value="job">Related to Job Application</option>
               <option value="skill">Related to Skill</option>
             </select>
+            {isTaskFeedback && (
+              <p className="form-hint" style={{ marginTop: "0.5rem", color: "#6b7280", fontStyle: "italic" }}>
+                This feedback is linked to a task and cannot be changed.
+              </p>
+            )}
           </div>
 
           {formData.feedbackType === "job" && (

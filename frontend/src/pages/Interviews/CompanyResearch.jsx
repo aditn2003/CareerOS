@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchCompanyResearch, api } from "../../api";
 import CompanyResearchCard from "../../components/CompanyResearchCard";
 import "./CompanyResearch.css";
 
 export default function CompanyResearch() {
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState([]);
   const [researchResults, setResearchResults] = useState({});
   const [activeCompany, setActiveCompany] = useState("");
@@ -27,7 +29,14 @@ export default function CompanyResearch() {
           ...new Set(res.data.jobs.map((job) => job.company?.trim()).filter(Boolean)),
         ];
         setCompanies(uniqueCompanies);
-        if (uniqueCompanies.length > 0) setActiveCompany(uniqueCompanies[0]);
+        
+        // Check for company from URL query params (from Interview Tracker)
+        const companyFromUrl = searchParams.get("company");
+        if (companyFromUrl && uniqueCompanies.includes(companyFromUrl)) {
+          setActiveCompany(companyFromUrl);
+        } else if (uniqueCompanies.length > 0) {
+          setActiveCompany(uniqueCompanies[0]);
+        }
       } catch (err) {
         setError("Failed to fetch jobs.");
         console.error(err);
@@ -36,7 +45,7 @@ export default function CompanyResearch() {
       }
     };
     fetchJobs();
-  }, []);
+  }, [searchParams]);
 
   /* ⚡ Fetch research data */
   const fetchResearchData = async (company, isRefresh = false) => {
