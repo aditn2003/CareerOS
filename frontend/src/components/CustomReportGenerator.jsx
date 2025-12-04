@@ -22,7 +22,18 @@ import {
   Grid,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
+  AreaChart, Area,
+} from "recharts";
 import { api } from "../api";
 
 // ===== STYLES =====
@@ -66,6 +77,7 @@ const CustomReportGenerator = () => {
   const [filterOptions, setFilterOptions] = useState({
     companies: [],
     industries: [],
+    roles: [],
     dateRange: { min: null, max: null },
     statuses: [],
   });
@@ -82,10 +94,16 @@ const CustomReportGenerator = () => {
     dateRange: { start: '', end: '' },
     companies: [],
     industries: [],
+    roles: [],
     statuses: [],
   });
   const [format, setFormat] = useState('json');
   const [includeInsights, setIncludeInsights] = useState(true);
+  const [showVisualizations, setShowVisualizations] = useState(true);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareLink, setShareLink] = useState('');
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   useEffect(() => {
     const load = async () => {
@@ -110,7 +128,12 @@ const CustomReportGenerator = () => {
     setSelectedTemplate(templateId);
     const template = templates.find(t => t.id === templateId);
     if (template) {
-      setSelectedMetrics(template.metrics || []);
+      // For comprehensive template, select all metrics
+      if (templateId === 'comprehensive') {
+        setSelectedMetrics(AVAILABLE_METRICS.map(m => m.id));
+      } else {
+        setSelectedMetrics(template.metrics || []);
+      }
       setCustomTitle(template.name || '');
     }
   };
@@ -134,6 +157,9 @@ const CustomReportGenerator = () => {
     setReportData(null);
 
     try {
+      // Check if comprehensive template is selected
+      const isComprehensive = selectedTemplate === 'comprehensive';
+      
       const requestBody = {
         title: customTitle || undefined,
         template: selectedTemplate || undefined,
@@ -147,10 +173,12 @@ const CustomReportGenerator = () => {
             : undefined,
           companies: filters.companies.length > 0 ? filters.companies : undefined,
           industries: filters.industries.length > 0 ? filters.industries : undefined,
+          roles: filters.roles.length > 0 ? filters.roles : undefined,
           statuses: filters.statuses.length > 0 ? filters.statuses : undefined,
         },
         format,
         includeInsights,
+        comprehensive: isComprehensive, // Send comprehensive flag
       };
 
       if (format === 'pdf' || format === 'csv' || format === 'excel') {
@@ -196,25 +224,63 @@ const CustomReportGenerator = () => {
     }
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (!reportData) return;
     
+    // Create a shareable summary
     const shareText = `Job Search Report: ${reportData.title}\n\n` +
       `Total Applications: ${reportData.summary.totalApplications}\n` +
       `Success Rate: ${reportData.summary.successRate}%\n` +
       `Offer Rate: ${reportData.summary.offerRate}%\n\n` +
-      `Generated: ${new Date(reportData.generatedAt).toLocaleDateString()}`;
+      `Generated: ${new Date(reportData.generatedAt).toLocaleDateString()}\n\n` +
+      `View full report in the Job Search Analytics Platform.`;
 
+    // Generate a shareable link (in a real app, this would create a shareable URL)
+    const reportId = Date.now();
+    setShareLink(`${window.location.origin}/shared-report/${reportId}`);
+    
     if (navigator.share) {
-      navigator.share({
-        title: reportData.title,
-        text: shareText,
-      });
+      try {
+        await navigator.share({
+          title: reportData.title,
+          text: shareText,
+          url: window.location.href,
+        });
+      } catch (err) {
+        // User cancelled or error occurred
+        setShareDialogOpen(true);
+      }
     } else {
-      navigator.clipboard.writeText(shareText);
-      alert('Report summary copied to clipboard!');
+      setShareDialogOpen(true);
     }
   };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareText || shareLink);
+    alert('Report summary copied to clipboard!');
+  };
+
+  const generateShareText = () => {
+    if (!reportData) return '';
+    
+    let text = `📊 ${reportData.title}\n\n`;
+    text += `📈 Summary:\n`;
+    text += `• Total Applications: ${reportData.summary.totalApplications}\n`;
+    text += `• Success Rate: ${reportData.summary.successRate}%\n`;
+    text += `• Offer Rate: ${reportData.summary.offerRate}%\n\n`;
+    
+    if (reportData.insights && reportData.insights.length > 0) {
+      text += `💡 Key Insights:\n`;
+      reportData.insights.slice(0, 3).forEach(insight => {
+        text += `• ${insight.title}: ${insight.message}\n`;
+      });
+    }
+    
+    text += `\nGenerated: ${new Date(reportData.generatedAt).toLocaleDateString()}`;
+    return text;
+  };
+
+  const shareText = generateShareText();
 
   if (loading) {
     return (
@@ -374,6 +440,29 @@ const CustomReportGenerator = () => {
           </Select>
         </FormControl>
 
+        <FormControl fullWidth sx={{ mb: 2 }}>
+          <InputLabel>Filter by Roles</InputLabel>
+          <Select
+            multiple
+            value={filters.roles}
+            onChange={(e) => setFilters(prev => ({ ...prev, roles: e.target.value }))}
+            label="Filter by Roles"
+            renderValue={(selected) => (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selected.map((value) => (
+                  <Chip key={value} label={value} size="small" />
+                ))}
+              </Box>
+            )}
+          >
+            {filterOptions.roles && filterOptions.roles.map((role) => (
+              <MenuItem key={role} value={role}>
+                {role}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <FormControl fullWidth sx={{ mb: 3 }}>
           <InputLabel>Filter by Status</InputLabel>
           <Select
@@ -423,6 +512,17 @@ const CustomReportGenerator = () => {
             />
           }
           label="Include Insights & Recommendations"
+          sx={{ mb: 2 }}
+        />
+
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={showVisualizations}
+              onChange={(e) => setShowVisualizations(e.target.checked)}
+            />
+          }
+          label="Show Data Visualizations (Charts & Graphs)"
           sx={{ mb: 3 }}
         />
 
@@ -540,11 +640,135 @@ const CustomReportGenerator = () => {
             </Box>
           )}
 
-          {/* Metrics Data */}
+          {/* Data Visualizations */}
+          {showVisualizations && reportData.metrics && (
+            <Box sx={{ mb: 3 }}>
+              <Typography sx={{ fontSize: "0.95rem", fontWeight: 600, color: "#374151", mb: 2 }}>
+                📈 Data Visualizations
+              </Typography>
+
+              {/* Conversion Funnel Chart */}
+              {reportData.metrics.conversionFunnel && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}>
+                      Conversion Funnel
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={[
+                        { name: 'Interested', value: reportData.metrics.conversionFunnel.interested },
+                        { name: 'Applied', value: reportData.metrics.conversionFunnel.applied },
+                        { name: 'Interview', value: reportData.metrics.conversionFunnel.interview },
+                        { name: 'Offer', value: reportData.metrics.conversionFunnel.offer },
+                        { name: 'Rejected', value: reportData.metrics.conversionFunnel.rejected },
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="value" fill="#3b82f6" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Industry Breakdown Chart */}
+              {reportData.metrics.industryBreakdown && reportData.metrics.industryBreakdown.length > 0 && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}>
+                      Industry Breakdown
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={reportData.metrics.industryBreakdown.slice(0, 10)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="industry" angle={-45} textAnchor="end" height={100} />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="count" fill="#10b981" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Industry Success Rates Chart */}
+              {reportData.metrics.industrySuccessRates && reportData.metrics.industrySuccessRates.length > 0 && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}>
+                      Industry Success Rates
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={reportData.metrics.industrySuccessRates.slice(0, 10)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="industry" angle={-45} textAnchor="end" height={100} />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="successRate" fill="#f59e0b" name="Success Rate (%)" />
+                        <Bar dataKey="offerRate" fill="#10b981" name="Offer Rate (%)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Timeline Trends Chart */}
+              {reportData.metrics.timeline && reportData.metrics.timeline.monthly && reportData.metrics.timeline.monthly.length > 0 && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}>
+                      Timeline Trends (Monthly)
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <AreaChart data={reportData.metrics.timeline.monthly.slice(-12)}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Area type="monotone" dataKey="applications" stackId="1" stroke="#3b82f6" fill="#3b82f6" name="Applications" />
+                        <Area type="monotone" dataKey="interviews" stackId="2" stroke="#10b981" fill="#10b981" name="Interviews" />
+                        <Area type="monotone" dataKey="offers" stackId="3" stroke="#f59e0b" fill="#f59e0b" name="Offers" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Customization Impact Chart */}
+              {reportData.metrics.customizationImpact && reportData.metrics.customizationImpact.length > 0 && (
+                <Card sx={{ mb: 3 }}>
+                  <CardContent>
+                    <Typography sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}>
+                      Customization Impact
+                    </Typography>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={reportData.metrics.customizationImpact}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="level" />
+                        <YAxis />
+                        <RechartsTooltip />
+                        <Legend />
+                        <Bar dataKey="successRate" fill="#8b5cf6" name="Success Rate (%)" />
+                        <Bar dataKey="total" fill="#ec4899" name="Total Applications" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </Box>
+          )}
+
+          {/* Metrics Data (Raw JSON - Collapsible) */}
           {reportData.metrics && (
             <Box>
               <Typography sx={{ fontSize: "0.95rem", fontWeight: 600, color: "#374151", mb: 1 }}>
-                Metrics Data
+                Raw Metrics Data
               </Typography>
               <Box
                 component="pre"
@@ -563,6 +787,35 @@ const CustomReportGenerator = () => {
           )}
         </Paper>
       )}
+
+      {/* Share Dialog */}
+      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Share Report</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            Share this report summary with mentors, coaches, or accountability partners:
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={8}
+            value={shareText}
+            InputProps={{ readOnly: true }}
+            sx={{ mb: 2 }}
+          />
+          <Button
+            variant="outlined"
+            fullWidth
+            onClick={copyShareLink}
+            sx={{ mb: 1 }}
+          >
+            Copy to Clipboard
+          </Button>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShareDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -94,10 +94,23 @@ function categorizeRole(title) {
 // ------------------------------
 // HELPER: Generate Competitive Landscape
 // ------------------------------
-function generateCompetitiveLandscape(jobs, userSkills) {
-  const totalApplications = jobs.length;
-  const interviewRate = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length / Math.max(totalApplications, 1);
-  const offerRate = jobs.filter(j => j.status === 'Offer').length / Math.max(totalApplications, 1);
+function generateCompetitiveLandscape(jobs, userSkills, interviewOutcomes = []) {
+  // Count actual applications (exclude 'Interested' status)
+  const appliedJobs = jobs.filter(j => j.status && j.status !== 'Interested');
+  const totalApplications = appliedJobs.length;
+  
+  // Count interviews (from job status or interview_outcomes)
+  const interviewsFromJobs = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length;
+  const uniqueInterviewJobs = new Set([
+    ...jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').map(j => j.id),
+    ...interviewOutcomes.map(i => i.job_id).filter(Boolean)
+  ]);
+  const totalInterviews = uniqueInterviewJobs.size || interviewsFromJobs;
+  
+  const interviewRate = totalApplications > 0 ? totalInterviews / totalApplications : 0;
+  const offerRate = totalApplications > 0 
+    ? jobs.filter(j => j.status === 'Offer').length / totalApplications 
+    : 0;
   
   // Market benchmarks (industry averages)
   const benchmarks = {
@@ -316,9 +329,13 @@ function generateLocationTrends(jobs) {
 // ------------------------------
 // HELPER: Company Growth Analysis
 // ------------------------------
-function analyzeCompanyGrowth(jobs) {
+function analyzeCompanyGrowth(jobs, interviewOutcomes = [], applicationHistory = []) {
   const companyData = {};
   
+  // First, build a set of active company names from jobs
+  const activeCompanies = new Set(jobs.map(job => job.company).filter(Boolean));
+  
+  // Track applications (jobs with status 'Applied' or beyond)
   jobs.forEach(job => {
     if (!job.company) return;
     if (!companyData[job.company]) {
@@ -330,18 +347,51 @@ function analyzeCompanyGrowth(jobs) {
         industry: job.industry || 'Unknown',
       };
     }
-    companyData[job.company].applications++;
-    if (job.status === 'Interview') companyData[job.company].interviews++;
-    if (job.status === 'Offer') companyData[job.company].offers++;
+    
+    // Count as application if status is 'Applied', 'Interview', 'Offer', or 'Rejected'
+    // (exclude 'Interested' as that's not an actual application)
+    if (job.status && job.status !== 'Interested') {
+      companyData[job.company].applications++;
+    }
+    
+    // Count interviews
+    if (job.status === 'Interview' || job.status === 'Offer') {
+      companyData[job.company].interviews++;
+    }
+    
+    // Count offers
+    if (job.status === 'Offer') {
+      companyData[job.company].offers++;
+    }
+  });
+  
+  // Also count interviews from interview_outcomes table
+  // Only count interviews for companies that have active jobs
+  interviewOutcomes.forEach(interview => {
+    // Only process if company exists in active jobs AND in companyData
+    if (interview.company && activeCompanies.has(interview.company) && companyData[interview.company]) {
+      // Only count if not already counted from job status
+      // This ensures we don't double-count
+      if (interview.outcome && interview.outcome !== 'rejected') {
+        companyData[interview.company].interviews++;
+      }
+    }
+    // Note: We don't create new company entries from interview_outcomes alone
+    // They must have an active job to appear in the analysis
   });
   
   // Calculate response rate for each company
-  const companies = Object.values(companyData).map(c => ({
-    ...c,
-    responseRate: c.applications > 0 ? ((c.interviews + c.offers) / c.applications * 100).toFixed(0) + '%' : '0%',
-  }));
+  // Response rate = (interviews + offers) / applications
+  const companies = Object.values(companyData)
+    .filter(c => c.applications > 0) // Only show companies with actual applications
+    .map(c => ({
+      ...c,
+      responseRate: c.applications > 0 
+        ? ((c.interviews + c.offers) / c.applications * 100).toFixed(0) + '%' 
+        : '0%',
+    }));
   
-  // Sort by applications
+  // Sort by applications (most applications first)
   companies.sort((a, b) => b.applications - a.applications);
   
   return companies.slice(0, 10);
@@ -351,7 +401,7 @@ function analyzeCompanyGrowth(jobs) {
 // GET /api/market-intel
 // ------------------------------
 router.get("/", auth, async (req, res) => {
-  const userId = req.userId;
+  const userId = req.user.id;
 
   try {
     // 1️⃣ USER PROFILE
@@ -363,15 +413,49 @@ router.get("/", auth, async (req, res) => {
     );
     const profile = userRes.rows[0] || {};
 
-    // 2️⃣ JOB HISTORY
+    // 2️⃣ JOB HISTORY (exclude archived jobs)
     const jobsRes = await pool.query(
       `SELECT id, title, company, location, industry, status, applied_on, created_at
        FROM jobs
        WHERE user_id = $1
+         AND ("isarchived" = false OR "isarchived" IS NULL)
        ORDER BY applied_on ASC NULLS LAST, created_at ASC`,
       [userId]
     );
     const jobs = jobsRes.rows || [];
+
+    // 2️⃣b️⃣ INTERVIEW OUTCOMES (for more accurate interview tracking)
+    // Only fetch interview outcomes linked to active (non-archived) jobs
+    let interviewOutcomes = [];
+    try {
+      const interviewRes = await pool.query(
+        `SELECT io.job_id, io.company, io.interview_date, io.outcome
+         FROM interview_outcomes io
+         INNER JOIN jobs j ON io.job_id = j.id
+         WHERE io.user_id = $1
+           AND j.user_id = $1
+           AND (j."isarchived" = false OR j."isarchived" IS NULL)`,
+        [userId]
+      );
+      interviewOutcomes = interviewRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch interview outcomes:", e.message);
+    }
+
+    // 2️⃣c️⃣ APPLICATION HISTORY (for tracking status changes)
+    let applicationHistory = [];
+    try {
+      const historyRes = await pool.query(
+        `SELECT job_id, event, timestamp, from_status, to_status
+         FROM application_history
+         WHERE user_id = $1
+         ORDER BY timestamp DESC`,
+        [userId]
+      );
+      applicationHistory = historyRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch application history:", e.message);
+    }
 
     // 3️⃣ USER SKILLS
     let userSkills = [];
@@ -388,14 +472,19 @@ router.get("/", auth, async (req, res) => {
     // 4️⃣ COMPANY RESEARCH HISTORY
     let researchHistory = [];
     try {
-      const researchRes = await pool.query(
-        `SELECT company, created_at
-         FROM company_research
-         WHERE id = $1
-         ORDER BY created_at DESC`,
-        [userId]
-      );
-      researchHistory = researchRes.rows || [];
+      // Get unique companies from user's job applications and match with company_research
+      const userCompanies = [...new Set(jobs.map(j => j.company).filter(Boolean))];
+      if (userCompanies.length > 0) {
+        const placeholders = userCompanies.map((_, i) => `$${i + 1}`).join(', ');
+        const researchRes = await pool.query(
+          `SELECT company, created_at
+           FROM company_research
+           WHERE company = ANY(ARRAY[${placeholders}])
+           ORDER BY created_at DESC`,
+          userCompanies
+        );
+        researchHistory = researchRes.rows || [];
+      }
     } catch (tableErr) {
       console.warn("⚠️ company_research table not available:", tableErr.message);
     }
@@ -434,7 +523,7 @@ router.get("/", auth, async (req, res) => {
     const successMetrics = calculateSuccessMetrics(jobs);
 
     // ⭐ Competitive Landscape Analysis
-    const competitiveLandscape = generateCompetitiveLandscape(jobs, userSkills);
+    const competitiveLandscape = generateCompetitiveLandscape(jobs, userSkills, interviewOutcomes);
 
     // ⭐ Market Opportunities
     const marketOpportunities = generateMarketOpportunities(jobs, profile, userSkills);
@@ -446,7 +535,7 @@ router.get("/", auth, async (req, res) => {
     const locationTrends = generateLocationTrends(jobs);
 
     // ⭐ Company Growth Analysis
-    const companyGrowth = analyzeCompanyGrowth(jobs);
+    const companyGrowth = analyzeCompanyGrowth(jobs, interviewOutcomes, applicationHistory);
 
     // ------------------------------
     // MARKET DATA (Enhanced)
@@ -589,9 +678,25 @@ router.get("/", auth, async (req, res) => {
     // ------------------------------
     // METRICS
     // ------------------------------
-    const totalJobs = jobs.length;
-    const interviews = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length;
+    // Count actual applications (exclude 'Interested' status)
+    const appliedJobs = jobs.filter(j => j.status && j.status !== 'Interested');
+    const totalApplications = appliedJobs.length;
+    
+    // Count interviews (from job status or interview_outcomes)
+    const interviewsFromJobs = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length;
+    const uniqueInterviewJobs = new Set([
+      ...jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').map(j => j.id),
+      ...interviewOutcomes.map(i => i.job_id).filter(Boolean)
+    ]);
+    const totalInterviews = uniqueInterviewJobs.size || interviewsFromJobs;
+    
+    // Count offers
     const offers = jobs.filter(j => j.status === 'Offer').length;
+    
+    // Calculate interview rate: interviews / applications
+    const interviewRate = totalApplications > 0 
+      ? ((totalInterviews / totalApplications) * 100).toFixed(1) + '%' 
+      : '0%';
     
     const marketMomentum = `+${jobTrends[jobTrends.length - 1].count - jobTrends[0].count}% growth`;
     
@@ -638,11 +743,11 @@ router.get("/", auth, async (req, res) => {
 
       // Summary Stats
       stats: {
-        totalApplications: totalJobs,
-        totalInterviews: interviews,
+        totalApplications: totalApplications,
+        totalInterviews: totalInterviews,
         totalOffers: offers,
-        interviewRate: totalJobs > 0 ? ((interviews / totalJobs) * 100).toFixed(1) + '%' : '0%',
-        offerRate: totalJobs > 0 ? ((offers / totalJobs) * 100).toFixed(1) + '%' : '0%',
+        interviewRate: interviewRate,
+        offerRate: totalApplications > 0 ? ((offers / totalApplications) * 100).toFixed(1) + '%' : '0%',
       },
     });
 

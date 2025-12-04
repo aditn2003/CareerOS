@@ -48,20 +48,31 @@ const BENCHMARKS = {
 // ------------------------------
 // HELPER: Calculate Performance Metrics
 // ------------------------------
-function calculatePerformanceMetrics(jobs) {
-  const total = jobs.length;
-  const applied = jobs.filter(j => j.status !== 'Interested').length;
-  const interviews = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length;
+function calculatePerformanceMetrics(jobs, interviewOutcomes = []) {
+  // Count actual applications (exclude 'Interested' status)
+  const applied = jobs.filter(j => j.status && j.status !== 'Interested');
+  const totalApplications = applied.length;
+  
+  // Count interviews from job status
+  const interviewsFromJobs = jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').length;
+  
+  // Also count unique interviews from interview_outcomes
+  const uniqueInterviewJobs = new Set([
+    ...jobs.filter(j => j.status === 'Interview' || j.status === 'Offer').map(j => j.id),
+    ...interviewOutcomes.map(i => i.job_id).filter(Boolean)
+  ]);
+  const totalInterviews = uniqueInterviewJobs.size || interviewsFromJobs;
+  
   const offers = jobs.filter(j => j.status === 'Offer').length;
   const rejections = jobs.filter(j => j.status === 'Rejected').length;
 
   return {
-    totalApplications: total,
-    interviewRate: total > 0 ? (interviews / total * 100) : 0,
-    offerRate: interviews > 0 ? (offers / interviews * 100) : 0,
-    responseRate: total > 0 ? ((interviews + offers) / total * 100) : 0,
-    rejectionRate: total > 0 ? (rejections / total * 100) : 0,
-    appliedCount: applied,
+    totalApplications: totalApplications,
+    interviewRate: totalApplications > 0 ? (totalInterviews / totalApplications * 100) : 0,
+    offerRate: totalInterviews > 0 ? (offers / totalInterviews * 100) : 0,
+    responseRate: totalApplications > 0 ? ((totalInterviews + offers) / totalApplications * 100) : 0,
+    rejectionRate: totalApplications > 0 ? (rejections / totalApplications * 100) : 0,
+    appliedCount: totalApplications,
   };
 }
 
@@ -156,95 +167,121 @@ function analyzeExperienceProfile(employment, education) {
 }
 
 // ------------------------------
-// HELPER: Compare Against Benchmarks
+// HELPER: Calculate Percentile from Distribution
 // ------------------------------
-function compareAgainstBenchmarks(userMetrics, skillsProfile, experienceProfile, networkingData) {
+function calculatePercentileFromDistribution(value, distribution) {
+  if (!distribution || distribution.length === 0) return 50;
+  
+  // Sort distribution
+  const sorted = [...distribution].sort((a, b) => a - b);
+  
+  // Count how many values are below the user's value
+  const belowCount = sorted.filter(v => v < value).length;
+  const equalCount = sorted.filter(v => v === value).length;
+  
+  // Calculate percentile: (below + 0.5 * equal) / total * 100
+  const percentile = ((belowCount + 0.5 * equalCount) / sorted.length) * 100;
+  
+  return Math.max(0, Math.min(100, Math.round(percentile)));
+}
+
+// ------------------------------
+// HELPER: Calculate Statistics from Distribution
+// ------------------------------
+function calculateStats(distribution) {
+  if (!distribution || distribution.length === 0) {
+    return { min: 0, max: 0, average: 0, median: 0, p75: 0, p90: 0 };
+  }
+  
+  const sorted = [...distribution].sort((a, b) => a - b);
+  const sum = sorted.reduce((a, b) => a + b, 0);
+  
+  return {
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    average: sum / sorted.length,
+    median: sorted[Math.floor(sorted.length / 2)],
+    p75: sorted[Math.floor(sorted.length * 0.75)],
+    p90: sorted[Math.floor(sorted.length * 0.90)],
+  };
+}
+
+// ------------------------------
+// HELPER: Compare Against All Users
+// ------------------------------
+function compareAgainstAllUsers(userMetrics, skillsProfile, experienceProfile, networkingData, allUsersMetrics) {
+  // Extract distributions for each metric
+  const applicationVolumes = allUsersMetrics.map(m => m.totalApplications).filter(v => v > 0);
+  const interviewRates = allUsersMetrics.map(m => m.interviewRate).filter(v => v >= 0);
+  const offerRates = allUsersMetrics.map(m => m.offerRate).filter(v => v >= 0);
+  const technicalSkills = allUsersMetrics.map(m => m.technicalSkills).filter(v => v >= 0);
+  const softSkills = allUsersMetrics.map(m => m.softSkills).filter(v => v >= 0);
+  const certifications = allUsersMetrics.map(m => m.certifications).filter(v => v >= 0);
+  const experienceYears = allUsersMetrics.map(m => m.experienceYears).filter(v => v >= 0);
+  const networkingContacts = allUsersMetrics.map(m => m.networkingContacts).filter(v => v >= 0);
+  
+  // Calculate statistics for each metric
+  const appVolStats = calculateStats(applicationVolumes);
+  const interviewStats = calculateStats(interviewRates);
+  const offerStats = calculateStats(offerRates);
+  const techSkillsStats = calculateStats(technicalSkills);
+  const softSkillsStats = calculateStats(softSkills);
+  const certStats = calculateStats(certifications);
+  const expStats = calculateStats(experienceYears);
+  const networkStats = calculateStats(networkingContacts);
+  
   const comparisons = {
     applicationVolume: {
       user: userMetrics.totalApplications,
-      benchmark: BENCHMARKS.applicationVolume.average,
-      topPerformer: BENCHMARKS.applicationVolume.topPerformer,
-      percentile: calculatePercentile(
-        userMetrics.totalApplications,
-        BENCHMARKS.applicationVolume.low,
-        BENCHMARKS.applicationVolume.topPerformer
-      ),
+      benchmark: appVolStats.average,
+      topPerformer: appVolStats.p90,
+      percentile: calculatePercentileFromDistribution(userMetrics.totalApplications, applicationVolumes),
     },
     interviewRate: {
       user: userMetrics.interviewRate,
-      benchmark: BENCHMARKS.successRates.interviewRate.average,
-      topPerformer: BENCHMARKS.successRates.interviewRate.topPerformer,
-      percentile: calculatePercentile(
-        userMetrics.interviewRate,
-        5,
-        BENCHMARKS.successRates.interviewRate.topPerformer
-      ),
+      benchmark: interviewStats.average,
+      topPerformer: interviewStats.p90,
+      percentile: calculatePercentileFromDistribution(userMetrics.interviewRate, interviewRates),
     },
     offerRate: {
       user: userMetrics.offerRate,
-      benchmark: BENCHMARKS.successRates.offerRate.average,
-      topPerformer: BENCHMARKS.successRates.offerRate.topPerformer,
-      percentile: calculatePercentile(
-        userMetrics.offerRate,
-        1,
-        BENCHMARKS.successRates.offerRate.topPerformer
-      ),
+      benchmark: offerStats.average,
+      topPerformer: offerStats.p90,
+      percentile: calculatePercentileFromDistribution(userMetrics.offerRate, offerRates),
     },
     technicalSkills: {
       user: skillsProfile.technical,
-      benchmark: BENCHMARKS.skills.technical.average,
-      topPerformer: BENCHMARKS.skills.technical.topPerformer,
-      percentile: calculatePercentile(
-        skillsProfile.technical,
-        2,
-        BENCHMARKS.skills.technical.topPerformer
-      ),
+      benchmark: techSkillsStats.average,
+      topPerformer: techSkillsStats.p90,
+      percentile: calculatePercentileFromDistribution(skillsProfile.technical, technicalSkills),
     },
     softSkills: {
       user: skillsProfile.soft,
-      benchmark: BENCHMARKS.skills.soft.average,
-      topPerformer: BENCHMARKS.skills.soft.topPerformer,
-      percentile: calculatePercentile(
-        skillsProfile.soft,
-        1,
-        BENCHMARKS.skills.soft.topPerformer
-      ),
+      benchmark: softSkillsStats.average,
+      topPerformer: softSkillsStats.p90,
+      percentile: calculatePercentileFromDistribution(skillsProfile.soft, softSkills),
     },
     certifications: {
-      user: 0, // Will be populated from data
-      benchmark: BENCHMARKS.skills.certifications.average,
-      topPerformer: BENCHMARKS.skills.certifications.topPerformer,
-      percentile: 50,
+      user: skillsProfile.certifications || 0,
+      benchmark: certStats.average,
+      topPerformer: certStats.p90,
+      percentile: calculatePercentileFromDistribution(skillsProfile.certifications || 0, certifications),
     },
     experience: {
       user: experienceProfile.totalYears,
-      benchmark: BENCHMARKS.experience.years.mid,
-      topPerformer: BENCHMARKS.experience.years.senior,
-      percentile: calculatePercentile(
-        experienceProfile.totalYears,
-        0,
-        BENCHMARKS.experience.years.expert
-      ),
+      benchmark: expStats.average,
+      topPerformer: expStats.p90,
+      percentile: calculatePercentileFromDistribution(experienceProfile.totalYears, experienceYears),
     },
     networking: {
       user: networkingData.contacts || 0,
-      benchmark: BENCHMARKS.networking.contacts.average,
-      topPerformer: BENCHMARKS.networking.contacts.topPerformer,
-      percentile: calculatePercentile(
-        networkingData.contacts || 0,
-        5,
-        BENCHMARKS.networking.contacts.topPerformer
-      ),
+      benchmark: networkStats.average,
+      topPerformer: networkStats.p90,
+      percentile: calculatePercentileFromDistribution(networkingData.contacts || 0, networkingContacts),
     },
   };
 
   return comparisons;
-}
-
-function calculatePercentile(value, min, max) {
-  if (max === min) return 50;
-  const percentile = ((value - min) / (max - min)) * 100;
-  return Math.max(0, Math.min(100, Math.round(percentile)));
 }
 
 // ------------------------------
@@ -297,7 +334,7 @@ function generateCompetitiveRecommendations(comparisons, skillGaps, userMetrics,
     recommendations.push({
       type: 'volume',
       title: 'Increase Application Volume',
-      message: `You've applied to ${comparisons.applicationVolume.user} jobs. Top performers apply to ${comparisons.applicationVolume.topPerformer}+ jobs. Increase volume while maintaining quality.`,
+      message: `You've applied to ${comparisons.applicationVolume.user} jobs. The average user applies to ${comparisons.applicationVolume.benchmark.toFixed(0)} jobs, and top performers apply to ${comparisons.applicationVolume.topPerformer.toFixed(0)}+ jobs. Increase volume while maintaining quality.`,
       priority: 'high',
       impact: 'high',
       icon: '📈',
@@ -342,7 +379,7 @@ function generateCompetitiveRecommendations(comparisons, skillGaps, userMetrics,
     recommendations.push({
       type: 'skills',
       title: 'Expand Technical Skills',
-      message: `You have ${comparisons.technicalSkills.user} technical skills. Top performers average ${comparisons.technicalSkills.topPerformer}. Consider learning new technologies relevant to your field.`,
+      message: `You have ${comparisons.technicalSkills.user} technical skills. The average user has ${comparisons.technicalSkills.benchmark.toFixed(0)}, and top performers have ${comparisons.technicalSkills.topPerformer.toFixed(0)}. Consider learning new technologies relevant to your field.`,
       priority: 'medium',
       impact: 'medium',
       icon: '💻',
@@ -354,7 +391,7 @@ function generateCompetitiveRecommendations(comparisons, skillGaps, userMetrics,
     recommendations.push({
       type: 'networking',
       title: 'Build Professional Network',
-      message: `You have ${comparisons.networking.user} contacts. Top performers maintain ${comparisons.networking.topPerformer}+ connections. Networking can increase offer rates by 40%.`,
+      message: `You have ${comparisons.networking.user} contacts. The average user has ${comparisons.networking.benchmark.toFixed(0)}, and top performers maintain ${comparisons.networking.topPerformer.toFixed(0)}+ connections. Networking can increase offer rates by 40%.`,
       priority: 'medium',
       impact: 'high',
       icon: '🤝',
@@ -366,7 +403,7 @@ function generateCompetitiveRecommendations(comparisons, skillGaps, userMetrics,
     recommendations.push({
       type: 'experience',
       title: 'Diversify Experience',
-      message: `Consider roles at different companies to gain diverse perspectives. Top performers work at ${BENCHMARKS.experience.companies.topPerformer}+ companies.`,
+      message: `Consider roles at different companies to gain diverse perspectives. Top performers work at ${comparisons.experience.topPerformer.toFixed(0)}+ companies.`,
       priority: 'low',
       impact: 'medium',
       icon: '🏢',
@@ -394,7 +431,7 @@ function generateCompetitiveRecommendations(comparisons, skillGaps, userMetrics,
 // ------------------------------
 // HELPER: Generate Differentiation Strategies
 // ------------------------------
-function generateDifferentiationStrategies(skillsProfile, experienceProfile, userMetrics, jobs) {
+function generateDifferentiationStrategies(skillsProfile, experienceProfile, userMetrics, jobs, comparisons) {
   const strategies = [];
 
   // Unique skill combinations
@@ -408,11 +445,11 @@ function generateDifferentiationStrategies(skillsProfile, experienceProfile, use
   }
 
   // High interview rate
-  if (userMetrics.interviewRate > BENCHMARKS.successRates.interviewRate.average) {
+  if (comparisons && userMetrics.interviewRate > comparisons.interviewRate.benchmark) {
     strategies.push({
       type: 'strength',
       title: 'Strong Application Quality',
-      description: 'Your interview rate indicates strong application materials. This is a key differentiator.',
+      description: `Your interview rate of ${userMetrics.interviewRate.toFixed(1)}% is above the average of ${comparisons.interviewRate.benchmark.toFixed(1)}%. This is a key differentiator.`,
       actionable: 'Continue maintaining high-quality, tailored applications. Consider mentoring others.',
     });
   }
@@ -490,13 +527,15 @@ function calculateMarketPosition(comparisons) {
 // GET /api/competitive-analysis
 // ------------------------------
 router.get("/", auth, async (req, res) => {
-  const userId = req.userId;
+  const userId = req.user.id;
 
   try {
-    // 1️⃣ Fetch Jobs
+    // 1️⃣ Fetch Jobs (exclude archived jobs)
     const jobsRes = await pool.query(
       `SELECT id, title, company, industry, status, applied_on, created_at
-       FROM jobs WHERE user_id = $1`,
+       FROM jobs 
+       WHERE user_id = $1
+         AND ("isarchived" = false OR "isarchived" IS NULL)`,
       [userId]
     );
     const jobs = jobsRes.rows || [];
@@ -566,12 +605,123 @@ router.get("/", auth, async (req, res) => {
       console.warn("⚠️ Could not fetch networking data:", e.message);
     }
 
+    // 7️⃣ Fetch Interview Outcomes (for accurate interview tracking)
+    let interviewOutcomes = [];
+    try {
+      const interviewRes = await pool.query(
+        `SELECT io.job_id, io.company, io.interview_date, io.outcome
+         FROM interview_outcomes io
+         INNER JOIN jobs j ON io.job_id = j.id
+         WHERE io.user_id = $1
+           AND j.user_id = $1
+           AND (j."isarchived" = false OR j."isarchived" IS NULL)`,
+        [userId]
+      );
+      interviewOutcomes = interviewRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch interview outcomes:", e.message);
+    }
+
+    // ------------------------------
+    // FETCH ALL USERS' DATA FOR COMPARISON
+    // ------------------------------
+    console.log("📊 Fetching all users' data for competitive comparison...");
+    
+    // Fetch all users' jobs
+    const allJobsRes = await pool.query(
+      `SELECT user_id, id, title, company, industry, status, applied_on, created_at
+       FROM jobs 
+       WHERE ("isarchived" = false OR "isarchived" IS NULL)`
+    );
+    const allJobs = allJobsRes.rows || [];
+    
+    // Fetch all users' skills
+    const allSkillsRes = await pool.query(
+      `SELECT user_id, name, category, proficiency FROM skills`
+    );
+    const allSkills = allSkillsRes.rows || [];
+    
+    // Fetch all users' employment
+    const allEmploymentRes = await pool.query(
+      `SELECT user_id, title, company, start_date, end_date, current FROM employment`
+    );
+    const allEmployment = allEmploymentRes.rows || [];
+    
+    // Fetch all users' education
+    const allEducationRes = await pool.query(
+      `SELECT user_id, degree_type, field_of_study FROM education`
+    );
+    const allEducation = allEducationRes.rows || [];
+    
+    // Fetch all users' certifications
+    const allCertificationsRes = await pool.query(
+      `SELECT user_id FROM certifications`
+    );
+    const allCertifications = allCertificationsRes.rows || [];
+    
+    // Fetch all users' networking contacts
+    const allNetworkingRes = await pool.query(
+      `SELECT user_id, COUNT(*) as count FROM networking_contacts GROUP BY user_id`
+    );
+    const networkingMap = {};
+    allNetworkingRes.rows.forEach(row => {
+      networkingMap[row.user_id] = parseInt(row.count || 0);
+    });
+    
+    // Fetch all users' interview outcomes
+    const allInterviewOutcomesRes = await pool.query(
+      `SELECT io.user_id, io.job_id, j.user_id as job_user_id
+       FROM interview_outcomes io
+       INNER JOIN jobs j ON io.job_id = j.id
+       WHERE (j."isarchived" = false OR j."isarchived" IS NULL)`
+    );
+    const allInterviewOutcomes = allInterviewOutcomesRes.rows || [];
+    
+    // Group data by user_id
+    const usersData = {};
+    const allUserIds = new Set([
+      ...allJobs.map(j => j.user_id),
+      ...allSkills.map(s => s.user_id),
+      ...allEmployment.map(e => e.user_id),
+      ...allEducation.map(e => e.user_id),
+      ...allCertifications.map(c => c.user_id),
+      ...Object.keys(networkingMap).map(Number),
+    ]);
+    
+    // Calculate metrics for each user
+    allUserIds.forEach(uid => {
+      const userJobs = allJobs.filter(j => j.user_id === uid);
+      const userSkills = allSkills.filter(s => s.user_id === uid);
+      const userEmployment = allEmployment.filter(e => e.user_id === uid);
+      const userEducation = allEducation.filter(e => e.user_id === uid);
+      const userCerts = allCertifications.filter(c => c.user_id === uid);
+      const userInterviewOutcomes = allInterviewOutcomes.filter(io => io.user_id === uid && io.job_user_id === uid);
+      
+      const userMetrics = calculatePerformanceMetrics(userJobs, userInterviewOutcomes);
+      const userSkillsProfile = analyzeSkillsProfile(userSkills, userJobs);
+      const userExpProfile = analyzeExperienceProfile(userEmployment, userEducation);
+      
+      usersData[uid] = {
+        totalApplications: userMetrics.totalApplications,
+        interviewRate: userMetrics.interviewRate,
+        offerRate: userMetrics.offerRate,
+        technicalSkills: userSkillsProfile.technical,
+        softSkills: userSkillsProfile.soft,
+        certifications: userCerts.length,
+        experienceYears: userExpProfile.totalYears,
+        networkingContacts: networkingMap[uid] || 0,
+      };
+    });
+    
+    const allUsersMetrics = Object.values(usersData);
+    console.log(`📊 Calculated metrics for ${allUsersMetrics.length} users`);
+
     // ------------------------------
     // ANALYTICS (UC-104)
     // ------------------------------
 
-    // Calculate Performance Metrics
-    const userMetrics = calculatePerformanceMetrics(jobs);
+    // Calculate Performance Metrics for current user
+    const userMetrics = calculatePerformanceMetrics(jobs, interviewOutcomes);
 
     // Analyze Skills Profile
     const skillsProfile = analyzeSkillsProfile(userSkills, jobs);
@@ -580,18 +730,13 @@ router.get("/", auth, async (req, res) => {
     // Analyze Experience Profile
     const experienceProfile = analyzeExperienceProfile(employment, education);
 
-    // Compare Against Benchmarks
-    const comparisons = compareAgainstBenchmarks(
+    // Compare Against All Users in Database
+    const comparisons = compareAgainstAllUsers(
       userMetrics,
       skillsProfile,
       experienceProfile,
-      networkingData
-    );
-    comparisons.certifications.user = certifications.length;
-    comparisons.certifications.percentile = calculatePercentile(
-      certifications.length,
-      0,
-      BENCHMARKS.skills.certifications.topPerformer
+      networkingData,
+      allUsersMetrics
     );
 
     // Identify Skill Gaps
@@ -613,36 +758,37 @@ router.get("/", auth, async (req, res) => {
       skillsProfile,
       experienceProfile,
       userMetrics,
-      jobs
+      jobs,
+      comparisons
     );
 
     // ------------------------------
-    // BENCHMARK DATA FOR CHARTS
+    // BENCHMARK DATA FOR CHARTS (using real user data)
     // ------------------------------
     const benchmarkData = [
       {
         metric: 'Interview Rate',
         user: userMetrics.interviewRate,
-        average: BENCHMARKS.successRates.interviewRate.average,
-        topPerformer: BENCHMARKS.successRates.interviewRate.topPerformer,
+        average: comparisons.interviewRate.benchmark,
+        topPerformer: comparisons.interviewRate.topPerformer,
       },
       {
         metric: 'Offer Rate',
         user: userMetrics.offerRate,
-        average: BENCHMARKS.successRates.offerRate.average,
-        topPerformer: BENCHMARKS.successRates.offerRate.topPerformer,
+        average: comparisons.offerRate.benchmark,
+        topPerformer: comparisons.offerRate.topPerformer,
       },
       {
         metric: 'Technical Skills',
         user: skillsProfile.technical,
-        average: BENCHMARKS.skills.technical.average,
-        topPerformer: BENCHMARKS.skills.technical.topPerformer,
+        average: comparisons.technicalSkills.benchmark,
+        topPerformer: comparisons.technicalSkills.topPerformer,
       },
       {
         metric: 'Networking',
         user: networkingData.contacts,
-        average: BENCHMARKS.networking.contacts.average,
-        topPerformer: BENCHMARKS.networking.contacts.topPerformer,
+        average: comparisons.networking.benchmark,
+        topPerformer: comparisons.networking.topPerformer,
       },
     ];
 
@@ -653,6 +799,22 @@ router.get("/", auth, async (req, res) => {
       userValue: comp.user,
       benchmark: comp.benchmark,
     }));
+
+    // ------------------------------
+    // DEBUG LOGGING
+    // ------------------------------
+    console.log(`📊 Competitive Analysis for user ${userId}:`);
+    console.log(`  - Jobs: ${jobs.length} (active)`);
+    console.log(`  - Applications: ${userMetrics.totalApplications}`);
+    console.log(`  - Interview Rate: ${userMetrics.interviewRate.toFixed(1)}% (vs ${comparisons.interviewRate.benchmark.toFixed(1)}% avg, ${comparisons.interviewRate.topPerformer.toFixed(1)}% top 10%)`);
+    console.log(`  - Offer Rate: ${userMetrics.offerRate.toFixed(1)}% (vs ${comparisons.offerRate.benchmark.toFixed(1)}% avg, ${comparisons.offerRate.topPerformer.toFixed(1)}% top 10%)`);
+    console.log(`  - Skills: ${skillsProfile.total} (${skillsProfile.technical} technical, ${skillsProfile.soft} soft)`);
+    console.log(`  - Certifications: ${certifications.length} (vs ${comparisons.certifications.benchmark.toFixed(0)} avg)`);
+    console.log(`  - Networking: ${networkingData.contacts} contacts (vs ${comparisons.networking.benchmark.toFixed(0)} avg)`);
+    console.log(`  - Experience: ${experienceProfile.totalYears} years, ${experienceProfile.companies} companies`);
+    console.log(`  - Market Position: ${marketPosition.score} (${marketPosition.position}) - ${marketPosition.percentile}th percentile`);
+    console.log(`  - Percentile Rankings:`, Object.entries(comparisons).map(([k, v]) => `${k}: ${v.percentile}th`).join(', '));
+    console.log(`  - Total users compared: ${allUsersMetrics.length}`);
 
     // ------------------------------
     // RESPONSE

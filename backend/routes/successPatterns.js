@@ -11,8 +11,10 @@ const router = express.Router();
 // HELPER: Analyze Success Patterns in Applications
 // ------------------------------
 function analyzeApplicationPatterns(jobs) {
-  const successful = jobs.filter(j => j.status === 'Offer' || j.status === 'Interview');
-  const failed = jobs.filter(j => j.status === 'Rejected');
+  // Only analyze actual applications (exclude 'Interested' status)
+  const actualApplications = jobs.filter(j => j.status && j.status !== 'Interested');
+  const successful = actualApplications.filter(j => j.status === 'Offer' || j.status === 'Interview');
+  const failed = actualApplications.filter(j => j.status === 'Rejected');
   
   const patterns = {
     byIndustry: {},
@@ -28,27 +30,60 @@ function analyzeApplicationPatterns(jobs) {
     bySalaryRange: {},
   };
 
-  // Analyze successful applications
-  successful.forEach(job => {
-    // Industry
-    if (job.industry) {
-      if (!patterns.byIndustry[job.industry]) {
-        patterns.byIndustry[job.industry] = { success: 0, total: 0 };
+  // Normalize industry names (case-insensitive, trim whitespace)
+  const normalizeIndustry = (industry) => {
+    if (!industry) return null;
+    return industry.trim().toLowerCase();
+  };
+
+  // First, initialize all industries/companies/locations from ALL applications
+  actualApplications.forEach(job => {
+    // Industry (normalized for case-insensitive matching)
+    const normalizedIndustry = normalizeIndustry(job.industry);
+    if (normalizedIndustry) {
+      // Use original industry name for display, but normalize for matching
+      const displayIndustry = job.industry.trim();
+      if (!patterns.byIndustry[normalizedIndustry]) {
+        patterns.byIndustry[normalizedIndustry] = { 
+          success: 0, 
+          total: 0,
+          displayName: displayIndustry // Store original for display
+        };
       }
-      patterns.byIndustry[job.industry].success++;
-      patterns.byIndustry[job.industry].total++;
+      patterns.byIndustry[normalizedIndustry].total++;
     }
 
     // Company
-    if (job.company) {
+    if (job.company && job.company.trim() !== '') {
       if (!patterns.byCompany[job.company]) {
         patterns.byCompany[job.company] = { success: 0, total: 0 };
       }
-      patterns.byCompany[job.company].success++;
       patterns.byCompany[job.company].total++;
     }
 
-    // Timing
+    // Location
+    if (job.location && job.location.trim() !== '') {
+      if (!patterns.byLocation[job.location]) {
+        patterns.byLocation[job.location] = { success: 0, total: 0 };
+      }
+      patterns.byLocation[job.location].total++;
+    }
+  });
+
+  // Then, mark successful ones
+  successful.forEach(job => {
+    // Industry (using normalized key)
+    const normalizedIndustry = normalizeIndustry(job.industry);
+    if (normalizedIndustry && patterns.byIndustry[normalizedIndustry]) {
+      patterns.byIndustry[normalizedIndustry].success++;
+    }
+
+    // Company
+    if (job.company && patterns.byCompany[job.company]) {
+      patterns.byCompany[job.company].success++;
+    }
+
+    // Timing (only for successful applications)
     if (job.applied_on || job.created_at) {
       const date = new Date(job.applied_on || job.created_at);
       const hour = date.getHours();
@@ -71,35 +106,35 @@ function analyzeApplicationPatterns(jobs) {
     }
 
     // Location
-    if (job.location) {
-      if (!patterns.byLocation[job.location]) {
-        patterns.byLocation[job.location] = { success: 0, total: 0 };
-      }
-      patterns.byLocation[job.location].success++;
-      patterns.byLocation[job.location].total++;
-    }
-  });
-
-  // Analyze failed applications for comparison
-  failed.forEach(job => {
-    if (job.industry && patterns.byIndustry[job.industry]) {
-      patterns.byIndustry[job.industry].total++;
-    }
-    if (job.company && patterns.byCompany[job.company]) {
-      patterns.byCompany[job.company].total++;
-    }
     if (job.location && patterns.byLocation[job.location]) {
-      patterns.byLocation[job.location].total++;
+      patterns.byLocation[job.location].success++;
     }
   });
 
-  // Calculate success rates
-  const industrySuccessRates = Object.entries(patterns.byIndustry).map(([industry, data]) => ({
-    industry,
-    successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
-    success: data.success,
-    total: data.total,
-  })).sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate));
+  // Calculate success rates (use displayName if available, otherwise use normalized key)
+  const industrySuccessRates = Object.entries(patterns.byIndustry)
+    .filter(([industry, data]) => industry && data.total > 0) // Filter out empty industries
+    .map(([industry, data]) => ({
+      industry: data.displayName || industry.charAt(0).toUpperCase() + industry.slice(1), // Use display name or capitalize
+      successRate: data.total > 0 ? parseFloat((data.success / data.total * 100).toFixed(1)) : 0,
+      success: data.success,
+      total: data.total,
+    }))
+    .sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate));
+  
+  // Debug logging
+  if (industrySuccessRates.length > 0) {
+    console.log(`📊 Industry Success Rates calculated:`, industrySuccessRates.slice(0, 5));
+  } else {
+    console.log(`⚠️ No industry success rates calculated. Industries in patterns:`, Object.keys(patterns.byIndustry));
+    console.log(`⚠️ Actual applications count: ${actualApplications.length}, Successful: ${successful.length}`);
+    console.log(`⚠️ Sample jobs:`, actualApplications.slice(0, 3).map(j => ({ 
+      id: j.id, 
+      industry: j.industry, 
+      status: j.status,
+      company: j.company 
+    })));
+  }
 
   const companySuccessRates = Object.entries(patterns.byCompany)
     .filter(([_, data]) => data.total >= 2) // Only companies with 2+ applications
@@ -144,11 +179,15 @@ function analyzeApplicationPatterns(jobs) {
 // ------------------------------
 // HELPER: Analyze Preparation Activity Correlation
 // ------------------------------
-function analyzePreparationCorrelation(jobs, networkingActivities, researchHistory) {
+function analyzePreparationCorrelation(jobs, networkingActivities, researchHistory, mockInterviews = [], techPrepSessions = [], interviewPrep = []) {
   const correlations = {
     withResearch: { success: 0, total: 0 },
     withNetworking: { success: 0, total: 0 },
-    withBoth: { success: 0, total: 0 },
+    withMockInterview: { success: 0, total: 0 },
+    withTechPrep: { success: 0, total: 0 },
+    withInterviewPrep: { success: 0, total: 0 },
+    withMultiplePrep: { success: 0, total: 0 }, // 2+ preparation activities
+    withComprehensivePrep: { success: 0, total: 0 }, // 3+ preparation activities
     withNeither: { success: 0, total: 0 },
   };
 
@@ -161,14 +200,58 @@ function analyzePreparationCorrelation(jobs, networkingActivities, researchHisto
     const hasNetworking = networkingActivities.some(activity => {
       const activityDate = new Date(activity.created_at);
       const daysDiff = Math.abs((jobDate - activityDate) / (1000 * 60 * 60 * 24));
-      return daysDiff <= 7; // Networking within 7 days of application
+      return daysDiff <= 14; // Networking within 14 days of application
+    });
+
+    // Check for mock interviews for this company/role
+    const hasMockInterview = mockInterviews.some(mock => {
+      const mockDate = new Date(mock.created_at);
+      const daysDiff = Math.abs((jobDate - mockDate) / (1000 * 60 * 60 * 24));
+      return (mock.company && job.company && mock.company.toLowerCase() === job.company.toLowerCase()) ||
+             daysDiff <= 30; // Mock interview within 30 days
+    });
+
+    // Check for tech prep for this company/role
+    const hasTechPrep = techPrepSessions.some(tech => {
+      const techDate = new Date(tech.created_at);
+      const daysDiff = Math.abs((jobDate - techDate) / (1000 * 60 * 60 * 24));
+      return (tech.company && job.company && tech.company.toLowerCase() === job.company.toLowerCase()) ||
+             daysDiff <= 30; // Tech prep within 30 days
+    });
+
+    // Check for interview preparation
+    const hasInterviewPrep = interviewPrep.some(prep => {
+      const prepDate = new Date(prep.created_at);
+      const daysDiff = Math.abs((jobDate - prepDate) / (1000 * 60 * 60 * 24));
+      return daysDiff <= 14; // Interview prep within 14 days
     });
 
     const isSuccess = job.status === 'Offer' || job.status === 'Interview';
 
-    if (hasResearch && hasNetworking) {
-      correlations.withBoth.total++;
-      if (isSuccess) correlations.withBoth.success++;
+    // Count preparation activities
+    const prepCount = [hasResearch, hasNetworking, hasMockInterview, hasTechPrep, hasInterviewPrep]
+      .filter(Boolean).length;
+
+    if (prepCount >= 3) {
+      correlations.withComprehensivePrep.total++;
+      if (isSuccess) correlations.withComprehensivePrep.success++;
+    } else if (prepCount >= 2) {
+      correlations.withMultiplePrep.total++;
+      if (isSuccess) correlations.withMultiplePrep.success++;
+    } else if (hasInterviewPrep) {
+      correlations.withInterviewPrep.total++;
+      if (isSuccess) correlations.withInterviewPrep.success++;
+    } else if (hasTechPrep) {
+      correlations.withTechPrep.total++;
+      if (isSuccess) correlations.withTechPrep.success++;
+    } else if (hasMockInterview) {
+      correlations.withMockInterview.total++;
+      if (isSuccess) correlations.withMockInterview.success++;
+    } else if (hasResearch && hasNetworking) {
+      correlations.withResearch.total++;
+      if (isSuccess) correlations.withResearch.success++;
+      correlations.withNetworking.total++;
+      if (isSuccess) correlations.withNetworking.success++;
     } else if (hasResearch) {
       correlations.withResearch.total++;
       if (isSuccess) correlations.withResearch.success++;
@@ -182,25 +265,26 @@ function analyzePreparationCorrelation(jobs, networkingActivities, researchHisto
   });
 
   // Calculate success rates
-  const preparationData = Object.entries(correlations).map(([type, data]) => ({
-    type: type.replace(/([A-Z])/g, ' $1').trim(),
-    successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
-    success: data.success,
-    total: data.total,
-  }));
+  const preparationData = Object.entries(correlations)
+    .filter(([_, data]) => data.total > 0) // Only include categories with data
+    .map(([type, data]) => ({
+      type: type.replace(/([A-Z])/g, ' $1').trim(),
+      successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
+      success: data.success,
+      total: data.total,
+    }))
+    .sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate));
 
   return {
     preparationData,
-    bestStrategy: preparationData.reduce((best, current) => 
-      parseFloat(current.successRate) > parseFloat(best.successRate) ? current : best
-    ),
+    bestStrategy: preparationData.length > 0 ? preparationData[0] : { type: 'None', successRate: '0', success: 0, total: 0 },
   };
 }
 
 // ------------------------------
 // HELPER: Analyze Timing Patterns
 // ------------------------------
-function analyzeTimingPatterns(jobs) {
+function analyzeTimingPatterns(jobs, applicationHistory = [], interviewOutcomes = []) {
   const timingData = {
     timeToResponse: [],
     timeToInterview: [],
@@ -209,12 +293,38 @@ function analyzeTimingPatterns(jobs) {
     interviewToOffer: [],
   };
 
+  // Create a map of job_id to application history events
+  const historyByJobId = {};
+  applicationHistory.forEach(hist => {
+    if (!historyByJobId[hist.job_id]) {
+      historyByJobId[hist.job_id] = [];
+    }
+    historyByJobId[hist.job_id].push(hist);
+  });
+
+  // Create a map of job_id to interview outcomes
+  const interviewsByJobId = {};
+  interviewOutcomes.forEach(interview => {
+    if (interview.job_id) {
+      interviewsByJobId[interview.job_id] = interview;
+    }
+  });
+
   jobs.forEach(job => {
     if (!job.created_at) return;
 
     const created = new Date(job.created_at);
     const applied = job.applied_on ? new Date(job.applied_on) : created;
     const statusUpdated = job.status_updated_at ? new Date(job.status_updated_at) : null;
+
+    // Get history events for this job
+    const jobHistory = historyByJobId[job.id] || [];
+    const interviewEvent = jobHistory.find(h => 
+      h.to_status === 'Interview' || h.to_status === 'Offer' || h.event?.toLowerCase().includes('interview')
+    );
+    const offerEvent = jobHistory.find(h => 
+      h.to_status === 'Offer' || h.event?.toLowerCase().includes('offer')
+    );
 
     // Time to response (any status change)
     if (statusUpdated && job.status !== 'Interested') {
@@ -224,26 +334,42 @@ function analyzeTimingPatterns(jobs) {
       }
     }
 
-    // Time to interview
-    if (job.status === 'Interview' || job.status === 'Offer') {
-      if (statusUpdated) {
-        const days = Math.floor((statusUpdated - applied) / (1000 * 60 * 60 * 24));
+    // Time to interview (use interview_outcomes or history or status_updated_at)
+    let interviewDate = null;
+    if (interviewsByJobId[job.id] && interviewsByJobId[job.id].interview_date) {
+      interviewDate = new Date(interviewsByJobId[job.id].interview_date);
+    } else if (interviewEvent && interviewEvent.timestamp) {
+      interviewDate = new Date(interviewEvent.timestamp);
+    } else if ((job.status === 'Interview' || job.status === 'Offer') && statusUpdated) {
+      interviewDate = statusUpdated;
+    }
+
+    if (interviewDate) {
+      const days = Math.floor((interviewDate - applied) / (1000 * 60 * 60 * 24));
+      if (days >= 0 && days <= 90) {
         timingData.timeToInterview.push(days);
         timingData.applicationToInterview.push(days);
       }
     }
 
     // Time to offer
-    if (job.status === 'Offer' && statusUpdated) {
-      const days = Math.floor((statusUpdated - applied) / (1000 * 60 * 60 * 24));
-      timingData.timeToOffer.push(days);
-      
-      // Also check if there was an interview first
-      if (job.application_history && Array.isArray(job.application_history)) {
-        const interviewEvent = job.application_history.find(e => e.status === 'Interview');
-        if (interviewEvent && interviewEvent.date) {
-          const interviewDate = new Date(interviewEvent.date);
-          const offerDays = Math.floor((statusUpdated - interviewDate) / (1000 * 60 * 60 * 24));
+    let offerDate = null;
+    if (offerEvent && offerEvent.timestamp) {
+      offerDate = new Date(offerEvent.timestamp);
+    } else if (job.status === 'Offer' && statusUpdated) {
+      offerDate = statusUpdated;
+    }
+
+    if (offerDate) {
+      const days = Math.floor((offerDate - applied) / (1000 * 60 * 60 * 24));
+      if (days >= 0 && days <= 90) {
+        timingData.timeToOffer.push(days);
+      }
+
+      // Time from interview to offer
+      if (interviewDate && offerDate) {
+        const offerDays = Math.floor((offerDate - interviewDate) / (1000 * 60 * 60 * 24));
+        if (offerDays >= 0 && offerDays <= 90) {
           timingData.interviewToOffer.push(offerDays);
         }
       }
@@ -301,7 +427,7 @@ function findOptimalWindow(data) {
 // ------------------------------
 // HELPER: Analyze Strategy Effectiveness
 // ------------------------------
-function analyzeStrategyEffectiveness(jobs, networkingActivities) {
+function analyzeStrategyEffectiveness(jobs, networkingActivities, mockInterviews = [], techPrepSessions = []) {
   const strategies = {
     customization: {
       high: { success: 0, total: 0 },
@@ -312,6 +438,11 @@ function analyzeStrategyEffectiveness(jobs, networkingActivities) {
     networking: {
       active: { success: 0, total: 0 },
       passive: { success: 0, total: 0 },
+    },
+    preparation: {
+      comprehensive: { success: 0, total: 0 }, // Mock + Tech Prep + Networking
+      moderate: { success: 0, total: 0 }, // 1-2 prep activities
+      minimal: { success: 0, total: 0 }, // No prep
     },
     timing: {
       early: { success: 0, total: 0 }, // Applied within 3 days of posting
@@ -343,6 +474,34 @@ function analyzeStrategyEffectiveness(jobs, networkingActivities) {
       return daysDiff <= 14;
     });
 
+    // Check for mock interviews and tech prep
+    const hasMockInterview = mockInterviews.some(mock => {
+      const mockDate = new Date(mock.created_at);
+      const daysDiff = Math.abs((jobDate - mockDate) / (1000 * 60 * 60 * 24));
+      return (mock.company && job.company && mock.company.toLowerCase() === job.company.toLowerCase()) ||
+             daysDiff <= 30;
+    });
+
+    const hasTechPrep = techPrepSessions.some(tech => {
+      const techDate = new Date(tech.created_at);
+      const daysDiff = Math.abs((jobDate - techDate) / (1000 * 60 * 60 * 24));
+      return (tech.company && job.company && tech.company.toLowerCase() === job.company.toLowerCase()) ||
+             daysDiff <= 30;
+    });
+
+    // Preparation strategy
+    const prepCount = [recentNetworking.length > 0, hasMockInterview, hasTechPrep].filter(Boolean).length;
+    if (prepCount >= 2) {
+      strategies.preparation.comprehensive.total++;
+      if (isSuccess) strategies.preparation.comprehensive.success++;
+    } else if (prepCount >= 1) {
+      strategies.preparation.moderate.total++;
+      if (isSuccess) strategies.preparation.moderate.success++;
+    } else {
+      strategies.preparation.minimal.total++;
+      if (isSuccess) strategies.preparation.minimal.success++;
+    }
+
     if (recentNetworking.length > 0) {
       strategies.networking.active.total++;
       if (isSuccess) strategies.networking.active.success++;
@@ -357,18 +516,32 @@ function analyzeStrategyEffectiveness(jobs, networkingActivities) {
 
   // Calculate effectiveness
   const effectiveness = {
-    customization: Object.entries(strategies.customization).map(([level, data]) => ({
-      level,
-      successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
-      success: data.success,
-      total: data.total,
-    })),
-    networking: Object.entries(strategies.networking).map(([type, data]) => ({
-      type,
-      successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
-      success: data.success,
-      total: data.total,
-    })),
+    customization: Object.entries(strategies.customization)
+      .filter(([_, data]) => data.total > 0)
+      .map(([level, data]) => ({
+        level,
+        successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
+        success: data.success,
+        total: data.total,
+      }))
+      .sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate)),
+    networking: Object.entries(strategies.networking)
+      .filter(([_, data]) => data.total > 0)
+      .map(([type, data]) => ({
+        type,
+        successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
+        success: data.success,
+        total: data.total,
+      })),
+    preparation: Object.entries(strategies.preparation)
+      .filter(([_, data]) => data.total > 0)
+      .map(([level, data]) => ({
+        level,
+        successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
+        success: data.success,
+        total: data.total,
+      }))
+      .sort((a, b) => parseFloat(b.successRate) - parseFloat(a.successRate)),
   };
 
   return effectiveness;
@@ -386,10 +559,13 @@ function identifySuccessFactors(jobs, skills, employment) {
     customizationPreference: null,
   };
 
+  // Only analyze actual applications (exclude 'Interested')
+  const actualApplications = jobs.filter(j => j.status && j.status !== 'Interested');
+
   // Find industries with highest success
   const industrySuccess = {};
-  jobs.forEach(job => {
-    if (!job.industry) return;
+  actualApplications.forEach(job => {
+    if (!job.industry || job.industry.trim() === '') return;
     if (!industrySuccess[job.industry]) {
       industrySuccess[job.industry] = { success: 0, total: 0 };
     }
@@ -411,8 +587,8 @@ function identifySuccessFactors(jobs, skills, employment) {
 
   // Find companies with success
   const companySuccess = {};
-  jobs.forEach(job => {
-    if (!job.company) return;
+  actualApplications.forEach(job => {
+    if (!job.company || job.company.trim() === '') return;
     if (!companySuccess[job.company]) {
       companySuccess[job.company] = { success: 0, total: 0 };
     }
@@ -449,9 +625,9 @@ function identifySuccessFactors(jobs, skills, employment) {
     factors.experienceLevel = totalYears >= 7 ? 'Senior' : totalYears >= 3 ? 'Mid' : 'Entry';
   }
 
-  // Customization preference
+  // Customization preference (from actual applications)
   const customCounts = { none: 0, light: 0, heavy: 0, tailored: 0 };
-  jobs.forEach(job => {
+  actualApplications.forEach(job => {
     const level = job.resume_customization || 'none';
     customCounts[level]++;
   });
@@ -464,16 +640,17 @@ function identifySuccessFactors(jobs, skills, employment) {
 // ------------------------------
 // HELPER: Predictive Modeling
 // ------------------------------
-function generatePredictiveModel(jobs, patterns, timing) {
-  // Simple predictive model based on historical patterns
+function generatePredictiveModel(jobs, patterns, timing, preparationCorrelation, strategyEffectiveness) {
+  // Enhanced predictive model based on historical patterns
   const model = {
     successProbability: {},
     factors: [],
   };
 
-  // Calculate base success rate
-  const totalJobs = jobs.length;
-  const successfulJobs = jobs.filter(j => j.status === 'Offer' || j.status === 'Interview').length;
+  // Calculate base success rate (only actual applications)
+  const actualApplications = jobs.filter(j => j.status && j.status !== 'Interested');
+  const totalJobs = actualApplications.length;
+  const successfulJobs = actualApplications.filter(j => j.status === 'Offer' || j.status === 'Interview').length;
   const baseSuccessRate = totalJobs > 0 ? (successfulJobs / totalJobs * 100) : 0;
 
   // Factors that increase success probability
@@ -512,16 +689,58 @@ function generatePredictiveModel(jobs, patterns, timing) {
     }
   }
 
-  // Networking factor
-  factors.push({
-    factor: 'Active networking before application',
-    impact: '+20-30%',
-    confidence: 'high',
+  // Networking factor (from strategy effectiveness)
+  if (strategyEffectiveness && strategyEffectiveness.networking && strategyEffectiveness.networking.length > 0) {
+    const activeNetworking = strategyEffectiveness.networking.find(s => s.type === 'active');
+    if (activeNetworking && parseFloat(activeNetworking.successRate) > baseSuccessRate) {
+      const boost = parseFloat(activeNetworking.successRate) - baseSuccessRate;
+      factors.push({
+        factor: 'Active networking before application',
+        impact: `+${boost.toFixed(1)}%`,
+        confidence: 'high',
+      });
+    }
+  }
+
+  // Preparation factor (from preparation correlation)
+  if (preparationCorrelation && preparationCorrelation.bestStrategy && preparationCorrelation.bestStrategy.total > 0) {
+    const bestRate = parseFloat(preparationCorrelation.bestStrategy.successRate);
+    if (bestRate > baseSuccessRate) {
+      const boost = bestRate - baseSuccessRate;
+      factors.push({
+        factor: `Using ${preparationCorrelation.bestStrategy.type} preparation strategy`,
+        impact: `+${boost.toFixed(1)}%`,
+        confidence: 'high',
+      });
+    }
+  }
+
+  // Customization factor (from strategy effectiveness)
+  if (strategyEffectiveness && strategyEffectiveness.customization && strategyEffectiveness.customization.length > 0) {
+    const bestCustom = strategyEffectiveness.customization[0];
+    if (bestCustom.level !== 'none' && parseFloat(bestCustom.successRate) > baseSuccessRate) {
+      const boost = parseFloat(bestCustom.successRate) - baseSuccessRate;
+      factors.push({
+        factor: `${bestCustom.level.charAt(0).toUpperCase() + bestCustom.level.slice(1)} resume/cover letter customization`,
+        impact: `+${boost.toFixed(1)}%`,
+        confidence: 'medium',
+      });
+    }
+  }
+
+  // Calculate optimized success rate
+  let optimizedRate = baseSuccessRate;
+  factors.forEach(factor => {
+    const boost = parseFloat(factor.impact.replace('+', '').replace('%', ''));
+    if (!isNaN(boost)) {
+      optimizedRate += boost * 0.3; // Apply 30% of boost (conservative estimate)
+    }
   });
+  optimizedRate = Math.min(100, optimizedRate); // Cap at 100%
 
   model.factors = factors;
   model.baseSuccessRate = baseSuccessRate.toFixed(1);
-  model.optimizedSuccessRate = (baseSuccessRate + 25).toFixed(1); // Estimated with all factors
+  model.optimizedSuccessRate = optimizedRate.toFixed(1);
 
   return model;
 }
@@ -622,34 +841,41 @@ function generatePatternRecommendations(patterns, timing, preparation, strategie
 // HELPER: Track Pattern Evolution
 // ------------------------------
 function trackPatternEvolution(jobs) {
-  // Group jobs by time periods (quarters)
-  const quarters = {};
+  // Group jobs by time periods (months for better granularity)
+  const periods = {};
   
-  jobs.forEach(job => {
+  // Only track actual applications
+  const actualApplications = jobs.filter(j => j.status && j.status !== 'Interested');
+  
+  actualApplications.forEach(job => {
     const date = new Date(job.applied_on || job.created_at);
     const year = date.getFullYear();
-    const quarter = Math.floor(date.getMonth() / 3) + 1;
-    const key = `${year}-Q${quarter}`;
+    const month = date.getMonth() + 1;
+    const key = `${year}-${String(month).padStart(2, '0')}`;
     
-    if (!quarters[key]) {
-      quarters[key] = { total: 0, success: 0, offers: 0 };
+    if (!periods[key]) {
+      periods[key] = { total: 0, success: 0, offers: 0, interviews: 0 };
     }
     
-    quarters[key].total++;
+    periods[key].total++;
     if (job.status === 'Interview' || job.status === 'Offer') {
-      quarters[key].success++;
+      periods[key].success++;
+      periods[key].interviews++;
     }
     if (job.status === 'Offer') {
-      quarters[key].offers++;
+      periods[key].offers++;
     }
   });
 
-  const evolution = Object.entries(quarters)
+  const evolution = Object.entries(periods)
     .map(([period, data]) => ({
       period,
-      successRate: data.total > 0 ? (data.success / data.total * 100).toFixed(1) : 0,
-      offerRate: data.total > 0 ? (data.offers / data.total * 100).toFixed(1) : 0,
+      successRate: data.total > 0 ? parseFloat((data.success / data.total * 100).toFixed(1)) : 0,
+      offerRate: data.total > 0 ? parseFloat((data.offers / data.total * 100).toFixed(1)) : 0,
+      interviewRate: data.total > 0 ? parseFloat((data.interviews / data.total * 100).toFixed(1)) : 0,
       total: data.total,
+      success: data.success,
+      offers: data.offers,
     }))
     .sort((a, b) => a.period.localeCompare(b.period));
 
@@ -673,19 +899,29 @@ function trackPatternEvolution(jobs) {
 // GET /api/success-patterns
 // ------------------------------
 router.get("/", auth, async (req, res) => {
-  const userId = req.userId;
+  const userId = req.user.id;
 
   try {
-    // 1️⃣ Fetch Jobs
+    // 1️⃣ Fetch Jobs (exclude archived)
     const jobsRes = await pool.query(
       `SELECT id, title, company, location, industry, status, applied_on, created_at, 
               status_updated_at, resume_customization, cover_letter_customization, 
               application_history
-       FROM jobs WHERE user_id = $1
+       FROM jobs 
+       WHERE user_id = $1
+         AND ("isarchived" = false OR "isarchived" IS NULL)
        ORDER BY created_at DESC`,
       [userId]
     );
     const jobs = jobsRes.rows || [];
+    
+    // Debug: Check industry data
+    const jobsWithIndustry = jobs.filter(j => j.industry && j.industry.trim() !== '');
+    console.log(`📊 Success Patterns Debug - Jobs with industry: ${jobsWithIndustry.length} of ${jobs.length}`);
+    if (jobsWithIndustry.length > 0) {
+      const industries = [...new Set(jobsWithIndustry.map(j => j.industry))];
+      console.log(`📊 Industries found: ${industries.join(', ')}`);
+    }
 
     // 2️⃣ Fetch Networking Activities
     let networkingActivities = [];
@@ -702,11 +938,19 @@ router.get("/", auth, async (req, res) => {
     // 3️⃣ Fetch Company Research History
     let researchHistory = [];
     try {
-      const researchRes = await pool.query(
-        `SELECT company, created_at FROM company_research WHERE id = $1`,
-        [userId]
-      );
-      researchHistory = researchRes.rows || [];
+      // Get unique companies from user's job applications and match with company_research
+      const userCompanies = [...new Set(jobs.map(j => j.company).filter(Boolean))];
+      if (userCompanies.length > 0) {
+        const placeholders = userCompanies.map((_, i) => `$${i + 1}`).join(', ');
+        const researchRes = await pool.query(
+          `SELECT company, created_at
+           FROM company_research
+           WHERE company = ANY(ARRAY[${placeholders}])
+           ORDER BY created_at DESC`,
+          userCompanies
+        );
+        researchHistory = researchRes.rows || [];
+      }
     } catch (e) {
       console.warn("⚠️ Could not fetch research history:", e.message);
     }
@@ -735,6 +979,84 @@ router.get("/", auth, async (req, res) => {
       console.warn("⚠️ Could not fetch employment:", e.message);
     }
 
+    // 6️⃣ Fetch Application History (for detailed timing analysis)
+    let applicationHistory = [];
+    try {
+      const historyRes = await pool.query(
+        `SELECT job_id, event, timestamp, from_status, to_status
+         FROM application_history
+         WHERE user_id = $1
+         ORDER BY timestamp DESC`,
+        [userId]
+      );
+      applicationHistory = historyRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch application history:", e.message);
+    }
+
+    // 7️⃣ Fetch Interview Outcomes (for detailed interview analysis)
+    let interviewOutcomes = [];
+    try {
+      const interviewRes = await pool.query(
+        `SELECT io.job_id, io.company, io.interview_date, io.outcome, io.interview_type,
+                io.difficulty_rating, io.self_rating, io.hours_prepared, io.mock_interviews_completed
+         FROM interview_outcomes io
+         INNER JOIN jobs j ON io.job_id = j.id
+         WHERE io.user_id = $1
+           AND j.user_id = $1
+           AND (j."isarchived" = false OR j."isarchived" IS NULL)`,
+        [userId]
+      );
+      interviewOutcomes = interviewRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch interview outcomes:", e.message);
+    }
+
+    // 8️⃣ Fetch Mock Interview Sessions (for preparation correlation)
+    let mockInterviews = [];
+    try {
+      const mockRes = await pool.query(
+        `SELECT id, company, role, status, created_at, completed_at, overall_performance_score
+         FROM mock_interview_sessions
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+      mockInterviews = mockRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch mock interviews:", e.message);
+    }
+
+    // 9️⃣ Fetch Technical Prep Sessions (for preparation correlation)
+    let techPrepSessions = [];
+    try {
+      const techRes = await pool.query(
+        `SELECT id, company, role, prep_type, status, time_spent_seconds, created_at, completed_at
+         FROM technical_prep_sessions
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+      techPrepSessions = techRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch technical prep sessions:", e.message);
+    }
+
+    // 🔟 Fetch Interview Preparation (for preparation correlation)
+    let interviewPrep = [];
+    try {
+      const prepRes = await pool.query(
+        `SELECT interview_id, framework_type, company_research, role_research, created_at
+         FROM interview_preparation
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [userId]
+      );
+      interviewPrep = prepRes.rows || [];
+    } catch (e) {
+      console.warn("⚠️ Could not fetch interview preparation:", e.message);
+    }
+
     // ------------------------------
     // ANALYTICS (UC-105)
     // ------------------------------
@@ -742,20 +1064,38 @@ router.get("/", auth, async (req, res) => {
     // Application Patterns
     const applicationPatterns = analyzeApplicationPatterns(jobs);
 
-    // Preparation Correlation
-    const preparationCorrelation = analyzePreparationCorrelation(jobs, networkingActivities, researchHistory);
+    // Preparation Correlation (enhanced with all preparation activities)
+    const preparationCorrelation = analyzePreparationCorrelation(
+      jobs, 
+      networkingActivities, 
+      researchHistory,
+      mockInterviews,
+      techPrepSessions,
+      interviewPrep
+    );
 
-    // Timing Patterns
-    const timingPatterns = analyzeTimingPatterns(jobs);
+    // Timing Patterns (enhanced with application_history and interview_outcomes)
+    const timingPatterns = analyzeTimingPatterns(jobs, applicationHistory, interviewOutcomes);
 
-    // Strategy Effectiveness
-    const strategyEffectiveness = analyzeStrategyEffectiveness(jobs, networkingActivities);
+    // Strategy Effectiveness (enhanced with preparation activities)
+    const strategyEffectiveness = analyzeStrategyEffectiveness(
+      jobs, 
+      networkingActivities,
+      mockInterviews,
+      techPrepSessions
+    );
 
     // Success Factors
     const successFactors = identifySuccessFactors(jobs, skills, employment);
 
-    // Predictive Model
-    const predictiveModel = generatePredictiveModel(jobs, applicationPatterns, timingPatterns);
+    // Predictive Model (enhanced with preparation and strategy data)
+    const predictiveModel = generatePredictiveModel(
+      jobs, 
+      applicationPatterns, 
+      timingPatterns,
+      preparationCorrelation,
+      strategyEffectiveness
+    );
 
     // Pattern Evolution
     const patternEvolution = trackPatternEvolution(jobs);
@@ -772,9 +1112,32 @@ router.get("/", auth, async (req, res) => {
     // ------------------------------
     // SUMMARY STATS
     // ------------------------------
-    const totalJobs = jobs.length;
-    const successfulJobs = jobs.filter(j => j.status === 'Offer' || j.status === 'Interview').length;
-    const offers = jobs.filter(j => j.status === 'Offer').length;
+    // Only count actual applications (exclude 'Interested')
+    const actualApplications = jobs.filter(j => j.status && j.status !== 'Interested');
+    const totalJobs = actualApplications.length;
+    const successfulJobs = actualApplications.filter(j => j.status === 'Offer' || j.status === 'Interview').length;
+    const offers = actualApplications.filter(j => j.status === 'Offer').length;
+    
+    // Debug logging
+    const successRate = totalJobs > 0 ? ((successfulJobs / totalJobs * 100).toFixed(1)) : '0';
+    console.log(`📊 Success Patterns for user ${userId}:`);
+    console.log(`  - Total Applications: ${totalJobs} (excluding 'Interested' status)`);
+    console.log(`  - Successful: ${successfulJobs} (${successRate}%)`);
+    console.log(`  - Offers: ${offers}`);
+    console.log(`  - Industry Patterns: ${applicationPatterns.industrySuccessRates?.length || 0} industries`);
+    if (applicationPatterns.industrySuccessRates && applicationPatterns.industrySuccessRates.length > 0) {
+      console.log(`  - Top Industries:`, applicationPatterns.industrySuccessRates.slice(0, 3).map(i => `${i.industry} (${i.successRate}%)`).join(', '));
+    }
+    console.log(`  - Preparation Strategies: ${preparationCorrelation.preparationData?.length || 0} strategies`);
+    if (preparationCorrelation.preparationData && preparationCorrelation.preparationData.length > 0) {
+      console.log(`  - Best Strategy: ${preparationCorrelation.bestStrategy?.type} (${preparationCorrelation.bestStrategy?.successRate}%)`);
+    }
+    console.log(`  - Pattern Evolution: ${patternEvolution.evolution?.length || 0} time periods`);
+    console.log(`  - Strategy Effectiveness:`, {
+      customization: strategyEffectiveness.customization?.length || 0,
+      networking: strategyEffectiveness.networking?.length || 0,
+      preparation: strategyEffectiveness.preparation?.length || 0,
+    });
 
     // ------------------------------
     // RESPONSE
