@@ -42,6 +42,10 @@ export default function JobPipeline({ token, onAnalyzeSkills }) {
   const [hoveredLogo, setHoveredLogo] = useState(null);
   const [companyLogos, setCompanyLogos] = useState({}); // 🟣 dynamic logos
 
+  // Add this temporarily near the top of your component, right after the state declarations
+  //console.log("Pipeline Render: jobs =", jobs);
+  //console.log("FULL JOBS =", JSON.stringify(jobs, null, 2));
+
   // 🔄 Function to fetch company logos
   async function loadCompanyLogos() {
     const logos = {};
@@ -63,24 +67,42 @@ export default function JobPipeline({ token, onAnalyzeSkills }) {
   }
 
   // 🔄 load jobs
-  async function loadJobs(currentFilters = filters) {
-    try {
-      setLoading(true);
-      const clean = Object.fromEntries(
-        Object.entries(currentFilters).filter(
-          ([, v]) => v !== "" && v !== null && v !== undefined
-        )
-      );
-      const query = new URLSearchParams(clean).toString();
-      // Use the 'api' helper
-      const res = await api.get(`/api/jobs?${query}`); 
-      setJobs(res.data.jobs || []);
-    } catch (err) {
-      console.error("❌ Failed to load jobs", err);
-    } finally {
-      setLoading(false);
-    }
+  // 🔄 load jobs
+async function loadJobs(currentFilters = filters) {
+  try {
+    setLoading(true);
+    const clean = Object.fromEntries(
+      Object.entries(currentFilters).filter(
+        ([, v]) => v !== "" && v !== null && v !== undefined
+      )
+    );
+    const query = new URLSearchParams(clean).toString();
+    
+    console.log('🔍 Fetching jobs...');
+    console.log('   Query string:', query);
+    console.log('   Filters:', currentFilters);
+    
+    const res = await api.get(`/api/jobs?${query}`);
+    
+    console.log('📦 Full API Response:', res);
+    console.log('📦 Response status:', res.status);
+    console.log('📦 Response data:', res.data);
+    console.log('📦 Jobs array:', res.data.jobs);
+    console.log('📦 Number of jobs:', res.data.jobs?.length);
+    
+    const jobsToSet = res.data.jobs || [];
+    console.log('📋 Setting jobs state with:', jobsToSet);
+    
+    setJobs(jobsToSet);
+    
+    console.log('✅ Jobs state updated');
+  } catch (err) {
+    console.error("❌ Failed to load jobs", err);
+    console.error("❌ Error response:", err.response?.data);
+  } finally {
+    setLoading(false);
   }
+}
 
   useEffect(() => {
     loadJobs();

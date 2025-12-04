@@ -2,8 +2,10 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import "./ProfileNavBar.css";
+import { useTeam } from "../contexts/TeamContext";
 
 export default function ProfileNavBar() {
+  const { teamState } = useTeam() || {};
   const tabs = [
     { key: "info", label: "My Info" },
     { key: "employment", label: "Employment" },
@@ -14,6 +16,13 @@ export default function ProfileNavBar() {
     { key: "dashboard", label: "Dashboard" },
     { key: "danger", label: "Danger Zone" },
   ];
+
+  // Show Team Management tab for admin, mentors, and candidates
+  const showTeamTab = teamState?.isAdmin || teamState?.isMentor || teamState?.isCandidate;
+
+  if (showTeamTab) {
+    tabs.push({ key: "team", label: "Team Management" });
+  }
 
   return (
     <nav className="profile-navbar">

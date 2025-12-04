@@ -1,0 +1,621 @@
+.feedback-threads-container {
+  display: flex;
+  height: 80vh;
+  background: #f0f2f5;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Left Sidebar - Candidates List */
+.feedback-threads-sidebar {
+  width: 350px;
+  background: #fff;
+  border-right: 1px solid #e9edef;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.feedback-threads-sidebar-header {
+  padding: 20px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e9edef;
+}
+
+.feedback-threads-sidebar-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #111b21;
+  font-weight: 500;
+}
+
+.candidates-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.candidate-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.candidate-item:hover {
+  background: #f5f6f6;
+}
+
+.candidate-item.selected {
+  background: #e9edef;
+}
+
+.candidate-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.candidate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.candidate-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #111b21;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-email {
+  font-size: 13px;
+  color: #667781;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.add-feedback-btn {
+  background: transparent;
+  border: none;
+  color: #8b5cf6;
+  font-size: 1.4rem;
+  font-weight: 300;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  opacity: 0.5;
+  line-height: 1;
+  min-width: 28px;
+  height: 28px;
+}
+
+/* Right Side - Feedback Threads */
+.feedback-threads-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  overflow: hidden;
+}
+
+.feedback-threads-main.full-width {
+  width: 100%;
+}
+
+.feedback-threads-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #667781;
+  font-size: 14px;
+}
+
+.feedback-threads-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.feedback-threads-header {
+  padding: 16px 20px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e9edef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feedback-threads-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #111b21;
+  font-weight: 500;
+}
+
+.feedback-view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.feedback-view-toggle .view-toggle-btn {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.feedback-view-toggle .view-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #8b5cf6;
+}
+
+.feedback-view-toggle .view-toggle-btn.active {
+  background: #8b5cf6;
+  color: white;
+  border-color: #8b5cf6;
+}
+
+.feedback-list-view {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feedback-item {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.feedback-header {
+  margin-bottom: 12px;
+}
+
+.feedback-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feedback-content {
+  color: #111b21;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 15px;
+  padding-top: 8px;
+  border-top: 1px solid #e9edef;
+}
+
+.feedback-threads-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* Feedback Thread Item - Original Post */
+.feedback-thread-item {
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.feedback-thread-header {
+  padding: 16px 20px 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.feedback-thread-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.feedback-top-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.feedback-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.feedback-type-badge {
+  background: #8b5cf6;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.feedback-author,
+.feedback-date {
+  font-size: 13px;
+  color: #667781;
+}
+
+.reply-count {
+  font-size: 13px;
+  color: #667781;
+  font-weight: 500;
+}
+
+.feedback-job-badge,
+.feedback-skill-badge,
+.feedback-task-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.feedback-job-badge {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.feedback-skill-badge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.feedback-task-badge {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.expand-toggle {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #667781;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.expand-toggle:hover {
+  color: #111b21;
+}
+
+.feedback-thread-content {
+  padding: 0 20px 16px 20px;
+  color: #111b21;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  font-size: 15px;
+}
+
+/* Replies Section - Message Thread Style */
+.feedback-thread-replies {
+  padding: 0 20px 20px 20px;
+}
+
+.loading-replies {
+  padding: 16px;
+  text-align: center;
+  color: #667781;
+  font-size: 14px;
+}
+
+.reply-form {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.reply-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e9edef;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.reply-form textarea:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+
+.reply-form button {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.reply-form button:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.reply-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancel-reply {
+  margin-left: 8px;
+  background: #f0f2f5 !important;
+  color: #667781 !important;
+}
+
+.cancel-reply:hover {
+  background: #e9edef !important;
+}
+
+/* Replies List - Flat Message Thread */
+.replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.reply-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f2f5;
+  position: relative;
+}
+
+.reply-item:last-child {
+  border-bottom: none;
+}
+
+/* Indentation with subtle line indicator */
+.reply-item.depth-1,
+.reply-item.depth-2,
+.reply-item.depth-3,
+.reply-item.depth-4,
+.reply-item.depth-5 {
+  padding-left: 40px;
+  position: relative;
+}
+
+.reply-item.depth-1::before,
+.reply-item.depth-2::before,
+.reply-item.depth-3::before,
+.reply-item.depth-4::before,
+.reply-item.depth-5::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #e9edef;
+}
+
+.reply-item.depth-1::before {
+  background: #e9d5ff;
+}
+
+.reply-item.depth-2::before {
+  background: #ddd6fe;
+}
+
+.reply-item.depth-3::before {
+  background: #c4b5fd;
+}
+
+.reply-item.depth-4::before {
+  background: #a78bfa;
+}
+
+.reply-item.depth-5::before {
+  background: #8b5cf6;
+}
+
+.reply-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.reply-author {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111b21;
+}
+
+.reply-date {
+  font-size: 12px;
+  color: #667781;
+}
+
+.reply-to-indicator {
+  font-size: 12px;
+  color: #8b5cf6;
+  font-style: italic;
+}
+
+.reply-role-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.reply-role-badge.mentor {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.reply-role-badge.candidate {
+  background: #fce7f3;
+  color: #9f1239;
+}
+
+.reply-content {
+  color: #111b21;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.reply-actions {
+  margin-top: 4px;
+}
+
+.reply-button {
+  background: none;
+  border: none;
+  color: #8b5cf6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  text-transform: uppercase;
+}
+
+.reply-button:hover {
+  background: #f3f4f6;
+}
+
+/* Nested Reply Form */
+.nested-reply-form {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.nested-reply-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #e9edef;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  background: #fff;
+}
+
+.nested-reply-form textarea:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+}
+
+.nested-reply-form button {
+  padding: 6px 12px;
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.nested-reply-form button:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.nested-reply-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nested-replies {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Scrollbar Styling */
+.feedback-threads-sidebar,
+.feedback-threads-list {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f0f2f5;
+}
+
+.feedback-threads-sidebar::-webkit-scrollbar,
+.feedback-threads-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.feedback-threads-sidebar::-webkit-scrollbar-track,
+.feedback-threads-list::-webkit-scrollbar-track {
+  background: #f0f2f5;
+}
+
+.feedback-threads-sidebar::-webkit-scrollbar-thumb,
+.feedback-threads-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.feedback-threads-sidebar::-webkit-scrollbar-thumb:hover,
+.feedback-threads-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}

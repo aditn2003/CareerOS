@@ -1,13 +1,12 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
-
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import pkg from "pg";
+//import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
 import employmentRoutes from "./routes/employment.js";
@@ -33,7 +32,15 @@ import salaryResearchRouter from "./routes/salaryResearch.js";
 import coverLetterTemplatesRouter from "./routes/coverLetterTemplates.js";
 import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
+import pool from "./db/pool.js";
+import dashboardRoutes from "./routes/dashboard.js";
+import teamRoutes from "./routes/team.js";
+import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
 
+import responseCoachingRoutes from "./routes/responseCoaching.js";
+import mockInterviewsRoutes from "./routes/mockInterviews.js";
+import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
+import technicalPrepRoutes from './routes/technicalPrep.js'; // ✅ UC-078
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
@@ -44,6 +51,19 @@ import linkedinRoutes from "./routes/linkedin.js";
 import mentorsRoutes from "./routes/mentors.js";
 import informationalInterviewsRoutes from "./routes/informationalInterviews.js";
 import industryContactsRoutes from "./routes/industryContacts.js";
+import puppeteer from "puppeteer";
+import successAnalysisRoutes from "./routes/successAnalysis.js";
+import goalsRoutes from "./routes/goals.js";
+import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
+import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
+import networkingRoutes from "./routes/networking.js";
+import offersRoutes from "./routes/offers.js";
+import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import compensationHistoryRoutes from "./routes/compensationHistory.js";
+import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
+import careerGoalsRoutes from "./routes/careerGoals.js";
+import calendarRoutes from "./routes/calendar.js";
+
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -53,7 +73,7 @@ console.log(
   "🔑 GOOGLE_API_KEY loaded:",
   process.env.GOOGLE_API_KEY ? "✅ yes" : "❌ no"
 );
-const { Pool } = pkg;
+//const { Pool } = pkg;
 const app = express();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -77,9 +97,10 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Pool is imported from ./db/pool.js - no need to create it here
+
+// REMOVED: Periodic health check consumes connections unnecessarily
+// Connections will be created on-demand when needed
 
 pool
   .connect()
@@ -87,12 +108,17 @@ pool
     console.log("✅ Connected to PostgreSQL");
     // Initialize contacts route with the pool
     setContactsPool(pool);
+
+    // Release the test connection
+    client.release();
   })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const ACCOUNT_TYPES = new Set(["candidate", "mentor"]);
+const DEFAULT_ACCOUNT_TYPE = "candidate";
 
 function makeToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
@@ -111,6 +137,7 @@ app.post("/register", async (req, res) => {
     confirmPassword = "",
     firstName = "",
     lastName = "",
+    accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
     if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
@@ -129,21 +156,51 @@ app.post("/register", async (req, res) => {
         .status(400)
         .json({ error: "First and last name are required" });
     }
+    const normalizedAccountType = (accountType || DEFAULT_ACCOUNT_TYPE)
+      .toString()
+      .trim()
+      .toLowerCase();
+    if (!ACCOUNT_TYPES.has(normalizedAccountType)) {
+      return res.status(400).json({ error: "Invalid account type" });
+    }
 
     const lower = email.toLowerCase();
-    const existing = await pool.query("SELECT id FROM users WHERE email=$1", [
-      lower,
-    ]);
-    if (existing.rows.length > 0)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const existing = await client.query(
+        "SELECT id FROM users WHERE email=$1",
+        [lower]
+      );
+      if (existing.rows.length > 0) {
+        await client.query("ROLLBACK");
       return res.status(409).json({ error: "Email already in use" });
+      }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      "INSERT INTO users (email, password_hash, first_name, last_name, provider) VALUES ($1,$2,$3,$4,'local') RETURNING id",
-      [lower, passwordHash, firstName.trim(), lastName.trim()]
+      const userResult = await client.query(
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
+        [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
     );
-    const token = makeToken({ id: result.rows[0].id, email: lower });
+      const userId = userResult.rows[0].id;
+
+      // No auto-team creation - users can create teams manually after registration
+      // Both mentors and candidates can create teams, with candidates limited to 1 team max
+
+      await client.query("COMMIT");
+      const token = makeToken({ id: userId, email: lower });
     return res.status(201).json({ message: "Registered", token });
+    } catch (dbErr) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackErr) {
+        console.error("Rollback failed:", rollbackErr.message);
+      }
+      throw dbErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
@@ -331,7 +388,7 @@ app.get("/me", auth, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT id, email, first_name AS firstName, last_name AS lastName FROM users WHERE id=$1",
-      [req.userId]
+      [req.user.id]
     );
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -347,7 +404,7 @@ app.put("/me", auth, async (req, res) => {
   try {
     await pool.query(
       "UPDATE users SET first_name=$1, last_name=$2 WHERE id=$3",
-      [firstName, lastName, req.userId]
+      [firstName, lastName, req.user.id]
     );
     res.json({ message: "Updated" });
   } catch (err) {
@@ -379,7 +436,7 @@ app.post("/delete", auth, async (req, res) => {
   try {
     const { password = "" } = req.body;
     const userRes = await pool.query("SELECT * FROM users WHERE id=$1", [
-      req.userId,
+      req.user.id,
     ]);
     if (userRes.rows.length === 0)
       return res.status(404).json({ error: "Not found" });
@@ -388,7 +445,7 @@ app.post("/delete", auth, async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash || "");
     if (!ok) return res.status(401).json({ error: "Invalid password" });
 
-    await pool.query("DELETE FROM users WHERE id=$1", [req.userId]);
+    await pool.query("DELETE FROM users WHERE id=$1", [req.user.id]);
     res.json({ message: "Account deleted" });
   } catch (err) {
     console.error(err);
@@ -396,7 +453,6 @@ app.post("/delete", auth, async (req, res) => {
   }
 });
 
-// ========== UC-003 & UC-004: OAuth (demo stubs) ==========
 // ========== UC-003 & UC-004: Google OAuth ==========
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -424,7 +480,7 @@ app.post("/google", async (req, res) => {
     ]);
     if (result.rows.length === 0) {
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider) VALUES ($1,$2,$3,'google') RETURNING id",
+        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
         [email, firstName, lastName]
       );
     }
@@ -438,6 +494,7 @@ app.post("/google", async (req, res) => {
 });
 
 // ===== Routes =====
+app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api", auth, employmentRoutes);
@@ -446,13 +503,35 @@ app.use("/api", educationRoutes);
 app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/resumes", resumeRoutes);
+app.use("/api", resumePresetsRoutes);
+app.use("/api", sectionPresetsRoutes);
+app.use("/api", jobDescriptionsRoutes);
+app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/match", matchRoutes);
 app.use("/api/skills-gap", skillsGapRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/salary-research", salaryResearchRouter);
-app.use("/api/companyResearch", companyResearchRoutes);
+app.use("/api/interview-insights", interviewInsights);
+app.use("/api/cover-letter", coverLetterRoutes);
+app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templates
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api/success-analysis", successAnalysisRoutes);
+app.use("/api/goals", goalsRoutes);
+app.use("/api/interview-analysis", interviewAnalysisRoutes);
+app.use("/api/networking-analysis", networkingAnalysisRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/offers", offersRoutes);
+app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+app.use("/api/compensation-history", compensationHistoryRoutes);
+app.use("/api/market-benchmarks", marketBenchmarksRoutes);
+app.use("/api/career-goals", careerGoalsRoutes);
+
+app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
 
 
 // ===== Global Error Handler =====
@@ -465,10 +544,9 @@ app.use((err, req, res, next) => {
 app.get("/", (_req, res) => res.json({ ok: true }));
 
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB ======
-import cron from "node-cron";
 
 // run every day at 9:00 AM server time
-cron.schedule("0 9 * * *", async () => {
+crons.schedule("0 9 * * *", async () => {
   console.log("📬 Running daily job deadline reminder...");
 
   try {
@@ -616,7 +694,7 @@ async function sendDeadlineReminders() {
   }
 }
 app.use("/api", jobImportRoutes);
-app.use("/api/jobs", jobRoutes);
+//app.use("/api/jobs", jobRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -633,14 +711,17 @@ app.use("/api/informational-interviews", informationalInterviewsRoutes);
 app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
+app.use("/api/response-coaching", responseCoachingRoutes);
+app.use("/api/mock-interviews", mockInterviewsRoutes);
+app.use('/api/salary-negotiation', salaryNegotiationRoutes);
+app.use('/api/interview-analytics', interviewAnalyticsRoutes);
+app.use('/api/technical-prep', technicalPrepRoutes); // ✅ UC-078
 
+
+app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
 
-crons.schedule("0 9 * * *", async () => {
-  console.log("📬 Running daily job deadline reminder...");
-  // 🧠 your code logic here (the pool.query, resend email sending, etc.)
-});
 app.post("/test-reminders", async (req, res) => {
   try {
     await sendDeadlineReminders();
@@ -650,5 +731,58 @@ app.post("/test-reminders", async (req, res) => {
     res.status(500).json({ error: "Failed to run reminder job" });
   }
 });
+
+
+
+// ===== Global Error Handlers =====
+// Handle unhandled promise rejections (like database connection terminations)
+process.on('unhandledRejection', (reason, promise) => {
+  // Database connection termination errors are common with Supabase
+  if (reason && typeof reason === 'object') {
+    if (reason.code === 'XX000' || 
+        reason.message?.includes('shutdown') || 
+        reason.message?.includes('termination') ||
+        reason.message?.includes('db_termination')) {
+      console.error('⚠️ Database connection terminated. Pool will reconnect on next query.');
+      console.error('   Error code:', reason.code);
+      console.error('   Message:', reason.message);
+      // Don't crash - the pool will handle reconnection
+      return;
+    }
+  }
+  // For other unhandled rejections, log them but don't crash
+  console.error('⚠️ Unhandled Rejection at:', promise);
+  console.error('   Reason:', reason);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  // Database connection errors should not crash the server
+  if (error.code === 'XX000' || 
+      error.message?.includes('shutdown') || 
+      error.message?.includes('termination') ||
+      error.message?.includes('db_termination')) {
+    console.error('⚠️ Uncaught database connection error. Server will continue running.');
+    console.error('   Error code:', error.code);
+    console.error('   Message:', error.message);
+    // Don't exit - let the server continue
+    return;
+  }
+  // For other uncaught exceptions, log and exit gracefully
+  console.error('❌ Uncaught Exception:', error);
+  console.error('   Stack:', error.stack);
+  // Give time for logs to be written, then exit
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
 // ===== Start Server =====
-app.listen(4000, () => console.log("✅ API running at http://localhost:4000"));
+// FIX: Only start the server if we are NOT testing
+if (process.env.NODE_ENV !== 'test') {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`✅ API running at http://localhost:${PORT}`));
+}
+
+// Export for tests
+export { app, pool };
