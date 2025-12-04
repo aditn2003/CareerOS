@@ -263,7 +263,11 @@ const StatisticsPage = () => {
     if (!analysis?.timingData) return [];
     
     const timingByWeekday = analysis.timingData
-      .filter(item => Number(item.applications) > 0)
+      .filter(item => {
+        const apps = Number(item.applications) || 0;
+        const offers = Number(item.offers) || 0;
+        return apps > 0 || offers > 0; // Include if has applications OR offers
+      })
       .reduce((acc, item) => {
         let weekdayName = String(item.weekdayName || "");
         if (!weekdayName || weekdayName === "Unknown" || weekdayName === "0") {
@@ -274,15 +278,24 @@ const StatisticsPage = () => {
         if (!acc[weekdayName]) {
           acc[weekdayName] = { name: weekdayName, weekday: Number(item.weekday) || 0, applications: 0, offers: 0, interviews: 0 };
         }
-        acc[weekdayName].applications += Number(item.applications) || 0;
-        acc[weekdayName].offers += Number(item.offers) || 0;
-        acc[weekdayName].interviews += Number(item.interviews) || 0;
+        // Ensure we're using actual counts, not normalized values
+        const apps = Number(item.applications) || 0;
+        const offers = Number(item.offers) || 0;
+        const interviews = Number(item.interviews) || 0;
+        acc[weekdayName].applications += apps;
+        acc[weekdayName].offers += offers;
+        acc[weekdayName].interviews += interviews;
         return acc;
       }, {});
     
-    return Object.values(timingByWeekday).sort((a, b) => 
+    const result = Object.values(timingByWeekday).sort((a, b) => 
       weekdayOrder.indexOf(a.name) - weekdayOrder.indexOf(b.name)
     );
+    
+    // Debug: Log the data to see what we're getting
+    console.log("📊 Timing Chart Data:", result);
+    
+    return result;
   };
 
   // Process role type data
@@ -646,11 +659,38 @@ const StatisticsPage = () => {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="name" stroke="#9ca3af" fontSize={11} />
-                      <YAxis stroke="#9ca3af" fontSize={11} />
-                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                      <YAxis 
+                        stroke="#9ca3af" 
+                        fontSize={11}
+                        allowDecimals={false}
+                        domain={[0, 'auto']}
+                      />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        formatter={(value, name) => {
+                          const numValue = Number(value) || 0;
+                          return [numValue, name];
+                        }}
+                      />
                       <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      <Area type="monotone" dataKey="applications" stroke="#3b82f6" strokeWidth={2} fill="url(#colorAppsArea)" name="Applications" />
-                      <Area type="monotone" dataKey="offers" stroke="#10b981" strokeWidth={2} fill="url(#colorOffersArea)" name="Offers" />
+                      <Area 
+                        type="monotone" 
+                        dataKey="applications" 
+                        stroke="#3b82f6" 
+                        strokeWidth={2} 
+                        fill="url(#colorAppsArea)" 
+                        name="Applications"
+                        dot={{ r: 4 }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="offers" 
+                        stroke="#10b981" 
+                        strokeWidth={2} 
+                        fill="url(#colorOffersArea)" 
+                        name="Offers"
+                        dot={{ r: 4 }}
+                      />
                     </AreaChart>
                   </ResponsiveContainer>
                 </ChartCard>

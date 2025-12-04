@@ -124,21 +124,35 @@ export default function StatisticsDashboard({ token: incomingToken }) {
         </div>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <Metric
-          title="Applications"
-          value={stats.keyMetrics.total_applications}
-        />
-        <Metric
-          title="Interviews"
-          value={stats.keyMetrics.total_interviews}
-        />
-        <Metric title="Offers" value={stats.keyMetrics.total_offers} />
-        <Metric
-          title="Avg Response (hrs)"
-          value={stats.timeToResponse.avg_response_hours.toFixed(1)}
-        />
+      {/* Key Metrics */}
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold mb-4">Key Performance Metrics</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Metric
+            title="Applications Sent"
+            value={stats.keyMetrics.total_applications}
+            subtitle="Total applications submitted"
+          />
+          <Metric
+            title="Interviews Scheduled"
+            value={stats.keyMetrics.total_interviews}
+            subtitle={`${stats.keyMetrics.total_applications > 0 
+              ? ((stats.keyMetrics.total_interviews / stats.keyMetrics.total_applications) * 100).toFixed(1) 
+              : 0}% conversion rate`}
+          />
+          <Metric 
+            title="Offers Received" 
+            value={stats.keyMetrics.total_offers}
+            subtitle={`${stats.keyMetrics.total_applications > 0 
+              ? ((stats.keyMetrics.total_offers / stats.keyMetrics.total_applications) * 100).toFixed(1) 
+              : 0}% success rate`}
+          />
+          <Metric
+            title="Avg Response Time"
+            value={`${(stats.timeToResponse.avg_response_hours / 24).toFixed(1)} days`}
+            subtitle={`${stats.timeToResponse.avg_response_hours.toFixed(1)} hours`}
+          />
+        </div>
       </div>
 
       {/* 📈 Weekly Trends */}
@@ -146,6 +160,24 @@ export default function StatisticsDashboard({ token: incomingToken }) {
 
       {/* 📉 Funnel */}
       <FunnelChart funnel={stats.funnel} />
+      
+      {/* 🔗 Navigation to Success Rate Analysis */}
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-blue-900 mb-1">📊 Application Success Rate Analysis</h3>
+            <p className="text-sm text-black">
+              View detailed success rates by industry, role type, company size, and more
+            </p>
+          </div>
+          <a 
+            href="/statistics?tab=success" 
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            View Analysis →
+          </a>
+        </div>
+      </div>
 
       {/* ⏱ Stage Time */}
       <StageTimeChart data={stats.avgTimeInStage} />
@@ -286,11 +318,14 @@ export default function StatisticsDashboard({ token: incomingToken }) {
   );
 }
 
-function Metric({ title, value }) {
+function Metric({ title, value, subtitle }) {
   return (
-    <div className="border p-4 bg-white shadow rounded">
-      <div className="text-gray-600 text-sm">{title}</div>
-      <div className="text-xl font-bold">{value}</div>
+    <div className="border p-4 bg-white shadow rounded hover:shadow-md transition-shadow">
+      <div className="text-gray-600 text-sm font-medium mb-1">{title}</div>
+      <div className="text-2xl font-bold text-gray-900 mb-1">{value}</div>
+      {subtitle && (
+        <div className="text-xs text-gray-500">{subtitle}</div>
+      )}
     </div>
   );
 }
