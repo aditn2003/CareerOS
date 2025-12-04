@@ -392,7 +392,41 @@ router.get("/", auth, async (req, res) => {
       params
     );
 
-    res.json({ jobs: result.rows });
+    // 🔧 Normalize status values to match standard stages
+    // If a job has a non-standard status (like event text), try to extract the actual status
+    const normalizedJobs = result.rows.map(job => {
+      let normalizedStatus = (job.status || '').trim();
+      
+      // If status looks like event text (contains "Status changed from"), try to extract the final status
+      if (normalizedStatus.includes('Status changed from') || normalizedStatus.includes('to')) {
+        // Try to extract the final status from patterns like "Status changed from 'X' to 'Y'"
+        const match = normalizedStatus.match(/to\s+['"]([^'"]+)['"]/i);
+        if (match && match[1]) {
+          normalizedStatus = match[1].trim();
+          console.log(`🔧 Normalized status for job ${job.id}: "${job.status}" → "${normalizedStatus}"`);
+        }
+      }
+      
+      // If status still doesn't match a standard stage, keep it as-is (will show in "Other" column)
+      // But try to match case-insensitively to standard stages
+      const standardStatuses = STAGES.map(s => s.toLowerCase());
+      const statusLower = normalizedStatus.toLowerCase();
+      if (standardStatuses.includes(statusLower)) {
+        // Map to the correct case from STAGES array
+        const matchedStage = STAGES.find(s => s.toLowerCase() === statusLower);
+        if (matchedStage) {
+          normalizedStatus = matchedStage;
+        }
+      }
+      
+      return {
+        ...job,
+        status: normalizedStatus
+      };
+    });
+
+    console.log(`📊 Returning ${normalizedJobs.length} jobs (${result.rows.length} from DB)`);
+    res.json({ jobs: normalizedJobs });
   } catch (err) {
     console.error("❌ Fetch jobs error:", err.message);
     res.status(500).json({ error: "Database error" });

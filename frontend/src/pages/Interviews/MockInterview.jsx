@@ -28,6 +28,9 @@ export default function MockInterview() {
   
   // History
   const [sessions, setSessions] = useState([]);
+  const [expandedSession, setExpandedSession] = useState(null);
+  const [sessionResponses, setSessionResponses] = useState({});
+  const [loadingResponses, setLoadingResponses] = useState({});
 
   // Load companies
   useEffect(() => {
@@ -37,28 +40,40 @@ export default function MockInterview() {
 
   async function loadCompanies() {
     try {
-      const res = await api.get("/api/jobs");
-      const jobs = res.data.jobs || [];
-      const uniqueCompanies = [...new Set(jobs.map(j => j.company))];
-      setCompanies(uniqueCompanies);
-      
-      const roleMapTemp = {};
-      jobs.forEach(job => {
-        if (!roleMapTemp[job.company]) roleMapTemp[job.company] = new Set();
-        roleMapTemp[job.company].add(job.title);
+      // Load companies and roles from Interview Tracker (interview_outcomes), not all jobs
+      const res = await api.get("/api/interview-analytics/outcomes", {
+        params: { userId }
       });
+      const interviews = res.data.data || [];
+
+      // Extract unique companies from interviews
+      const uniqueCompanies = [...new Set(interviews
+        .filter(i => i.company)
+        .map((i) => i.company))];
+      setCompanies(uniqueCompanies);
+
+      // Build role map from interviews (company -> roles)
+      const roleMapTemp = {};
+      interviews.forEach((interview) => {
+        if (interview.company && interview.role) {
+          if (!roleMapTemp[interview.company]) roleMapTemp[interview.company] = new Set();
+          roleMapTemp[interview.company].add(interview.role);
+        }
+      });
+
       const finalMap = {};
-      Object.keys(roleMapTemp).forEach(company => {
+      Object.keys(roleMapTemp).forEach((company) => {
         finalMap[company] = [...roleMapTemp[company]];
       });
+
       setRoleMap(finalMap);
-      
+
       if (uniqueCompanies.length > 0) {
         setSelectedCompany(uniqueCompanies[0]);
         setSelectedRole(finalMap[uniqueCompanies[0]]?.[0] || "");
       }
     } catch (err) {
-      console.error("Error loading companies:", err);
+      console.error("Error loading interview companies and roles:", err);
     }
   }
 
@@ -68,6 +83,29 @@ export default function MockInterview() {
       setSessions(res.data.data.sessions || []);
     } catch (err) {
       console.error("Error loading sessions:", err);
+    }
+  }
+
+  async function loadSessionResponses(sessionId) {
+    if (sessionResponses[sessionId]) {
+      // Already loaded, just toggle
+      setExpandedSession(expandedSession === sessionId ? null : sessionId);
+      return;
+    }
+
+    setLoadingResponses(prev => ({ ...prev, [sessionId]: true }));
+    try {
+      const res = await api.get(`/api/mock-interviews/${sessionId}/responses`);
+      setSessionResponses(prev => ({
+        ...prev,
+        [sessionId]: res.data.data.responses || []
+      }));
+      setExpandedSession(sessionId);
+    } catch (err) {
+      console.error("Error loading responses:", err);
+      alert("Failed to load responses");
+    } finally {
+      setLoadingResponses(prev => ({ ...prev, [sessionId]: false }));
     }
   }
 
@@ -388,6 +426,120 @@ export default function MockInterview() {
                     <span>{session.status}</span>
                     <span>{session.questions_completed}/{session.total_questions} questions</span>
                   </div>
+                  
+                  {/* View Responses Button */}
+                  <button
+                    className="btn-view-responses"
+                    onClick={() => loadSessionResponses(session.id)}
+                    disabled={loadingResponses[session.id]}
+                    style={{
+                      marginTop: '12px',
+                      padding: '8px 16px',
+                      background: '#7c3aed',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {loadingResponses[session.id] 
+                      ? 'Loading...' 
+                      : expandedSession === session.id 
+                        ? '▼ Hide Responses' 
+                        : '▶ View Responses'}
+                  </button>
+
+                  {/* Expanded Responses View */}
+                  {expandedSession === session.id && sessionResponses[session.id] && (
+                    <div className="session-responses" style={{
+                      marginTop: '16px',
+                      padding: '16px',
+                      background: '#f9fafb',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb'
+                    }}>
+                      <h4 style={{ marginBottom: '16px', color: '#374151' }}>Your Responses:</h4>
+                      {sessionResponses[session.id].map((response, idx) => (
+                        <div key={response.id || idx} style={{
+                          marginBottom: '20px',
+                          padding: '16px',
+                          background: 'white',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'start',
+                            marginBottom: '12px'
+                          }}>
+                            <div>
+                              <strong style={{ color: '#1f2937', fontSize: '16px' }}>
+                                Question {Math.floor(response.question_number)}: {response.question_text}
+                              </strong>
+                              {response.question_type && (
+                                <span style={{
+                                  marginLeft: '8px',
+                                  padding: '2px 8px',
+                                  background: '#ede9fe',
+                                  color: '#7c3aed',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: '500'
+                                }}>
+                                  {response.question_type}
+                                </span>
+                              )}
+                            </div>
+                            {response.response_score && (
+                              <div style={{
+                                padding: '4px 12px',
+                                background: response.response_score >= 70 ? '#d1fae5' : response.response_score >= 50 ? '#fef3c7' : '#fee2e2',
+                                color: response.response_score >= 70 ? '#065f46' : response.response_score >= 50 ? '#92400e' : '#991b1b',
+                                borderRadius: '4px',
+                                fontWeight: '600',
+                                fontSize: '14px'
+                              }}>
+                                Score: {response.response_score}/100
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div style={{
+                            marginTop: '12px',
+                            padding: '12px',
+                            background: '#f9fafb',
+                            borderRadius: '4px',
+                            border: '1px solid #e5e7eb'
+                          }}>
+                            <p style={{
+                              margin: 0,
+                              color: '#374151',
+                              lineHeight: '1.6',
+                              whiteSpace: 'pre-wrap'
+                            }}>
+                              {response.response_text || 'No response provided'}
+                            </p>
+                          </div>
+                          
+                          {response.word_count && (
+                            <div style={{
+                              marginTop: '8px',
+                              fontSize: '12px',
+                              color: '#6b7280'
+                            }}>
+                              {response.word_count} words • ~{Math.round((response.word_count / 150) * 60)}s speaking time
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {sessionResponses[session.id].length === 0 && (
+                        <p style={{ color: '#6b7280', fontStyle: 'italic' }}>No responses found for this session.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
