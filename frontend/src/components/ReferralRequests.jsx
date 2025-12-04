@@ -68,6 +68,21 @@ const ReferralRequests = () => {
     fetchAnalytics();
   }, []);
 
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    const isAnyModalOpen = showCreateModal || showDetailsModal;
+    
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCreateModal, showDetailsModal]);
+
   // Fetch referral requests
   const fetchReferrals = async () => {
     try {
@@ -869,7 +884,7 @@ const ReferralDetailsModal = ({ referral, onClose, onUpdate, onDelete }) => {
           {/* Request Details */}
           <div className="details-section">
             <h3>Request Details</h3>
-            <div className="details-grid">
+            <div className="details-grid three-col">
               <div className="detail-item">
                 <label>Status</label>
                 {isEditing ? (

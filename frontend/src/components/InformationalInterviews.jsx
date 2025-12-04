@@ -161,6 +161,22 @@ const InformationalInterviews = () => {
     }
   }, [showPrepFrameworkModal]);
 
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = showAddCandidateModal || showRequestInterviewModal || 
+      showPrepFrameworkModal || showFollowupModal || showDetailsModal || 
+      showAddInsightModal || showEditInsightModal || showEditInterviewModal;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showAddCandidateModal, showRequestInterviewModal, showPrepFrameworkModal, 
+      showFollowupModal, showDetailsModal, showAddInsightModal, showEditInsightModal, showEditInterviewModal]);
+
   // Add candidate
   const handleAddCandidate = async (e) => {
     e.preventDefault();

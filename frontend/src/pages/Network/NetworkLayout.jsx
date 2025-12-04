@@ -5,6 +5,7 @@ import NetworkingEvents from "../../components/NetworkingEvents";
 import InformationalInterviews from "../../components/InformationalInterviews";
 import IndustryContactDiscovery from "../../components/IndustryContactDiscovery";
 import RelationshipMaintenance from "../../components/RelationshipMaintenance";
+import ProfessionalReferences from "../../components/ProfessionalReferences";
 import "./NetworkLayout.css";
 
 export default function NetworkLayout() {
@@ -63,6 +64,12 @@ export default function NetworkLayout() {
         >
           💌 Relationship Maintenance
         </button>
+        <button
+          className={`network-tab-btn ${activeTab === "references" ? "active" : ""}`}
+          onClick={() => setActiveTab("references")}
+        >
+          📋 References
+        </button>
       </div>
 
       {/* Tab Contents */}
@@ -73,6 +80,7 @@ export default function NetworkLayout() {
         {activeTab === "discovery" && <IndustryContactDiscovery />}
         {activeTab === "interviews" && <InformationalInterviews />}
         {activeTab === "maintenance" && <RelationshipMaintenance />}
+        {activeTab === "references" && <ProfessionalReferences />}
       </div>
     </div>
   );
