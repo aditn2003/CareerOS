@@ -5,17 +5,16 @@ import pkg from "pg";
 
 const { Pool } = pkg;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// Factory function for dependency injection (for testing)
+function createMatchRoutes(dbPool = null, openaiApiKey = null) {
+  const router = express.Router();
+  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const OPENAI_API_KEY = openaiApiKey || process.env.OPENAI_API_KEY;
 
-const router = express.Router();
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-
-/* ==========================================================
-   1. BUILD USER PROFILE FROM YOUR REAL TABLES
-   ========================================================== */
-async function getUserProfileObject(userId) {
+  /* ==========================================================
+     1. BUILD USER PROFILE FROM YOUR REAL TABLES
+     ========================================================== */
+  async function getUserProfileObject(userId) {
   // 1) Profile row
   const profileQ = pool.query(
     `SELECT full_name, email, phone, location, title, bio, industry, experience
@@ -76,12 +75,12 @@ async function getUserProfileObject(userId) {
     employment: employmentRes.rows,
     education: educationRes.rows,
   };
-}
+  }
 
-/* ==========================================================
-   2. FETCH JOB OBJECT
-   ========================================================== */
-async function getJobObject(jobId) {
+  /* ==========================================================
+     2. FETCH JOB OBJECT
+     ========================================================== */
+  async function getJobObject(jobId) {
   const { rows } = await pool.query(
     `SELECT id, title, company, location, description
      FROM jobs
@@ -99,12 +98,12 @@ async function getJobObject(jobId) {
     location: rows[0].location,
     description: rows[0].description || "",
   };
-}
+  }
 
-/* ==========================================================
-   3. OPENAI MATCH ANALYSIS
-   ========================================================== */
-async function analyzeMatch(job, profile, weights) {
+  /* ==========================================================
+     3. OPENAI MATCH ANALYSIS
+     ========================================================== */
+  async function analyzeMatch(job, profile, weights) {
   if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
   const prompt = `
@@ -168,12 +167,12 @@ Weights:
     gaps: raw.gaps || [],
     improvements: raw.improvements || [],
   };
-}
+  }
 
-/* ==========================================================
-   4. POST /api/match/analyze
-   ========================================================== */
-router.post("/analyze", async (req, res) => {
+  /* ==========================================================
+     4. POST /api/match/analyze
+     ========================================================== */
+  router.post("/analyze", async (req, res) => {
     let { userId, jobId, weights } = req.body;
 
     // 🔥 Force correct numeric conversion — GUARANTEED FIX
@@ -260,12 +259,12 @@ await pool.query(
     res.status(500).json({ success: false, message: "Match error" });
     console.log("RECEIVED IDS:", userId, jobId);
   }
-});
+  });
 
-/* ==========================================================
-   5. HISTORY (Optional)
-   ========================================================== */
-   router.get("/history/:userId", async (req, res) => {
+  /* ==========================================================
+     5. HISTORY (Optional)
+     ========================================================== */
+  router.get("/history/:userId", async (req, res) => {
     // Note: This endpoint doesn't require auth as it's used for public history viewing
     // If you want to add auth, uncomment below:
     // const header = req.headers.authorization;
@@ -297,6 +296,13 @@ await pool.query(
       res.status(500).json({ success: false });
     }
   });
-  
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createMatchRoutes();
 export default router;
+
+// Export factory function for testing
+export { createMatchRoutes };

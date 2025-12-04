@@ -3,35 +3,45 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 dotenv.config();
 
-const router = express.Router();
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const SERP_API_KEY = process.env.SERP_API_KEY;
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Initialize Supabase client with proper configuration
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-  {
-    db: {
-      schema: 'public',
-    },
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'x-application-name': 'ats-interview-prep',
-      },
-    },
+// Factory function for dependency injection (for testing)
+function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = null, serpApiKey = null) {
+  const router = express.Router();
+  const OPENAI_KEY = openaiApiKey || process.env.OPENAI_API_KEY;
+  const SERP_API_KEY = serpApiKey || process.env.SERP_API_KEY;
+
+  // Use injected client or create default one
+  let supabase;
+  if (supabaseClient) {
+    supabase = supabaseClient;
+  } else {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      {
+        db: {
+          schema: 'public',
+        },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+        global: {
+          headers: {
+            'x-application-name': 'ats-interview-prep',
+          },
+        },
+      }
+    );
   }
-);
 
-// Helper function to retry database operations
-async function retryDatabaseOperation(operation, maxRetries = 3) {
+  // Helper function to retry database operations
+  async function retryDatabaseOperation(operation, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
@@ -53,26 +63,26 @@ async function retryDatabaseOperation(operation, maxRetries = 3) {
       throw error;
     }
   }
-}
+  }
 
-const http = axios.create({
-  timeout: 15000,
-  headers: {
-    "User-Agent": "ATS-InterviewBot/1.0 (contact: team@ats.com)",
-  },
-});
+  const http = axios.create({
+    timeout: 15000,
+    headers: {
+      "User-Agent": "ATS-InterviewBot/1.0 (contact: team@ats.com)",
+    },
+  });
 
-/* -----------------------------------------------------
-   Clean slug for Indeed URLs
------------------------------------------------------ */
-function slugify(str) {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
+  /* -----------------------------------------------------
+     Clean slug for Indeed URLs
+  ----------------------------------------------------- */
+  function slugify(str) {
+    return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  }
 
-/* -----------------------------------------------------
-   1. SERP — Google Search (now role-aware)
------------------------------------------------------ */
-async function getSerpSnippets(company, role) {
+  /* -----------------------------------------------------
+     1. SERP — Google Search (now role-aware)
+  ----------------------------------------------------- */
+  async function getSerpSnippets(company, role) {
   if (!SERP_API_KEY) {
     console.warn("⚠️ SERP_API_KEY missing. Returning fallback empty array.");
     return [];
@@ -105,10 +115,10 @@ async function getSerpSnippets(company, role) {
   }
 }
 
-/* -----------------------------------------------------
-   2. Indeed Scrape (still useful even without role)
------------------------------------------------------ */
-async function scrapeIndeed(company) {
+  /* -----------------------------------------------------
+     2. Indeed Scrape (still useful even without role)
+  ----------------------------------------------------- */
+  async function scrapeIndeed(company) {
   const slug = slugify(company);
   const urls = [
     `https://www.indeed.com/cmp/${slug}/interviews`,
@@ -130,13 +140,13 @@ async function scrapeIndeed(company) {
     } catch {}
   }
 
-  return "";
-}
+    return "";
+  }
 
-/* -----------------------------------------------------
-   3. Reddit + Glassdoor (now also role-aware)
------------------------------------------------------ */
-async function getCommunitySnippets(company, role) {
+  /* -----------------------------------------------------
+     3. Reddit + Glassdoor (now also role-aware)
+  ----------------------------------------------------- */
+  async function getCommunitySnippets(company, role) {
   if (!SERP_API_KEY) return [];
 
   const query = role
@@ -163,12 +173,12 @@ async function getCommunitySnippets(company, role) {
     console.error("❌ Community SERP error:", err.message);
     return [];
   }
-}
+  }
 
-/* -----------------------------------------------------
-   4. OpenAI Role-Aware Enrichment
------------------------------------------------------ */
-async function enrichInterviewInsights(company, role, serp, indeed, community) {
+  /* -----------------------------------------------------
+     4. OpenAI Role-Aware Enrichment
+  ----------------------------------------------------- */
+  async function enrichInterviewInsights(company, role, serp, indeed, community) {
   const context = `
 Company: ${company}
 Role: ${role || "N/A"}
@@ -258,12 +268,12 @@ STRICT RULES:
     console.error("❌ OpenAI Interview Insights Error:", err.message);
     return null;
   }
-}
+  }
 
-/* -----------------------------------------------------
-   🆕 UC-075: Generate Role-Specific Question Bank with Difficulty Levels
------------------------------------------------------ */
-async function generateQuestionBank(role, industry, difficulty) {
+  /* -----------------------------------------------------
+     🆕 UC-075: Generate Role-Specific Question Bank with Difficulty Levels
+  ----------------------------------------------------- */
+  async function generateQuestionBank(role, industry, difficulty) {
   if (!OPENAI_KEY) {
     // Return fallback questions with difficulty levels
     return {
@@ -375,12 +385,12 @@ REQUIREMENTS:
       company_specific: []
     };
   }
-}
+  }
 
-/* -----------------------------------------------------
-   MAIN ROUTE — NOW ROLE AWARE
------------------------------------------------------ */
-router.get("/", async (req, res) => {
+  /* -----------------------------------------------------
+     MAIN ROUTE — NOW ROLE AWARE
+  ----------------------------------------------------- */
+  router.get("/", async (req, res) => {
   const company = req.query.company?.trim();
   const role = req.query.role?.trim() || "";
   const userId = req.query.userId?.trim() || "1";
@@ -459,10 +469,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------
-   🆕 UC-075: Get Question Bank by Role/Industry/Difficulty
------------------------------------------------------ */
-router.get("/questions", async (req, res) => {
+  /* -----------------------------------------------------
+     🆕 UC-075: Get Question Bank by Role/Industry/Difficulty
+  ----------------------------------------------------- */
+  router.get("/questions", async (req, res) => {
   const role = req.query.role?.trim() || "";
   const industry = req.query.industry?.trim() || "Technology";
   const difficulty = req.query.difficulty?.trim() || "all";
@@ -502,7 +512,7 @@ router.get("/questions", async (req, res) => {
    🆕 UC-075: Track Practiced Questions with Supabase
    UPDATED: Now accepts questionText and tracks practice_count
 ----------------------------------------------------- */
-router.post("/questions/practice", async (req, res) => {
+  router.post("/questions/practice", async (req, res) => {
   try {
     const { userId, questionId, questionText, questionCategory, response } = req.body;
 
@@ -592,7 +602,7 @@ router.post("/questions/practice", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Get User's Practiced Questions from Supabase
 ----------------------------------------------------- */
-router.get("/questions/practiced", async (req, res) => {
+  router.get("/questions/practiced", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const category = req.query.category?.trim(); // Optional filter by category
@@ -656,7 +666,7 @@ router.get("/questions/practiced", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Get Practice Statistics from Supabase
 ----------------------------------------------------- */
-router.get("/questions/stats", async (req, res) => {
+  router.get("/questions/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -736,7 +746,7 @@ router.get("/questions/stats", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-075: Delete Practiced Question
 ----------------------------------------------------- */
-router.delete("/questions/practice/:questionId", async (req, res) => {
+  router.delete("/questions/practice/:questionId", async (req, res) => {
   try {
     const { questionId } = req.params;
     const userId = req.query.userId?.trim();
@@ -789,7 +799,7 @@ router.delete("/questions/practice/:questionId", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Toggle Checklist Item Completion
 ----------------------------------------------------- */
-router.post("/checklist/toggle", async (req, res) => {
+  router.post("/checklist/toggle", async (req, res) => {
   try {
     const { userId, company, role, category, item } = req.body;
 
@@ -893,7 +903,7 @@ router.post("/checklist/toggle", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Get Checklist Completion Status
 ----------------------------------------------------- */
-router.get("/checklist/status", async (req, res) => {
+  router.get("/checklist/status", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -963,7 +973,7 @@ router.get("/checklist/status", async (req, res) => {
 /* -----------------------------------------------------
    🆕 UC-081: Get Checklist Statistics
 ----------------------------------------------------- */
-router.get("/checklist/stats", async (req, res) => {
+  router.get("/checklist/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1044,7 +1054,7 @@ router.get("/checklist/stats", async (req, res) => {
    🆕 UC-081: Regenerate Checklist
    Delete saved checklist to force generation of new one
 ----------------------------------------------------- */
-router.delete("/checklist/regenerate", async (req, res) => {
+  router.delete("/checklist/regenerate", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1097,10 +1107,10 @@ router.delete("/checklist/regenerate", async (req, res) => {
   }
 });
 
-/* -----------------------------------------------------
-   🆕 UC-082: Generate Follow-Up Email Template
------------------------------------------------------ */
-async function generateFollowUpTemplate(
+  /* -----------------------------------------------------
+     🆕 UC-082: Generate Follow-Up Email Template
+  ----------------------------------------------------- */
+  async function generateFollowUpTemplate(
   templateType,
   company,
   role,
@@ -1213,12 +1223,13 @@ Return ONLY valid JSON.
     console.error("❌ OpenAI Follow-Up Template Error:", err.message);
     return null;
   }
-}
-/* -----------------------------------------------------
-   🆕 UC-082: DELETE /follow-up/:id
-   Delete a follow-up template
------------------------------------------------------ */
-router.delete("/follow-up/:id", async (req, res) => {
+  }
+
+  /* -----------------------------------------------------
+     🆕 UC-082: DELETE /follow-up/:id
+     Delete a follow-up template
+  ----------------------------------------------------- */
+  router.delete("/follow-up/:id", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -1274,7 +1285,7 @@ router.delete("/follow-up/:id", async (req, res) => {
    🆕 UC-082: POST /follow-up/generate
    Generate follow-up email template
 ----------------------------------------------------- */
-router.post("/follow-up/generate", async (req, res) => {
+  router.post("/follow-up/generate", async (req, res) => {
   try {
     const {
       userId,
@@ -1283,6 +1294,7 @@ router.post("/follow-up/generate", async (req, res) => {
       templateType,
       interviewerName,
       interviewerTitle,
+      interviewerEmail,
       interviewDate,
       conversationHighlights
     } = req.body;
@@ -1359,6 +1371,7 @@ router.post("/follow-up/generate", async (req, res) => {
           subject_line: template.subjectLine,
           interviewer_name: interviewerName || null,
           interviewer_title: interviewerTitle || null,
+          interviewer_email: interviewerEmail || null,
           interview_date: interviewDate || null,
           conversation_highlights: conversationHighlights || [],
           suggested_send_date: template.suggestedTiming?.sendDate || suggestedDate.toISOString().split('T')[0],
@@ -1402,7 +1415,7 @@ router.post("/follow-up/generate", async (req, res) => {
    🆕 UC-082: GET /follow-up/templates
    Get all follow-up templates for user
 ----------------------------------------------------- */
-router.get("/follow-up/templates", async (req, res) => {
+  router.get("/follow-up/templates", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const company = req.query.company?.trim();
@@ -1467,7 +1480,7 @@ router.get("/follow-up/templates", async (req, res) => {
    🆕 UC-082: PUT /follow-up/:id/mark-sent
    Mark template as sent
 ----------------------------------------------------- */
-router.put("/follow-up/:id/mark-sent", async (req, res) => {
+  router.put("/follow-up/:id/mark-sent", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const { userId } = req.body;
@@ -1523,7 +1536,7 @@ router.put("/follow-up/:id/mark-sent", async (req, res) => {
    🆕 UC-082: PUT /follow-up/:id/track-response
    Track response to follow-up
 ----------------------------------------------------- */
-router.put("/follow-up/:id/track-response", async (req, res) => {
+  router.put("/follow-up/:id/track-response", async (req, res) => {
   try {
     const templateId = parseInt(req.params.id, 10);
     const { userId, responseReceived, responseType, notes } = req.body;
@@ -1581,7 +1594,7 @@ router.put("/follow-up/:id/track-response", async (req, res) => {
    🆕 UC-082: GET /follow-up/stats
    Get follow-up statistics
 ----------------------------------------------------- */
-router.get("/follow-up/stats", async (req, res) => {
+  router.get("/follow-up/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -1658,6 +1671,229 @@ router.get("/follow-up/stats", async (req, res) => {
       message: "Failed to fetch statistics"
     });
   }
+  });
+
+  /* -----------------------------------------------------
+   🆕 POST /follow-up/:templateId/send-email
+   Send follow-up email to interviewer
+----------------------------------------------------- */
+  router.post("/follow-up/:templateId/send-email", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const { userId, interviewerEmail, editedSubject, editedContent, userEmail, userName } = req.body;
+
+      if (!userId || !interviewerEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields: userId, interviewerEmail"
+        });
+      }
+
+      const userIdInt = parseInt(userId, 10);
+      if (isNaN(userIdInt)) {
+        return res.status(400).json({
+          success: false,
+          message: "userId must be a valid integer"
+        });
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(interviewerEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format"
+        });
+      }
+
+      // Get template from database
+      const { data: template, error: fetchError } = await retryDatabaseOperation(async () => {
+        return await supabase
+          .from("interview_follow_ups")
+          .select("*")
+          .eq("id", templateId)
+          .eq("user_id", userIdInt)
+          .single();
+      });
+
+      if (fetchError || !template) {
+        return res.status(404).json({
+          success: false,
+          message: "Template not found"
+        });
+      }
+
+      // Use edited content if provided, otherwise use template content
+      const finalSubject = editedSubject || template.subject_line;
+      const finalContent = editedContent || template.template_content;
+
+      // Send email via Resend
+      try {
+        // Use EMAIL_FROM from .env (your verified domain email)
+        const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+        
+        // Check if using default Resend test email (not verified)
+        const isTestMode = fromEmail === "onboarding@resend.dev";
+        
+        // In test mode, check if recipient is the verified user email
+        if (isTestMode && userEmail && interviewerEmail.toLowerCase() !== userEmail.toLowerCase()) {
+          return res.status(403).json({
+            success: false,
+            message: "⚠️ Email domain not verified. In test mode, you can only send emails to your own email address. Please verify a domain at resend.com/domains or use your own email for testing.",
+            testMode: true,
+            userEmail: userEmail
+          });
+        }
+
+        const { data: emailData, error: emailError } = await resend.emails.send({
+          from: fromEmail,
+          to: interviewerEmail,
+          subject: finalSubject,
+          text: finalContent,
+          html: `<pre style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; white-space: pre-wrap; line-height: 1.6;">${finalContent}</pre>`,
+          replyTo: userEmail
+        });
+
+        if (emailError) {
+          console.error("❌ Resend email error:", emailError);
+          
+          // Special handling for domain verification error
+          if (emailError.message?.includes('verify a domain')) {
+            return res.status(403).json({
+              success: false,
+              message: "⚠️ Email domain not verified. You can only send to your own email address in test mode. Please verify a domain at resend.com/domains or enter your own email address for testing.",
+              error: emailError.message,
+              testMode: true
+            });
+          }
+          
+          return res.status(500).json({
+            success: false,
+            message: "Failed to send email",
+            error: emailError.message
+          });
+        }
+
+        console.log("✅ Email sent successfully:", emailData);
+
+        // Update template to mark as sent and store interviewer email
+        const { data: updatedTemplate, error: updateError } = await retryDatabaseOperation(async () => {
+          return await supabase
+            .from("interview_follow_ups")
+            .update({
+              is_sent: true,
+              sent_at: new Date().toISOString(),
+              interviewer_email: interviewerEmail
+            })
+            .eq("id", templateId)
+            .eq("user_id", userIdInt)
+            .select()
+            .single();
+        });
+
+        if (updateError) {
+          console.warn("⚠️ Email sent but failed to update template:", updateError.message);
+          // Don't fail the request since email was sent
+        }
+
+        return res.json({
+          success: true,
+          message: "Email sent successfully!",
+          data: {
+            emailId: emailData?.id,
+            template: updatedTemplate
+          }
+        });
+      } catch (emailErr) {
+        console.error("❌ Email send error:", emailErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send email",
+          error: emailErr.message
+        });
+      }
+    } catch (err) {
+      console.error("❌ Error in send-email endpoint:", err.message);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while sending email"
+      });
+    }
+  });
+
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createInterviewInsightsRoutes();
+
+/* -----------------------------------------------------
+   🆕 PUT /follow-up/:templateId/update-email
+   Update interviewer email for a template
+----------------------------------------------------- */
+router.put("/follow-up/:templateId/update-email", async (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const { userId, interviewerEmail } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing userId"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    // Validate email if provided
+    if (interviewerEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(interviewerEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format"
+        });
+      }
+    }
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("interview_follow_ups")
+        .update({ interviewer_email: interviewerEmail })
+        .eq("id", templateId)
+        .eq("user_id", userIdInt)
+        .select()
+        .single();
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error",
+        error: error.message
+      });
+    }
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (err) {
+    console.error("❌ Error updating email:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update email"
+    });
+  }
 });
 
 export default router;
+// Export factory function for testing
+export { createInterviewInsightsRoutes };

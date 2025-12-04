@@ -711,16 +711,16 @@
   .interview-insights-container {
     padding: 20px 16px;
   }
-
+  
   .company-buttons {
     grid-template-columns: 1fr 1fr;
   }
-
+  
   .insights-header {
     flex-direction: column;
     gap: 16px;
   }
-
+  
   .export-btn {
     width: 100%;
     justify-content: center;
@@ -739,4 +739,4 @@
   .progress-percentage {
     text-align: left;
   }
-}
+  }

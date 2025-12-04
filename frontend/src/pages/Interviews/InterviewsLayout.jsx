@@ -50,6 +50,13 @@ export default function InterviewsLayout() {
               <span className="tab-text">Questions</span>
             </Link>
             <Link
+              to="/interviews/technical-prep"
+              className={`nav-tab practice ${isActive('/interviews/technical-prep') ? 'active' : ''}`}
+            >
+              <span className="tab-icon">💻</span>
+              <span className="tab-text">Technical</span>
+            </Link>
+            <Link
               to="/interviews/response-coaching"
               className={`nav-tab practice ${isActive('/interviews/response-coaching') ? 'active' : ''}`}
             >

@@ -688,29 +688,29 @@ export default function SalaryNegotiation() {
                   </div>
                 </div>
                 {selectedNegotiation.target_salary && (
-                  <div className="analysis-card">
-                    <h4>Recommended Counter</h4>
-                    <div className="analysis-value">
-                      <span className="value-above">{formatCurrency(selectedNegotiation.target_salary)}</span>
+                <div className="analysis-card">
+                  <h4>Recommended Counter</h4>
+                  <div className="analysis-value">
+                    <span className="value-above">{formatCurrency(selectedNegotiation.target_salary)}</span>
                       {selectedNegotiation.initial_offer_amount && (
-                        <span className="value-label">
-                          (+{((selectedNegotiation.target_salary - selectedNegotiation.initial_offer_amount) / selectedNegotiation.initial_offer_amount * 100).toFixed(1)}% increase)
-                        </span>
+                    <span className="value-label">
+                      (+{((selectedNegotiation.target_salary - selectedNegotiation.initial_offer_amount) / selectedNegotiation.initial_offer_amount * 100).toFixed(1)}% increase)
+                    </span>
                       )}
-                    </div>
                   </div>
+                </div>
                 )}
               </div>
               {/* Only show gaps section if offer is below market */}
               {selectedNegotiation.initial_offer_amount < selectedNegotiation.market_research.median && (
-                <div className="improvement-section">
-                  <h4>Specific Gaps to Address:</h4>
-                  <div className="gaps-grid">
+              <div className="improvement-section">
+                <h4>Specific Gaps to Address:</h4>
+                <div className="gaps-grid">
                     {selectedNegotiation.target_salary ? (
-                      <div className="gap-item">
-                        <span className="gap-label">Base Salary:</span>
-                        <span className="gap-value">Target {formatCurrency(selectedNegotiation.target_salary)} to match market</span>
-                      </div>
+                  <div className="gap-item">
+                    <span className="gap-label">Base Salary:</span>
+                    <span className="gap-value">Target {formatCurrency(selectedNegotiation.target_salary)} to match market</span>
+                  </div>
                     ) : selectedNegotiation.market_research.median && (
                       <div className="gap-item">
                         <span className="gap-label">Base Salary:</span>
@@ -719,21 +719,21 @@ export default function SalaryNegotiation() {
                     )}
                     {/* Only suggest signing bonus if there's an actual gap to bridge */}
                     {selectedNegotiation.market_research.median > selectedNegotiation.initial_offer_amount && (
-                      <div className="gap-item">
-                        <span className="gap-label">Signing Bonus:</span>
+                  <div className="gap-item">
+                    <span className="gap-label">Signing Bonus:</span>
                         <span className="gap-value">
                           Request {formatCurrency(Math.round((selectedNegotiation.market_research.median - selectedNegotiation.initial_offer_amount) * 0.5))} to help bridge the {formatCurrency(selectedNegotiation.market_research.median - selectedNegotiation.initial_offer_amount)} gap
                         </span>
-                      </div>
-                    )}
-                    {selectedNegotiation.pto_days && selectedNegotiation.pto_days < 20 && (
-                      <div className="gap-item">
-                        <span className="gap-label">PTO:</span>
-                        <span className="gap-value">{selectedNegotiation.pto_days} days is below 20-day average</span>
-                      </div>
-                    )}
                   </div>
+                    )}
+                  {selectedNegotiation.pto_days && selectedNegotiation.pto_days < 20 && (
+                    <div className="gap-item">
+                      <span className="gap-label">PTO:</span>
+                      <span className="gap-value">{selectedNegotiation.pto_days} days is below 20-day average</span>
+                    </div>
+                  )}
                 </div>
+              </div>
               )}
             </div>
           )}
