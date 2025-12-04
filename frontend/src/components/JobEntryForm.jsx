@@ -16,6 +16,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     description: "",
     industry: "",
     type: "",
+    role_level: "",
     applied_on: today,
 
     // ⭐ MATERIAL LINKING
@@ -295,6 +296,25 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="part_time">Part Time</option>
         <option value="internship">Internship</option>
         <option value="contract">Contract</option>
+      </select>
+
+      <label>Role Level</label>
+      <select
+        value={form.role_level}
+        onChange={(e) => setForm({ ...form, role_level: e.target.value })}
+      >
+        <option value="">Select role level</option>
+        <option value="intern">Intern</option>
+        <option value="entry">Entry Level</option>
+        <option value="junior">Junior</option>
+        <option value="mid">Mid-Level</option>
+        <option value="senior">Senior</option>
+        <option value="staff">Staff</option>
+        <option value="principal">Principal</option>
+        <option value="lead">Lead</option>
+        <option value="manager">Manager</option>
+        <option value="director">Director</option>
+        <option value="vp">VP</option>
       </select>
 
       {/* ⭐ REQUIRED SKILLS */}

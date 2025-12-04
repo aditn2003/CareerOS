@@ -9,26 +9,6 @@ dotenv.config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Initialize Supabase client with proper configuration
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-  {
-    db: {
-      schema: 'public',
-    },
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'x-application-name': 'ats-interview-prep',
-      },
-    },
-  }
-);
-
 // Factory function for dependency injection (for testing)
 function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = null, serpApiKey = null) {
   const router = express.Router();
@@ -1731,151 +1711,151 @@ Return ONLY valid JSON.
   });
 
   /* -----------------------------------------------------
-     🆕 POST /follow-up/:templateId/send-email
-     Send follow-up email to interviewer
-  ----------------------------------------------------- */
+   🆕 POST /follow-up/:templateId/send-email
+   Send follow-up email to interviewer
+----------------------------------------------------- */
   router.post("/follow-up/:templateId/send-email", async (req, res) => {
-  try {
-    const { templateId } = req.params;
-    const { userId, interviewerEmail, editedSubject, editedContent, userEmail, userName } = req.body;
-
-    if (!userId || !interviewerEmail) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: userId, interviewerEmail"
-      });
-    }
-
-    const userIdInt = parseInt(userId, 10);
-    if (isNaN(userIdInt)) {
-      return res.status(400).json({
-        success: false,
-        message: "userId must be a valid integer"
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(interviewerEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid email format"
-      });
-    }
-
-    // Get template from database
-    const { data: template, error: fetchError } = await retryDatabaseOperation(async () => {
-      return await supabase
-        .from("interview_follow_ups")
-        .select("*")
-        .eq("id", templateId)
-        .eq("user_id", userIdInt)
-        .single();
-    });
-
-    if (fetchError || !template) {
-      return res.status(404).json({
-        success: false,
-        message: "Template not found"
-      });
-    }
-
-    // Use edited content if provided, otherwise use template content
-    const finalSubject = editedSubject || template.subject_line;
-    const finalContent = editedContent || template.template_content;
-
-    // Send email via Resend
     try {
-      // Use EMAIL_FROM from .env (your verified domain email)
-      const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-      
-      // Check if using default Resend test email (not verified)
-      const isTestMode = fromEmail === "onboarding@resend.dev";
-      
-      // In test mode, check if recipient is the verified user email
-      if (isTestMode && userEmail && interviewerEmail.toLowerCase() !== userEmail.toLowerCase()) {
-        return res.status(403).json({
+      const { templateId } = req.params;
+      const { userId, interviewerEmail, editedSubject, editedContent, userEmail, userName } = req.body;
+
+      if (!userId || !interviewerEmail) {
+        return res.status(400).json({
           success: false,
-          message: "⚠️ Email domain not verified. In test mode, you can only send emails to your own email address. Please verify a domain at resend.com/domains or use your own email for testing.",
-          testMode: true,
-          userEmail: userEmail
+          message: "Missing required fields: userId, interviewerEmail"
         });
       }
 
-      const { data: emailData, error: emailError } = await resend.emails.send({
-        from: fromEmail,
-        to: interviewerEmail,
-        subject: finalSubject,
-        text: finalContent,
-        html: `<pre style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; white-space: pre-wrap; line-height: 1.6;">${finalContent}</pre>`,
-        replyTo: userEmail
-      });
-
-      if (emailError) {
-        console.error("❌ Resend email error:", emailError);
-        
-        // Special handling for domain verification error
-        if (emailError.message?.includes('verify a domain')) {
-          return res.status(403).json({
-            success: false,
-            message: "⚠️ Email domain not verified. You can only send to your own email address in test mode. Please verify a domain at resend.com/domains or enter your own email address for testing.",
-            error: emailError.message,
-            testMode: true
-          });
-        }
-        
-        return res.status(500).json({
+      const userIdInt = parseInt(userId, 10);
+      if (isNaN(userIdInt)) {
+        return res.status(400).json({
           success: false,
-          message: "Failed to send email",
-          error: emailError.message
+          message: "userId must be a valid integer"
         });
       }
 
-      console.log("✅ Email sent successfully:", emailData);
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(interviewerEmail)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid email format"
+        });
+      }
 
-      // Update template to mark as sent and store interviewer email
-      const { data: updatedTemplate, error: updateError } = await retryDatabaseOperation(async () => {
+      // Get template from database
+      const { data: template, error: fetchError } = await retryDatabaseOperation(async () => {
         return await supabase
           .from("interview_follow_ups")
-          .update({
-            is_sent: true,
-            sent_at: new Date().toISOString(),
-            interviewer_email: interviewerEmail
-          })
+          .select("*")
           .eq("id", templateId)
           .eq("user_id", userIdInt)
-          .select()
           .single();
       });
 
-      if (updateError) {
-        console.warn("⚠️ Email sent but failed to update template:", updateError.message);
-        // Don't fail the request since email was sent
+      if (fetchError || !template) {
+        return res.status(404).json({
+          success: false,
+          message: "Template not found"
+        });
       }
 
-      return res.json({
-        success: true,
-        message: "Email sent successfully!",
-        data: {
-          emailId: emailData?.id,
-          template: updatedTemplate
+      // Use edited content if provided, otherwise use template content
+      const finalSubject = editedSubject || template.subject_line;
+      const finalContent = editedContent || template.template_content;
+
+      // Send email via Resend
+      try {
+        // Use EMAIL_FROM from .env (your verified domain email)
+        const fromEmail = process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+        
+        // Check if using default Resend test email (not verified)
+        const isTestMode = fromEmail === "onboarding@resend.dev";
+        
+        // In test mode, check if recipient is the verified user email
+        if (isTestMode && userEmail && interviewerEmail.toLowerCase() !== userEmail.toLowerCase()) {
+          return res.status(403).json({
+            success: false,
+            message: "⚠️ Email domain not verified. In test mode, you can only send emails to your own email address. Please verify a domain at resend.com/domains or use your own email for testing.",
+            testMode: true,
+            userEmail: userEmail
+          });
         }
-      });
-    } catch (emailErr) {
-      console.error("❌ Email send error:", emailErr);
+
+        const { data: emailData, error: emailError } = await resend.emails.send({
+          from: fromEmail,
+          to: interviewerEmail,
+          subject: finalSubject,
+          text: finalContent,
+          html: `<pre style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; white-space: pre-wrap; line-height: 1.6;">${finalContent}</pre>`,
+          replyTo: userEmail
+        });
+
+        if (emailError) {
+          console.error("❌ Resend email error:", emailError);
+          
+          // Special handling for domain verification error
+          if (emailError.message?.includes('verify a domain')) {
+            return res.status(403).json({
+              success: false,
+              message: "⚠️ Email domain not verified. You can only send to your own email address in test mode. Please verify a domain at resend.com/domains or enter your own email address for testing.",
+              error: emailError.message,
+              testMode: true
+            });
+          }
+          
+          return res.status(500).json({
+            success: false,
+            message: "Failed to send email",
+            error: emailError.message
+          });
+        }
+
+        console.log("✅ Email sent successfully:", emailData);
+
+        // Update template to mark as sent and store interviewer email
+        const { data: updatedTemplate, error: updateError } = await retryDatabaseOperation(async () => {
+          return await supabase
+            .from("interview_follow_ups")
+            .update({
+              is_sent: true,
+              sent_at: new Date().toISOString(),
+              interviewer_email: interviewerEmail
+            })
+            .eq("id", templateId)
+            .eq("user_id", userIdInt)
+            .select()
+            .single();
+        });
+
+        if (updateError) {
+          console.warn("⚠️ Email sent but failed to update template:", updateError.message);
+          // Don't fail the request since email was sent
+        }
+
+        return res.json({
+          success: true,
+          message: "Email sent successfully!",
+          data: {
+            emailId: emailData?.id,
+            template: updatedTemplate
+          }
+        });
+      } catch (emailErr) {
+        console.error("❌ Email send error:", emailErr);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send email",
+          error: emailErr.message
+        });
+      }
+    } catch (err) {
+      console.error("❌ Error in send-email endpoint:", err.message);
       return res.status(500).json({
         success: false,
-        message: "Failed to send email",
-        error: emailErr.message
+        message: "Server error while sending email"
       });
     }
-  } catch (err) {
-    console.error("❌ Error in send-email endpoint:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Server error while sending email"
-    });
-  }
   });
 
   /* -----------------------------------------------------

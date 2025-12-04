@@ -454,19 +454,51 @@ Rules:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are an expert interview preparation coach." },
-          { role: "user", content: contextPrompt },
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      },
-      { headers: { Authorization: `Bearer ${key}` } }
-    );
+    // Retry logic for network errors (SSL/TLS, socket hang up, etc.)
+    let data;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.post(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are an expert interview preparation coach." },
+              { role: "user", content: contextPrompt },
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" },
+          },
+          { 
+            headers: { Authorization: `Bearer ${key}` },
+            timeout: 30000
+          }
+        );
+        data = response.data;
+        break; // Success, exit retry loop
+      } catch (err) {
+        const isNetworkError = 
+          err.message?.includes('SSL') || 
+          err.message?.includes('TLS') || 
+          err.message?.includes('bad record mac') ||
+          err.message?.includes('socket hang up') ||
+          err.message?.includes('ECONNRESET') ||
+          err.code === 'ECONNRESET' ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ENOTFOUND' ||
+          err.code === 'ECONNREFUSED';
+        
+        if (isNetworkError && attempt < maxRetries) {
+          const delay = attempt * 1000; // 1s, 2s, 3s
+          console.warn(`⚠️ OpenAI network error when generating talking points (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err; // Re-throw if not network error or last attempt
+      }
+    }
 
     const result = JSON.parse(data?.choices?.[0]?.message?.content || "{}");
     return {
@@ -474,7 +506,21 @@ Rules:
       questionsToAsk: result.questionsToAsk || []
     };
   } catch (err) {
-    console.error("❌ Error generating talking points:", err.message);
+    const errorMsg = err.message || 'Unknown error';
+    const isNetworkError = 
+      errorMsg.includes('SSL') || 
+      errorMsg.includes('TLS') || 
+      errorMsg.includes('bad record mac') ||
+      errorMsg.includes('socket hang up') ||
+      errorMsg.includes('ECONNRESET');
+    
+    if (isNetworkError) {
+      console.error("❌ Error generating talking points (network error):", errorMsg);
+      console.error("   Network connectivity issue detected. Using fallback talking points.");
+    } else {
+      console.error("❌ Error generating talking points:", errorMsg);
+    }
+    
     return {
       talkingPoints: [
         `Discuss ${companyData.company}'s mission and values`,

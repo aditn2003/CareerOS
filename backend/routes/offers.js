@@ -777,11 +777,39 @@ router.delete("/:id", async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
+    
+    // First, check if the offer exists and belongs to the user
+    const offerCheck = await pool.query(
+      `SELECT id FROM offers WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    
+    if (offerCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Offer not found" });
+    }
+    
+    // Delete related compensation_history entries first (if they exist)
+    try {
+      const compHistoryResult = await pool.query(
+        `DELETE FROM compensation_history WHERE offer_id = $1 AND user_id = $2`,
+        [id, userId]
+      );
+      if (compHistoryResult.rowCount > 0) {
+        console.log(`✅ Deleted ${compHistoryResult.rowCount} compensation history entry/entries for offer ${id}`);
+      }
+    } catch (compErr) {
+      console.error(`⚠️ Error deleting compensation history for offer ${id}:`, compErr);
+      // Continue with offer deletion even if compensation history deletion fails
+    }
+    
+    // Delete the offer
     await pool.query(
       `DELETE FROM offers WHERE id = $1 AND user_id = $2`,
       [id, userId]
     );
-    res.json({ message: "Offer deleted" });
+    
+    console.log(`✅ Offer ${id} deleted successfully`);
+    res.json({ message: "Offer deleted successfully" });
   } catch (err) {
     console.error("Error deleting offer:", err);
     res.status(500).json({ error: "Failed to delete offer" });
