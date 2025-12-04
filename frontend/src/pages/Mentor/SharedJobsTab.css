@@ -259,7 +259,7 @@
 }
 
 /* Modal Content Container */
-.modal-content {
+.shared-jobs-tab .modal-content {
   background: white !important;
   border-radius: 12px !important;
   width: 90% !important;
@@ -303,7 +303,7 @@
 }
 
 /* Modal Title - Fixed Height */
-.modal-content > h2 {
+.shared-jobs-tab .modal-content > h2 {
   margin: 0 !important;
   padding: 32px 70px 28px 40px !important;
   color: #111827 !important;
@@ -315,7 +315,7 @@
 }
 
 /* Modal Form Container */
-.modal-content > form {
+.shared-jobs-tab .modal-content > form {
   display: flex !important;
   flex-direction: column !important;
   background: white !important;
@@ -325,7 +325,7 @@
 }
 
 /* Form Inner Wrapper - Scrollable Content */
-.modal-content form > div:first-child {
+.shared-jobs-tab .modal-content form > div:first-child {
   padding: 35px 40px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -336,15 +336,15 @@
 }
 
 /* Form Groups */
-.form-group {
+.shared-jobs-tab .form-group {
   margin-bottom: 28px !important;
 }
 
-.form-group:last-of-type {
+.shared-jobs-tab .form-group:last-of-type {
   margin-bottom: 0 !important;
 }
 
-.form-group label {
+.shared-jobs-tab .form-group label {
   display: block !important;
   margin-bottom: 10px !important;
   color: #374151 !important;
@@ -352,8 +352,8 @@
   font-size: 1rem !important;
 }
 
-.form-group select,
-.form-group textarea {
+.shared-jobs-tab .form-group select,
+.shared-jobs-tab .form-group textarea {
   width: 100% !important;
   padding: 14px !important;
   border: 1.5px solid #d1d5db !important;
@@ -365,15 +365,15 @@
   transition: all 0.2s !important;
 }
 
-.form-group textarea {
+.shared-jobs-tab .form-group textarea {
   resize: vertical !important;
   min-height: 180px !important;
   max-height: 400px !important;
   line-height: 1.6 !important;
 }
 
-.form-group select:focus,
-.form-group textarea:focus {
+.shared-jobs-tab .form-group select:focus,
+.shared-jobs-tab .form-group textarea:focus {
   outline: none !important;
   border-color: #6d28d9 !important;
   box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.1) !important;
@@ -635,28 +635,28 @@
     align-items: flex-start;
   }
 
-  .modal-content {
+  .shared-jobs-tab .modal-content {
     width: 95% !important;
     min-width: 480px !important;
     max-width: 95% !important;
     max-height: 92vh !important;
   }
 
-  .modal-content > h2 {
+  .shared-jobs-tab .modal-content > h2 {
     padding: 24px 60px 20px 24px !important;
     font-size: 1.5rem !important;
   }
 
-  .modal-content form > div:first-child {
+  .shared-jobs-tab .modal-content form > div:first-child {
     padding: 24px !important;
   }
 
-  .modal-actions {
+  .shared-jobs-tab .modal-actions {
     padding: 20px 24px !important;
     gap: 0 !important;
   }
 
-  .modal-actions button {
+  .shared-jobs-tab .modal-actions button {
     padding: 10px 20px !important;
     font-size: 0.875rem !important;
   }

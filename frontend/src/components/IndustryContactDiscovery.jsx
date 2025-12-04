@@ -1007,94 +1007,124 @@ export default function IndustryContactDiscovery() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingId ? "Edit Contact" : "Add Contact Suggestion"}</h3>
             <form onSubmit={editingId ? handleUpdateSuggestion : handleAddSuggestion}>
-              <input
-                type="text"
-                placeholder="First Name *"
-                value={suggestionForm.first_name}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, first_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="text"
-                placeholder="Last Name *"
-                value={suggestionForm.last_name}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, last_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={suggestionForm.email}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, email: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={suggestionForm.title}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, title: e.target.value })
-                }
-              />
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  placeholder="Company *"
-                  value={suggestionForm.company}
-                  onChange={(e) => handleCompanyChange(e.target.value)}
-                  onFocus={() => suggestionForm.company && setShowContactDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowContactDropdown(false), 200)}
-                  required
-                />
-                {showContactDropdown && contactOptions.length > 0 && (
-                  <div className="autocomplete-dropdown">
-                    <div className="dropdown-header">Select a contact:</div>
-                    {contactOptions.map((contact, idx) => (
-                      <div
-                        key={idx}
-                        className="dropdown-item"
-                        onClick={() => handleSelectContact(contact)}
-                      >
-                        <div className="dropdown-name">{contact.firstName} {contact.lastName}</div>
-                        <div className="dropdown-details">{contact.title} • {contact.company}</div>
-                        <div className="dropdown-score">{contact.matchScore}% match</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="form-row">
+                <div>
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={suggestionForm.first_name}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, first_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={suggestionForm.last_name}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, last_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="Industry"
-                value={suggestionForm.industry}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, industry: e.target.value })
-                }
-              />
-              <input
-                type="url"
-                placeholder="LinkedIn URL"
-                value={suggestionForm.linkedin_url}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, linkedin_url: e.target.value })
-                }
-              />
-              <select
-                value={suggestionForm.suggestion_reason}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, suggestion_reason: e.target.value })
-                }
-              >
-                <option value="target_company_match">Target Company Match</option>
-                <option value="role_match">Role Match</option>
-                <option value="industry_leader">Industry Leader</option>
-                <option value="skill_match">Skill Match</option>
-              </select>
+              <div className="form-row">
+                <div>
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={suggestionForm.email}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={suggestionForm.title}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, title: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div style={{ position: "relative" }}>
+                  <label>Company *</label>
+                  <input
+                    type="text"
+                    placeholder="Company"
+                    value={suggestionForm.company}
+                    onChange={(e) => handleCompanyChange(e.target.value)}
+                    onFocus={() => suggestionForm.company && setShowContactDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowContactDropdown(false), 200)}
+                    required
+                  />
+                  {showContactDropdown && contactOptions.length > 0 && (
+                    <div className="autocomplete-dropdown">
+                      <div className="dropdown-header">Select a contact:</div>
+                      {contactOptions.map((contact, idx) => (
+                        <div
+                          key={idx}
+                          className="dropdown-item"
+                          onClick={() => handleSelectContact(contact)}
+                        >
+                          <div className="dropdown-name">{contact.firstName} {contact.lastName}</div>
+                          <div className="dropdown-details">{contact.title} • {contact.company}</div>
+                          <div className="dropdown-score">{contact.matchScore}% match</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label>Industry</label>
+                  <input
+                    type="text"
+                    placeholder="Industry"
+                    value={suggestionForm.industry}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, industry: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div>
+                  <label>LinkedIn URL</label>
+                  <input
+                    type="url"
+                    placeholder="LinkedIn URL"
+                    value={suggestionForm.linkedin_url}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, linkedin_url: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Suggestion Reason</label>
+                  <select
+                    value={suggestionForm.suggestion_reason}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, suggestion_reason: e.target.value })
+                    }
+                  >
+                    <option value="target_company_match">Target Company Match</option>
+                    <option value="role_match">Role Match</option>
+                    <option value="industry_leader">Industry Leader</option>
+                    <option value="skill_match">Skill Match</option>
+                  </select>
+                </div>
+              </div>
               <div className="form-row">
                 <div>
                   <label>Match Score (0-100): {suggestionForm.match_score}</label>
@@ -1135,76 +1165,112 @@ export default function IndustryContactDiscovery() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingId ? "Edit Alumni Connection" : "Add Alumni Connection"}</h3>
             <form onSubmit={handleAddAlumni}>
-              <input
-                type="text"
-                placeholder="First Name *"
-                value={alumniForm.first_name}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, first_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="text"
-                placeholder="Last Name *"
-                value={alumniForm.last_name}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, last_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={alumniForm.email}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, email: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={alumniForm.title}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, title: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Company"
-                value={alumniForm.company}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, company: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Institution *"
-                value={alumniForm.education_institution}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, education_institution: e.target.value })
-                }
-                required
-              />
-              <input
-                type="number"
-                placeholder="Graduation Year"
-                value={alumniForm.graduation_year}
-                onChange={(e) =>
-                  setAlumniForm({
-                    ...alumniForm,
-                    graduation_year: parseInt(e.target.value)
-                  })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Degree Type"
-                value={alumniForm.degree_type}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, degree_type: e.target.value })
-                }
-              />
+              <div className="form-row">
+                <div>
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={alumniForm.first_name}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, first_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={alumniForm.last_name}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, last_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={alumniForm.email}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={alumniForm.title}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, title: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Company</label>
+                  <input
+                    type="text"
+                    placeholder="Company"
+                    value={alumniForm.company}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, company: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Institution *</label>
+                  <input
+                    type="text"
+                    placeholder="Institution"
+                    value={alumniForm.education_institution}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, education_institution: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Graduation Year</label>
+                  <input
+                    type="number"
+                    placeholder="Graduation Year"
+                    value={alumniForm.graduation_year}
+                    onChange={(e) =>
+                      setAlumniForm({
+                        ...alumniForm,
+                        graduation_year: parseInt(e.target.value)
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Degree Type</label>
+                  <input
+                    type="text"
+                    placeholder="Degree Type"
+                    value={alumniForm.degree_type}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, degree_type: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
               <div className="modal-actions">
                 <button type="submit" className="btn-primary">
                   {editingId ? "Save Changes" : "Add Alumni"}

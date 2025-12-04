@@ -19,7 +19,6 @@ import {
   FaHandshake, // ✅ Icon for Referrals
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
-  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";

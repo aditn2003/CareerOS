@@ -24,8 +24,6 @@ import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
 import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
 import Interviews from "./pages/Interviews/Interviews";
-import SalaryResearch from "./pages/Salary/SalaryResearch";
-import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
 import NetworkLayout from "./pages/Network/NetworkLayout"; // ✅ ADDED (Consolidated Network/Referrals/Networking)
 import InterviewsLayout from "./pages/Interviews/InterviewsLayout"; // Layout wrapper
 import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-074

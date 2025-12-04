@@ -56,7 +56,6 @@ import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
-import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 import compensationHistoryRoutes from "./routes/compensationHistory.js";
@@ -109,9 +108,6 @@ pool
     console.log("✅ Connected to PostgreSQL");
     // Initialize contacts route with the pool
     setContactsPool(pool);
-
-    // Release the test connection
-    client.release();
   })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 

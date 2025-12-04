@@ -66,6 +66,7 @@ const InformationalInterviews = () => {
     message_content: "",
     action_items: "",
   });
+  const [generatingTemplate, setGeneratingTemplate] = useState(false);
 
   const [insightForm, setInsightForm] = useState({
     insight_type: "industry_trend",
@@ -363,6 +364,58 @@ const InformationalInterviews = () => {
       console.error("Error:", err);
       setError(err.response?.data?.error || "Failed to save preparation");
     }
+  };
+
+  // Generate follow-up message template
+  const generateFollowupTemplate = () => {
+    if (!selectedInterview) {
+      setError("No interview selected");
+      return;
+    }
+
+    setGeneratingTemplate(true);
+
+    // Get candidate info from interview
+    const candidate = selectedInterview.candidate || {};
+    const candidateName = candidate.first_name || "there";
+    const candidateCompany = candidate.company || "";
+    const candidateRole = candidate.title || "";
+
+    const { followup_type, template_used } = followupForm;
+
+    // Templates based on type and style
+    const templates = {
+      thank_you: {
+        professional: `Dear ${candidateName},\n\nThank you so much for taking the time to speak with me today. I truly appreciated the opportunity to learn more about your experience${candidateCompany ? ` at ${candidateCompany}` : ''}${candidateRole ? ` as a ${candidateRole}` : ''}.\n\nYour insights about the industry were incredibly valuable, and I've already started thinking about how to apply your advice to my job search. I was particularly interested in what you shared about [specific topic discussed].\n\nI'd love to stay in touch and keep you updated on my progress. Please don't hesitate to reach out if there's ever anything I can do to return the favor.\n\nThank you again for your generosity with your time and expertise.\n\nBest regards`,
+        casual: `Hi ${candidateName}!\n\nJust wanted to say thanks again for chatting with me today! It was really great to hear about your experience${candidateCompany ? ` at ${candidateCompany}` : ''}.\n\nI found our conversation super helpful, especially your thoughts on [specific topic]. I'm definitely going to keep that in mind as I continue my search.\n\nLet's definitely stay in touch - I'll keep you posted on how things go!\n\nThanks again!`,
+        formal: `Dear ${candidateName},\n\nI am writing to express my sincere gratitude for the informational interview you graciously granted me today. Your willingness to share your professional insights and expertise${candidateCompany ? ` regarding your work at ${candidateCompany}` : ''} is greatly appreciated.\n\nThe information you provided about [specific topic] was particularly enlightening and will undoubtedly prove valuable as I navigate my career path. I have taken careful notes and intend to implement your recommendations.\n\nI would welcome the opportunity to maintain our professional connection and will endeavor to keep you apprised of my progress.\n\nWith sincere appreciation,`
+      },
+      additional_question: {
+        professional: `Dear ${candidateName},\n\nI hope you're doing well. Following up on our recent conversation, I had another question come up that I thought you might be able to help me with.\n\n[Insert your specific question here]\n\nI completely understand if you're busy, but I would truly appreciate your insight on this. Your perspective would be invaluable as I continue my search.\n\nThank you for your time and ongoing support.\n\nBest regards`,
+        casual: `Hi ${candidateName}!\n\nHope you're doing well! I had another question pop up after we talked and thought you might have some good insight.\n\n[Insert your question here]\n\nNo pressure if you're swamped, but would love to hear your thoughts when you get a chance!\n\nThanks!`,
+        formal: `Dear ${candidateName},\n\nI trust you are well. I am writing to request your assistance with a matter that arose subsequent to our informational interview.\n\n[Insert your formal question here]\n\nGiven your expertise${candidateCompany ? ` at ${candidateCompany}` : ''}, I believe your guidance would be most beneficial. I would be most grateful for any insights you might provide.\n\nThank you for your consideration.\n\nYours respectfully,`
+      },
+      connection_request: {
+        professional: `Dear ${candidateName},\n\nIt was a pleasure meeting with you recently and learning about your work${candidateCompany ? ` at ${candidateCompany}` : ''}. I would very much like to stay connected with you professionally.\n\nI've sent you a connection request on LinkedIn. I hope we can continue to stay in touch as my career progresses, and I would welcome any future opportunities to collaborate or exchange ideas.\n\nThank you again for your time and insights.\n\nBest regards`,
+        casual: `Hi ${candidateName}!\n\nIt was really great meeting you and talking about [topic]! I've added you on LinkedIn so we can stay connected.\n\nWould love to grab coffee or chat again sometime - you've got some awesome insights!\n\nTalk soon!`,
+        formal: `Dear ${candidateName},\n\nFollowing our recent informational interview, I wish to formally request to establish a professional connection with you on LinkedIn.\n\nI have great respect for your professional accomplishments${candidateCompany ? ` at ${candidateCompany}` : ''}, and I believe that maintaining our acquaintance would be mutually beneficial.\n\nI look forward to our continued professional relationship.\n\nWith kind regards,`
+      },
+      opportunity_discussion: {
+        professional: `Dear ${candidateName},\n\nI hope this message finds you well. Following up on our recent conversation, I wanted to reach out regarding the opportunity you mentioned${candidateCompany ? ` at ${candidateCompany}` : ''}.\n\nI've given considerable thought to what you shared, and I'm very interested in learning more about how I might be a good fit. Would you be open to discussing this further or potentially making an introduction?\n\nI've attached my resume for your reference and would be happy to provide any additional information that might be helpful.\n\nThank you for thinking of me for this opportunity.\n\nBest regards`,
+        casual: `Hi ${candidateName}!\n\nHope you're doing well! I've been thinking about that opportunity you mentioned${candidateCompany ? ` at ${candidateCompany}` : ''} and I'm really interested!\n\nWould love to chat more about it if you have a few minutes. Let me know what works for you!\n\nThanks!`,
+        formal: `Dear ${candidateName},\n\nI trust this correspondence finds you in good health. I am writing to follow up on the professional opportunity you were kind enough to bring to my attention during our recent meeting.\n\nHaving carefully considered the position${candidateCompany ? ` at ${candidateCompany}` : ''}, I believe my qualifications align well with the requirements, and I would be most grateful for the opportunity to explore this further.\n\nPlease find my curriculum vitae attached for your review. I remain at your disposal should you require any additional information.\n\nYours faithfully,`
+      },
+      general_check_in: {
+        professional: `Dear ${candidateName},\n\nI hope this message finds you well. It's been a while since our informational interview, and I wanted to reach out to say hello and share a quick update.\n\n[Share a brief update on your job search or career progress]\n\nI continue to value the advice you shared with me, particularly about [specific topic]. It has been instrumental in shaping my approach.\n\nI'd love to hear how things are going on your end${candidateCompany ? ` at ${candidateCompany}` : ''}. If you ever have time for a quick catch-up, I'd welcome the opportunity.\n\nBest regards`,
+        casual: `Hey ${candidateName}!\n\nJust wanted to check in and see how things are going! It's been a bit since we talked and I wanted to give you a quick update.\n\n[Share your update here]\n\nHope all is well with you${candidateCompany ? ` at ${candidateCompany}` : ''}! Let me know if you ever want to grab coffee and catch up.\n\nTake care!`,
+        formal: `Dear ${candidateName},\n\nI hope this letter finds you well. I am writing to reconnect following our informational interview and to provide you with an update on my professional endeavors.\n\n[Provide formal update on your progress]\n\nThe guidance you provided during our meeting continues to inform my career strategy. I remain grateful for your mentorship and would welcome any opportunity to continue our professional dialogue.\n\nWith warm regards,`
+      }
+    };
+
+    const message = templates[followup_type]?.[template_used] || templates.thank_you.professional;
+    
+    setFollowupForm({ ...followupForm, message_content: message });
+    setGeneratingTemplate(false);
   };
 
   // Send follow-up
@@ -1348,7 +1401,30 @@ const InformationalInterviews = () => {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Message *</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0 }}>Message *</label>
+                    <button
+                      type="button"
+                      onClick={generateFollowupTemplate}
+                      disabled={generatingTemplate}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      title="Generate a message template based on follow-up type and style"
+                    >
+                      ⚡ {generatingTemplate ? 'Generating...' : 'Generate Template'}
+                    </button>
+                  </div>
                   <textarea
                     value={followupForm.message_content}
                     onChange={(e) =>
@@ -1357,7 +1433,7 @@ const InformationalInterviews = () => {
                         message_content: e.target.value,
                       })
                     }
-                    placeholder="Write your follow-up message..."
+                    placeholder="Write your follow-up message or click 'Generate Template' to create one automatically..."
                     rows="5"
                     required
                   />
@@ -1475,8 +1551,19 @@ const InformationalInterviews = () => {
               </div>
               <div className="modal-actions">
                 <button
+                  className="btn-primary"
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setShowFollowupModal(true);
+                  }}
+                  style={{ backgroundColor: '#7c3aed' }}
+                >
+                  ✉️ Send Follow-up
+                </button>
+                <button
                   className="btn-secondary"
                   onClick={() => {
+                    setShowDetailsModal(false);
                     setShowAddInsightModal(true);
                     setInsightForm({
                       insight_type: "",

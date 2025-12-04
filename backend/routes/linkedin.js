@@ -1,11 +1,9 @@
 // routes/linkedin.js
 import express from "express";
 import axios from "axios";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { authMiddleware } from "../auth.js";
 
-dotenv.config();
 const router = express.Router();
 
 // Initialize Supabase client lazily
@@ -22,18 +20,32 @@ const getSupabase = () => {
 
 // STEP 1: Redirect user to LinkedIn for OAuth
 router.get("/auth", (req, res) => {
-  const redirectUri = encodeURIComponent(
-    "http://localhost:4000/api/linkedin/callback"
-  );
+  console.log("\n✅ /auth route called!");
+  
   const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const scope = encodeURIComponent("r_liteprofile r_emailaddress");
-  const state = "xyz" + Date.now();
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+  
+  console.log("CLIENT_ID value:", clientId);
+  console.log("CLIENT_SECRET value:", clientSecret);
+  
+  if (!clientId || !clientSecret) {
+    console.log("❌ Credentials missing!");
+    return res.status(500).json({ 
+      error: "INK_TOKEN",
+      message: "LinkedIn credentials not configured in .env",
+      debug: { 
+        clientIdExists: !!clientId, 
+        clientSecretExists: !!clientSecret,
+        clientIdValue: clientId || "UNDEFINED",
+        clientSecretValue: clientSecret || "UNDEFINED"
+      }
+    });
+  }
 
-  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
-    process.env.LINKEDIN_CLIENT_ID
-  }&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&scope=r_liteprofile%20r_emailaddress`;
+  const redirectUri = "http://localhost:4000/api/linkedin/callback";
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=r_liteprofile%20r_emailaddress`;
+  
+  console.log("📍 Redirecting to LinkedIn...");
   res.redirect(authUrl);
 });
 
