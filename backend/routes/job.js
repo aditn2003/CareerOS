@@ -572,6 +572,18 @@ router.put("/:id", auth, async (req, res) => {
       updates.offerDate = new Date();
     }
 
+    // Get the old status before updating (if status is being changed)
+    let oldStatus = null;
+    if (updates.status) {
+      const oldJobResult = await pool.query(
+        `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+        [id, req.userId]
+      );
+      if (oldJobResult.rows.length > 0) {
+        oldStatus = oldJobResult.rows[0].status;
+      }
+    }
+
     // Dynamic SQL
     const setClause = Object.keys(updates)
       .map((k, i) => `"${k}" = $${i + 1}`)
@@ -600,15 +612,88 @@ router.put("/:id", auth, async (req, res) => {
 
     const job = result.rows[0];
 
+    // If status changed to "Offer", automatically create an offers entry if it doesn't exist
+    if (updates.status === "Offer") {
+      try {
+        // Check if offer already exists for this job
+        const existingOffer = await pool.query(
+          `SELECT id FROM offers WHERE job_id = $1 AND user_id = $2`,
+          [id, req.userId]
+        );
+
+        if (existingOffer.rows.length === 0) {
+          // Create offer entry from job data
+          const offerDate = job.offerDate || job.status_updated_at || new Date();
+          const baseSalary = job.salary_max || job.salary_min || null;
+          
+          await pool.query(
+            `INSERT INTO offers (
+              user_id, job_id, company, role_title, role_level, location, industry,
+              base_salary, total_comp_year1, offer_status, offer_date, initial_base_salary
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id`,
+            [
+              req.userId,
+              id,
+              job.company || 'Unknown',
+              job.title || 'Unknown',
+              job.role_level || null,
+              job.location || null,
+              job.industry || null,
+              baseSalary,
+              baseSalary,
+              'pending', // Default to pending, user can accept later
+              offerDate instanceof Date ? offerDate.toISOString().split('T')[0] : offerDate,
+              baseSalary
+            ]
+          );
+          console.log(`✅ Auto-created offer entry for job ${id} (status changed to Offer)`);
+        } else {
+          console.log(`ℹ️ Offer already exists for job ${id}`);
+        }
+      } catch (offerErr) {
+        console.error("⚠️ Error auto-creating offer entry:", offerErr.message);
+        // Don't fail the job update if offer creation fails
+      }
+    }
+
     if (updates.resume_id || updates.cover_letter_id) {
       await pool.query(
         `
         INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
         VALUES ($1, $2, $3, $4, $5, $6)
       `,
-      [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated", JSON.stringify({})]
+        [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated", JSON.stringify({})]
 
       );
+    }
+
+    // Log status change to application_history if status was updated
+    if (updates.status && updates.status !== oldStatus) {
+      try {
+        await pool.query(
+          `
+          INSERT INTO application_history (job_id, user_id, event, from_status, to_status, timestamp)
+          VALUES ($1, $2, $3, $4, $5, NOW())
+          `,
+          [id, req.userId, `Status changed from "${oldStatus || 'N/A'}" to "${updates.status}"`, oldStatus, updates.status]
+        );
+      } catch (historyErr) {
+        // If application_history table doesn't exist or has different schema, try fallback
+        console.warn("⚠️ Could not insert into application_history with full schema, trying fallback:", historyErr.message);
+        try {
+          await pool.query(
+            `
+            INSERT INTO application_history (job_id, event)
+            VALUES ($1, $2)
+            `,
+            [id, `Status changed to "${updates.status}"`]
+          );
+        } catch (fallbackErr) {
+          console.warn("⚠️ Could not insert into application_history at all:", fallbackErr.message);
+          // Don't fail the request if history logging fails
+        }
+      }
     }
 
     res.json({ job });
@@ -951,7 +1036,7 @@ router.put("/:id/status", auth, async (req, res) => {
         UPDATE jobs
         SET status = $1,
             status_updated_at = NOW(),
-            offer_date = COALESCE(offer_date, NOW())
+            "offerDate" = COALESCE("offerDate", NOW())
         WHERE id = $2 AND user_id = $3
         RETURNING *;
       `;
@@ -970,21 +1055,98 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
+    // Get the old status before updating
+    const oldJobResult = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    
+    if (oldJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
+    
+    const oldStatus = oldJobResult.rows[0].status;
+
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
 
-    // Log into application history
-    await pool.query(
-      `
-      INSERT INTO application_history (job_id, event)
-      VALUES ($1, $2)
-      `,
-      [id, `Status changed to "${status}"`]
-    );
+    const updatedJob = result.rows[0];
 
-    res.json({ job: result.rows[0] });
+    // If status changed to "Offer", automatically create an offers entry if it doesn't exist
+    if (status === "Offer") {
+      try {
+        // Check if offer already exists for this job
+        const existingOffer = await pool.query(
+          `SELECT id FROM offers WHERE job_id = $1 AND user_id = $2`,
+          [id, req.userId]
+        );
+
+        if (existingOffer.rows.length === 0) {
+          // Create offer entry from job data
+          const offerDate = updatedJob.offerDate || updatedJob.status_updated_at || new Date();
+          const baseSalary = updatedJob.salary_max || updatedJob.salary_min || null;
+          
+          await pool.query(
+            `INSERT INTO offers (
+              user_id, job_id, company, role_title, role_level, location, industry,
+              base_salary, total_comp_year1, offer_status, offer_date, initial_base_salary
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id`,
+            [
+              req.userId,
+              id,
+              updatedJob.company || 'Unknown',
+              updatedJob.title || 'Unknown',
+              updatedJob.role_level || null,
+              updatedJob.location || null,
+              updatedJob.industry || null,
+              baseSalary,
+              baseSalary,
+              'pending', // Default to pending, user can accept later
+              offerDate instanceof Date ? offerDate.toISOString().split('T')[0] : offerDate,
+              baseSalary
+            ]
+          );
+          console.log(`✅ Auto-created offer entry for job ${id} (status changed to Offer via status endpoint)`);
+        } else {
+          console.log(`ℹ️ Offer already exists for job ${id}`);
+        }
+      } catch (offerErr) {
+        console.error("⚠️ Error auto-creating offer entry:", offerErr.message);
+        // Don't fail the status update if offer creation fails
+      }
+    }
+
+    // Log into application history with full schema (from_status, to_status, user_id, timestamp)
+    try {
+      await pool.query(
+        `
+        INSERT INTO application_history (job_id, user_id, event, from_status, to_status, timestamp)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        `,
+        [id, req.userId, `Status changed from "${oldStatus || 'N/A'}" to "${status}"`, oldStatus, status]
+      );
+    } catch (historyErr) {
+      // If application_history table doesn't exist or has different schema, try fallback
+      console.warn("⚠️ Could not insert into application_history with full schema, trying fallback:", historyErr.message);
+      try {
+        await pool.query(
+          `
+          INSERT INTO application_history (job_id, event)
+          VALUES ($1, $2)
+          `,
+          [id, `Status changed to "${status}"`]
+        );
+      } catch (fallbackErr) {
+        console.warn("⚠️ Could not insert into application_history at all:", fallbackErr.message);
+        // Don't fail the request if history logging fails
+      }
+    }
+
+    res.json({ job: updatedJob });
   } catch (err) {
     console.error("❌ Failed to update job stage:", err.message);
     res.status(500).json({ error: "Database error" });
