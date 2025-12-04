@@ -1325,6 +1325,27 @@ Return ONLY valid JSON.
 
     console.log(`🔄 Generating ${templateType} template for ${company} (${role})`);
 
+    // Fetch user profile for name and contact info
+    let userFullName = '';
+    let userEmail = '';
+    try {
+      const { data: profileData, error: profileError } = await retryDatabaseOperation(async () => {
+        return await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("user_id", userIdInt)
+          .single();
+      });
+
+      if (!profileError && profileData) {
+        userFullName = profileData.full_name || '';
+        userEmail = profileData.email || '';
+      }
+    } catch (err) {
+      console.warn("⚠️ Could not fetch user profile:", err.message);
+      // Continue without profile data - will use placeholders
+    }
+
     // Generate template with AI
     const template = await generateFollowUpTemplate(
       templateType,
@@ -1358,6 +1379,20 @@ Return ONLY valid JSON.
         break;
     }
 
+    // Replace placeholders with actual values
+    const replacePlaceholders = (text) => {
+      if (!text) return text;
+      return text
+        .replace(/\[COMPANY\]/g, company)
+        .replace(/\[ROLE\]/g, role)
+        .replace(/\[INTERVIEWER_NAME\]/g, interviewerName || 'the interviewer')
+        .replace(/\[Your Name\]/g, userFullName || '[Your Name]')
+        .replace(/\[Your LinkedIn Profile or Contact Information\]/g, userEmail || '[Your Email]');
+    };
+
+    const finalSubjectLine = replacePlaceholders(template.subjectLine);
+    const finalEmailBody = replacePlaceholders(template.emailBody);
+
     // Save to database
     const { data, error } = await retryDatabaseOperation(async () => {
       return await supabase
@@ -1367,8 +1402,8 @@ Return ONLY valid JSON.
           company,
           role,
           template_type: templateType,
-          template_content: template.emailBody,
-          subject_line: template.subjectLine,
+          template_content: finalEmailBody,
+          subject_line: finalSubjectLine,
           interviewer_name: interviewerName || null,
           interviewer_title: interviewerTitle || null,
           interviewer_email: interviewerEmail || null,
@@ -1396,6 +1431,8 @@ Return ONLY valid JSON.
       success: true,
       data: {
         ...data,
+        subject_line: finalSubjectLine,
+        template_content: finalEmailBody,
         personalizationTips: template.personalizationTips,
         dosList: template.dosList,
         dontsList: template.dontsList,
@@ -1821,79 +1858,146 @@ Return ONLY valid JSON.
     }
   });
 
+  /* -----------------------------------------------------
+     🆕 PUT /follow-up/:templateId/update-email
+     Update interviewer email for a template
+  ----------------------------------------------------- */
+  router.put("/follow-up/:templateId/update-email", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const { userId, interviewerEmail } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing userId"
+        });
+      }
+
+      const userIdInt = parseInt(userId, 10);
+      if (isNaN(userIdInt)) {
+        return res.status(400).json({
+          success: false,
+          message: "userId must be a valid integer"
+        });
+      }
+
+      // Validate email if provided
+      if (interviewerEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(interviewerEmail)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid email format"
+          });
+        }
+      }
+
+      const { data, error } = await retryDatabaseOperation(async () => {
+        return await supabase
+          .from("interview_follow_ups")
+          .update({ interviewer_email: interviewerEmail })
+          .eq("id", templateId)
+          .eq("user_id", userIdInt)
+          .select()
+          .single();
+      });
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Database error",
+          error: error.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        data
+      });
+    } catch (err) {
+      console.error("❌ Error updating email:", err.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to update email"
+      });
+    }
+  });
+
+  /* -----------------------------------------------------
+     🆕 PUT /follow-up/:templateId/save
+     Save edited template content (subject and body)
+  ----------------------------------------------------- */
+  router.put("/follow-up/:templateId/save", async (req, res) => {
+    try {
+      const { templateId } = req.params;
+      const { userId, subject_line, template_content } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing userId"
+        });
+      }
+
+      if (!subject_line || !template_content) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing subject_line or template_content"
+        });
+      }
+
+      const userIdInt = parseInt(userId, 10);
+      if (isNaN(userIdInt)) {
+        return res.status(400).json({
+          success: false,
+          message: "userId must be a valid integer"
+        });
+      }
+
+      const { data, error } = await retryDatabaseOperation(async () => {
+        return await supabase
+          .from("interview_follow_ups")
+          .update({ 
+            subject_line: subject_line,
+            template_content: template_content
+          })
+          .eq("id", templateId)
+          .eq("user_id", userIdInt)
+          .select()
+          .single();
+      });
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        return res.status(500).json({
+          success: false,
+          message: "Database error",
+          error: error.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Template saved successfully",
+        data
+      });
+    } catch (err) {
+      console.error("❌ Error saving template:", err.message);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save template"
+      });
+    }
+  });
+
   return router;
 }
 
 // Export default router (production use - maintains backward compatibility)
 const router = createInterviewInsightsRoutes();
-
-/* -----------------------------------------------------
-   🆕 PUT /follow-up/:templateId/update-email
-   Update interviewer email for a template
------------------------------------------------------ */
-router.put("/follow-up/:templateId/update-email", async (req, res) => {
-  try {
-    const { templateId } = req.params;
-    const { userId, interviewerEmail } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing userId"
-      });
-    }
-
-    const userIdInt = parseInt(userId, 10);
-    if (isNaN(userIdInt)) {
-      return res.status(400).json({
-        success: false,
-        message: "userId must be a valid integer"
-      });
-    }
-
-    // Validate email if provided
-    if (interviewerEmail) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(interviewerEmail)) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid email format"
-        });
-      }
-    }
-
-    const { data, error } = await retryDatabaseOperation(async () => {
-      return await supabase
-        .from("interview_follow_ups")
-        .update({ interviewer_email: interviewerEmail })
-        .eq("id", templateId)
-        .eq("user_id", userIdInt)
-        .select()
-        .single();
-    });
-
-    if (error) {
-      console.error("❌ Supabase error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Database error",
-        error: error.message
-      });
-    }
-
-    return res.json({
-      success: true,
-      data
-    });
-  } catch (err) {
-    console.error("❌ Error updating email:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update email"
-    });
-  }
-});
-
 export default router;
+
 // Export factory function for testing
 export { createInterviewInsightsRoutes };

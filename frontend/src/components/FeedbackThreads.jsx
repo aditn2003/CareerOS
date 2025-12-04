@@ -18,20 +18,19 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddF
   const isCandidate = teamState?.isCandidate;
   const currentUserId = teamState?.primaryTeam?.userId;
   
-  // Only admins can toggle between list and threads view
   // Mentors and candidates only see threads view (no toggle option)
-  const showViewToggle = isAdmin && !hideViewToggle;
+  // Remove toggle for all mentors - they always see conversation view
+  // Only admins (who are not mentors) can toggle views (if not hidden)
+  const showViewToggle = isAdmin && !hideViewToggle && !teamState?.isMentor;
   const [viewMode, setViewMode] = useState("threads"); // "list" or "threads"
   
   // Force threads view for mentors and candidates - they can never switch to list view
-  // Only admins can toggle views
   useEffect(() => {
-    const isActualMentor = teamState?.isMentor && !isAdmin; // Only actual mentors, not admins
-    if ((isActualMentor || isCandidate) && viewMode !== "threads") {
+    if ((isMentor || isCandidate) && viewMode !== "threads") {
       setViewMode("threads");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamState?.isMentor, isAdmin, isCandidate]); // Removed viewMode from deps to prevent infinite loop
+  }, [isMentor, isCandidate]); // Removed viewMode from deps to prevent infinite loop
   
   const [isLoadingFeedback, setIsLoadingFeedback] = useState(false); // Guard to prevent concurrent loads
 
@@ -54,9 +53,9 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddF
             (m) => m.role === "mentor" && m.status === "active"
           );
           setPeople(mentorList);
-          if (mentorList.length > 0 && !selectedPersonId) {
-            setSelectedPersonId(mentorList[0].userId);
-          } else if (mentorList.length === 0 && !selectedPersonId) {
+          // Don't auto-select a mentor - let candidates see all their feedback by default
+          // They can manually select a mentor to filter if they want
+          if (mentorList.length === 0 && !selectedPersonId) {
             // No mentors, show their own feedback
             setSelectedPersonId(currentUserId);
           }
@@ -92,11 +91,14 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddF
       let filteredFeedback = data?.feedback || [];
 
       if (isCandidate) {
-        // For candidates viewing by mentor: filter to feedback from selected mentor
+        // For candidates: show all their feedback (already filtered by backend to only their feedback)
+        // Optionally filter by selected mentor if one is selected
         if (selectedPersonId && selectedPersonId !== currentUserId) {
+          // Filter by mentor if a specific mentor is selected
           filteredFeedback = filteredFeedback.filter((fb) => fb.mentorId === selectedPersonId);
         }
-        // If viewing own or no mentor selected, show all their feedback (already filtered by backend)
+        // If no mentor selected (selectedPersonId is null or currentUserId), show all feedback
+        // Backend already filters to only the candidate's own feedback
       } else {
         // For mentors: filter to selected candidate
         if (selectedPersonId) {
@@ -193,7 +195,7 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddF
                 ? `Feedback for ${[selectedPerson.firstName, selectedPerson.lastName].filter(Boolean).join(" ") || selectedPerson.email}`
                 : "Team Feedback"}
             </h3>
-            {/* Only show view toggle for admins - mentors and candidates only see threads view */}
+            {/* Only show view toggle for admins (not mentors) - mentors and candidates only see threads view */}
             {showViewToggle && (
               <div className="feedback-view-toggle">
                 <button
@@ -220,7 +222,7 @@ export default function FeedbackThreads({ teamId, hideViewToggle = false, onAddF
             <div className="feedback-threads-empty">
               <p>
                 {isCandidate
-                  ? selectedPerson
+                  ? selectedPerson && selectedPerson.userId !== currentUserId
                     ? `No feedback yet from ${[selectedPerson.firstName, selectedPerson.lastName].filter(Boolean).join(" ") || selectedPerson.email}`
                     : "No feedback yet. Your mentors will provide feedback here."
                   : selectedPerson
@@ -357,6 +359,8 @@ function FeedbackThreadItem({
         return "Skill Feedback";
       case "task":
         return "Task Feedback";
+      case "application_material":
+        return "Application Material Feedback";
       default:
         return "General Feedback";
     }
@@ -374,7 +378,8 @@ function FeedbackThreadItem({
         <div className="feedback-thread-info">
           <div className="feedback-top-row">
             <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback)}</span>
-            {feedback.jobTitle && (
+            {/* Show job badge for non-application_material feedback, or for application_material if no materialType (fallback) */}
+            {feedback.jobTitle && feedback.feedbackType !== "application_material" && (
               <span className="feedback-job-badge">
                 {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
               </span>
@@ -385,6 +390,16 @@ function FeedbackThreadItem({
             {feedback.taskTitle && (
               <span className="feedback-task-badge">
                 📋 {feedback.taskTitle}
+              </span>
+            )}
+            {feedback.feedbackType === "application_material" && feedback.jobTitle && (
+              <span className="feedback-job-badge">
+                {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
+              </span>
+            )}
+            {feedback.feedbackType === "application_material" && feedback.materialType && (
+              <span className="feedback-material-badge">
+                {feedback.materialType === "resume" ? "📄 Resume" : "✉️ Cover Letter"}
               </span>
             )}
           </div>
@@ -591,6 +606,8 @@ function FeedbackListView({ feedbackList }) {
     switch (type) {
       case "job": return "Job Feedback";
       case "skill": return "Skill Feedback";
+      case "task": return "Task Feedback";
+      case "application_material": return "Application Material Feedback";
       default: return "General Feedback";
     }
   };
@@ -603,7 +620,8 @@ function FeedbackListView({ feedbackList }) {
             <div className="feedback-meta">
               <div className="feedback-top-row">
                 <span className="feedback-type-badge">{getFeedbackTypeLabel(feedback)}</span>
-                {feedback.jobTitle && (
+                {/* Show job badge for non-application_material feedback, or for application_material if no materialType (fallback) */}
+                {feedback.jobTitle && feedback.feedbackType !== "application_material" && (
                   <span className="feedback-job-badge">
                     {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
                   </span>
@@ -614,6 +632,16 @@ function FeedbackListView({ feedbackList }) {
                 {feedback.taskTitle && (
                   <span className="feedback-task-badge">
                     📋 {feedback.taskTitle}
+                  </span>
+                )}
+                {feedback.feedbackType === "application_material" && feedback.jobTitle && (
+                  <span className="feedback-job-badge">
+                    {feedback.jobTitle}{feedback.jobCompany ? ` at ${feedback.jobCompany}` : ''}
+                  </span>
+                )}
+                {feedback.feedbackType === "application_material" && feedback.materialType && (
+                  <span className="feedback-material-badge">
+                    {feedback.materialType === "resume" ? "📄 Resume" : "✉️ Cover Letter"}
                   </span>
                 )}
               </div>

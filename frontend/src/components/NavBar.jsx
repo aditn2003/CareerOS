@@ -11,11 +11,9 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter
-  FaUsers, // ✅ Icon for Professional Network
+  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
   FaHandshake, // ✅ Icon for Referrals
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
@@ -85,17 +83,13 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
-            {/* ═══════════════════════════════════════════
-                INTERVIEWS - Prepare & Track
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Doc Management
             </NavLink>
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
+
+           
 
             {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
@@ -106,9 +100,6 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-            <NavLink to="/networking">
-              <FaUsers /> Networking
-            </NavLink>
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -126,12 +117,13 @@ export default function NavBar() {
             {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
             <NavLink to="/network">
               <FaUsers /> Network
-            </NavLink>
+            </NavLink>https://github.com/aditn2003/Aandsz-Forces-ATS-CS490/pull/85/conflict?name=frontend%252Fsrc%252Fcomponents%252FNavBar.jsx&ancestor_oid=5c622f190e4d88dcf9572dead7d335292532b0f9&base_oid=68d036ba86ea7b40c6c35f382ec8d491ec28ce48&head_oid=e063892fa4c4893c80497b7d075816139218d786
 
             {/* 👤 Profile */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>
+           
 
             {/* ═══════════════════════════════════════════
                 ACCOUNT

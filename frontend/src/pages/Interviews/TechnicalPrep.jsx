@@ -403,7 +403,7 @@ export default function TechnicalPrep() {
       <div className="tech-prep-header">
         <div className="header-content">
           <h1>💻 Technical Interview Prep</h1>
-          <p className="subtitle">Master coding challenges, system design, and whiteboarding</p>
+          <p className="subtitle">Master coding challenges, system design, and whiteboard interviews</p>
         </div>
         
         {stats && (
