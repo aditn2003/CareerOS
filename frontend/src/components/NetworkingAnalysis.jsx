@@ -12,14 +12,17 @@ export default function NetworkingAnalysis() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    async function loadData() {
+  const loadData = async () => {
       try {
         setLoading(true);
-        setError(null);
+      setError(null);
+      console.log("🔄 Loading networking analysis data...");
         const res = await getNetworkingAnalysis();
-        console.log("Networking analysis data received:", res.data);
+      console.log("✅ Networking analysis data received:", res.data);
+      console.log("📊 Total contacts in response:", res.data?.summaryCards?.totalContacts || 0);
+      console.log("📋 Relationship metrics:", res.data?.relationshipMetrics?.totalContacts || 0);
         
         // Validate data structure
         if (!res.data) {
@@ -34,8 +37,12 @@ export default function NetworkingAnalysis() {
             totalReferrals: 0,
             avgResponseRate: 0,
             avgRelationshipStrength: 0,
+            avgHealthScore: 0,
+            avgEngagementScore: 0,
             totalEventInvestment: 0,
-            totalEventOpportunities: 0
+            totalEventOpportunities: 0,
+            networkingROI: 0,
+            contactROI: 0
           },
           activityMetrics: res.data.activityMetrics || {
             totalActivities: 0,
@@ -51,10 +58,18 @@ export default function NetworkingAnalysis() {
             avgRelationshipStrength: 0,
             avgEngagementScore: 0,
             avgReciprocityScore: 0,
+            avgHealthScore: 0,
             byStrengthTier: { strong: 0, medium: 0, weak: 0 },
             warmingUp: [],
             coolingDown: [],
-            highValueContacts: []
+            highValueContacts: [],
+            relationshipHealthScores: [],
+            engagementFrequency: {
+              frequent: 0,
+              moderate: 0,
+              infrequent: 0,
+              never: 0
+            }
           },
           referralAnalytics: res.data.referralAnalytics || {
             totalReferrals: 0,
@@ -83,13 +98,20 @@ export default function NetworkingAnalysis() {
               timeInvested: 0,
               opportunities: 0,
               roi: 0
+            },
+            contactROI: {
+              totalContacts: 0,
+              highValueContacts: 0,
+              avgHealthScore: 0,
+              totalInteractions: 0,
+              roiScore: 0
             }
           },
           insights: res.data.insights || [],
           benchmarkComparison: res.data.benchmarkComparison || {
             responseRate: { user: 0, industry: 0.15, status: 'below' },
             referralConversion: { user: 0, industry: 0.30, status: 'below' },
-            relationshipStrength: { user: 0, industry: 5.0, status: 'below' },
+            relationshipStrength: { user: 0, industry: 3.0, status: 'below' },
             monthlyContacts: { user: 0, industry: 20, status: 'below' },
             eventROI: { user: 0, industry: 2.5, status: 'below' },
             warmVsCold: { userWarm: 0, userCold: 0, industryWarm: 0.25, industryCold: 0.05 }
@@ -111,9 +133,16 @@ export default function NetworkingAnalysis() {
       } finally {
         setLoading(false);
       }
-    }
+  };
+
+  useEffect(() => {
     loadData();
-  }, []);
+  }, [refreshKey]);
+
+  const handleRefresh = () => {
+    console.log("🔄 Manual refresh triggered");
+    setRefreshKey(prev => prev + 1);
+  };
 
   if (loading) {
     return (
@@ -156,20 +185,35 @@ export default function NetworkingAnalysis() {
     .sort((a, b) => b.responseRate - a.responseRate);
 
   const relationshipTierData = [
-    { name: 'Strong (8-10)', value: relationshipMetrics.byStrengthTier.strong },
-    { name: 'Medium (5-7)', value: relationshipMetrics.byStrengthTier.medium },
-    { name: 'Weak (1-4)', value: relationshipMetrics.byStrengthTier.weak }
+    { name: 'Strong (4-5)', value: relationshipMetrics.byStrengthTier.strong },
+    { name: 'Medium (3)', value: relationshipMetrics.byStrengthTier.medium },
+    { name: 'Weak (1-2)', value: relationshipMetrics.byStrengthTier.weak }
   ].filter(d => d.value > 0);
 
-  const referralByTypeData = Object.entries(referralAnalytics.byType || {})
-    .map(([type, data]) => ({
-      type: type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-      count: data.count,
-      converted: data.converted
-    }));
 
   return (
     <div style={styles.container}>
+      {/* Refresh Button */}
+      <div style={styles.refreshContainer}>
+        <button 
+          onClick={handleRefresh} 
+          disabled={loading}
+          style={{
+            ...styles.refreshButton,
+            ...(loading ? styles.refreshButtonDisabled : {})
+          }}
+          onMouseEnter={(e) => !loading && (e.target.style.backgroundColor = '#2563eb')}
+          onMouseLeave={(e) => !loading && (e.target.style.backgroundColor = '#3b82f6')}
+        >
+          {loading ? '🔄 Refreshing...' : '🔄 Refresh Data'}
+        </button>
+        {data && (
+          <span style={styles.lastUpdated}>
+            Last updated: {new Date().toLocaleTimeString()}
+          </span>
+        )}
+      </div>
+
       {/* Data Quality Warning */}
       {!data.dataQuality?.sufficientData && (
         <div style={styles.warningBanner}>
@@ -185,36 +229,39 @@ export default function NetworkingAnalysis() {
           subtitle={`${relationshipMetrics.byStrengthTier.strong} strong relationships`}
           color="#3b82f6"
         />
+        {summaryCards.totalActivities > 0 && (
         <SummaryCard 
           title="Networking Activities" 
           value={summaryCards.totalActivities} 
           subtitle={`${(summaryCards.avgResponseRate * 100).toFixed(1)}% response rate`}
           color={summaryCards.avgResponseRate >= 0.15 ? "#10b981" : "#f59e0b"}
         />
-        <SummaryCard 
-          title="Referrals Received" 
-          value={summaryCards.totalReferrals} 
-          subtitle={`${(referralAnalytics.conversionRates.referralToInterview * 100).toFixed(1)}% to interview`}
-          color="#8b5cf6"
-        />
+        )}
         <SummaryCard 
           title="Avg Relationship Strength" 
           value={summaryCards.avgRelationshipStrength.toFixed(1)} 
-          subtitle={`Out of 10`}
-          color={summaryCards.avgRelationshipStrength >= 5 ? "#10b981" : "#f59e0b"}
+          subtitle={`Out of 5`}
+          color={summaryCards.avgRelationshipStrength >= 3 ? "#10b981" : "#f59e0b"}
         />
         <SummaryCard 
-          title="Event Investment" 
-          value={`$${summaryCards.totalEventInvestment.toFixed(0)}`} 
-          subtitle={`${summaryCards.totalEventOpportunities} opportunities`}
-          color="#06b6d4"
+          title="Relationship Health Score" 
+          value={summaryCards.avgHealthScore ? summaryCards.avgHealthScore.toFixed(0) : '0'} 
+          subtitle={`Out of 100`}
+          color={summaryCards.avgHealthScore >= 70 ? "#10b981" : summaryCards.avgHealthScore >= 50 ? "#f59e0b" : "#ef4444"}
+        />
+        <SummaryCard 
+          title="Networking ROI" 
+          value={summaryCards.networkingROI ? `${summaryCards.networkingROI.toFixed(2)}x` : '0x'} 
+          subtitle={`Opportunities per hour`}
+          color={summaryCards.networkingROI >= 1 ? "#10b981" : "#f59e0b"}
         />
       </div>
 
       {/* Charts Grid */}
       <div style={styles.chartsGrid}>
         
-        {/* Activity by Type */}
+        {/* Activity by Type - Only show if activities exist */}
+        {activityByTypeData.length > 0 && (
         <ChartCard title="Activity by Type" icon="A">
           {activityByTypeData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
@@ -234,8 +281,10 @@ export default function NetworkingAnalysis() {
             <div style={styles.noData}>Start tracking networking activities to see insights</div>
           )}
         </ChartCard>
+        )}
 
-        {/* Monthly Activity Trends */}
+        {/* Monthly Activity Trends - Only show if activities exist */}
+        {monthlyActivity.length > 0 && (
         <ChartCard title="Monthly Activity Trends" icon="T">
           {monthlyActivity.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
@@ -269,8 +318,10 @@ export default function NetworkingAnalysis() {
             <div style={styles.noData}>No monthly activity data available</div>
           )}
         </ChartCard>
+        )}
 
-        {/* Response Rate by Channel */}
+        {/* Response Rate by Channel - Only show if activities exist */}
+        {activityByChannelData.length > 0 && (
         <ChartCard title="Response Rate by Channel" icon="C">
           {activityByChannelData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
@@ -290,6 +341,7 @@ export default function NetworkingAnalysis() {
             <div style={styles.noData}>Track activities by channel to see performance</div>
           )}
         </ChartCard>
+        )}
 
         {/* Relationship Strength Distribution */}
         <ChartCard title="Relationship Strength Distribution" icon="R">
@@ -320,92 +372,13 @@ export default function NetworkingAnalysis() {
           )}
         </ChartCard>
 
-        {/* Referral Conversion Rates */}
-        <ChartCard title="Referral Performance" icon="F">
-          {referralByTypeData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={referralByTypeData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="type" stroke="#6b7280" fontSize={10} angle={-15} textAnchor="end" height={60} />
-                <YAxis stroke="#6b7280" fontSize={11} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
-                />
-                <Legend />
-                <Bar dataKey="count" fill="#8b5cf6" name="Total Referrals" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="converted" fill="#10b981" name="Converted" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={styles.noData}>
-              {referralAnalytics.totalReferrals === 0 
-                ? "No referrals received yet. Build stronger relationships to get referrals."
-                : "Complete referral data to see conversion rates"}
-            </div>
-          )}
-        </ChartCard>
-
-        {/* Warm vs Cold Outreach */}
-        <ChartCard title="Warm vs Cold Outreach Effectiveness" icon="W">
-          <div style={styles.comparisonContainer}>
-            <div style={styles.comparisonCard}>
-              <div style={{ ...styles.comparisonIcon, backgroundColor: '#10b981' }}>W</div>
-              <div style={styles.comparisonLabel}>Warm Outreach</div>
-              <div style={styles.comparisonValue}>{referralAnalytics.warmVsCold.warm.count}</div>
-              <div style={styles.comparisonStat}>
-                {referralAnalytics.warmVsCold.warm.count > 0 
-                  ? `${(referralAnalytics.warmVsCold.warm.conversionRate * 100).toFixed(1)}% conversion`
-                  : 'No data'}
-              </div>
-            </div>
-            <div style={styles.comparisonVs}>vs</div>
-            <div style={styles.comparisonCard}>
-              <div style={{ ...styles.comparisonIcon, backgroundColor: '#f59e0b' }}>C</div>
-              <div style={styles.comparisonLabel}>Cold Outreach</div>
-              <div style={styles.comparisonValue}>{referralAnalytics.warmVsCold.cold.count}</div>
-              <div style={styles.comparisonStat}>
-                {referralAnalytics.warmVsCold.cold.count > 0 
-                  ? `${(referralAnalytics.warmVsCold.cold.conversionRate * 100).toFixed(1)}% conversion`
-                  : 'No data'}
-              </div>
-            </div>
-          </div>
-          <p style={styles.insightText}>
-            Warm outreach typically converts {((referralAnalytics.warmVsCold.warm.conversionRate || 0) / Math.max(referralAnalytics.warmVsCold.cold.conversionRate || 0.01, 0.01)).toFixed(1)}x better than cold outreach.
-          </p>
-        </ChartCard>
-
-        {/* Event ROI */}
-        {roiMetrics.totalEvents > 0 && (
-          <ChartCard title="Event ROI Analysis" icon="E">
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={roiMetrics.topROIEvents.slice(0, 5)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" fontSize={9} angle={-15} textAnchor="end" height={60} />
-                <YAxis stroke="#6b7280" fontSize={11} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
-                  formatter={(value, name) => {
-                    if (name === 'roi') return [`${value.toFixed(2)}x`, 'ROI'];
-                    if (name === 'cost') return [`$${value}`, 'Cost'];
-                    return [value, name];
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="roi" fill="#10b981" name="ROI" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="opportunities" fill="#3b82f6" name="Opportunities" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        )}
-
-        {/* Relationship Tier ROI */}
-        <ChartCard title="Referrals by Relationship Tier" icon="T">
+        {/* Contacts by Relationship Tier */}
+        <ChartCard title="Contacts by Relationship Tier" icon="T">
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={[
-              { tier: 'Strong', referrals: roiMetrics.relationshipTierROI.strong.referrals, contacts: roiMetrics.relationshipTierROI.strong.contacts },
-              { tier: 'Medium', referrals: roiMetrics.relationshipTierROI.medium.referrals, contacts: roiMetrics.relationshipTierROI.medium.contacts },
-              { tier: 'Weak', referrals: roiMetrics.relationshipTierROI.weak.referrals, contacts: roiMetrics.relationshipTierROI.weak.contacts }
+              { tier: 'Strong (4-5)', contacts: relationshipMetrics.byStrengthTier.strong },
+              { tier: 'Medium (3)', contacts: relationshipMetrics.byStrengthTier.medium },
+              { tier: 'Weak (1-2)', contacts: relationshipMetrics.byStrengthTier.weak }
             ]}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="tier" stroke="#6b7280" fontSize={11} />
@@ -414,7 +387,6 @@ export default function NetworkingAnalysis() {
                 contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
               />
               <Legend />
-              <Bar dataKey="referrals" fill="#8b5cf6" name="Referrals" radius={[4, 4, 0, 0]} />
               <Bar dataKey="contacts" fill="#3b82f6" name="Contacts" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -425,48 +397,169 @@ export default function NetworkingAnalysis() {
       <div style={styles.benchmarkSection}>
         <h3 style={styles.sectionTitle}>Industry Benchmark Comparison</h3>
         <div style={styles.benchmarkGrid}>
+          {summaryCards.totalActivities > 0 && (
           <BenchmarkCard 
             title="Response Rate"
             userValue={`${(benchmarkComparison.responseRate.user * 100).toFixed(1)}%`}
             industryValue="15%"
             status={benchmarkComparison.responseRate.status}
           />
-          <BenchmarkCard 
-            title="Referral Conversion"
-            userValue={`${(benchmarkComparison.referralConversion.user * 100).toFixed(1)}%`}
-            industryValue="30%"
-            status={benchmarkComparison.referralConversion.status}
-          />
+          )}
           <BenchmarkCard 
             title="Relationship Strength"
             userValue={benchmarkComparison.relationshipStrength.user.toFixed(1)}
-            industryValue="5.0"
+            industryValue="3.0"
             status={benchmarkComparison.relationshipStrength.status}
           />
+          {summaryCards.totalActivities > 0 && (
           <BenchmarkCard 
-            title="Monthly Contacts"
+              title="Monthly Activities"
             userValue={benchmarkComparison.monthlyContacts.user.toFixed(1)}
             industryValue="20"
             status={benchmarkComparison.monthlyContacts.status}
           />
+          )}
         </div>
       </div>
+
+      {/* Relationship Analytics Section */}
+      {relationshipMetrics.relationshipHealthScores && relationshipMetrics.relationshipHealthScores.length > 0 && (
+        <div style={styles.analyticsSection}>
+          <h3 style={styles.sectionTitle}>Network Relationship Analytics</h3>
+          
+          <div style={styles.analyticsGrid}>
+            {/* Relationship Health Scores */}
+            <ChartCard title="Relationship Health Scores" icon="H">
+              {relationshipMetrics.relationshipHealthScores.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={relationshipMetrics.relationshipHealthScores.slice(0, 10)} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" stroke="#6b7280" fontSize={11} domain={[0, 100]} />
+                    <YAxis type="category" dataKey="name" stroke="#6b7280" fontSize={9} width={100} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                      formatter={(value, name) => {
+                        if (name === 'healthScore') return [`${value}/100`, 'Health Score'];
+                        return [value, name];
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="healthScore" 
+                      fill="#3b82f6"
+                      name="Health Score"
+                      radius={[0, 4, 4, 0]}
+                    >
+                      {relationshipMetrics.relationshipHealthScores.slice(0, 10).map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.healthScore >= 70 ? '#10b981' : entry.healthScore >= 50 ? '#f59e0b' : '#ef4444'} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={styles.noData}>Add contacts to see relationship health scores</div>
+              )}
+            </ChartCard>
+
+            {/* Engagement Frequency */}
+            <ChartCard title="Engagement Frequency" icon="E">
+              {relationshipMetrics.engagementFrequency && (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Frequent (>1/month)', value: relationshipMetrics.engagementFrequency.frequent || 0 },
+                        { name: 'Moderate (1/1-3mo)', value: relationshipMetrics.engagementFrequency.moderate || 0 },
+                        { name: 'Infrequent (<1/3mo)', value: relationshipMetrics.engagementFrequency.infrequent || 0 },
+                        { name: 'Never Contacted', value: relationshipMetrics.engagementFrequency.never || 0 }
+                      ].filter(d => d.value > 0)}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      innerRadius={45}
+                      paddingAngle={2}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {[
+                        { name: 'Frequent', value: relationshipMetrics.engagementFrequency.frequent || 0 },
+                        { name: 'Moderate', value: relationshipMetrics.engagementFrequency.moderate || 0 },
+                        { name: 'Infrequent', value: relationshipMetrics.engagementFrequency.infrequent || 0 },
+                        { name: 'Never', value: relationshipMetrics.engagementFrequency.never || 0 }
+                      ].filter(d => d.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </ChartCard>
+          </div>
+        </div>
+      )}
+
+      {/* All Contacts Section */}
+      {relationshipMetrics.relationshipHealthScores && relationshipMetrics.relationshipHealthScores.length > 0 && (
+        <div style={styles.contactsSection}>
+          <h3 style={styles.sectionTitle}>All Network Contacts</h3>
+          <div style={styles.contactsCard}>
+            <div style={styles.contactsList}>
+              {relationshipMetrics.relationshipHealthScores.map((contact, i) => (
+                <div 
+                  key={i} 
+                  style={styles.contactItem}
+                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)'}
+                >
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
+                    {contact.name} {contact.company && <span style={{ color: '#6b7280', fontWeight: '400' }}>- {contact.company}</span>}
+                  </div>
+                  <div style={styles.contactStats}>
+                    <span style={{ fontWeight: '500', color: '#1f2937' }}>Health:</span> <span style={{ color: contact.healthScore >= 70 ? '#10b981' : contact.healthScore >= 50 ? '#f59e0b' : '#ef4444', fontWeight: '600' }}>{contact.healthScore || 'N/A'}/100</span> • 
+                    <span style={{ fontWeight: '500', color: '#1f2937' }}> Strength:</span> <span style={{ fontWeight: '600' }}>{contact.strength}/5</span> • 
+                    <span style={{ fontWeight: '500', color: '#1f2937' }}> Engagement:</span> <span style={{ fontWeight: '600' }}>{(contact.engagement * 100).toFixed(0)}%</span> • 
+                    <span style={{ fontWeight: '500', color: '#1f2937' }}> Interactions:</span> <span style={{ fontWeight: '600' }}>{contact.interactionCount || 0}</span> <span style={{ color: '#6b7280' }}>({contact.interactionsPerMonth || '0'}/month)</span>
+                    {contact.lastContactDate && (
+                      <> • <span style={{ fontWeight: '500', color: '#1f2937' }}>Last contact:</span> <span style={{ fontWeight: '600' }}>{new Date(contact.lastContactDate).toLocaleDateString()}</span></>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* High Value Contacts & Cooling Down */}
       {(relationshipMetrics.highValueContacts.length > 0 || relationshipMetrics.coolingDown.length > 0) && (
         <div style={styles.contactsSection}>
+          <h3 style={styles.sectionTitle}>High-Value Connections & Relationship Health</h3>
           <div style={styles.contactsGrid}>
             {relationshipMetrics.highValueContacts.length > 0 && (
               <div style={styles.contactsCard}>
-                <h4 style={styles.contactsTitle}>High Value Contacts</h4>
+                <h4 style={styles.contactsTitle}>High-Value Connections</h4>
                 <div style={styles.contactsList}>
-                  {relationshipMetrics.highValueContacts.slice(0, 5).map((contact, i) => (
-                    <div key={i} style={styles.contactItem}>
-                      <strong>{contact.name}</strong> - {contact.company}
+                  {relationshipMetrics.highValueContacts.slice(0, 10).map((contact, i) => (
+                    <div 
+                      key={i} 
+                      style={styles.contactItem}
+                      onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)'}
+                    >
+                      <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
+                        {contact.name} {contact.company && <span style={{ color: '#6b7280', fontWeight: '400' }}>- {contact.company}</span>}
+                      </div>
                       <div style={styles.contactStats}>
-                        Strength: {contact.strength}/10 • 
-                        Referrals: {contact.referrals} • 
-                        Engagement: {(contact.engagement * 100).toFixed(0)}%
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}>Health:</span> <span style={{ color: contact.healthScore >= 70 ? '#10b981' : contact.healthScore >= 50 ? '#f59e0b' : '#ef4444', fontWeight: '600' }}>{contact.healthScore || 'N/A'}/100</span> • 
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}> Strength:</span> <span style={{ fontWeight: '600' }}>{contact.strength}/5</span> • 
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}> Engagement:</span> <span style={{ fontWeight: '600' }}>{(contact.engagement * 100).toFixed(0)}%</span> • 
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}> Interactions:</span> <span style={{ fontWeight: '600' }}>{contact.interactionCount || 0}</span> <span style={{ color: '#6b7280' }}>({contact.interactionsPerMonth || '0'}/month)</span>
                       </div>
                     </div>
                   ))}
@@ -477,12 +570,24 @@ export default function NetworkingAnalysis() {
               <div style={styles.contactsCard}>
                 <h4 style={styles.contactsTitle}>Relationships Cooling Down</h4>
                 <div style={styles.contactsList}>
-                  {relationshipMetrics.coolingDown.slice(0, 5).map((contact, i) => (
-                    <div key={i} style={styles.contactItem}>
-                      <strong>{contact.name}</strong> - {contact.company}
+                  {relationshipMetrics.coolingDown.slice(0, 10).map((contact, i) => (
+                    <div 
+                      key={i} 
+                      style={styles.contactItem}
+                      onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
+                      onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)'}
+                    >
+                      <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
+                        {contact.name} {contact.company && <span style={{ color: '#6b7280', fontWeight: '400' }}>- {contact.company}</span>}
+                      </div>
                       <div style={styles.contactStats}>
-                        Strength: {contact.strength}/10 • 
-                        {contact.daysSinceContact ? `${contact.daysSinceContact} days since contact` : 'Never contacted'}
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}>Health:</span> <span style={{ color: contact.healthScore >= 70 ? '#10b981' : contact.healthScore >= 50 ? '#f59e0b' : '#ef4444', fontWeight: '600' }}>{contact.healthScore || 'N/A'}/100</span> • 
+                        <span style={{ fontWeight: '500', color: '#1f2937' }}> Strength:</span> <span style={{ fontWeight: '600' }}>{contact.strength}/5</span> • 
+                        {contact.daysSinceContact ? (
+                          <><span style={{ fontWeight: '500', color: '#1f2937' }}> Last contact:</span> <span style={{ fontWeight: '600', color: '#ef4444' }}>{contact.daysSinceContact} days ago</span></>
+                        ) : (
+                          <span style={{ fontWeight: '500', color: '#ef4444' }}>Never contacted</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -493,26 +598,100 @@ export default function NetworkingAnalysis() {
         </div>
       )}
 
-      {/* Top Referrers */}
-      {referralAnalytics.topReferrers.length > 0 && (
-        <div style={styles.referrersSection}>
-          <h3 style={styles.sectionTitle}>Top Referrers</h3>
-          <div style={styles.referrersList}>
-            {referralAnalytics.topReferrers.map((ref, i) => (
-              <div key={i} style={styles.referrerCard}>
-                <div style={styles.referrerHeader}>
-                  <strong>{ref.name}</strong>
-                  <span style={styles.referrerBadge}>{ref.referrals} referral{ref.referrals !== 1 ? 's' : ''}</span>
+      {/* Networking Events Section */}
+      {roiMetrics.totalEvents > 0 && (
+        <div style={styles.analyticsSection}>
+          <h3 style={styles.sectionTitle}>Networking Events</h3>
+          <div style={styles.eventsContainer}>
+            <div style={styles.eventSummary}>
+              <div style={styles.eventMetric}>
+                <div style={styles.eventLabel}>Total Events</div>
+                <div style={styles.eventValue}>{roiMetrics.totalEvents}</div>
                 </div>
-                <div style={styles.referrerCompany}>{ref.company}</div>
-                <div style={styles.referrerConversion}>
-                  {(ref.conversionRate * 100).toFixed(1)}% conversion rate
-                </div>
+              <div style={styles.eventMetric}>
+                <div style={styles.eventLabel}>Total Investment</div>
+                <div style={styles.eventValue}>${roiMetrics.totalInvestment.toFixed(2)}</div>
               </div>
-            ))}
+              <div style={styles.eventMetric}>
+                <div style={styles.eventLabel}>Total Opportunities</div>
+                <div style={styles.eventValue}>{roiMetrics.totalOpportunities}</div>
+              </div>
+              {roiMetrics.avgROI > 0 && (
+                <div style={styles.eventMetric}>
+                  <div style={styles.eventLabel}>Average ROI</div>
+                  <div style={styles.eventValue}>{roiMetrics.avgROI.toFixed(2)}x</div>
+                </div>
+              )}
+            </div>
+            {roiMetrics.topROIEvents && roiMetrics.topROIEvents.length > 0 && (
+              <div style={styles.eventsList}>
+                <h4 style={styles.contactsTitle}>All Events ({roiMetrics.topROIEvents.length})</h4>
+                {roiMetrics.topROIEvents.map((event, i) => (
+                  <div 
+                    key={i} 
+                    style={styles.eventItem}
+                    onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)'}
+                  >
+                    <div style={{ fontSize: '15px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
+                      {event.name}
+                    </div>
+                    <div style={styles.eventDetails}>
+                      <span style={{ fontWeight: '500', color: '#1f2937' }}>Type:</span> <span style={{ fontWeight: '600' }}>{event.type || 'N/A'}</span> • 
+                      <span style={{ fontWeight: '500', color: '#1f2937' }}> Date:</span> <span style={{ fontWeight: '600' }}>{event.date ? new Date(event.date).toLocaleDateString() : 'N/A'}</span> • 
+                      <span style={{ fontWeight: '500', color: '#1f2937' }}> Cost:</span> <span style={{ fontWeight: '600', color: '#ef4444' }}>${event.cost || 0}</span> • 
+                      <span style={{ fontWeight: '500', color: '#1f2937' }}> Opportunities:</span> <span style={{ fontWeight: '600', color: '#10b981' }}>{event.opportunities || 0}</span>
+                      {event.roi > 0 && <> • <span style={{ fontWeight: '500', color: '#1f2937' }}>ROI:</span> <span style={{ fontWeight: '600', color: '#10b981' }}>{event.roi.toFixed(2)}x</span></>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Networking ROI Section */}
+      {summaryCards.networkingROI > 0 && (
+        <div style={styles.analyticsSection}>
+          <h3 style={styles.sectionTitle}>Networking ROI Analysis</h3>
+          <div style={styles.analyticsGrid}>
+            <ChartCard title="Contact ROI" icon="R">
+              <div style={styles.roiContainer}>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>Opportunities per Contact</div>
+                  <div style={styles.roiValue}>{summaryCards.contactROI ? summaryCards.contactROI.toFixed(2) : '0.00'}</div>
+                </div>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>High-Value Contacts</div>
+                  <div style={styles.roiValue}>{relationshipMetrics.highValueContacts.length}</div>
+                </div>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>Total Interactions</div>
+                  <div style={styles.roiValue}>{roiMetrics.contactROI?.totalInteractions || 0}</div>
+                </div>
+              </div>
+            </ChartCard>
+            <ChartCard title="Time Investment ROI" icon="T">
+              <div style={styles.roiContainer}>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>Opportunities per Hour</div>
+                  <div style={styles.roiValue}>{summaryCards.networkingROI ? summaryCards.networkingROI.toFixed(2) : '0.00'}</div>
+                </div>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>Total Hours Invested</div>
+                  <div style={styles.roiValue}>{(roiMetrics.outreachROI?.timeInvested || 0).toFixed(1)}</div>
+                </div>
+                <div style={styles.roiMetric}>
+                  <div style={styles.roiLabel}>Opportunities Generated</div>
+                  <div style={styles.roiValue}>{roiMetrics.outreachROI?.opportunities || 0}</div>
+                </div>
+              </div>
+            </ChartCard>
+          </div>
+        </div>
+      )}
+
 
       {/* Recommendations Panel */}
       <div style={styles.recommendationsSection}>
@@ -604,6 +783,86 @@ function BenchmarkCard({ title, userValue, industryValue, status }) {
 const styles = {
   container: {
     padding: '0',
+  },
+  refreshContainer: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '16px',
+    padding: '12px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+  },
+  refreshButton: {
+    padding: '8px 16px',
+    backgroundColor: '#3b82f6',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '500',
+    transition: 'background-color 0.2s',
+  },
+  refreshButtonDisabled: {
+    backgroundColor: '#9ca3af',
+    cursor: 'not-allowed',
+  },
+  lastUpdated: {
+    fontSize: '12px',
+    color: '#6b7280',
+  },
+  eventsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+    marginBottom: '24px',
+    border: '1px solid #e5e7eb',
+  },
+  eventSummary: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  eventMetric: {
+    padding: '20px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+    textAlign: 'center',
+    border: '1px solid #e5e7eb',
+  },
+  eventLabel: {
+    fontSize: '13px',
+    color: '#6b7280',
+    marginBottom: '10px',
+    fontWeight: '500',
+  },
+  eventValue: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#1f2937',
+  },
+  eventsList: {
+    marginTop: '20px',
+  },
+  eventItem: {
+    padding: '18px',
+    backgroundColor: '#ffffff',
+    borderRadius: '10px',
+    marginBottom: '14px',
+    fontSize: '14px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+    transition: 'all 0.2s ease',
+  },
+  eventDetails: {
+    fontSize: '14px',
+    color: '#374151',
+    marginTop: '10px',
+    lineHeight: '1.8',
+    fontWeight: '400',
   },
   loadingContainer: {
     display: 'flex',
@@ -769,10 +1028,11 @@ const styles = {
     marginBottom: '24px',
   },
   sectionTitle: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: '16px',
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: '20px',
+    letterSpacing: '-0.01em',
   },
   benchmarkGrid: {
     display: 'grid',
@@ -819,6 +1079,39 @@ const styles = {
     fontWeight: '500',
     textAlign: 'center',
   },
+  analyticsSection: {
+    marginBottom: '32px',
+  },
+  analyticsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: '20px',
+    marginBottom: '24px',
+  },
+  roiContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+    padding: '10px',
+  },
+  roiMetric: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+  },
+  roiLabel: {
+    fontSize: '14px',
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  roiValue: {
+    fontSize: '24px',
+    fontWeight: '700',
+    color: '#1f2937',
+  },
   contactsSection: {
     marginBottom: '24px',
   },
@@ -830,30 +1123,40 @@ const styles = {
   contactsCard: {
     backgroundColor: '#fff',
     borderRadius: '12px',
-    padding: '20px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    padding: '24px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+    border: '1px solid #e5e7eb',
   },
   contactsTitle: {
-    fontSize: '14px',
+    fontSize: '17px',
     fontWeight: '600',
     color: '#1f2937',
-    marginBottom: '12px',
+    marginBottom: '18px',
   },
   contactsList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '0',
   },
   contactItem: {
-    padding: '12px',
-    backgroundColor: '#f9fafb',
-    borderRadius: '8px',
-    fontSize: '13px',
+    padding: '18px',
+    backgroundColor: '#ffffff',
+    borderRadius: '10px',
+    fontSize: '14px',
+    marginBottom: '14px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+    transition: 'all 0.2s ease',
+  },
+  contactItemHover: {
+    boxShadow: '0 4px 8px rgba(0,0,0,0.12)',
   },
   contactStats: {
-    fontSize: '11px',
-    color: '#6b7280',
-    marginTop: '4px',
+    fontSize: '14px',
+    color: '#374151',
+    marginTop: '10px',
+    lineHeight: '1.8',
+    fontWeight: '400',
   },
   referrersSection: {
     marginBottom: '24px',
