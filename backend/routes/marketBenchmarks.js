@@ -608,6 +608,65 @@ Use realistic market data based on 2024-2025 conditions.`;
 });
 
 /**
+ * Get market benchmarks with optional filters
+ * GET /api/market-benchmarks?role_title=...&role_level=...&location=...
+ */
+router.get("/", async (req, res) => {
+  try {
+    const { role_title, role_level, location, industry, company_size, location_type } = req.query;
+    
+    let query = "SELECT * FROM market_benchmarks WHERE 1=1";
+    const params = [];
+    let paramIndex = 1;
+
+    if (role_title) {
+      query += ` AND role_title ILIKE $${paramIndex}`;
+      params.push(`%${role_title}%`);
+      paramIndex++;
+    }
+
+    if (role_level) {
+      query += ` AND role_level = $${paramIndex}`;
+      params.push(role_level);
+      paramIndex++;
+    }
+
+    if (location) {
+      query += ` AND location ILIKE $${paramIndex}`;
+      params.push(`%${location}%`);
+      paramIndex++;
+    }
+
+    if (industry) {
+      query += ` AND (industry = $${paramIndex} OR industry IS NULL)`;
+      params.push(industry);
+      paramIndex++;
+    }
+
+    if (company_size) {
+      query += ` AND (company_size = $${paramIndex} OR company_size IS NULL)`;
+      params.push(company_size);
+      paramIndex++;
+    }
+
+    if (location_type) {
+      query += ` AND location_type = $${paramIndex}`;
+      params.push(location_type);
+      paramIndex++;
+    }
+
+    query += " ORDER BY data_date DESC, updated_at DESC";
+
+    const result = await pool.query(query, params);
+
+    res.json({ benchmarks: result.rows });
+  } catch (err) {
+    console.error("❌ Error fetching market benchmarks:", err);
+    res.status(500).json({ error: "Failed to fetch market benchmarks" });
+  }
+});
+
+/**
  * Test endpoint to verify API key is working
  * GET /api/market-benchmarks/test
  */

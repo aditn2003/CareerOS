@@ -64,14 +64,21 @@ vi.mock('@supabase/supabase-js', () => {
         insert: vi.fn((data) => ({
           select: vi.fn(() => Promise.resolve({ data: Array.isArray(data) ? data : [data], error: null })),
         })),
-        update: vi.fn((data) => ({
-          eq: vi.fn(() => ({
+        update: vi.fn((data) => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [{ id: 1, ...data }], error: null })),
-          })),
-        })),
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
+          };
+          return chainableBuilder;
+        }),
+        delete: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
+            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
+          };
+          return chainableBuilder;
+        }),
       };
       return tableBuilder;
     }),
@@ -84,6 +91,11 @@ vi.mock('@supabase/supabase-js', () => {
 
 vi.mock('../../auth.js', () => ({
   auth: vi.fn((req, res, next) => {
+    const h = req.headers.authorization || "";
+    const token = h.startsWith("Bearer ") ? h.split(" ")[1]?.trim() : null;
+    if (!token) {
+      return res.status(401).json({ error: "NO_TOKEN" });
+    }
     req.user = { id: 1 };
     next();
   }),
@@ -244,11 +256,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
       const mockCandidate = { id: 1, first_name: 'Jane', last_name: 'Doe' };
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [mockCandidate], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -266,11 +280,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
     it('should return 500 if candidate not found (empty data array)', async () => {
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -289,9 +305,14 @@ describe('Informational Interviews Routes - Full Coverage', () => {
     it('should delete candidate', async () => {
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
+        delete: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
+            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -307,11 +328,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
       const mockInterview = { id: 1, candidate_id: 1, scheduled_date: '2024-01-01' };
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [mockInterview], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -350,9 +373,14 @@ describe('Informational Interviews Routes - Full Coverage', () => {
     it('should delete interview', async () => {
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
+        delete: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
+            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -410,11 +438,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
       const mockPrep = { id: 1, interview_id: 1, questions: ['Q1'] };
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [mockPrep], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -472,11 +502,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
       const mockFollowup = { id: 1, interview_id: 1, notes: 'Updated' };
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [mockFollowup], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -554,11 +586,13 @@ describe('Informational Interviews Routes - Full Coverage', () => {
       const mockInsight = { id: 1, interview_id: 1, key_takeaways: ['Takeaway 1'] };
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [mockInsight], error: null })),
-          })),
-        })),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)
@@ -576,9 +610,14 @@ describe('Informational Interviews Routes - Full Coverage', () => {
     it('should delete insight', async () => {
       const mockSupabase = vi.mocked(createClient)();
       mockSupabase.from.mockReturnValueOnce({
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
+        delete: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
+            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
+          };
+          return chainableBuilder;
+        }),
       });
 
       const res = await request(app)

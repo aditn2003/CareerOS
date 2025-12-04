@@ -68,15 +68,22 @@ vi.mock('@supabase/supabase-js', () => {
         insert: vi.fn((data) => ({
           select: vi.fn(() => Promise.resolve({ data: [{ id: 1, ...data }], error: null })),
         })),
-        update: vi.fn((data) => ({
-          eq: vi.fn(() => ({
+        update: vi.fn((data) => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
             select: vi.fn(() => Promise.resolve({ data: [{ id: 1, ...data }], error: null })),
             single: vi.fn(() => Promise.resolve({ data: { id: 1, ...data }, error: null })),
-          })),
-        })),
-        delete: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
-        })),
+          };
+          return chainableBuilder;
+        }),
+        delete: vi.fn(() => {
+          const chainableBuilder = {
+            eq: vi.fn(() => chainableBuilder),
+            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
+          };
+          return chainableBuilder;
+        }),
       };
       return tableBuilder;
     }),
@@ -89,6 +96,11 @@ vi.mock('@supabase/supabase-js', () => {
 
 vi.mock('../../auth.js', () => ({
   auth: vi.fn((req, res, next) => {
+    const h = req.headers.authorization || "";
+    const token = h.startsWith("Bearer ") ? h.split(" ")[1]?.trim() : null;
+    if (!token) {
+      return res.status(401).json({ error: "NO_TOKEN" });
+    }
     req.user = { id: 1 };
     next();
   }),

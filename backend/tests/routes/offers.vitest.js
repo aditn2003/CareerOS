@@ -782,7 +782,7 @@ describe('Offers Routes - 90%+ Coverage', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Offer deleted');
+      expect(res.body.message).toBe('Offer deleted successfully');
     });
 
     it('should return 500 on database error', async () => {

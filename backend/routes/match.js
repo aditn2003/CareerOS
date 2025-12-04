@@ -133,7 +133,7 @@ Weights:
 - Education: ${weights.educationWeight}
 `;
 
-  const { data } = await axios.post(
+  const response = await axios.post(
     "https://api.openai.com/v1/chat/completions",
     {
       model: "gpt-4o-mini",
@@ -147,6 +147,11 @@ Weights:
     { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
   );
 
+  if (!response || !response.data || !response.data.choices || !response.data.choices[0]) {
+    throw new Error("Invalid AI response");
+  }
+
+  const { data } = response;
   let raw = {};
   try {
     raw = JSON.parse(data.choices[0].message.content);

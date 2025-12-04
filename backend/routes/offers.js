@@ -180,7 +180,7 @@ router.post("/", async (req, res) => {
             [competingId]
           );
           
-          if (competingOffer.rows.length > 0) {
+          if (competingOffer && competingOffer.rows && competingOffer.rows.length > 0) {
             const existingIds = competingOffer.rows[0].competing_offers_ids || [];
             const existingCount = competingOffer.rows[0].competing_offers_count || 0;
             
@@ -371,7 +371,7 @@ router.put("/:id", async (req, res) => {
             [competingId]
           );
           
-          if (competingOffer.rows.length > 0) {
+          if (competingOffer && competingOffer.rows && competingOffer.rows.length > 0) {
             const existingIds = competingOffer.rows[0].competing_offers_ids || [];
             const existingCount = competingOffer.rows[0].competing_offers_count || 0;
             

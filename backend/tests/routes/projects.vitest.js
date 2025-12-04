@@ -312,10 +312,13 @@ describe('Projects Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           name: 'Updated Project',
+          description: 'Updated description',
+          role: 'Developer',
+          start_date: '2023-01-01',
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Project updated successfully');
+      expect(res.body.message).toBe('✅ Project updated successfully');
     });
 
     it('should return 404 if project not found', async () => {
@@ -356,6 +359,9 @@ describe('Projects Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           name: 'Updated Project',
+          description: 'Updated description',
+          role: 'Developer',
+          start_date: '2023-01-01',
         });
 
       expect(res.status).toBe(500);
@@ -372,7 +378,7 @@ describe('Projects Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Project deleted successfully');
+      expect(res.body.message).toBe('✅ Project entry deleted successfully');
     });
 
     it('should return 404 if project not found', async () => {
