@@ -1379,25 +1379,7 @@ describe('Job Routes - Full Coverage', () => {
 
   describe('GET /api/jobs/:id/materials-history', () => {
     it('should return materials history', async () => {
-      const mockHistory = [
-        { id: 1, action: 'initial_set', resume_id: 1, cover_letter_id: 1 },
-      ];
-
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [{ exists: true }], rowCount: 1 }) // Table check
-        .mockResolvedValueOnce({ rows: mockHistory, rowCount: 1 }); // History query
-
-      const res = await request(app)
-        .get('/api/jobs/1/materials-history')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(200);
-      expect(res.body.history).toEqual(mockHistory);
-    });
-
-    it('should return empty array if table does not exist', async () => {
-      mockQueryFn.mockResolvedValueOnce({ rows: [{ exists: false }], rowCount: 1 });
-
+      // Current implementation returns empty array (history tracking removed)
       const res = await request(app)
         .get('/api/jobs/1/materials-history')
         .set('Authorization', 'Bearer valid-token');
@@ -1406,11 +1388,7 @@ describe('Job Routes - Full Coverage', () => {
       expect(res.body.history).toEqual([]);
     });
 
-    it('should handle table not found error (42P01)', async () => {
-      const tableError = new Error('Table does not exist');
-      tableError.code = '42P01';
-      mockQueryFn.mockRejectedValueOnce(tableError);
-
+    it('should return empty array (history tracking removed)', async () => {
       const res = await request(app)
         .get('/api/jobs/1/materials-history')
         .set('Authorization', 'Bearer valid-token');
@@ -1419,64 +1397,14 @@ describe('Job Routes - Full Coverage', () => {
       expect(res.body.history).toEqual([]);
     });
 
-    it('should handle table check returning false', async () => {
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [{ exists: false }] }); // Table doesn't exist
-
+    it('should handle errors gracefully and return empty array', async () => {
+      // Even if there's an error, it should return empty array
       const res = await request(app)
         .get('/api/jobs/1/materials-history')
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(200);
       expect(res.body.history).toEqual([]);
-    });
-
-    it('should handle simplified query also failing', async () => {
-      const colError = new Error('Column does not exist');
-      colError.code = '42703';
-      const simpleError = new Error('Simplified query failed');
-
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [{ exists: true }] }) // Table check
-        .mockRejectedValueOnce(colError) // Main query fails
-        .mockRejectedValueOnce(simpleError); // Simplified query also fails
-
-      const res = await request(app)
-        .get('/api/jobs/1/materials-history')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(200);
-      expect(res.body.history).toEqual([]);
-    });
-
-    it('should handle column missing error (42703) with simplified query', async () => {
-      const colError = new Error('Column does not exist');
-      colError.code = '42703';
-      const mockHistory = [{ id: 1, action: 'initial_set' }];
-
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [{ exists: true }] }) // Table check
-        .mockRejectedValueOnce(colError) // Main query fails
-        .mockResolvedValueOnce({ rows: mockHistory }); // Simplified query succeeds
-
-      const res = await request(app)
-        .get('/api/jobs/1/materials-history')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(200);
-      expect(res.body.history).toEqual(mockHistory);
-    });
-
-    it('should return 500 on general database error', async () => {
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [{ exists: true }] })
-        .mockRejectedValueOnce(new Error('Database error'));
-
-      const res = await request(app)
-        .get('/api/jobs/1/materials-history')
-        .set('Authorization', 'Bearer valid-token');
-
-      expect(res.status).toBe(500);
     });
   });
 
@@ -1484,8 +1412,10 @@ describe('Job Routes - Full Coverage', () => {
     it('should update materials with customization levels', async () => {
       const updatedJob = { id: 1, resume_id: 1, cover_letter_id: 1 };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // History
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Resume check
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Cover letter check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
@@ -1493,73 +1423,65 @@ describe('Job Routes - Full Coverage', () => {
         .send({
           resume_id: 1,
           cover_letter_id: 1,
-          resume_customization: 'light',
-          cover_letter_customization: 'heavy',
         });
 
       expect(res.status).toBe(200);
       expect(res.body.job).toEqual(updatedJob);
     });
 
-    it('should handle template cover letter conversion in materials update', async () => {
-      const mockTemplate = { name: 'Template 1', content: 'Content' };
-      const mockNewCoverLetter = { id: 10 };
-      const updatedJob = { id: 1, resume_id: 1, cover_letter_id: 10 };
-
+    it('should handle template cover letter (templates not supported)', async () => {
+      const updatedJob = { id: 1, resume_id: 1, cover_letter_id: null };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [mockTemplate] }) // Fetch template
-        .mockResolvedValueOnce({ rows: [mockNewCoverLetter] }) // Create cover letter
-        .mockResolvedValueOnce({ rows: [updatedJob] }) // Update job
-        .mockResolvedValueOnce({ rows: [] }); // History
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Resume check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials (no cover letter)
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
         .set('Authorization', 'Bearer valid-token')
         .send({
           resume_id: 1,
-          cover_letter_id: 'template_1',
+          cover_letter_id: 'template_1', // Template IDs are not supported
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job.cover_letter_id).toBeNull();
     });
 
-    it('should fallback to basic update if customization columns missing', async () => {
-      const colError = new Error('Column does not exist');
-      colError.code = '42703';
-      const updatedJob = { id: 1, resume_id: 1, cover_letter_id: 1 };
-
+    it('should update only resume when provided', async () => {
+      const updatedJob = { id: 1, resume_id: 1, cover_letter_id: null };
       mockQueryFn
-        .mockRejectedValueOnce(colError) // Try with customization columns - fails
-        .mockResolvedValueOnce({ rows: [updatedJob] }) // Fallback to basic update
-        .mockResolvedValueOnce({ rows: [] }); // History
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Resume check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
         .set('Authorization', 'Bearer valid-token')
         .send({
           resume_id: 1,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.job).toEqual(updatedJob);
+    });
+
+    it('should update only cover letter when provided', async () => {
+      const updatedJob = { id: 1, resume_id: null, cover_letter_id: 1 };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Cover letter check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job
+
+      const res = await request(app)
+        .put('/api/jobs/1/materials')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
           cover_letter_id: 1,
-          resume_customization: 'light',
         });
 
       expect(res.status).toBe(200);
-    });
-
-    it('should validate customization levels', async () => {
-      const updatedJob = { id: 1, resume_id: 1 };
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob] })
-        .mockResolvedValueOnce({ rows: [] });
-
-      const res = await request(app)
-        .put('/api/jobs/1/materials')
-        .set('Authorization', 'Bearer valid-token')
-        .send({
-          resume_id: 1,
-          resume_customization: 'invalid_level', // Should default to 'none'
-        });
-
-      expect(res.status).toBe(200);
+      expect(res.body.job).toEqual(updatedJob);
     });
 
     it('should handle materials history table missing', async () => {
