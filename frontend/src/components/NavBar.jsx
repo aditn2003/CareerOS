@@ -100,6 +100,16 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
+            {/* 💌 Relationship Maintenance (UC-093) */}
+            <NavLink
+              to="/network"
+              onClick={() => {
+                localStorage.setItem("networkLayoutActiveTab", "maintenance");
+              }}
+            >
+              <span style={{ fontSize: "1.1rem" }}>💌</span> Maintenance
+            </NavLink>
+
             {/* 👤 Profile */}
             <NavLink to="/profile/info">
               <FaUser /> Profile

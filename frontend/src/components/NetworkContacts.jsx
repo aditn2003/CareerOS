@@ -1157,24 +1157,8 @@ const ImportContactsModal = ({ onClose, onImport }) => {
         {error && <div className="alert alert-error">{error}</div>}
         {successMessage && <div className="alert alert-success">{successMessage}</div>}
 
-        <div className="import-tabs">
-          <button
-            className={`tab-button ${importMethod === 'csv' ? 'active' : ''}`}
-            onClick={() => { setImportMethod('csv'); setError(null); setSuccessMessage(''); }}
-          >
-            📄 CSV Import
-          </button>
-          <button
-            className={`tab-button ${importMethod === 'google' ? 'active' : ''}`}
-            onClick={() => { setImportMethod('google'); setError(null); setSuccessMessage(''); }}
-          >
-            📧 Google Contacts
-          </button>
-        </div>
-
         <div className="import-options">
-          {importMethod === 'csv' && (
-            <div className="option active">
+          <div className="option active">
               <h3>Import from CSV</h3>
               <p>Upload a CSV file with contacts from Google Contacts, Outlook, Apple Contacts, or other sources.</p>
               <p className="help-text">Required: At least a "First Name" OR "Last Name" column</p>
@@ -1198,43 +1182,6 @@ const ImportContactsModal = ({ onClose, onImport }) => {
                   disabled={!csvData || loading}
                 >
                   {loading ? 'Importing...' : 'Import CSV'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {importMethod === 'google' && (
-            <div className="option active">
-              <h3>Import from Google Contacts</h3>
-              <p>Export your Google Contacts as a vCard file, then upload it here</p>
-              <div className="instructions">
-                <h4>How to export from Google Contacts:</h4>
-                <ol>
-                  <li>Go to <a href="https://contacts.google.com" target="_blank" rel="noopener noreferrer">contacts.google.com</a></li>
-                  <li>Click on "Manage" → "Export" (in the left menu)</li>
-                  <li>Select "Google CSV" or "vCard (for iOS Contacts)"</li>
-                  <li>Choose which contacts to export</li>
-                  <li>Download the file</li>
-                </ol>
-              </div>
-              <input
-                type="file"
-                accept=".vcf,.vcard"
-                onChange={handleGoogleFileUpload}
-                className="file-input"
-              />
-              {vCardData && <p className="preview-text">✓ File ready for import</p>}
-              
-              <div className="form-actions">
-                <button className="btn btn-secondary" onClick={onClose}>
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleGoogleImport}
-                  disabled={!vCardData || loading}
-                >
-                  {loading ? 'Importing...' : 'Import Google Contacts'}
                 </button>
               </div>
             </div>

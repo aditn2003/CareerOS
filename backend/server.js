@@ -41,6 +41,9 @@ import contactsRoutes, { setContactsPool } from "./routes/contacts.js";
 import referralsRoutes from "./routes/referrals.js";
 import networkingRoutes from "./routes/networking.js";
 import linkedinRoutes from "./routes/linkedin.js";
+import mentorsRoutes from "./routes/mentors.js";
+import informationalInterviewsRoutes from "./routes/informationalInterviews.js";
+import industryContactsRoutes from "./routes/industryContacts.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -67,7 +70,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // ===== Middleware =====
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: ["http://localhost:5173", "http://localhost:5174"], credentials: true }));
 app.use(express.json());
 
 // ✅ Serve uploaded images so React can access them
@@ -625,6 +628,9 @@ app.use("/api", contactsRoutes);
 app.use("/api/referrals", referralsRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/linkedin", linkedinRoutes);
+app.use("/api/mentors", mentorsRoutes);
+app.use("/api/informational-interviews", informationalInterviewsRoutes);
+app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 

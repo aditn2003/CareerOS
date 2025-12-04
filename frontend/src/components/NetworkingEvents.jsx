@@ -719,7 +719,7 @@ const NetworkingEvents = () => {
             onClick={() => setShowEventDiscovery(true)}
           >
             <Calendar size={16} />
-            Discover Events
+            Search Events
           </button>
         </div>
       </div>
@@ -1507,7 +1507,7 @@ const NetworkingEvents = () => {
         <div className="modal-overlay" onClick={() => setShowEventDiscovery(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Discover Events</h2>
+              <h2>Search Events</h2>
               <button className="btn-close" onClick={() => setShowEventDiscovery(false)}>✕</button>
             </div>
 

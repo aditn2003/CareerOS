@@ -204,6 +204,19 @@ const ReferralRequests = () => {
       return;
     }
 
+    // Check if user has already referred this contact more than once
+    const existingReferralsForContact = referrals.filter(
+      r => r.contact_id === parseInt(formData.contact_id)
+    );
+    
+    if (existingReferralsForContact.length >= 2) {
+      const userConfirm = window.confirm(
+        `⚠️ You've already referred this contact ${existingReferralsForContact.length} times.\n\n` +
+        `Continue anyway?`
+      );
+      if (!userConfirm) return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -356,7 +369,7 @@ const ReferralRequests = () => {
             title="Click to see all referrals"
           >
             <div className="analytics-icon" style={{ color: '#2196F3' }}>
-              <FileText size={32} />
+              <FileText size={12} />
             </div>
             <div className="analytics-content">
               <p className="analytics-label">Total Requests</p>
@@ -371,7 +384,7 @@ const ReferralRequests = () => {
             title="Click to see referrals that led to interviews"
           >
             <div className="analytics-icon" style={{ color: '#9C27B0' }}>
-              <Zap size={32} />
+              <Zap size={12} />
             </div>
             <div className="analytics-content">
               <p className="analytics-label">Interviews</p>
@@ -386,21 +399,11 @@ const ReferralRequests = () => {
             title="Click to see referrals that led to offers"
           >
             <div className="analytics-icon" style={{ color: '#E91E63' }}>
-              <TrendingUp size={32} />
+              <TrendingUp size={12} />
             </div>
             <div className="analytics-content">
               <p className="analytics-label">Job Offers</p>
               <p className="analytics-value">{analytics.offersFromReferrals}</p>
-            </div>
-          </div>
-
-          <div className="analytics-card">
-            <div className="analytics-icon" style={{ color: '#4CAF50' }}>
-              <CheckCircle size={32} />
-            </div>
-            <div className="analytics-content">
-              <p className="analytics-label">Success Rate</p>
-              <p className="analytics-value">{analytics.successRate}</p>
             </div>
           </div>
         </div>
@@ -497,13 +500,14 @@ const ReferralRequests = () => {
 
               <div className="referral-card-footer">
                 <button
-                  className="btn-small btn-secondary"
+                  className="btn-small btn-secondary btn-delete-small"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteReferral(referral.id);
                   }}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={14} />
+                  Delete
                 </button>
               </div>
             </div>
