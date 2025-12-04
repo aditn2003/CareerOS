@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useProfile } from "../../contexts/ProfileContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../api";
+import LinkedInProfileOptimization from "../../components/LinkedInProfileOptimization";
+import LinkedInMessageTemplates from "../../components/LinkedInMessageTemplates";
 
 export default function InfoTab() {
   const { profile, setProfile, loadProfile, saveProfile } = useProfile();
@@ -172,6 +174,34 @@ export default function InfoTab() {
             Remove
           </button>
         </div>
+      </div>
+
+      {/* LinkedIn Profile Optimization */}
+      <div style={{ marginTop: '40px' }}>
+        <LinkedInProfileOptimization userProfile={{
+          headline: profile.title || "",
+          about: profile.bio || "",
+          skills: profile.skills || [],
+          job_title: profile.title || "",
+          company_name: profile.company || "",
+          industry: profile.industry || "",
+          first_name: profile.full_name?.split(' ')[0] || "User",
+          seniority: "Mid-level"
+        }} />
+      </div>
+
+      {/* LinkedIn Message Templates */}
+      <div style={{ marginTop: '40px' }}>
+        <LinkedInMessageTemplates userProfile={{
+          headline: profile.title || "",
+          about: profile.bio || "",
+          skills: profile.skills || [],
+          job_title: profile.title || "",
+          company_name: profile.company || "",
+          industry: profile.industry || "",
+          first_name: profile.full_name?.split(' ')[0] || "User",
+          seniority: "Mid-level"
+        }} />
       </div>
     </div>
   );

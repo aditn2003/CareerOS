@@ -15,6 +15,9 @@ import {
   FaStar,
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter
+  FaUsers, // ✅ Icon for Professional Network
+  FaHandshake, // ✅ Icon for Referrals
+  FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
   FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
@@ -121,6 +124,22 @@ export default function NavBar() {
               <FaChartBar /> Statistics
             </NavLink>
 
+            {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
+            <NavLink to="/network">
+              <FaUsers /> Network
+            </NavLink>
+
+            {/* 💌 Relationship Maintenance (UC-093) */}
+            <NavLink
+              to="/network"
+              onClick={() => {
+                localStorage.setItem("networkLayoutActiveTab", "maintenance");
+              }}
+            >
+              <span style={{ fontSize: "1.1rem" }}>💌</span> Maintenance
+            </NavLink>
+
+            {/* 👤 Profile */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>

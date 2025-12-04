@@ -44,6 +44,13 @@ import technicalPrepRoutes from './routes/technicalPrep.js'; // ✅ UC-078
 
 import coverLetterRoutes from "./routes/cover_letter.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
+import contactsRoutes, { setContactsPool } from "./routes/contacts.js";
+import referralsRoutes from "./routes/referrals.js";
+import networkingRoutes from "./routes/networking.js";
+import linkedinRoutes from "./routes/linkedin.js";
+import mentorsRoutes from "./routes/mentors.js";
+import informationalInterviewsRoutes from "./routes/informationalInterviews.js";
+import industryContactsRoutes from "./routes/industryContacts.js";
 import puppeteer from "puppeteer";
 import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
@@ -83,7 +90,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // ===== Middleware =====
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: ["http://localhost:5173", "http://localhost:5174"], credentials: true }));
 app.use(express.json());
 
 // ✅ Serve uploaded images so React can access them
@@ -97,8 +104,11 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 pool
   .connect()
-  .then((client) => {
+  .then(() => {
     console.log("✅ Connected to PostgreSQL");
+    // Initialize contacts route with the pool
+    setContactsPool(pool);
+
     // Release the test connection
     client.release();
   })
@@ -218,6 +228,73 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ========== LINKEDIN LOGIN ==========
+app.post("/linkedin-login", async (req, res) => {
+  const { linkedin_id, email, first_name, last_name, profile_pic_url } =
+    req.body;
+
+  try {
+    if (!linkedin_id) {
+      return res.status(400).json({ error: "Missing LinkedIn ID" });
+    }
+
+    const lower = email?.toLowerCase();
+
+    // Check if user exists by LinkedIn ID
+    let result = await pool.query(
+      "SELECT * FROM users WHERE linkedin_id=$1",
+      [linkedin_id]
+    );
+
+    let user;
+    if (result.rows.length > 0) {
+      // User exists, log them in
+      user = result.rows[0];
+    } else if (lower) {
+      // Check if user exists by email
+      result = await pool.query("SELECT * FROM users WHERE email=$1", [
+        lower,
+      ]);
+      if (result.rows.length > 0) {
+        // User exists by email, update LinkedIn ID
+        user = result.rows[0];
+        await pool.query(
+          "UPDATE users SET linkedin_id=$1 WHERE id=$2",
+          [linkedin_id, user.id]
+        );
+      } else {
+        // Create new user with LinkedIn data
+        const hashedPassword = await bcrypt.hash(
+          Math.random().toString(36),
+          10
+        ); // Random password for OAuth users
+        const insertResult = await pool.query(
+          `INSERT INTO users (email, password_hash, first_name, last_name, linkedin_id, created_at) 
+           VALUES ($1, $2, $3, $4, $5, NOW()) 
+           RETURNING id, email, first_name, last_name`,
+          [lower, hashedPassword, first_name, last_name, linkedin_id]
+        );
+        user = insertResult.rows[0];
+
+        // Create profile for new user
+        await pool.query(
+          `INSERT INTO profiles (user_id, first_name, last_name, profile_picture, linkedin_picture_url, created_at) 
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [user.id, first_name, last_name, profile_pic_url, profile_pic_url]
+        );
+      }
+    } else {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const token = makeToken({ id: user.id, email: user.email });
+    return res.json({ message: "LinkedIn login successful", token, user });
+  } catch (err) {
+    console.error("LinkedIn login error:", err);
+    return res.status(500).json({ error: "LinkedIn login failed" });
   }
 });
 
@@ -625,6 +702,13 @@ app.use("/api", sectionPresetsRoutes);
 app.use("/api", jobDescriptionsRoutes);
 app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
+app.use("/api", contactsRoutes);
+app.use("/api/referrals", referralsRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/linkedin", linkedinRoutes);
+app.use("/api/mentors", mentorsRoutes);
+app.use("/api/informational-interviews", informationalInterviewsRoutes);
+app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
