@@ -2,6 +2,47 @@
    INTERVIEW INSIGHTS - PREMIUM PURPLE THEME
    =============================================== */
 
+/* Ensure all text content is black for visibility on white backgrounds */
+.interview-insights-container {
+  color: #000000;
+}
+
+/* Preserve white text on colored backgrounds (buttons, badges) */
+.interview-insights-container .refresh-btn,
+.interview-insights-container .refresh-btn *,
+.interview-insights-container .export-btn,
+.interview-insights-container .export-btn *,
+.interview-insights-container .talking-point-number,
+.interview-insights-container .question-icon,
+.interview-insights-container .checklist-checkbox::after,
+.interview-insights-container .company-card.selected .company-name,
+.interview-insights-container .company-card.selected .company-industry {
+  color: white !important;
+}
+
+/* Active company button has white background, so text must be black */
+.interview-insights-container .company-btn.active,
+.interview-insights-container .company-btn.active * {
+  color: #1e293b !important;
+}
+
+/* Ensure all text elements in insights panel are black */
+.insights-panel,
+.insights-panel *,
+.interview-content,
+.interview-content *,
+.interview-content section,
+.interview-content section *,
+.interview-content h2,
+.interview-content h3,
+.interview-content p,
+.interview-content ul,
+.interview-content li,
+.interview-content span,
+.loading-text {
+  color: #000000 !important;
+}
+
 .interview-insights-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -56,6 +97,60 @@
   margin-bottom: 32px;
   position: relative;
   z-index: 1;
+}
+
+.company-btn {
+  background: white !important;
+  border: 1px solid #e5e7eb !important;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #374151 !important;
+}
+
+.company-btn:hover {
+  transform: translateY(-2px);
+  border-color: #4f22ea !important;
+  background: #faf5ff !important;
+  color: #374151 !important;
+}
+
+.company-btn.active {
+  background: white !important;
+  border: 4px solid #ec4899 !important;
+  color: #1e293b !important;
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.2), 0 8px 32px rgba(236, 72, 153, 0.3) !important;
+  font-weight: 700 !important;
+  z-index: 10;
+}
+
+.company-btn.active * {
+  color: #1e293b !important;
+}
+
+.refresh-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%) !important;
+  color: white !important;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 32px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+  margin-bottom: 28px;
+}
+
+.refresh-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
 }
 
 .company-card {
@@ -711,16 +806,16 @@
   .interview-insights-container {
     padding: 20px 16px;
   }
-
+  
   .company-buttons {
     grid-template-columns: 1fr 1fr;
   }
-
+  
   .insights-header {
     flex-direction: column;
     gap: 16px;
   }
-
+  
   .export-btn {
     width: 100%;
     justify-content: center;
@@ -739,4 +834,4 @@
   .progress-percentage {
     text-align: left;
   }
-}
+  }

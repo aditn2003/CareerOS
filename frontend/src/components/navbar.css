@@ -119,11 +119,17 @@
    TITLE STYLING
    =============================================== */
 
+.navbar-title-container {
+  text-align: center;
+  margin: 0.5rem 0 1rem 0;
+  position: relative;
+}
+
 .navbar-title {
   font-size: 2.8rem;
   font-weight: 800;
   color: #ffffff;
-  margin: 0.5rem 0 1rem 0;
+  margin: 0;
   letter-spacing: -0.5px;
   position: relative;
   z-index: 2;
@@ -139,13 +145,31 @@
   animation: titleGlow 3s ease-in-out infinite alternate;
 }
 
+.navbar-subtitle {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0.4rem 0 0 0;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 2;
+  
+  /* Subtle glow */
+  text-shadow: 0 1px 4px rgba(167, 139, 250, 0.4);
+  opacity: 0.9;
+  
+  /* Smooth transition */
+  transition: all 0.3s ease;
+}
+
 @keyframes titleGlow {
   from { filter: drop-shadow(0 0 20px rgba(167, 139, 250, 0.3)); }
   to { filter: drop-shadow(0 0 40px rgba(167, 139, 250, 0.6)); }
 }
 
 /* Underline accent */
-.navbar-title::after {
+.navbar-title-container::after {
   content: '';
   position: absolute;
   bottom: -8px;
@@ -362,6 +386,10 @@
     font-size: 2.2rem;
   }
   
+  .navbar-subtitle {
+    font-size: 0.75rem;
+  }
+  
   .navbar-right {
     gap: 0.7rem;
   }
@@ -383,6 +411,11 @@
 
   .navbar-title {
     font-size: 1.8rem;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.7rem;
+    letter-spacing: 0.8px;
   }
   
   .navbar-logo > * {
@@ -415,6 +448,11 @@
   
   .navbar-title {
     font-size: 1.5rem;
+  }
+  
+  .navbar-subtitle {
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
   }
   
   .navbar-right a,

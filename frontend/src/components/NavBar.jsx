@@ -14,9 +14,11 @@ import {
   FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter
+  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
+  FaHandshake, // ✅ Icon for Referrals
+  FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
-  
+  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -48,7 +50,10 @@ export default function NavBar() {
         <Logo size={80} />
       </div>
 
-      <h1 className="navbar-title">ATS for Candidates</h1>
+      <div className="navbar-title-container">
+        <h1 className="navbar-title">CareerOS</h1>
+        <p className="navbar-subtitle">Your Career Operating System</p>
+      </div>
 
       {/* Nav Links */}
       <nav className="navbar-right">
@@ -87,6 +92,23 @@ export default function NavBar() {
               <FaComments /> Interviews
             </NavLink>
 
+            {/* 🗄️ Archived */}
+            <NavLink to="/archived">
+              <FaArchive /> Archived
+            </NavLink>
+
+            {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
+            <NavLink to="/interviews">
+              <FaComments /> Interviews
+            </NavLink>
+
+            {/* 👨‍🏫 Mentor */}
+            {/* ═══════════════════════════════════════════
+                GROWTH - Network & Learn
+            ═══════════════════════════════════════════ */}
+            <NavLink to="/networking">
+              <FaUsers /> Networking
+            </NavLink>
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -101,6 +123,14 @@ export default function NavBar() {
               <FaChartBar /> Statistics
             </NavLink>
 
+            {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
+            <NavLink to="/network">
+              <FaUsers /> Network
+            </NavLink>
+
+            
+
+            {/* 👤 Profile */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>

@@ -716,29 +716,29 @@
   .company-buttons {
     grid-template-columns: 1fr 1fr;
   }
-
+  
   .stats-dashboard {
     grid-template-columns: 1fr 1fr;
   }
-
+  
   .filters-actions {
     flex-direction: column;
     align-items: stretch;
   }
-
+  
   .generate-btn {
     width: 100%;
     justify-content: center;
   }
-
+  
   .question-tabs {
     flex-direction: column;
   }
-
+  
   .question-actions {
     flex-direction: column;
   }
-
+  
   .review-header {
     flex-direction: column;
     gap: 12px;

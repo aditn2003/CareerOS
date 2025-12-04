@@ -1,406 +1,686 @@
-import express from "express";
-import pool from "../db/pool.js";
-import { auth } from "../auth.js";
+// ======================================
+// NETWORKING EVENT MANAGEMENT ROUTES
+// ======================================
+
+import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
-router.use(auth);
 
-// Helper function
-function ensureNumber(val) {
-  const n = Number(val);
-  return isNaN(n) ? 0 : n;
-}
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-/* ==================================================================
-   CONTACTS CRUD
-================================================================== */
-
-// GET all contacts
-router.get("/contacts", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_contacts 
-       WHERE user_id = $1 
-       ORDER BY relationship_strength DESC, name ASC`,
-      [userId]
-    );
-    res.json({ contacts: rows });
-  } catch (err) {
-    console.error("Error fetching contacts:", err);
-    res.status(500).json({ error: "Failed to fetch contacts" });
+// Middleware to ensure user is authenticated
+const authMiddleware = (req, res, next) => {
+  if (!req.user || !req.user.id) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
-});
+  next();
+};
 
-// GET single contact
-router.get("/contacts/:id", async (req, res) => {
+// ======================================
+// NETWORKING EVENT ENDPOINTS
+// ======================================
+
+// GET all networking events for a user
+router.get('/events', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_contacts 
-       WHERE id = $1 AND user_id = $2`,
-      [id, userId]
-    );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found" });
-    }
-    res.json({ contact: rows[0] });
-  } catch (err) {
-    console.error("Error fetching contact:", err);
-    res.status(500).json({ error: "Failed to fetch contact" });
-  }
-});
-
-// POST create contact
-router.post("/contacts", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const {
-      name,
-      email,
-      company,
-      title,
-      industry,
-      linkedin_url,
-      relationship_strength = 1,
-      engagement_score = 0,
-      reciprocity_score = 0,
-      notes,
-      tags = []
-    } = req.body;
-
-    if (!name) {
-      return res.status(400).json({ error: "Name is required" });
-    }
-
-    const { rows } = await pool.query(
-      `INSERT INTO networking_contacts (
-        user_id, name, email, company, title, industry, linkedin_url,
-        relationship_strength, engagement_score, reciprocity_score, notes, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *`,
-      [
-        userId, name, email || null, company || null, title || null,
-        industry || null, linkedin_url || null,
-        relationship_strength, engagement_score, reciprocity_score,
-        notes || null, tags
-      ]
-    );
-
-    res.status(201).json({ contact: rows[0] });
-  } catch (err) {
-    console.error("Error creating contact:", err);
-    res.status(500).json({ error: "Failed to create contact" });
-  }
-});
-
-// PUT update contact
-router.put("/contacts/:id", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const {
-      name, email, company, title, industry, linkedin_url,
-      relationship_strength, engagement_score, reciprocity_score,
-      last_contact_date, next_followup_date, notes, tags
-    } = req.body;
-
-    const { rows } = await pool.query(
-      `UPDATE networking_contacts SET
-        name = COALESCE($3, name),
-        email = COALESCE($4, email),
-        company = COALESCE($5, company),
-        title = COALESCE($6, title),
-        industry = COALESCE($7, industry),
-        linkedin_url = COALESCE($8, linkedin_url),
-        relationship_strength = COALESCE($9, relationship_strength),
-        engagement_score = COALESCE($10, engagement_score),
-        reciprocity_score = COALESCE($11, reciprocity_score),
-        last_contact_date = COALESCE($12, last_contact_date),
-        next_followup_date = COALESCE($13, next_followup_date),
-        notes = COALESCE($14, notes),
-        tags = COALESCE($15, tags),
-        updated_at = NOW()
-      WHERE id = $1 AND user_id = $2
-      RETURNING *`,
-      [
-        id, userId, name, email, company, title, industry, linkedin_url,
-        relationship_strength, engagement_score, reciprocity_score,
-        last_contact_date, next_followup_date, notes, tags
-      ]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found" });
-    }
-
-    res.json({ contact: rows[0] });
-  } catch (err) {
-    console.error("Error updating contact:", err);
-    res.status(500).json({ error: "Failed to update contact" });
-  }
-});
-
-// DELETE contact
-router.delete("/contacts/:id", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    await pool.query(
-      `DELETE FROM networking_contacts WHERE id = $1 AND user_id = $2`,
-      [id, userId]
-    );
-    res.json({ message: "Contact deleted" });
-  } catch (err) {
-    console.error("Error deleting contact:", err);
-    res.status(500).json({ error: "Failed to delete contact" });
-  }
-});
-
-/* ==================================================================
-   ACTIVITIES CRUD
-================================================================== */
-
-// GET all activities
-router.get("/activities", async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { contact_id } = req.query;
+    const { status, industry, eventType, year } = req.query;
     
-    let query = `SELECT a.*, c.name AS contact_name, c.company AS contact_company
-                  FROM networking_activities a
-                  LEFT JOIN networking_contacts c ON a.contact_id = c.id
-                  WHERE a.user_id = $1`;
-    let params = [userId];
+    let query = supabase
+      .from('networking_events')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('event_date', { ascending: false });
+
+    if (status) query = query.eq('status', status);
+    if (industry) query = query.eq('industry', industry);
+    if (eventType) query = query.eq('event_type', eventType);
+
+    const { data, error } = await query;
+
+    if (error) throw error;
     
-    if (contact_id) {
-      query += ` AND a.contact_id = $2`;
-      params.push(contact_id);
+    // Filter by year if provided
+    let filteredData = data;
+    if (year) {
+      filteredData = data.filter(event => new Date(event.event_date).getFullYear() === parseInt(year));
     }
-    
-    query += ` ORDER BY a.created_at DESC`;
-    
-    const { rows } = await pool.query(query, params);
-    res.json({ activities: rows });
+
+    res.json(filteredData);
   } catch (err) {
-    console.error("Error fetching activities:", err);
-    res.status(500).json({ error: "Failed to fetch activities" });
+    console.error('Error fetching events:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// POST create activity
-router.post("/activities", async (req, res) => {
+// GET single event with all related data
+router.get('/events/:id', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const {
-      contact_id,
-      activity_type,
-      channel,
-      direction = 'outbound',
-      subject,
-      notes,
-      outcome,
-      relationship_impact = 0,
-      time_spent_minutes = 0
-    } = req.body;
+    const { data: event, error: eventError } = await supabase
+      .from('networking_events')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
 
-    if (!activity_type) {
-      return res.status(400).json({ error: "Activity type is required" });
-    }
+    if (eventError) throw eventError;
+    if (!event) return res.status(404).json({ error: 'Event not found' });
 
-    const { rows } = await pool.query(
-      `INSERT INTO networking_activities (
-        user_id, contact_id, activity_type, channel, direction,
-        subject, notes, outcome, relationship_impact, time_spent_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        userId, contact_id || null, activity_type, channel || null, direction,
-        subject || null, notes || null, outcome || null,
-        relationship_impact, time_spent_minutes
-      ]
-    );
+    // Get goals
+    const { data: goals } = await supabase
+      .from('event_goals')
+      .select('*')
+      .eq('event_id', req.params.id);
 
-    // Update contact's last_contact_date if contact_id is provided
-    if (contact_id) {
-      await pool.query(
-        `UPDATE networking_contacts 
-         SET last_contact_date = NOW(), updated_at = NOW()
-         WHERE id = $1 AND user_id = $2`,
-        [contact_id, userId]
-      );
-    }
+    // Get connections
+    const { data: connections } = await supabase
+      .from('event_connections')
+      .select('*')
+      .eq('event_id', req.params.id);
 
-    res.status(201).json({ activity: rows[0] });
+    // Get follow-ups
+    const { data: followups } = await supabase
+      .from('event_followups')
+      .select('*')
+      .eq('event_id', req.params.id);
+
+    res.json({
+      ...event,
+      goals,
+      connections,
+      followups
+    });
   } catch (err) {
-    console.error("Error creating activity:", err);
-    res.status(500).json({ error: "Failed to create activity" });
+    console.error('Error fetching event:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-/* ==================================================================
-   EVENTS CRUD
-================================================================== */
-
-// GET all events
-router.get("/events", async (req, res) => {
+// CREATE new networking event
+router.post('/events', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_events 
-       WHERE user_id = $1 
-       ORDER BY event_date DESC`,
-      [userId]
-    );
-    res.json({ events: rows });
-  } catch (err) {
-    console.error("Error fetching events:", err);
-    res.status(500).json({ error: "Failed to fetch events" });
-  }
-});
-
-// POST create event
-router.post("/events", async (req, res) => {
-  try {
-    const userId = req.user.id;
     const {
       event_name,
       event_type,
-      organization,
       location,
+      is_virtual,
       event_date,
-      duration_hours = 0,
-      cost = 0,
-      contacts_met = 0,
-      opportunities_generated = 0,
-      notes
+      event_start_time,
+      event_end_time,
+      registration_deadline,
+      description,
+      industry,
+      target_audience,
+      registration_url,
+      cost,
+      expected_connections
     } = req.body;
 
-    if (!event_name || !event_date) {
-      return res.status(400).json({ error: "Event name and date are required" });
+    if (!event_name || !event_type || !event_date) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO networking_events (
-        user_id, event_name, event_type, organization, location,
-        event_date, duration_hours, cost, contacts_met, 
-        opportunities_generated, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *`,
-      [
-        userId, event_name, event_type || null, organization || null,
-        location || null, event_date, duration_hours, cost,
-        contacts_met, opportunities_generated, notes || null
-      ]
-    );
+    const { data, error } = await supabase
+      .from('networking_events')
+      .insert([{
+        user_id: req.user.id,
+        event_name,
+        event_type,
+        location: location || null,
+        is_virtual: is_virtual || false,
+        event_date,
+        event_start_time: event_start_time || null,
+        event_end_time: event_end_time || null,
+        registration_deadline: registration_deadline || null,
+        description: description || null,
+        industry: industry || null,
+        target_audience: target_audience || null,
+        registration_url: registration_url || null,
+        cost: cost || 0,
+        expected_connections: expected_connections || 0
+      }])
+      .select()
+      .single();
 
-    res.status(201).json({ event: rows[0] });
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error("Error creating event:", err);
-    res.status(500).json({ error: "Failed to create event" });
+    console.error('Error creating event:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-/* ==================================================================
-   REFERRALS CRUD
-================================================================== */
-
-// GET all referrals
-router.get("/referrals", async (req, res) => {
+// UPDATE networking event
+router.put('/events/:id', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT r.*, 
-              c.name AS contact_name, c.company AS contact_company,
-              j.title AS job_title, j.company AS job_company
-       FROM networking_referrals r
-       LEFT JOIN networking_contacts c ON r.contact_id = c.id
-       LEFT JOIN jobs j ON r.job_id = j.id
-       WHERE r.user_id = $1 
-       ORDER BY r.created_at DESC`,
-      [userId]
-    );
-    res.json({ referrals: rows });
+    const { data, error } = await supabase
+      .from('networking_events')
+      .update(req.body)
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Event not found' });
+
+    res.json(data);
   } catch (err) {
-    console.error("Error fetching referrals:", err);
-    res.status(500).json({ error: "Failed to fetch referrals" });
+    console.error('Error updating event:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// POST create referral
-router.post("/referrals", async (req, res) => {
+// DELETE networking event
+router.delete('/events/:id', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { error } = await supabase
+      .from('networking_events')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting event:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// EVENT GOALS ENDPOINTS
+// ======================================
+
+// CREATE event goal
+router.post('/events/:eventId/goals', authMiddleware, async (req, res) => {
+  try {
+    const { goal_description, goal_type, target_count, notes } = req.body;
+
+    if (!goal_description || !goal_type) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const { data, error } = await supabase
+      .from('event_goals')
+      .insert([{
+        event_id: req.params.eventId,
+        user_id: req.user.id,
+        goal_description,
+        goal_type,
+        target_count: target_count || null,
+        notes: notes || null
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error creating goal:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// UPDATE event goal (mark as achieved)
+router.put('/goals/:goalId', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('event_goals')
+      .update({
+        ...req.body,
+        achievement_date: req.body.achieved ? new Date().toISOString() : null
+      })
+      .eq('id', req.params.goalId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error updating goal:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE event goal
+router.delete('/goals/:goalId', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('event_goals')
+      .delete()
+      .eq('id', req.params.goalId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting goal:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// EVENT CONNECTIONS ENDPOINTS
+// ======================================
+
+// CREATE connection from event
+router.post('/events/:eventId/connections', authMiddleware, async (req, res) => {
+  try {
     const {
-      contact_id,
-      job_id,
-      referral_type,
-      referrer_name,
-      referrer_company,
-      company_referred_to,
-      position_referred_for,
-      quality_score = 5
+      contact_name,
+      contact_title,
+      contact_company,
+      contact_email,
+      contact_phone,
+      contact_linkedin,
+      relationship_type,
+      conversation_topic,
+      common_interests,
+      connection_quality
     } = req.body;
 
-    if (!referral_type) {
-      return res.status(400).json({ error: "Referral type is required" });
+    if (!contact_name) {
+      return res.status(400).json({ error: 'Missing contact name' });
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO networking_referrals (
-        user_id, contact_id, job_id, referral_type,
-        referrer_name, referrer_company, company_referred_to,
-        position_referred_for, quality_score
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *`,
-      [
-        userId, contact_id || null, job_id || null, referral_type,
-        referrer_name || null, referrer_company || null,
-        company_referred_to || null, position_referred_for || null,
-        quality_score
-      ]
-    );
+    const { data, error } = await supabase
+      .from('event_connections')
+      .insert([{
+        event_id: req.params.eventId,
+        user_id: req.user.id,
+        contact_name,
+        contact_title: contact_title || null,
+        contact_company: contact_company || null,
+        contact_email: contact_email || null,
+        contact_phone: contact_phone || null,
+        contact_linkedin: contact_linkedin || null,
+        relationship_type: relationship_type || 'general_contact',
+        conversation_topic: conversation_topic || null,
+        common_interests: common_interests || null,
+        connection_quality: connection_quality || 3
+      }])
+      .select()
+      .single();
 
-    res.status(201).json({ referral: rows[0] });
+    if (error) throw error;
+    
+    // Update actual_connections_made count
+    const { data: eventData } = await supabase
+      .from('networking_events')
+      .select('actual_connections_made')
+      .eq('id', req.params.eventId)
+      .single();
+
+    if (eventData) {
+      await supabase
+        .from('networking_events')
+        .update({ actual_connections_made: (eventData.actual_connections_made || 0) + 1 })
+        .eq('id', req.params.eventId);
+    }
+
+    res.json(data);
   } catch (err) {
-    console.error("Error creating referral:", err);
-    res.status(500).json({ error: "Failed to create referral" });
+    console.error('Error creating connection:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// PUT update referral status
-router.put("/referrals/:id", async (req, res) => {
+// UPDATE connection
+router.put('/connections/:connectionId', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('event_connections')
+      .update(req.body)
+      .eq('id', req.params.connectionId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error updating connection:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE connection
+router.delete('/connections/:connectionId', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('event_connections')
+      .delete()
+      .eq('id', req.params.connectionId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting connection:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// EVENT FOLLOWUPS ENDPOINTS
+// ======================================
+
+// CREATE follow-up
+router.post('/followups', authMiddleware, async (req, res) => {
+  try {
     const {
-      status,
-      converted_to_interview,
-      converted_to_offer,
-      quality_score
+      event_id,
+      connection_id,
+      followup_type,
+      followup_message,
+      scheduled_date,
+      attended
     } = req.body;
 
-    const { rows } = await pool.query(
-      `UPDATE networking_referrals SET
-        status = COALESCE($3, status),
-        converted_to_interview = COALESCE($4, converted_to_interview),
-        converted_to_offer = COALESCE($5, converted_to_offer),
-        quality_score = COALESCE($6, quality_score),
-        updated_at = NOW()
-      WHERE id = $1 AND user_id = $2
-      RETURNING *`,
-      [id, userId, status, converted_to_interview, converted_to_offer, quality_score]
-    );
+    console.log('POST /followups - received data:', {
+      event_id,
+      connection_id,
+      followup_type,
+      followup_message,
+      scheduled_date,
+      attended,
+      user_id: req.user.id
+    });
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Referral not found" });
+    if (!event_id || !followup_type || !scheduled_date) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    res.json({ referral: rows[0] });
+    // If attended is true, mark as completed with current date
+    const insertData = {
+      event_id,
+      connection_id: connection_id || null,
+      user_id: req.user.id,
+      followup_type,
+      followup_message: followup_message || null,
+      scheduled_date,
+      completed: attended || false
+    };
+
+    // If marked as completed, set completed_date
+    if (attended) {
+      insertData.completed_date = new Date().toISOString();
+    }
+
+    console.log('Inserting follow-up data:', insertData);
+
+    const { data, error } = await supabase
+      .from('event_followups')
+      .insert([insertData])
+      .select()
+      .single();
+
+    console.log('Follow-up insert result:', { data, error });
+
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error("Error updating referral:", err);
-    res.status(500).json({ error: "Failed to update referral" });
+    console.error('Error creating follow-up:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// UPDATE follow-up
+router.put('/followups/:followupId', authMiddleware, async (req, res) => {
+  try {
+    const updates = { ...req.body };
+    
+    // If marking as completed, set completed_date
+    if (req.body.completed && !req.body.completed_date) {
+      updates.completed_date = new Date().toISOString();
+    }
+
+    const { data, error } = await supabase
+      .from('event_followups')
+      .update(updates)
+      .eq('id', req.params.followupId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error updating follow-up:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE follow-up
+router.delete('/followups/:followupId', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('event_followups')
+      .delete()
+      .eq('id', req.params.followupId);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting follow-up:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// ANALYTICS ENDPOINTS
+// ======================================
+
+// GET networking statistics
+router.get('/statistics', authMiddleware, async (req, res) => {
+  try {
+    // Get all events and connections
+    const { data: events, error: eventsError } = await supabase
+      .from('networking_events')
+      .select('id, status, event_date, actual_connections_made, expected_connections, networking_roi_score, industry')
+      .eq('user_id', req.user.id)
+      .eq('status', 'attended');
+
+    if (eventsError) throw eventsError;
+
+    // Get all connections
+    const { data: connections, error: connectionsError } = await supabase
+      .from('event_connections')
+      .select('id, connection_quality, relationship_type')
+      .eq('user_id', req.user.id);
+
+    if (connectionsError) throw connectionsError;
+
+    // Get follow-ups
+    const { data: followups, error: followupsError } = await supabase
+      .from('event_followups')
+      .select('id, completed, response_received')
+      .eq('user_id', req.user.id);
+
+    if (followupsError) throw followupsError;
+
+    // Calculate statistics
+    const totalEventsAttended = events.length;
+    const totalConnections = connections.length;
+    const avgConnectionsPerEvent = totalEventsAttended > 0 ? (totalConnections / totalEventsAttended).toFixed(2) : 0;
+    const followupsCompleted = followups.filter(f => f.completed).length;
+    const followupSuccessRate = followups.length > 0 ? ((followupsCompleted / followups.length) * 100).toFixed(2) : 0;
+
+    res.json({
+      totalEventsAttended,
+      totalConnections,
+      averageConnectionsPerEvent: parseFloat(avgConnectionsPerEvent),
+      followupsCompleted,
+      followupSuccessRate: parseFloat(followupSuccessRate),
+      upcomingFollowups: followups.filter(f => !f.completed).length
+    });
+  } catch (err) {
+    console.error('Error fetching statistics:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET upcoming events
+router.get('/upcoming', authMiddleware, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await supabase
+      .from('networking_events')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .gte('event_date', today)
+      .neq('status', 'attended')
+      .order('event_date', { ascending: true })
+      .limit(5);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Error fetching upcoming events:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET pending follow-ups
+router.get('/pending-followups', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('event_followups')
+      .select(`
+        *,
+        connection:event_connections(contact_name, contact_company),
+        event:networking_events(event_name)
+      `)
+      .eq('user_id', req.user.id)
+      .eq('completed', false)
+      .order('scheduled_date', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Error fetching pending follow-ups:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET completed follow-ups
+router.get('/completed-followups', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('event_followups')
+      .select(`
+        *,
+        connection:event_connections(contact_name, contact_company),
+        event:networking_events(event_name)
+      `)
+      .eq('user_id', req.user.id)
+      .eq('completed', true)
+      .order('completed_date', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Error fetching completed follow-ups:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// EVENT DISCOVERY/SEARCH ENDPOINTS
+// ======================================
+
+// Search for events by location, industry, or type
+router.get('/discover/search', authMiddleware, async (req, res) => {
+  try {
+    const { location, industry, eventType } = req.query;
+    console.log('Discover search request:', { location, industry, eventType, userId: req.user.id });
+    
+    // First, get all events
+    const { data: allEvents, error: fetchError } = await supabase
+      .from('networking_events')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('event_date', { ascending: true });
+
+    console.log('All events fetched:', allEvents?.length || 0, 'events');
+
+    if (fetchError) throw fetchError;
+
+    // Filter in-memory for more control
+    let results = allEvents || [];
+    
+    if (location && location.trim()) {
+      const locLower = location.toLowerCase();
+      results = results.filter(e => 
+        e.location?.toLowerCase().includes(locLower) || 
+        e.description?.toLowerCase().includes(locLower)
+      );
+      console.log(`After location filter: ${results.length} events`);
+    }
+    
+    if (industry && industry.trim()) {
+      const indLower = industry.toLowerCase();
+      results = results.filter(e => 
+        e.industry?.toLowerCase().includes(indLower)
+      );
+      console.log(`After industry filter: ${results.length} events`);
+    }
+    
+    if (eventType && eventType.trim() !== '' && eventType !== 'All Types') {
+      results = results.filter(e => e.event_type === eventType);
+      console.log(`After eventType filter: ${results.length} events`);
+    }
+
+    console.log(`Search: location=${location}, industry=${industry}, eventType=${eventType} → Found ${results.length} events`);
+    
+    res.json(results);
+  } catch (err) {
+    console.error('Error searching events:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get available industries for discovery
+router.get('/discover/industries', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('networking_events')
+      .select('industry')
+      .eq('user_id', req.user.id)
+      .not('industry', 'is', null);
+
+    if (error) throw error;
+    
+    // Get unique industries
+    const industries = [...new Set(data.map(e => e.industry).filter(Boolean))];
+    
+    res.json(industries);
+  } catch (err) {
+    console.error('Error fetching industries:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get available locations for discovery
+router.get('/discover/locations', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('networking_events')
+      .select('location')
+      .eq('user_id', req.user.id)
+      .not('location', 'is', null);
+
+    if (error) throw error;
+    
+    // Get unique locations
+    const locations = [...new Set(data.map(e => e.location).filter(Boolean))];
+    
+    res.json(locations);
+  } catch (err) {
+    console.error('Error fetching locations:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

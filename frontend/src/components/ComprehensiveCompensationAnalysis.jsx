@@ -5,13 +5,8 @@ import {
   Typography,
   CircularProgress,
   Alert,
-  Card,
-  CardContent,
   Grid,
   Chip,
-  Tabs,
-  Tab,
-  Paper,
   Button,
   TextField,
   Dialog,
@@ -52,23 +47,23 @@ function TabPanel({ children, value, index }) {
 }
 
 // KPI Card Component
-function KPICard({ title, value, subtitle, color = '#3b82f6' }) {
+function KPICard({ title, value, subtitle, color = '#8b5cf6' }) {
   return (
-    <Card sx={{ height: '100%', borderTop: `4px solid ${color}` }}>
-      <CardContent>
-        <Typography variant="caption" sx={{ color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+    <Box className="statistics-card" sx={{ height: '100%', borderTop: `4px solid ${color}`, position: 'relative', overflow: 'hidden' }}>
+      <Box className="statistics-card-content">
+        <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', fontWeight: 600 }}>
           {title}
         </Typography>
-        <Typography variant="h4" sx={{ fontWeight: 700, color, mt: 1, mb: 0.5 }}>
+        <Typography variant="h4" sx={{ fontWeight: 900, color, mt: 1.5, mb: 0.5, fontSize: '2rem' }}>
           {value}
         </Typography>
         {subtitle && (
-          <Typography variant="body2" sx={{ color: '#9ca3af', mt: 0.5 }}>
+          <Typography variant="body2" sx={{ color: '#e2e8f0', mt: 0.5, fontSize: '0.875rem' }}>
             {subtitle}
           </Typography>
         )}
-      </CardContent>
-    </Card>
+      </Box>
+    </Box>
   );
 }
 
@@ -76,43 +71,55 @@ function KPICard({ title, value, subtitle, color = '#3b82f6' }) {
 function RecommendationCard({ recommendation }) {
   const colorMap = {
     warning: '#f59e0b',
-    info: '#3b82f6',
+    info: '#8b5cf6',
     success: '#10b981',
     error: '#ef4444'
   };
   
-  const bgColorMap = {
-    warning: '#fffbeb',
-    info: '#eff6ff',
-    success: '#f0fdf4',
-    error: '#fef2f2'
+  // Get background color based on type
+  const getBackgroundColor = (type) => {
+    switch(type) {
+      case 'warning': return 'rgba(245, 158, 11, 0.25)';
+      case 'info': return 'rgba(139, 92, 246, 0.25)';
+      case 'success': return 'rgba(16, 185, 129, 0.25)';
+      case 'error': return 'rgba(239, 68, 68, 0.25)';
+      default: return 'rgba(139, 92, 246, 0.25)';
+    }
   };
   
   return (
-    <Card sx={{ 
+    <Box className="statistics-card" sx={{ 
       mb: 2, 
-      backgroundColor: bgColorMap[recommendation.type] || '#f9fafb',
-      borderLeft: `4px solid ${colorMap[recommendation.type] || '#6b7280'}`
+      borderLeft: `4px solid ${colorMap[recommendation.type] || '#8b5cf6'}`,
+      background: getBackgroundColor(recommendation.type),
+      backdropFilter: 'blur(8px)',
     }}>
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
-          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+      <Box className="statistics-card-content">
+        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1.5}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: '#ffffff', fontSize: '1.1rem' }}>
             {recommendation.title}
           </Typography>
           <Chip 
             label={recommendation.priority} 
             size="small" 
-            color={recommendation.priority === 'high' ? 'error' : recommendation.priority === 'medium' ? 'warning' : 'default'}
+            sx={{
+              bgcolor: recommendation.priority === 'high' ? 'rgba(239, 68, 68, 0.4)' : recommendation.priority === 'medium' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(139, 92, 246, 0.4)',
+              color: recommendation.priority === 'high' ? '#ffffff' : recommendation.priority === 'medium' ? '#ffffff' : '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.7rem',
+              height: '22px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+            }}
           />
         </Box>
-        <Typography variant="body2" sx={{ color: '#374151', mb: 1 }}>
+        <Typography variant="body2" sx={{ color: '#ffffff', mb: 1.5, lineHeight: 1.7, fontSize: '0.95rem', fontWeight: 400 }}>
           {recommendation.message}
         </Typography>
-        <Typography variant="caption" sx={{ color: '#6b7280', fontStyle: 'italic' }}>
+        <Typography variant="caption" sx={{ color: '#e2e8f0', fontStyle: 'italic', fontSize: '0.8rem', fontWeight: 500, display: 'block', mt: 1 }}>
           {recommendation.action}
         </Typography>
-      </CardContent>
-    </Card>
+      </Box>
+    </Box>
   );
 }
 
@@ -148,6 +155,13 @@ export default function ComprehensiveCompensationAnalysis() {
       setError(null);
       const res = await getComprehensiveCompensationAnalytics();
       console.log("Comprehensive compensation analytics response:", res.data);
+      console.log("📊 Offer Tracking from API:", {
+        totalOffers: res.data?.offerTracking?.totalOffers,
+        byLevel: res.data?.offerTracking?.byLevel,
+        byRole: Object.keys(res.data?.offerTracking?.byRole || {}),
+        byLocation: Object.keys(res.data?.offerTracking?.byLocation || {}),
+        byCompany: Object.keys(res.data?.offerTracking?.byCompany || {})
+      });
       
       // Validate response data
       if (!res || !res.data) {
@@ -155,6 +169,17 @@ export default function ComprehensiveCompensationAnalysis() {
       }
       
       setData(res.data);
+      
+      // Also fetch individual offers for detailed display
+      try {
+        const offersRes = await getOffers();
+        const allOffers = offersRes.data.offers || [];
+        // Filter out offers linked to archived jobs (if needed)
+        setOffers(allOffers);
+      } catch (offersErr) {
+        console.error("Error fetching offers:", offersErr);
+        // Don't fail the whole load if offers fetch fails
+      }
     } catch (err) {
       console.error("Comprehensive compensation analysis error:", err);
       const errorMessage = err.response?.data?.error || err.message || "Failed to load comprehensive compensation analytics";
@@ -356,6 +381,18 @@ export default function ComprehensiveCompensationAnalysis() {
   useEffect(() => {
     loadData();
     loadOffers();
+    
+    // Refresh data when window regains focus (user might have changed offer status in another tab/window)
+    const handleFocus = () => {
+      loadData();
+      loadOffers();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
 
   const loadOffers = async () => {
@@ -571,7 +608,13 @@ export default function ComprehensiveCompensationAnalysis() {
 
     console.log("Processed data:", {
       totalOffers: offerTracking.totalOffers,
-      accepted: offerTracking.acceptedVsRejected?.accepted,
+      acceptedCount: offerTracking.acceptedCount,
+      acceptedVsRejected: offerTracking.acceptedVsRejected,
+      avgBaseSalary: offerTracking.avgBaseSalary,
+      byLevel: offerTracking.byLevel,
+      byRole: Object.keys(offerTracking.byRole || {}),
+      byLocation: Object.keys(offerTracking.byLocation || {}),
+      byCompany: Object.keys(offerTracking.byCompany || {}),
       offers: offerTracking,
       jobSalaryAnalysis,
       salaryComparison: salaryComparison?.length || 0,
@@ -613,13 +656,54 @@ export default function ComprehensiveCompensationAnalysis() {
     }))
     .sort((a, b) => a.month.localeCompare(b.month));
 
+  // Define role level order for consistent display
+  const roleLevelOrder = {
+    'intern': 1,
+    'entry': 2,
+    'junior': 3,
+    'mid': 4,
+    'senior': 5,
+    'staff': 6,
+    'principal': 7,
+    'lead': 8,
+    'manager': 9,
+    'director': 10,
+    'vp': 11,
+    'unknown': 12
+  };
+  
   const roleLevelData = Object.entries(offerTracking.byLevel || {})
-    .map(([level, data]) => ({
-      level: level.charAt(0).toUpperCase() + level.slice(1),
-      avgSalary: data.avgBase,
-      count: data.count
-    }))
-    .sort((a, b) => b.avgSalary - a.avgSalary);
+    .filter(([level, data]) => data.count > 0) // Show all levels with offers, even if no salary data
+    .map(([level, data]) => {
+      const levelKey = level.toLowerCase();
+      let displayName = level === 'unknown' ? 'Not Specified' : level.charAt(0).toUpperCase() + level.slice(1);
+      
+      // Handle common variations
+      if (levelKey === 'mid' || levelKey === 'mid-level' || levelKey === 'midlevel') {
+        displayName = 'Mid-Level';
+      } else if (levelKey === 'entry' || levelKey === 'entry-level' || levelKey === 'entrylevel') {
+        displayName = 'Entry-Level';
+      }
+      
+      return {
+        level: displayName,
+        avgSalary: data.avgBase || 0,
+        count: data.count,
+        order: roleLevelOrder[levelKey] || 99
+      };
+    })
+    .sort((a, b) => {
+      // First sort by order (career progression), then by salary
+      if (a.order !== b.order) return a.order - b.order;
+      return b.avgSalary - a.avgSalary;
+    });
+  
+  console.log("📊 Role Level Data:", {
+    byLevel: offerTracking.byLevel,
+    roleLevelData,
+    totalLevels: Object.keys(offerTracking.byLevel || {}).length,
+    displayedLevels: roleLevelData.length
+  });
 
   // Helper function to format context keys to human-readable names
   const formatContextName = (contextKey) => {
@@ -748,16 +832,12 @@ export default function ComprehensiveCompensationAnalysis() {
   return (
     <Box>
       {/* Header */}
-      <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start">
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-            💼 Comprehensive Compensation Analytics
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-            Track your salary progression, negotiation success, market positioning, and career growth
-          </Typography>
-        </Box>
-        <Box display="flex" gap={1}>
+      <Box className="statistics-header">
+        <Typography className="statistics-main-title">Comprehensive Compensation Analytics</Typography>
+        <Typography className="statistics-main-subtitle">
+          Track your salary progression, negotiation success, market positioning, and career growth
+        </Typography>
+        <Box display="flex" gap={1} justifyContent="center" sx={{ mt: 2 }}>
           <Button
             variant="outlined"
             onClick={async () => {
@@ -769,65 +849,95 @@ export default function ComprehensiveCompensationAnalysis() {
               }
             }}
             disabled={loading}
-            sx={{ minWidth: '140px' }}
+            sx={{ 
+              minWidth: '140px',
+              background: 'rgba(139, 92, 246, 0.2)',
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              color: '#c4b5fd',
+              '&:hover': {
+                background: 'rgba(139, 92, 246, 0.3)',
+                borderColor: 'rgba(139, 92, 246, 0.6)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+              },
+            }}
             size="small"
           >
-            🔍 Recalc Competing
+            Recalc Competing
           </Button>
           <Button
             variant="outlined"
             onClick={loadData}
             disabled={loading}
-            sx={{ minWidth: '120px' }}
+            sx={{ 
+              minWidth: '120px',
+              background: 'rgba(139, 92, 246, 0.2)',
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              color: '#c4b5fd',
+              '&:hover': {
+                background: 'rgba(139, 92, 246, 0.3)',
+                borderColor: 'rgba(139, 92, 246, 0.6)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+              },
+            }}
           >
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
         </Box>
       </Box>
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 3, width: '100%', overflow: 'hidden' }}>
-        <Tabs
-          value={tabValue}
-          onChange={(e, newValue) => setTabValue(newValue)}
-          variant="scrollable"
-          scrollButtons="auto"
-          allowScrollButtonsMobile
-          sx={{ 
-            borderBottom: 1, 
-            borderColor: 'divider',
-            width: '100%',
-            overflowX: 'auto',
-            '& .MuiTab-root': {
-              fontWeight: 600,
-              textTransform: 'none',
-              minHeight: '56px',
-            },
-            '& .Mui-selected': {
-              color: '#3b82f6',
-            },
-            '& .MuiTabs-indicator': {
-              backgroundColor: '#3b82f6',
-              height: 3,
-            },
-            '& .MuiTabs-scrollButtons': {
-              '&.Mui-disabled': { opacity: 0.3 }
-            },
-            '& .MuiTabs-scroller': {
-              overflowX: 'auto !important'
-            }
-          }}
+      {/* Inner Tabs */}
+      <Box className="inner-nav-container">
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 0 ? 'active' : ''}`}
+          onClick={() => setTabValue(0)}
         >
-          <Tab label="Overview" />
-          <Tab label="Salary & Offers" />
-          <Tab label="Negotiation Analytics" />
-          <Tab label="Market Comparison" />
-          <Tab label="Compensation Evolution" />
-          <Tab label="Career Progression" />
-          <Tab label="Strategy & Recommendations" />
-          <Tab label="Location & Industry" />
-          <Tab label="Job vs Offer Comparison" />
-        </Tabs>
+          Overview
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 1 ? 'active' : ''}`}
+          onClick={() => setTabValue(1)}
+        >
+          Salary & Offers
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 2 ? 'active' : ''}`}
+          onClick={() => setTabValue(2)}
+        >
+          Negotiation
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 3 ? 'active' : ''}`}
+          onClick={() => setTabValue(3)}
+        >
+          Market Comparison
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 4 ? 'active' : ''}`}
+          onClick={() => setTabValue(4)}
+        >
+          Evolution
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 5 ? 'active' : ''}`}
+          onClick={() => setTabValue(5)}
+        >
+          Career Progression
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 6 ? 'active' : ''}`}
+          onClick={() => setTabValue(6)}
+        >
+          Strategy
+        </button>
+        <button
+          className={`inner-nav-tab compensation ${tabValue === 7 ? 'active' : ''}`}
+          onClick={() => setTabValue(7)}
+        >
+          Job vs Offer
+        </button>
+      </Box>
 
           {/* Tab 0: Overview */}
         <TabPanel value={tabValue} index={0}>
@@ -848,7 +958,7 @@ export default function ComprehensiveCompensationAnalysis() {
                 title="Total Offers"
                 value={offerTracking.totalOffers}
                 subtitle={offerTracking.totalOffers > 0 
-                  ? `${offerTracking.acceptedVsRejected.accepted} accepted` 
+                  ? `${offerTracking.acceptedVsRejected?.accepted || 0} accepted` 
                   : jobSalaryAnalysis.totalJobsWithSalary > 0
                   ? `${jobSalaryAnalysis.totalJobsWithSalary} jobs with salary data`
                   : "Add offers to track"}
@@ -890,9 +1000,9 @@ export default function ComprehensiveCompensationAnalysis() {
           {/* Quick Charts */}
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Offer Status Distribution</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Offer Status Distribution</Typography>
                   {offerStatusData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={350}>
                       <PieChart margin={{ top: 20, right: 30, bottom: 60, left: 30 }}>
@@ -916,14 +1026,15 @@ export default function ComprehensiveCompensationAnalysis() {
                             const total = offerStatusData.reduce((sum, d) => sum + d.value, 0);
                             const percent = ((value / total) * 100).toFixed(1);
                             return [`${value} (${percent}%)`, name];
-                          }} 
+                          }}
+                          contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }}
                         />
                         <Legend 
                           verticalAlign="bottom" 
                           height={60}
                           iconType="circle"
-                          wrapperStyle={{ paddingTop: '20px' }}
-                          style={{ fontSize: '14px', wordWrap: 'break-word' }}
+                          wrapperStyle={{ paddingTop: '20px', color: '#e2e8f0' }}
+                          style={{ fontSize: '14px', wordWrap: 'break-word', color: '#e2e8f0' }}
                           formatter={(value) => {
                             const entry = offerStatusData.find(d => d.name === value);
                             const total = offerStatusData.reduce((sum, d) => sum + d.value, 0);
@@ -934,189 +1045,611 @@ export default function ComprehensiveCompensationAnalysis() {
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                       No offer data available
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Average Salary by Role Level</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Average Salary by Role Level</Typography>
                   {roleLevelData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <BarChart data={roleLevelData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="level" />
-                        <YAxis tickFormatter={(v) => `$${v/1000}k`} />
-                        <Tooltip formatter={(v) => `$${v.toLocaleString()}`} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
+                        <XAxis dataKey="level" tick={{ fill: '#e2e8f0' }} />
+                        <YAxis tickFormatter={(v) => `$${v/1000}k`} tick={{ fill: '#e2e8f0' }} />
+                        <Tooltip formatter={(v) => `$${v.toLocaleString()}`} contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }} />
                         <Bar dataKey="avgSalary" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                       No role level data available
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
         </TabPanel>
 
         {/* Tab 1: Salary & Offer Tracking */}
         <TabPanel value={tabValue} index={1}>
-          <Grid container spacing={3} mb={3}>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Offers by Role</Typography>
-                  {Object.keys(offerTracking.byRole || {}).length > 0 ? (
+          {/* Summary Statistics */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box className="statistics-card" sx={{ textAlign: 'center', height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', fontWeight: 600, mb: 1 }}>
+                    Total Offers
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 900, color: '#c4b5fd', mb: 0.5 }}>
+                    {offerTracking.totalOffers || 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
+                    All time
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box className="statistics-card" sx={{ textAlign: 'center', height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', fontWeight: 600, mb: 1 }}>
+                    Accepted
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 900, color: '#5eead4', mb: 0.5 }}>
+                    {offerTracking.acceptedCount !== undefined 
+                      ? offerTracking.acceptedCount 
+                      : (offerTracking.acceptedVsRejected?.accepted || 0)}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
+                    {(() => {
+                      const accepted = offerTracking.acceptedCount !== undefined 
+                        ? offerTracking.acceptedCount 
+                        : (offerTracking.acceptedVsRejected?.accepted || 0);
+                      return offerTracking.totalOffers > 0 
+                        ? Math.round((Number(accepted) / Number(offerTracking.totalOffers)) * 100) 
+                        : 0;
+                    })()}% acceptance rate
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box className="statistics-card" sx={{ textAlign: 'center', height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', fontWeight: 600, mb: 1 }}>
+                    Avg Salary
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 900, color: '#60a5fa', mb: 0.5 }}>
+                    ${offerTracking.avgBaseSalary > 0 ? Math.round(offerTracking.avgBaseSalary).toLocaleString() : '0'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
+                    Base salary
+                  </Typography>
+                </Box>
+              </Box>
+            </Grid>
+            {offerTracking.competingOffers > 0 && (
+              <Grid item xs={12} sm={6} md={3}>
+                <Box className="statistics-card" sx={{ textAlign: 'center', height: '100%' }}>
+                  <Box className="statistics-card-content">
+                    <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '1px', fontSize: '11px', fontWeight: 600, mb: 1 }}>
+                      Competing Offers
+                    </Typography>
+                    <Typography variant="h3" sx={{ fontWeight: 900, color: '#fbbf24', mb: 0.5 }}>
+                      {offerTracking.competingOffers}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
+                      With competition
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+
+          {/* Main Content Grid */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Offers by Role */}
+            <Grid item xs={12} md={6}>
+              <Box className="statistics-card" sx={{ height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1.1rem' }}>
+                      Offers by Role
+                    </Typography>
+                    <Chip 
+                      label={`${offers.filter(o => o.role_title && o.role_title.trim() !== '').length} offers`}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(139, 92, 246, 0.2)',
+                        color: '#c4b5fd',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        height: '22px',
+                      }}
+                    />
+                  </Box>
+                  {offers.length > 0 ? (
                     <Box>
-                      {Object.entries(offerTracking.byRole)
-                        .sort((a, b) => b[1].count - a[1].count)
-                        .slice(0, 5)
-                        .map(([role, data]) => (
-                          <Box key={role} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{role}</Typography>
-                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                              {data.count} offer(s) • Avg: ${data.avgBase.toLocaleString()}
-                            </Typography>
+                      {offers
+                        .filter(offer => offer.role_title && offer.role_title.trim() !== '')
+                        .sort((a, b) => {
+                          // Sort by role title first, then by salary (descending)
+                          if (a.role_title !== b.role_title) {
+                            return a.role_title.localeCompare(b.role_title);
+                          }
+                          return (Number(b.base_salary) || 0) - (Number(a.base_salary) || 0);
+                        })
+                        .slice(0, 20) // Show up to 20 offers
+                        .map((offer, idx) => (
+                          <Box 
+                            key={offer.id} 
+                            sx={{ 
+                              mb: 1.5, 
+                              p: 2, 
+                              bgcolor: 'rgba(139, 92, 246, 0.08)', 
+                              borderRadius: 2, 
+                              border: '1px solid rgba(139, 92, 246, 0.15)',
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                bgcolor: 'rgba(139, 92, 246, 0.12)',
+                                borderColor: 'rgba(139, 92, 246, 0.25)',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#c4b5fd', mb: 0.5, fontSize: '0.95rem' }}>
+                                  {offer.role_title}
+                                </Typography>
+                                <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                                    {offer.company || 'Unknown Company'}
+                                  </Typography>
+                                  {offer.base_salary && Number(offer.base_salary) > 0 ? (
+                                    <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>
+                                      ${Number(offer.base_salary).toLocaleString()}
+                                    </Typography>
+                                  ) : (
+                                    <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                                      No salary data
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Box>
+                              <Box sx={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                borderRadius: '50%', 
+                                bgcolor: 'rgba(139, 92, 246, 0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                ml: 2,
+                              }}>
+                                <Typography variant="h6" sx={{ fontWeight: 900, color: '#c4b5fd', fontSize: '1rem' }}>
+                                  {idx + 1}
+                                </Typography>
+                              </Box>
+                            </Box>
                           </Box>
                         ))}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>No role data</Typography>
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>No offers available</Typography>
+                    </Box>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Offers by Location</Typography>
+
+            {/* Offers by Location */}
+            <Grid item xs={12} md={6}>
+              <Box className="statistics-card" sx={{ height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1.1rem' }}>
+                      Offers by Location
+                    </Typography>
+                    <Chip 
+                      label={`${Object.keys(offerTracking.byLocation || {}).length} locations`}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                        color: '#93c5fd',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        height: '22px',
+                      }}
+                    />
+                  </Box>
                   {Object.keys(offerTracking.byLocation || {}).length > 0 ? (
                     <Box>
                       {Object.entries(offerTracking.byLocation)
                         .sort((a, b) => b[1].count - a[1].count)
-                        .slice(0, 5)
-                        .map(([location, data]) => (
-                          <Box key={location} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{location}</Typography>
-                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                              {data.count} offer(s) • Avg: ${data.avgBase.toLocaleString()}
-                            </Typography>
+                        .slice(0, 8)
+                        .map(([location, data], idx) => (
+                          <Box 
+                            key={location} 
+                            sx={{ 
+                              mb: 1.5, 
+                              p: 2, 
+                              bgcolor: 'rgba(59, 130, 246, 0.08)', 
+                              borderRadius: 2, 
+                              border: '1px solid rgba(59, 130, 246, 0.15)',
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                bgcolor: 'rgba(59, 130, 246, 0.12)',
+                                borderColor: 'rgba(59, 130, 246, 0.25)',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <Box display="flex" justifyContent="space-between" alignItems="center">
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#93c5fd', mb: 0.5, fontSize: '0.95rem' }}>
+                                  {location}
+                                </Typography>
+                                <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                                  <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                                    {data.count} offer{data.count !== 1 ? 's' : ''}
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>
+                                    ${data.avgBase.toLocaleString()}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Box sx={{ 
+                                width: '40px', 
+                                height: '40px', 
+                                borderRadius: '50%', 
+                                bgcolor: 'rgba(59, 130, 246, 0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                ml: 2,
+                              }}>
+                                <Typography variant="h6" sx={{ fontWeight: 900, color: '#93c5fd', fontSize: '1rem' }}>
+                                  {idx + 1}
+                                </Typography>
+                              </Box>
+                            </Box>
                           </Box>
                         ))}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>No location data</Typography>
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>No location data available</Typography>
+                    </Box>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Negotiation Outcomes</Typography>
+
+            {/* Industry Positioning */}
+            <Grid item xs={12} md={6}>
+              <Box className="statistics-card" sx={{ height: '100%' }}>
+                <Box className="statistics-card-content">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1.1rem' }}>
+                      Industry Positioning
+                    </Typography>
+                    <Chip 
+                      label={`${industryPositioning.length} industries`}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                        color: '#93c5fd',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        height: '22px',
+                      }}
+                    />
+                  </Box>
+                  {industryPositioning.length > 0 ? (
+                    <Box>
+                      {industryPositioning
+                        .sort((a, b) => {
+                          const aCount = (a.offers?.length || 0) + (a.jobs?.length || 0);
+                          const bCount = (b.offers?.length || 0) + (b.jobs?.length || 0);
+                          return bCount - aCount;
+                        })
+                        .slice(0, 8)
+                        .map((ind, idx) => {
+                          const totalCount = (ind.offers?.length || 0) + (ind.jobs?.length || 0);
+                          const offersCount = ind.offers?.length || 0;
+                          const jobsCount = ind.jobs?.length || 0;
+                          
+                          return (
+                            <Box 
+                              key={idx} 
+                              sx={{ 
+                                mb: 1.5, 
+                                p: 2, 
+                                bgcolor: 'rgba(59, 130, 246, 0.08)', 
+                                borderRadius: 2, 
+                                border: '1px solid rgba(59, 130, 246, 0.15)',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                  bgcolor: 'rgba(59, 130, 246, 0.12)',
+                                  borderColor: 'rgba(59, 130, 246, 0.25)',
+                                  transform: 'translateX(4px)',
+                                },
+                              }}
+                            >
+                              <Box display="flex" justifyContent="space-between" alignItems="center">
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#93c5fd', mb: 0.5, fontSize: '0.95rem' }}>
+                                    {ind.industry}
+                                  </Typography>
+                                  <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                                    <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                                      {totalCount > 0 ? (
+                                        <>
+                                          {offersCount > 0 && `${offersCount} offer${offersCount !== 1 ? 's' : ''}`}
+                                          {offersCount > 0 && jobsCount > 0 && ' • '}
+                                          {jobsCount > 0 && `${jobsCount} job${jobsCount !== 1 ? 's' : ''}`}
+                                        </>
+                                      ) : (
+                                        'No data'
+                                      )}
+                                    </Typography>
+                                    {ind.avgSalary > 0 && (
+                                      <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '0.95rem' }}>
+                                        ${Number(ind.avgSalary || 0).toLocaleString()}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                </Box>
+                                <Box sx={{ 
+                                  width: '40px', 
+                                  height: '40px', 
+                                  borderRadius: '50%', 
+                                  bgcolor: 'rgba(59, 130, 246, 0.25)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  ml: 2,
+                                }}>
+                                  <Typography variant="h6" sx={{ fontWeight: 900, color: '#93c5fd', fontSize: '1rem' }}>
+                                    {idx + 1}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+                          );
+                        })}
+                    </Box>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>No industry data available</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Negotiation Outcomes & Competing Offers Row */}
+          <Grid container spacing={3}>
+            {/* Negotiation Outcomes */}
+            <Grid item xs={12} md={6}>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1.1rem' }}>
+                      Negotiation Outcomes
+                    </Typography>
+                    <Chip 
+                      label={`${offerTracking.negotiationOutcomes.length} attempts`}
+                      size="small"
+                      sx={{
+                        bgcolor: 'rgba(16, 185, 129, 0.2)',
+                        color: '#5eead4',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        height: '22px',
+                      }}
+                    />
+                  </Box>
                   {offerTracking.negotiationOutcomes.length > 0 ? (
                     <Box>
-                      {offerTracking.negotiationOutcomes.slice(0, 5).map((outcome, idx) => {
+                      {offerTracking.negotiationOutcomes.slice(0, 6).map((outcome, idx) => {
                         const improvement = Number(outcome.improvement) || 0;
+                        const isSuccess = outcome.outcome === 'success';
                         return (
-                          <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{outcome.company || 'Unknown'}</Typography>
-                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                              {outcome.role || 'Unknown Role'} • +{improvement.toFixed(1)}%
-                            </Typography>
-                            <Chip 
-                              label={outcome.outcome || 'unknown'} 
-                              size="small" 
-                              color={outcome.outcome === 'success' ? 'success' : 'default'}
-                              sx={{ mt: 0.5 }}
-                            />
+                          <Box 
+                            key={idx} 
+                            sx={{ 
+                              mb: 1.5, 
+                              p: 2, 
+                              bgcolor: isSuccess ? 'rgba(16, 185, 129, 0.08)' : 'rgba(139, 92, 246, 0.08)', 
+                              borderRadius: 2, 
+                              border: `1px solid ${isSuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(139, 92, 246, 0.15)'}`,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                bgcolor: isSuccess ? 'rgba(16, 185, 129, 0.12)' : 'rgba(139, 92, 246, 0.12)',
+                                borderColor: isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'rgba(139, 92, 246, 0.25)',
+                                transform: 'translateX(4px)',
+                              },
+                            }}
+                          >
+                            <Box display="flex" justifyContent="space-between" alignItems="start">
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isSuccess ? '#5eead4' : '#c4b5fd', mb: 0.5, fontSize: '0.95rem' }}>
+                                  {outcome.company || 'Unknown Company'}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1, fontSize: '0.85rem' }}>
+                                  {outcome.role || 'Unknown Role'}
+                                </Typography>
+                                <Box display="flex" gap={1.5} alignItems="center" flexWrap="wrap">
+                                  {improvement > 0 && (
+                                    <Chip 
+                                      label={`+${improvement.toFixed(1)}%`}
+                                      size="small"
+                                      sx={{
+                                        bgcolor: 'rgba(16, 185, 129, 0.2)',
+                                        color: '#5eead4',
+                                        fontWeight: 700,
+                                        fontSize: '0.7rem',
+                                        height: '20px',
+                                      }}
+                                    />
+                                  )}
+                                  <Chip 
+                                    label={outcome.outcome === 'success' ? 'Success' : outcome.outcome || 'Unknown'}
+                                    size="small"
+                                    sx={{
+                                      bgcolor: isSuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                                      color: isSuccess ? '#5eead4' : '#e2e8f0',
+                                      fontWeight: 600,
+                                      fontSize: '0.7rem',
+                                      height: '20px',
+                                    }}
+                                  />
+                                </Box>
+                              </Box>
+                            </Box>
                           </Box>
                         );
                       })}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>No negotiation data</Typography>
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1, fontSize: '0.95rem', fontWeight: 500 }}>
+                        No negotiation data available
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '0.8rem' }}>
+                        Update offers with negotiated salaries to see outcomes
+                      </Typography>
+                    </Box>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
-          </Grid>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>Competing Offers</Typography>
-              {offerTracking.competingOffers > 0 && offerTracking.competingOffersDetails ? (
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
-                    You have {offerTracking.competingOffers} offer(s) with competing offers, which can strengthen your negotiation position.
-                  </Typography>
-                  {offerTracking.competingOffersDetails.map((offerGroup, idx) => (
-                    <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1, border: '1px solid #10b981' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: '#059669' }}>
-                        {offerGroup.company} - {offerGroup.role}
+            {/* Competing Offers - Only show if there are competing offers */}
+            {offerTracking.competingOffers > 0 && offerTracking.competingOffersDetails && offerTracking.competingOffersDetails.length > 0 && (
+              <Grid item xs={12} md={6}>
+                <Box className="statistics-card">
+                  <Box className="statistics-card-content">
+                    <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                      <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700, fontSize: '1.1rem' }}>
+                        Competing Offers
                       </Typography>
-                      <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
-                        <strong>Salary:</strong> ${offerGroup.salary.toLocaleString()}
+                      <Chip 
+                        label={`${offerTracking.competingOffers} active`}
+                        size="small"
+                        sx={{
+                          bgcolor: 'rgba(245, 158, 11, 0.2)',
+                          color: '#fcd34d',
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                          height: '22px',
+                        }}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 3, fontSize: '0.875rem', lineHeight: 1.6 }}>
+                        You have <strong style={{ color: '#fcd34d' }}>{offerTracking.competingOffers}</strong> offer{offerTracking.competingOffers !== 1 ? 's' : ''} with competing offers, which can strengthen your negotiation position.
                       </Typography>
-                      {offerGroup.competingOffers && offerGroup.competingOffers.length > 0 && (
-                        <Box sx={{ mt: 1.5 }}>
-                          <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 1 }}>
-                            Competing with {offerGroup.competingCount} offer(s):
-                          </Typography>
-                          {offerGroup.competingOffers.map((competing, compIdx) => (
-                            <Box key={compIdx} sx={{ 
-                              ml: 2, 
-                              mb: 0.5, 
-                              p: 1, 
-                              bgcolor: 'white', 
-                              borderRadius: '4px',
-                              border: '1px solid #d1d5db'
-                            }}>
-                              <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                                <strong>{competing.company}</strong> - {competing.role}
+                      {offerTracking.competingOffersDetails.map((offerGroup, idx) => (
+                        <Box 
+                          key={idx} 
+                          sx={{ 
+                            mb: 2, 
+                            p: 2.5, 
+                            bgcolor: 'rgba(245, 158, 11, 0.1)', 
+                            borderRadius: 2, 
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: 'rgba(245, 158, 11, 0.15)',
+                              borderColor: 'rgba(245, 158, 11, 0.4)',
+                            },
+                          }}
+                        >
+                          <Box display="flex" justifyContent="space-between" alignItems="start" sx={{ mb: 1.5 }}>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#fcd34d', mb: 0.5, fontSize: '0.95rem' }}>
+                                {offerGroup.company} - {offerGroup.role}
                               </Typography>
-                              <Typography variant="body2" sx={{ fontSize: '0.875rem', color: '#10b981', fontWeight: 600 }}>
-                                ${competing.salary.toLocaleString()}
+                              <Typography variant="body2" sx={{ color: '#ffffff', fontSize: '0.9rem', fontWeight: 600 }}>
+                                ${offerGroup.salary.toLocaleString()}
                               </Typography>
                             </Box>
-                          ))}
+                            <Chip 
+                              label={`${offerGroup.competingCount} competing`}
+                              size="small"
+                              sx={{
+                                bgcolor: 'rgba(245, 158, 11, 0.2)',
+                                color: '#fcd34d',
+                                fontWeight: 700,
+                                fontSize: '0.7rem',
+                                height: '22px',
+                              }}
+                            />
+                          </Box>
+                          {offerGroup.competingOffers && offerGroup.competingOffers.length > 0 && (
+                            <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                              <Typography variant="caption" sx={{ color: '#e2e8f0', fontWeight: 700, display: 'block', mb: 1.5, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem' }}>
+                                Competing Offers:
+                              </Typography>
+                              {offerGroup.competingOffers.map((competing, compIdx) => (
+                                <Box 
+                                  key={compIdx} 
+                                  sx={{ 
+                                    mb: 1, 
+                                    p: 1.5, 
+                                    bgcolor: 'rgba(139, 92, 246, 0.08)', 
+                                    borderRadius: 1.5,
+                                    border: '1px solid rgba(139, 92, 246, 0.2)',
+                                  }}
+                                >
+                                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 600, color: '#c4b5fd' }}>
+                                      {competing.company}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ fontSize: '0.85rem', color: '#5eead4', fontWeight: 700 }}>
+                                      ${competing.salary.toLocaleString()}
+                                    </Typography>
+                                  </Box>
+                                  {competing.role && (
+                                    <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem', display: 'block', mt: 0.5 }}>
+                                      {competing.role}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ))}
+                            </Box>
+                          )}
                         </Box>
-                      )}
+                      ))}
                     </Box>
-                  ))}
+                  </Box>
                 </Box>
-              ) : (
-                <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
-                    No competing offers detected yet.
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-                    Competing offers are automatically detected when you have multiple offers with salaries within $5,000 of each other.
-                    <br />
-                    <br />
-                    <strong>Tip:</strong> Click "🔍 Recalc Competing" in the header to recalculate for existing offers.
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
+              </Grid>
+            )}
+          </Grid>
         </TabPanel>
 
         {/* Tab 2: Negotiation Analytics */}
         <TabPanel value={tabValue} index={2}>
           {negotiationAnalytics.successRate === 0 && Object.keys(negotiationAnalytics.trendsOverTime || {}).length === 0 ? (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            <Alert severity="info" sx={{ mb: 3, bgcolor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: '#e2e8f0' }}>
                 No negotiation data available
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
                 To see negotiation analytics, you need to:
                 <br />1. Create offers with base salaries
                 <br />2. Update offers with higher salaries (negotiated amounts)
@@ -1126,58 +1659,58 @@ export default function ComprehensiveCompensationAnalysis() {
           ) : null}
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Negotiation Success Metrics</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Negotiation Success Metrics</Typography>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: '#f0fdf4', borderRadius: 1 }}>
-                        <Typography variant="caption" sx={{ color: '#6b7280' }}>Success Rate</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#10b981' }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(16, 185, 129, 0.15)', borderRadius: 2, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                        <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem', fontWeight: 600 }}>Success Rate</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#5eead4', mt: 0.5 }}>
                           {(Number(negotiationAnalytics.successRate) || 0).toFixed(1)}%
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: '#eff6ff', borderRadius: 1 }}>
-                        <Typography variant="caption" sx={{ color: '#6b7280' }}>Avg Improvement</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#3b82f6' }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.15)', borderRadius: 2, border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                        <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem', fontWeight: 600 }}>Avg Improvement</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#c4b5fd', mt: 0.5 }}>
                           {(Number(negotiationAnalytics.avgImprovement) || 0).toFixed(1)}%
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: '#fef3c7', borderRadius: 1 }}>
-                        <Typography variant="caption" sx={{ color: '#6b7280' }}>Median Improvement</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#f59e0b' }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.15)', borderRadius: 2, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                        <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem', fontWeight: 600 }}>Median Improvement</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#fcd34d', mt: 0.5 }}>
                           {(Number(negotiationAnalytics.medianImprovement) || 0).toFixed(1)}%
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid item xs={6}>
-                      <Box sx={{ p: 2, bgcolor: '#fce7f3', borderRadius: 1 }}>
-                        <Typography variant="caption" sx={{ color: '#6b7280' }}>Max Improvement</Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#ec4899' }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(236, 72, 153, 0.15)', borderRadius: 2, border: '1px solid rgba(236, 72, 153, 0.3)' }}>
+                        <Typography variant="caption" sx={{ color: '#e2e8f0', textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.7rem', fontWeight: 600 }}>Max Improvement</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#f9a8d4', mt: 0.5 }}>
                           {(Number(negotiationAnalytics.maxImprovement) || 0).toFixed(1)}%
                         </Typography>
                       </Box>
                     </Grid>
                   </Grid>
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Negotiation Trends Over Time</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Negotiation Trends Over Time</Typography>
                   {negotiationTrendsData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <AreaChart data={negotiationTrendsData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
+                        <XAxis dataKey="month" tick={{ fill: '#e2e8f0' }} />
+                        <YAxis tick={{ fill: '#e2e8f0' }} />
+                        <Tooltip contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }} />
+                        <Legend wrapperStyle={{ color: '#e2e8f0' }} />
                         <Area 
                           type="monotone" 
                           dataKey="successRate" 
@@ -1197,59 +1730,69 @@ export default function ComprehensiveCompensationAnalysis() {
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                       No negotiation trends data
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>Negotiation Success by Context</Typography>
+          <Box className="statistics-card" sx={{ mt: 3 }}>
+            <Box className="statistics-card-content">
+              <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Negotiation Success by Context</Typography>
               {contextMetricsData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={contextMetricsData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" domain={[0, 100]} />
-                    <YAxis type="category" dataKey="context" width={150} />
-                    <Tooltip formatter={(v) => `${v.toFixed(1)}%`} />
-                    <Legend />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: '#e2e8f0' }} />
+                    <YAxis type="category" dataKey="context" width={150} tick={{ fill: '#e2e8f0' }} />
+                    <Tooltip formatter={(v) => `${v.toFixed(1)}%`} contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }} />
+                    <Legend wrapperStyle={{ color: '#e2e8f0' }} />
                     <Bar dataKey="successRate" fill="#10b981" name="Success Rate %" radius={[0, 4, 4, 0]} />
                     <Bar dataKey="avgImprovement" fill="#3b82f6" name="Avg Improvement %" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                   No context-based negotiation data
                 </Typography>
               )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
         </TabPanel>
 
         {/* Tab 3: Market Comparison */}
         <TabPanel value={tabValue} index={3}>
           {marketComparisons.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            <Alert severity="info" sx={{ mb: 3, bgcolor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: '#e2e8f0' }}>
                 No market comparison data available
               </Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Market comparisons require benchmark data in the database. Currently, there are no market benchmarks configured.
-                <br />
-                <br />
-                <strong>✨ Quick Solution:</strong> Use AI to automatically fetch market benchmarks for all your offers!
-                <br />
-                <br />
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 2 }}>
+                  Market comparisons require benchmark data in the database. Currently, there are no market benchmarks configured.
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 2 }}>
+                  <strong style={{ color: '#c4b5fd' }}>Quick Solution:</strong> Use AI to automatically fetch market benchmarks for all your offers!
+                </Typography>
                 <Button
                   variant="contained"
-                  color="primary"
                   onClick={handleFetchBenchmarks}
                   disabled={fetchingBenchmarks || loading}
-                  sx={{ mt: 1 }}
+                  sx={{ 
+                    mt: 1,
+                    bgcolor: 'rgba(139, 92, 246, 0.2)',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    color: '#c4b5fd',
+                    '&:hover': {
+                      bgcolor: 'rgba(139, 92, 246, 0.3)',
+                      borderColor: 'rgba(139, 92, 246, 0.6)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+                    },
+                  }}
                   startIcon={fetchingBenchmarks ? <CircularProgress size={16} /> : null}
                 >
                   {fetchingBenchmarks 
@@ -1259,83 +1802,87 @@ export default function ComprehensiveCompensationAnalysis() {
                 </Button>
                 {fetchingBenchmarks && (
                   <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1 }}>
                       Fetching benchmarks for your offers using Google Gemini AI...
                     </Typography>
-                    <Box sx={{ width: '100%', bgcolor: '#e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
+                    <Box sx={{ width: '100%', bgcolor: 'rgba(139, 92, 246, 0.2)', borderRadius: 1, overflow: 'hidden' }}>
                       <Box 
                         sx={{ 
                           height: 8, 
-                          bgcolor: '#3b82f6',
+                          bgcolor: '#8b5cf6',
                           width: `${(benchmarkProgress.current / benchmarkProgress.total) * 100}%`,
                           transition: 'width 0.3s ease'
                         }}
                       />
                     </Box>
-                    <Typography variant="caption" sx={{ color: '#6b7280', mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: '#e2e8f0', mt: 0.5 }}>
                       {benchmarkProgress.current} of {benchmarkProgress.total} offers processed
                     </Typography>
                   </Box>
                 )}
-                <Typography variant="body2" sx={{ mt: 2, color: '#6b7280' }}>
-                  <strong>Manual Option:</strong> You can also manually add market benchmark data to the <code>market_benchmarks</code> table in your database.
-                </Typography>
-              </Typography>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                    <strong style={{ color: '#c4b5fd' }}>Manual Option:</strong> You can also manually add market benchmark data to the <code style={{ color: '#c4b5fd' }}>market_benchmarks</code> table in your database.
+                  </Typography>
+                </Box>
+              </Box>
             </Alert>
           ) : null}
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Market Position Summary</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Market Position Summary</Typography>
                   {marketComparisons.length > 0 ? (
                     <Box>
-                      <Box sx={{ mb: 2, p: 2, bgcolor: '#fef2f2', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#dc2626', fontWeight: 600 }}>
+                      <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(239, 68, 68, 0.15)', borderRadius: 2, border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#fca5a5', fontWeight: 700 }}>
                           Under Market: {marketComparisons.filter(m => m.isUnderpaid).length}
                         </Typography>
                       </Box>
-                      <Box sx={{ mb: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: 600 }}>
+                      <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.15)', borderRadius: 2, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#5eead4', fontWeight: 700 }}>
                           At/Above Market: {marketComparisons.filter(m => !m.isUnderpaid).length}
                         </Typography>
                       </Box>
-                      <Box sx={{ p: 2, bgcolor: '#fffbeb', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#d97706', fontWeight: 600 }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.15)', borderRadius: 2, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                        <Typography variant="body2" sx={{ color: '#fcd34d', fontWeight: 700 }}>
                           Significantly Under: {marketComparisons.filter(m => m.significantlyUnderpaid).length}
                         </Typography>
                       </Box>
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                       No market comparison data available. Add market benchmarks to compare your offers.
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Percentile Distribution</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Percentile Distribution</Typography>
                   {marketComparisonData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <ScatterChart 
                         data={marketComparisonData}
                         margin={{ top: 10, right: 30, left: 20, bottom: 10 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
                         <XAxis 
                           dataKey="company" 
                           angle={-45}
                           textAnchor="end"
                           height={80}
                           interval={0}
+                          tick={{ fill: '#e2e8f0' }}
                         />
                         <YAxis 
                           domain={[0, 100]} 
-                          label={{ value: 'Percentile', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle' } }}
+                          label={{ value: 'Percentile', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#e2e8f0' } }}
                           width={60}
+                          tick={{ fill: '#e2e8f0' }}
                         />
                         <Tooltip 
                           formatter={(value, name) => {
@@ -1348,7 +1895,7 @@ export default function ComprehensiveCompensationAnalysis() {
                             }
                             return [value, name];
                           }}
-                          contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '4px' }}
+                          contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', borderRadius: '4px', color: '#e2e8f0' }}
                         />
                         <Scatter 
                           dataKey="percentile" 
@@ -1358,19 +1905,19 @@ export default function ComprehensiveCompensationAnalysis() {
                       </ScatterChart>
                     </ResponsiveContainer>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                       No percentile data
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
 
-          <Card>
-            <CardContent>
+          <Box className="statistics-card" sx={{ mt: 3 }}>
+            <Box className="statistics-card-content">
               <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                <Typography variant="h6">Detailed Market Comparisons</Typography>
+                <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>Detailed Market Comparisons</Typography>
                 <Button
                   variant="outlined"
                   size="small"
@@ -1386,7 +1933,7 @@ export default function ComprehensiveCompensationAnalysis() {
               </Box>
               {marketComparisons && marketComparisons.length > 0 ? (
                 <Box>
-                  <Typography variant="body2" sx={{ color: '#6b7280', mb: 2, fontStyle: 'italic' }}>
+                  <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 2, fontStyle: 'italic' }}>
                     Showing {marketComparisons.length} market comparison{marketComparisons.length !== 1 ? 's' : ''}
                   </Typography>
                   {marketComparisons.map((comp, idx) => {
@@ -1401,35 +1948,40 @@ export default function ComprehensiveCompensationAnalysis() {
                     const difference = yourSalary - marketMedian;
                     
                     return (
-                      <Box key={comp.offerId || idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1, border: '1px solid #e5e7eb' }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                      <Box key={comp.offerId || idx} sx={{ mb: 2, p: 2.5, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 2, border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1.5}>
                           <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#c4b5fd', mb: 0.5 }}>
                               {comp.company} - {comp.role}
                             </Typography>
-                            <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                            <Typography variant="body2" sx={{ color: '#e2e8f0', fontSize: '0.875rem' }}>
                               {comp.level || 'N/A'} • {comp.location || 'N/A'}
                             </Typography>
                           </Box>
                           <Chip
                             label={`${percentile.toFixed(1)}th percentile`}
-                            color={comp.isUnderpaid ? 'error' : comp.isOverpaid ? 'success' : 'default'}
                             size="small"
-                            sx={{ fontWeight: 600 }}
+                            sx={{ 
+                              fontWeight: 700,
+                              bgcolor: comp.isUnderpaid ? 'rgba(239, 68, 68, 0.2)' : comp.isOverpaid ? 'rgba(16, 185, 129, 0.2)' : 'rgba(139, 92, 246, 0.2)',
+                              color: comp.isUnderpaid ? '#fca5a5' : comp.isOverpaid ? '#5eead4' : '#c4b5fd',
+                              fontSize: '0.7rem',
+                              height: '24px',
+                            }}
                           />
                         </Box>
-                        <Box display="flex" gap={2} mt={1} flexWrap="wrap">
-                          <Typography variant="body2">
-                            <strong>Your Salary:</strong> ${yourSalary.toLocaleString()}
+                        <Box display="flex" gap={2} mt={1.5} flexWrap="wrap">
+                          <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                            <strong style={{ color: '#c4b5fd' }}>Your Salary:</strong> ${yourSalary.toLocaleString()}
                           </Typography>
-                          <Typography variant="body2">
-                            <strong>Market Median:</strong> ${marketMedian.toLocaleString()}
+                          <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                            <strong style={{ color: '#c4b5fd' }}>Market Median:</strong> ${marketMedian.toLocaleString()}
                           </Typography>
                           <Typography 
                             variant="body2" 
                             sx={{ 
-                              color: difference < 0 ? '#dc2626' : '#16a34a',
-                              fontWeight: 600
+                              color: difference < 0 ? '#fca5a5' : '#5eead4',
+                              fontWeight: 700
                             }}
                           >
                             <strong>Difference:</strong> {difference < 0 ? '-' : '+'}
@@ -1441,18 +1993,18 @@ export default function ComprehensiveCompensationAnalysis() {
                   })}
                 </Box>
               ) : (
-                <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                   No market comparison data available. Fetch benchmarks for your offers to see comparisons.
                 </Typography>
               )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
         </TabPanel>
 
         {/* Tab 4: Compensation Evolution */}
         <TabPanel value={tabValue} index={4}>
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Compensation Evolution</Typography>
+            <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 700 }}>Compensation Evolution</Typography>
             <Button
               variant="contained"
               color="primary"
@@ -1463,8 +2015,8 @@ export default function ComprehensiveCompensationAnalysis() {
             </Button>
           </Box>
           {compensationEvolution.timeline.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            <Alert severity="info" sx={{ mb: 3, bgcolor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: '#e2e8f0' }}>
                 No compensation history available
               </Typography>
               <Typography variant="body2">
@@ -1491,37 +2043,47 @@ export default function ComprehensiveCompensationAnalysis() {
                         offers
                           .filter(o => o.offer_status === 'pending')
                           .map(offer => (
-                            <Card key={offer.id} sx={{ mb: 2, border: '1px solid #e5e7eb' }}>
-                              <CardContent>
+                            <Box key={offer.id} className="statistics-card" sx={{ mb: 2 }}>
+                              <Box className="statistics-card-content">
                                 <Box display="flex" justifyContent="space-between" alignItems="start">
                                   <Box>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#c4b5fd', mb: 0.5 }}>
                                       {offer.company} - {offer.role_title}
                                     </Typography>
-                                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                                    <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1, fontSize: '0.875rem' }}>
                                       {offer.role_level} • {offer.location}
                                     </Typography>
-                                    <Typography variant="body2">
-                                      <strong>Base Salary:</strong> ${Number(offer.base_salary || 0).toLocaleString()}
+                                    <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                                      <strong style={{ color: '#c4b5fd' }}>Base Salary:</strong> ${Number(offer.base_salary || 0).toLocaleString()}
                                       {offer.total_comp_year1 && (
-                                        <> • <strong>Total Comp:</strong> ${Number(offer.total_comp_year1).toLocaleString()}</>
+                                        <> • <strong style={{ color: '#c4b5fd' }}>Total Comp:</strong> ${Number(offer.total_comp_year1).toLocaleString()}</>
                                       )}
                                     </Typography>
                                   </Box>
                                   <Button
                                     variant="contained"
-                                    color="success"
                                     onClick={() => handleAcceptOffer(offer.id)}
-                                    sx={{ ml: 2 }}
+                                    sx={{ 
+                                      ml: 2,
+                                      bgcolor: 'rgba(16, 185, 129, 0.2)',
+                                      border: '1px solid rgba(16, 185, 129, 0.4)',
+                                      color: '#5eead4',
+                                      '&:hover': {
+                                        bgcolor: 'rgba(16, 185, 129, 0.3)',
+                                        borderColor: 'rgba(16, 185, 129, 0.6)',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
+                                      },
+                                    }}
                                   >
                                     Accept Offer
                                   </Button>
                                 </Box>
-                              </CardContent>
-                            </Card>
+                              </Box>
+                            </Box>
                           ))
                       ) : (
-                        <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                        <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                           No pending offers. Create offers from your job applications to accept them.
                         </Typography>
                       )}
@@ -1531,23 +2093,25 @@ export default function ComprehensiveCompensationAnalysis() {
               )}
             </Alert>
           ) : null}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>Compensation Timeline</Typography>
+          <Box className="statistics-card" sx={{ mb: 3 }}>
+            <Box className="statistics-card-content">
+              <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Compensation Timeline</Typography>
               {evolutionData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={350}>
                   <LineChart data={evolutionData}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
                     <XAxis 
                       dataKey="date" 
                       tickFormatter={(v) => new Date(v).getFullYear()}
+                      tick={{ fill: '#e2e8f0' }}
                     />
-                    <YAxis tickFormatter={(v) => `$${v/1000}k`} />
+                    <YAxis tickFormatter={(v) => `$${v/1000}k`} tick={{ fill: '#e2e8f0' }} />
                     <Tooltip 
                       formatter={(value) => `$${value.toLocaleString()}`}
                       labelFormatter={(label) => `Date: ${new Date(label).toLocaleDateString()}`}
+                      contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: '#e2e8f0' }} />
                     <Line 
                       type="monotone" 
                       dataKey="baseSalary" 
@@ -1567,18 +2131,18 @@ export default function ComprehensiveCompensationAnalysis() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                   No compensation history data
                 </Typography>
               )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
 
           {/* Milestones & Achievements */}
           {compensationEvolution.milestones && compensationEvolution.milestones.length > 0 && (
-            <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2, color: 'white', fontWeight: 700 }}>
+            <Box className="statistics-card" sx={{ mb: 3, background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(124, 58, 237, 0.3) 100%)', border: '1px solid rgba(139, 92, 246, 0.5)' }}>
+              <Box className="statistics-card-content">
+                <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>
                   Career Milestones & Achievements
                 </Typography>
                 <Grid container spacing={2}>
@@ -1612,13 +2176,13 @@ export default function ComprehensiveCompensationAnalysis() {
                           border: '2px solid #3b82f6',
                           background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%)'
                         }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1f2937', mb: 0.5 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#e2e8f0', mb: 0.5 }}>
                             {title}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#4b5563', mb: 1, fontSize: '0.85rem' }}>
+                          <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1, fontSize: '0.85rem' }}>
                             {description}
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block' }}>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', display: 'block' }}>
                             {milestone.value ? `$${Number(milestone.value).toLocaleString()}` : ''} • {new Date(milestone.date).toLocaleDateString()}
                           </Typography>
                         </Box>
@@ -1626,137 +2190,166 @@ export default function ComprehensiveCompensationAnalysis() {
                     );
                   })}
                 </Grid>
-              </CardContent>
-            </Card>
+              </Box>
+            </Box>
           )}
 
           {/* All Roles List with Delete Option */}
           {compensationEvolution.timeline.length > 0 && (
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>All Roles in Compensation History</Typography>
-                <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+            <Box className="statistics-card" sx={{ mb: 3 }}>
+              <Box className="statistics-card-content">
+                <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>All Roles in Compensation History</Typography>
+                <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 2 }}>
                   Manage your compensation history. You can remove roles that are no longer relevant.
                 </Typography>
                 <Box>
                   {compensationEvolution.timeline.map((role, idx) => {
                     const isActive = !role.end_date || new Date(role.end_date) >= new Date();
                     return (
-                      <Card 
+                      <Box 
                         key={role.id || idx} 
-                        variant="outlined" 
+                        className="statistics-card"
                         sx={{ 
                           mb: 2, 
-                          p: 2,
-                          bgcolor: isActive ? '#f0fdf4' : '#f9fafb',
-                          borderLeft: `4px solid ${isActive ? '#10b981' : '#9ca3af'}`
+                          borderLeft: `4px solid ${isActive ? '#10b981' : '#94a3b8'}`,
+                          bgcolor: isActive ? 'rgba(16, 185, 129, 0.1)' : 'rgba(139, 92, 246, 0.1)',
                         }}
                       >
-                        <Box display="flex" justifyContent="space-between" alignItems="start">
-                          <Box sx={{ flex: 1 }}>
-                            <Box display="flex" alignItems="center" gap={1} mb={1}>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                {role.role_title} at {role.company}
+                        <Box className="statistics-card-content">
+                          <Box display="flex" justifyContent="space-between" alignItems="start">
+                            <Box sx={{ flex: 1 }}>
+                              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#c4b5fd' }}>
+                                  {role.role_title} at {role.company}
+                                </Typography>
+                                {isActive && (
+                                  <Chip 
+                                    label="Active" 
+                                    size="small" 
+                                    sx={{ 
+                                      bgcolor: 'rgba(16, 185, 129, 0.2)',
+                                      color: '#5eead4',
+                                      fontWeight: 600,
+                                      fontSize: '0.7rem',
+                                      height: '20px',
+                                    }} 
+                                  />
+                                )}
+                                {role.end_date && (
+                                  <Chip 
+                                    label="Past" 
+                                    size="small" 
+                                    sx={{ 
+                                      bgcolor: 'rgba(148, 163, 184, 0.2)',
+                                      color: '#cbd5e1',
+                                      fontWeight: 600,
+                                      fontSize: '0.7rem',
+                                      height: '20px',
+                                    }} 
+                                  />
+                                )}
+                              </Box>
+                              <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1, fontSize: '0.875rem' }}>
+                                Level: {role.role_level || 'N/A'} • 
+                                Start: {role.start_date ? new Date(role.start_date).toLocaleDateString() : 'N/A'}
+                                {role.end_date && ` • End: ${new Date(role.end_date).toLocaleDateString()}`}
                               </Typography>
-                              {isActive && (
-                                <Chip label="Active" size="small" color="success" />
-                              )}
-                              {role.end_date && (
-                                <Chip label="Past" size="small" color="default" />
-                              )}
+                              <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
+                                <strong style={{ color: '#c4b5fd' }}>Base Salary:</strong> ${Number(role.base_salary_current || role.base_salary_start || 0).toLocaleString()} • 
+                                <strong style={{ color: '#c4b5fd' }}> Total Comp:</strong> ${Number(role.total_comp_current || role.total_comp_start || 0).toLocaleString()}
+                              </Typography>
                             </Box>
-                            <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
-                              Level: {role.role_level || 'N/A'} • 
-                              Start: {role.start_date ? new Date(role.start_date).toLocaleDateString() : 'N/A'}
-                              {role.end_date && ` • End: ${new Date(role.end_date).toLocaleDateString()}`}
-                            </Typography>
-                            <Typography variant="body2">
-                              <strong>Base Salary:</strong> ${Number(role.base_salary_current || role.base_salary_start || 0).toLocaleString()} • 
-                              <strong> Total Comp:</strong> ${Number(role.total_comp_current || role.total_comp_start || 0).toLocaleString()}
-                            </Typography>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => handleDeleteRole(role.id, role.company, role.role_title)}
+                              disabled={deletingRoleId === role.id}
+                              sx={{ 
+                                ml: 2,
+                                bgcolor: 'rgba(239, 68, 68, 0.2)',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                color: '#fca5a5',
+                                '&:hover': {
+                                  bgcolor: 'rgba(239, 68, 68, 0.3)',
+                                  borderColor: 'rgba(239, 68, 68, 0.6)',
+                                },
+                              }}
+                            >
+                              {deletingRoleId === role.id ? (
+                                <>
+                                  <CircularProgress size={16} sx={{ mr: 1 }} />
+                                  Deleting...
+                                </>
+                              ) : (
+                                'Remove'
+                              )}
+                            </Button>
                           </Box>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            onClick={() => handleDeleteRole(role.id, role.company, role.role_title)}
-                            disabled={deletingRoleId === role.id}
-                            sx={{ ml: 2 }}
-                          >
-                            {deletingRoleId === role.id ? (
-                              <>
-                                <CircularProgress size={16} sx={{ mr: 1 }} />
-                                Deleting...
-                              </>
-                            ) : (
-                              '🗑️ Remove'
-                            )}
-                          </Button>
                         </Box>
-                      </Card>
+                      </Box>
                     );
                   })}
                 </Box>
-              </CardContent>
-            </Card>
+              </Box>
+            </Box>
           )}
 
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Growth Phases</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Growth Phases</Typography>
                   {compensationEvolution.growthPhases.length > 0 ? (
                     <Box>
                       {compensationEvolution.growthPhases.map((phase, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.15)', borderRadius: 2, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#5eead4', mb: 0.5 }}>
                             {phase.fromLevel} → {phase.toLevel}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                          <Typography variant="body2" sx={{ color: '#cbd5e1', fontSize: '0.875rem' }}>
                             {(Number(phase.salaryIncrease) || 0).toFixed(1)}% increase • {(Number(phase.annualizedIncrease) || 0).toFixed(1)}% annualized
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#9ca3af' }}>
+                          <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
                             {new Date(phase.startDate).toLocaleDateString()} - {new Date(phase.endDate).toLocaleDateString()}
                           </Typography>
                         </Box>
                       ))}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                       No significant growth phases detected
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Plateau Periods</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Plateau Periods</Typography>
                   {compensationEvolution.plateaus.length > 0 ? (
                     <Box>
                       {compensationEvolution.plateaus.map((plateau, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#fffbeb', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'rgba(245, 158, 11, 0.15)', borderRadius: 2, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#fcd34d', mb: 0.5 }}>
                             Plateau Detected
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                          <Typography variant="body2" sx={{ color: '#cbd5e1', fontSize: '0.875rem' }}>
                             {(Number(plateau.durationYears) || 0).toFixed(1)} years • {(Number(plateau.annualizedIncrease) || 0).toFixed(1)}% annualized growth
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#9ca3af' }}>
+                          <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem' }}>
                             {new Date(plateau.startDate).toLocaleDateString()} - {new Date(plateau.endDate).toLocaleDateString()}
                           </Typography>
                         </Box>
                       ))}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                       No plateau periods detected
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
         </TabPanel>
@@ -1781,9 +2374,9 @@ export default function ComprehensiveCompensationAnalysis() {
           ) : null}
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Earning Potential</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Earning Potential</Typography>
                   {careerProgression.earningPotential.isEstimated && (
                     <Alert severity="info" sx={{ mb: 2 }}>
                       <Typography variant="caption">
@@ -1792,12 +2385,12 @@ export default function ComprehensiveCompensationAnalysis() {
                     </Alert>
                   )}
               <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>Current Salary</Typography>
+                <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1 }}>Current Salary</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#3b82f6' }}>
                   ${Number(careerProgression.earningPotential.currentSalary || 0).toLocaleString()}
                 </Typography>
                 {careerProgression.earningPotential.currentSalarySource && (
-                  <Typography variant="caption" sx={{ color: '#9ca3af', mt: 0.5, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#e2e8f0', mt: 0.5, display: 'block' }}>
                     Source: {careerProgression.earningPotential.currentSalarySource.includes('compensation_history') 
                       ? 'Compensation History' 
                       : 'Most Recent Offer'}
@@ -1805,7 +2398,7 @@ export default function ComprehensiveCompensationAnalysis() {
                 )}
               </Box>
                   <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1 }}>
                       Average Growth Rate
                       {careerProgression.earningPotential.isEstimated && (
                         <Chip 
@@ -1821,72 +2414,72 @@ export default function ComprehensiveCompensationAnalysis() {
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>Projected Earnings</Typography>
-                    <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 1, mb: 1 }}>
-                      <Typography variant="body2">
-                        <strong>1 Year:</strong> ${Number(careerProgression.earningPotential.projected1Year || 0).toLocaleString()}
+                    <Typography variant="body2" sx={{ color: '#cbd5e1', mb: 1 }}>Projected Earnings</Typography>
+                    <Box sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 1, mb: 1, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                        <strong style={{ color: '#c4b5fd' }}>1 Year:</strong> ${Number(careerProgression.earningPotential.projected1Year || 0).toLocaleString()}
                       </Typography>
                     </Box>
-                    <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 1, mb: 1 }}>
-                      <Typography variant="body2">
-                        <strong>3 Years:</strong> ${Number(careerProgression.earningPotential.projected3Years || 0).toLocaleString()}
+                    <Box sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 1, mb: 1, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                        <strong style={{ color: '#c4b5fd' }}>3 Years:</strong> ${Number(careerProgression.earningPotential.projected3Years || 0).toLocaleString()}
                       </Typography>
                     </Box>
-                    <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                      <Typography variant="body2">
-                        <strong>5 Years:</strong> ${Number(careerProgression.earningPotential.projected5Years || 0).toLocaleString()}
+                    <Box sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                        <strong style={{ color: '#c4b5fd' }}>5 Years:</strong> ${Number(careerProgression.earningPotential.projected5Years || 0).toLocaleString()}
                       </Typography>
                     </Box>
                   </Box>
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Career Inflection Points</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Career Inflection Points</Typography>
                   {careerProgression.earningPotential.inflectionPoints.length > 0 ? (
                     <Box>
                       {careerProgression.earningPotential.inflectionPoints.map((point, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f0fdf4', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'rgba(16, 185, 129, 0.15)', borderRadius: 2, border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#5eead4', mb: 0.5 }}>
                             Major Salary Jump
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                          <Typography variant="body2" sx={{ color: '#cbd5e1', fontSize: '0.875rem', mb: 0.5 }}>
                             {point.fromLevel} → {point.toLevel}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#16a34a', fontWeight: 600 }}>
+                          <Typography variant="body2" sx={{ color: '#5eead4', fontWeight: 700 }}>
                             +{(Number(point.salaryIncrease) || 0).toFixed(1)}% increase
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#9ca3af' }}>
+                          <Typography variant="caption" sx={{ color: '#e2e8f0', fontSize: '0.75rem', display: 'block', mt: 0.5 }}>
                             {new Date(point.startDate).toLocaleDateString()} - {new Date(point.endDate).toLocaleDateString()}
                           </Typography>
                         </Box>
                       ))}
                     </Box>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                       No major inflection points detected
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
 
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>Role Progression Path</Typography>
+          <Box className="statistics-card" sx={{ mt: 3 }}>
+            <Box className="statistics-card-content">
+              <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Role Progression Path</Typography>
               {careerProgression.progression.length > 0 ? (
                 <Box>
                   {careerProgression.progression.map((role, idx) => (
-                    <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
+                    <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
                       <Box display="flex" justifyContent="space-between" alignItems="start">
                         <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#c4b5fd' }}>
                             {role.role_title} at {role.company}
                           </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                          <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                             Level: {role.role_level || 'N/A'} • {role.start_date ? (() => {
                               try {
                                 const date = new Date(role.start_date);
@@ -1905,7 +2498,7 @@ export default function ComprehensiveCompensationAnalysis() {
                           />
                         )}
                       </Box>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
+                      <Typography variant="body2" sx={{ mt: 1, color: '#e2e8f0' }}>
                         Base: ${Number(role.base_salary_start || 0).toLocaleString()} • 
                         Total Comp: ${Number(role.total_comp_start || 0).toLocaleString()}
                       </Typography>
@@ -1913,17 +2506,17 @@ export default function ComprehensiveCompensationAnalysis() {
                   ))}
                 </Box>
               ) : (
-                <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                   No career progression data
                 </Typography>
               )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Box>
         </TabPanel>
 
         {/* Tab 6: Strategy & Recommendations */}
         <TabPanel value={tabValue} index={6}>
-          <Typography variant="h6" sx={{ mb: 3 }}>Strategic Recommendations</Typography>
+          <Typography variant="h6" sx={{ mb: 3, color: '#ffffff', fontWeight: 700, fontSize: '1.5rem' }}>Strategic Recommendations</Typography>
           {recommendations.length > 0 ? (
             <Box>
               {recommendations.map((rec, idx) => (
@@ -1931,116 +2524,21 @@ export default function ComprehensiveCompensationAnalysis() {
               ))}
             </Box>
           ) : (
-            <Card>
-              <CardContent>
-                <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+            <Box className="statistics-card">
+              <Box className="statistics-card-content">
+                <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                   No recommendations available. Continue tracking offers and negotiations to get personalized insights.
                 </Typography>
-              </CardContent>
-            </Card>
+              </Box>
+            </Box>
           )}
         </TabPanel>
 
-        {/* Tab 7: Location & Industry Positioning */}
+        {/* Tab 7: Job vs Offer Comparison */}
         <TabPanel value={tabValue} index={7}>
-          <Grid container spacing={3} mb={3}>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Location Positioning</Typography>
-                  {locationPositioning.length > 0 ? (
-                    <Box>
-                      {locationPositioning.map((loc, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {loc.location}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                            Type: {loc.locationType} • {loc.offers.length} offer(s)
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#374151', mt: 0.5 }}>
-                            Avg Salary: ${loc.avgSalary.toLocaleString()}
-                          </Typography>
-                          {loc.colIndex && (
-                            <Typography variant="caption" sx={{ color: '#9ca3af' }}>
-                              COL Index: {loc.colIndex}
-                            </Typography>
-                          )}
-                          {loc.marketComparisons.length > 0 && (
-                            <Box mt={1}>
-                              <Chip 
-                                label={`${loc.marketComparisons.filter(m => !m.isUnderpaid).length}/${loc.marketComparisons.length} at/above market`}
-                                size="small"
-                                color={loc.marketComparisons.filter(m => !m.isUnderpaid).length === loc.marketComparisons.length ? 'success' : 'default'}
-                              />
-                            </Box>
-                          )}
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
-                      No location data
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Industry Positioning</Typography>
-                  {industryPositioning.length > 0 ? (
-                    <Box>
-                      {industryPositioning.map((ind, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {ind.industry}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                            {ind.offers.length} offer(s)
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#374151', mt: 0.5 }}>
-                            Avg Salary: ${ind.avgSalary.toLocaleString()}
-                          </Typography>
-                          {ind.marketComparisons.length > 0 && (
-                            <Box mt={1}>
-                              <Chip 
-                                label={`${ind.marketComparisons.filter(m => !m.isUnderpaid).length}/${ind.marketComparisons.length} at/above market`}
-                                size="small"
-                                color={ind.marketComparisons.filter(m => !m.isUnderpaid).length === ind.marketComparisons.length ? 'success' : 'default'}
-                              />
-                            </Box>
-                          )}
-                        </Box>
-                      ))}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af' }}>
-                      No industry data
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>Location vs Industry Analysis</Typography>
-              <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                Compare your compensation across different locations and industries to identify the best opportunities for your career growth.
-                Use cost of living adjustments to normalize salaries across different markets.
-              </Typography>
-            </CardContent>
-          </Card>
-        </TabPanel>
-
-        {/* Tab 8: Job vs Offer Comparison */}
-        <TabPanel value={tabValue} index={8}>
           {jobSalaryAnalysis.totalJobsWithSalary === 0 && salaryComparison.length === 0 ? (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            <Alert severity="info" sx={{ mb: 3, bgcolor: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, mb: 1, color: '#e2e8f0' }}>
                 No Job Salary Data Available
               </Typography>
               <Typography variant="body2">
@@ -2053,68 +2551,68 @@ export default function ComprehensiveCompensationAnalysis() {
           ) : null}
           <Grid container spacing={3} mb={3}>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Job Salary Analysis</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Job Salary Analysis</Typography>
                   {jobSalaryAnalysis.totalJobsWithSalary > 0 ? (
                     <>
-                      <Box sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                      <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1 }}>
                           Jobs with Salary Data
                         </Typography>
-                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#3b82f6' }}>
+                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#60a5fa' }}>
                           {jobSalaryAnalysis.totalJobsWithSalary}
                         </Typography>
                       </Box>
-                      <Box sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                      <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1 }}>
                           Average Salary Range (from job postings)
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: '#ffffff' }}>
                           ${jobSalaryAnalysis.avgSalaryMin > 0 
                             ? `${Math.round(jobSalaryAnalysis.avgSalaryMin).toLocaleString()} - $${Math.round(jobSalaryAnalysis.avgSalaryMax).toLocaleString()}`
                             : 'N/A'}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#6b7280', mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: '#cbd5e1', mt: 0.5 }}>
                           Mid-point: ${jobSalaryAnalysis.avgSalaryRange > 0 
                             ? Math.round(jobSalaryAnalysis.avgSalaryRange).toLocaleString() 
                             : 'N/A'}
                         </Typography>
                       </Box>
-                      <Box sx={{ p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#6b7280', mb: 1 }}>
+                      <Box sx={{ p: 2, bgcolor: 'rgba(59, 130, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                        <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 1 }}>
                           Jobs Converted to Offers
                         </Typography>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
                           {jobSalaryAnalysis.jobsWithOffers} with offers • {jobSalaryAnalysis.jobsWithoutOffers} without offers
                         </Typography>
                       </Box>
                     </>
                   ) : (
-                    <Typography variant="body2" sx={{ color: '#9ca3af', textAlign: 'center', py: 4 }}>
+                    <Typography variant="body2" sx={{ color: '#e2e8f0', textAlign: 'center', py: 4 }}>
                       No jobs with salary data found. Add salary_min and salary_max to your job applications.
                     </Typography>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
             <Grid item xs={12} md={6}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2 }}>Salary Comparison</Typography>
+              <Box className="statistics-card">
+                <Box className="statistics-card-content">
+                  <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Salary Comparison</Typography>
                   {salaryComparison.length > 0 ? (
                     <Box>
                       {salaryComparison.map((comp, idx) => (
-                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: '#f9fafb', borderRadius: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Box key={idx} sx={{ mb: 2, p: 2, bgcolor: 'rgba(139, 92, 246, 0.1)', borderRadius: 1, border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#c4b5fd' }}>
                             {comp.company} - {comp.jobTitle}
                           </Typography>
                           <Box display="flex" gap={2} mt={1} flexWrap="wrap">
-                            <Typography variant="body2">
-                              <strong>Job Range:</strong> ${comp.jobSalaryRange.min.toLocaleString()} - ${comp.jobSalaryRange.max.toLocaleString()}
+                            <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                              <strong style={{ color: '#c4b5fd' }}>Job Range:</strong> ${comp.jobSalaryRange.min.toLocaleString()} - ${comp.jobSalaryRange.max.toLocaleString()}
                             </Typography>
-                            <Typography variant="body2">
-                              <strong>Actual Offer:</strong> ${comp.actualOffer.toLocaleString()}
+                            <Typography variant="body2" sx={{ color: '#e2e8f0' }}>
+                              <strong style={{ color: '#c4b5fd' }}>Actual Offer:</strong> ${comp.actualOffer.toLocaleString()}
                             </Typography>
                           </Box>
                           <Box mt={1}>
@@ -2134,46 +2632,48 @@ export default function ComprehensiveCompensationAnalysis() {
                     </Box>
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <Typography variant="body2" sx={{ color: '#9ca3af', mb: 2 }}>
+                      <Typography variant="body2" sx={{ color: '#e2e8f0', mb: 2 }}>
                         {jobSalaryAnalysis.totalJobsWithSalary > 0
                           ? "No offers yet for jobs with salary data."
                           : "No salary comparison data available."}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                      <Typography variant="caption" sx={{ color: '#cbd5e1' }}>
                         {jobSalaryAnalysis.totalJobsWithSalary > 0
                           ? "To see comparisons, create offers and link them to your jobs (set job_id when creating an offer)."
                           : "Add jobs with salary ranges (salary_min and salary_max) and create corresponding offers to see comparisons."}
                       </Typography>
                     </Box>
                   )}
-                </CardContent>
-              </Card>
+                </Box>
+              </Box>
             </Grid>
           </Grid>
 
           {salaryComparison.length > 0 && (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" sx={{ mb: 2 }}>Salary Comparison Chart</Typography>
+            <Box className="statistics-card" sx={{ mt: 3 }}>
+              <Box className="statistics-card-content">
+                <Typography variant="h6" sx={{ mb: 2, color: '#e2e8f0', fontWeight: 700 }}>Salary Comparison Chart</Typography>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={salaryComparison.map(c => ({
                     company: c.company,
                     jobMid: c.jobSalaryRange.mid,
                     actualOffer: c.actualOffer
                   }))}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
                     <XAxis 
                       dataKey="company" 
                       angle={-45}
                       textAnchor="end"
                       height={80}
                       fontSize={10}
+                      tick={{ fill: '#e2e8f0' }}
                     />
-                    <YAxis tickFormatter={(v) => `$${v/1000}k`} />
+                    <YAxis tickFormatter={(v) => `$${v/1000}k`} tick={{ fill: '#e2e8f0' }} />
                     <Tooltip 
                       formatter={(value) => `$${value.toLocaleString()}`}
+                      contentStyle={{ backgroundColor: 'rgba(30, 27, 75, 0.95)', border: '1px solid rgba(124, 58, 237, 0.3)', color: '#e2e8f0' }}
                     />
-                    <Legend />
+                    <Legend wrapperStyle={{ color: '#e2e8f0' }} />
                     <Bar 
                       dataKey="jobMid" 
                       fill="#9ca3af" 
@@ -2188,11 +2688,10 @@ export default function ComprehensiveCompensationAnalysis() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
-            </Card>
+              </Box>
+            </Box>
           )}
         </TabPanel>
-      </Paper>
 
       {/* Add Role Dialog */}
       <Dialog 

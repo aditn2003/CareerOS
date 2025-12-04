@@ -6,13 +6,11 @@ import {
   Box,
   Typography,
   CircularProgress,
-  Tabs,
-  Tab,
-  Paper,
   Chip,
   Alert,
   Button,
 } from '@mui/material';
+import './StatisticsLayout.css';
 import {
   BarChart,
   Bar,
@@ -137,7 +135,7 @@ const formatMonth = (dateString) => {
 function TabPanel({ children, value, index, ...other }) {
   return (
     <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={styles.contentArea}>{children}</Box>}
+      {value === index && <Box sx={{ p: 3, background: 'transparent' }}>{children}</Box>}
     </div>
   );
 }
@@ -284,22 +282,18 @@ const StatisticsPage = () => {
 
   if (loading) {
     return (
-      <Box sx={styles.pageWrapper}>
-        <Container maxWidth="lg">
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-            <CircularProgress sx={{ color: '#fff' }} size={48} />
+      <Box className="statistics-layout">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress sx={{ color: '#fff' }} size={48} />
         </Box>
-      </Container>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box sx={styles.pageWrapper}>
-        <Container maxWidth="lg">
-          <Alert severity="error" sx={{ borderRadius: '8px' }}>{error}</Alert>
-      </Container>
+      <Box className="statistics-layout">
+        <Alert severity="error" sx={{ borderRadius: '8px' }}>{error}</Alert>
       </Box>
     );
   }
@@ -307,92 +301,110 @@ const StatisticsPage = () => {
   const roleTypeData = getRoleTypeData();
 
   return (
-    <Box sx={styles.pageWrapper}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Box sx={styles.headerCard}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-                Analytics Dashboard
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                Track your job application performance and success patterns
+    <Box className="statistics-layout">
+      {/* Header */}
+      <Box className="statistics-header">
+        <Typography className="statistics-main-title">Analytics Dashboard</Typography>
+        <Typography className="statistics-main-subtitle">
+          Track your job application performance and success patterns
         </Typography>
-            </Box>
         {stats && (
-              <Button
-                variant="contained"
-                size="small"
-                sx={{
-                  background: '#3b82f6',
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 2.5,
-                  py: 1,
-                  '&:hover': { background: '#2563eb' },
-                }}
-              >
-            <CSVLink 
-              data={getCsvData()} 
-                  filename="job-statistics.csv"
-              style={{ textDecoration: 'none', color: 'inherit' }}
+          <Box sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              size="small"
+              sx={{
+                background: 'rgba(139, 92, 246, 0.2)',
+                border: '1px solid rgba(139, 92, 246, 0.4)',
+                color: '#c4b5fd',
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 2.5,
+                py: 1,
+                '&:hover': { 
+                  background: 'rgba(139, 92, 246, 0.3)',
+                  borderColor: 'rgba(139, 92, 246, 0.6)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+                },
+              }}
             >
-                  Export CSV
-            </CSVLink>
-          </Button>
+              <CSVLink 
+                data={getCsvData()} 
+                filename="job-statistics.csv"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                Export CSV
+              </CSVLink>
+            </Button>
+          </Box>
         )}
       </Box>
-        </Box>
 
-        {/* Tabs Container */}
-        <Paper sx={styles.tabsContainer}>
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
-            sx={{
-              background: '#fff',
-              borderBottom: '1px solid #e5e7eb',
-              width: '100%',
-              overflowX: 'auto',
-              '& .MuiTab-root': {
-                ...styles.tab,
-                color: '#000000', // Black font color
-                backgroundColor: '#ffffff', // White background
-                '&:hover': {
-                  color: '#000000', // Keep black text on hover
-                  backgroundColor: '#e9d5ff', // Light purple on hover
-                },
-              },
-              '& .Mui-selected': { 
-                color: '#000000', // Black text when selected
-                backgroundColor: '#e9d5ff', // Light purple background when selected
-                fontWeight: 700,
-              },
-              '& .MuiTabs-indicator': { 
-                backgroundColor: '#e9d5ff', // Light purple indicator
-                height: 3,
-                borderRadius: '3px 3px 0 0',
-              },
-              '& .MuiTabs-scrollButtons': {
-                '&.Mui-disabled': { opacity: 0.3 }
-              },
-              '& .MuiTabs-scroller': {
-                overflowX: 'auto !important'
-              }
-            }}
-          >
-            <Tab label="Job Statistics" />
-            <Tab label="Success Analysis" />
-            <Tab label="Interview Analysis" />
-            <Tab label="Networking Analysis" />
-            <Tab label="Compensation Analysis" />
-            <Tab label="Career Goals" />
-          </Tabs>
+      {/* Navigation Tabs */}
+      <Box className="statistics-nav-container">
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Analytics</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 0 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 0)}
+            >
+              <span className="statistics-tab-icon">📊</span>
+              <span className="statistics-tab-text">Job Stats</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 1 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 1)}
+            >
+              <span className="statistics-tab-icon">✅</span>
+              <span className="statistics-tab-text">Success</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 2 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 2)}
+            >
+              <span className="statistics-tab-icon">💼</span>
+              <span className="statistics-tab-text">Interview</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 3 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 3)}
+            >
+              <span className="statistics-tab-icon">🤝</span>
+              <span className="statistics-tab-text">Networking</span>
+            </button>
+          </Box>
+        </Box>
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Compensation</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 4 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 4)}
+            >
+              <span className="statistics-tab-icon">💰</span>
+              <span className="statistics-tab-text">Compensation</span>
+            </button>
+          </Box>
+        </Box>
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Career</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab career ${tabValue === 5 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 5)}
+            >
+              <span className="statistics-tab-icon">🎯</span>
+              <span className="statistics-tab-text">Goals</span>
+            </button>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Content Area */}
+      <Box className="statistics-content">
 
           {/* Tab 1: Job Statistics */}
           <TabPanel value={tabValue} index={0}>
@@ -747,8 +759,7 @@ const StatisticsPage = () => {
           <TabPanel value={tabValue} index={5}>
             <CareerGoals />
           </TabPanel>
-        </Paper>
-    </Container>
+      </Box>
     </Box>
   );
 };
