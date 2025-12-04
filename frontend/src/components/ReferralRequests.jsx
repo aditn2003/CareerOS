@@ -843,6 +843,7 @@ const ReferralRequests = () => {
                   </button>
                 </div>
               </div>
+            </form>
             ) : (
             <form onSubmit={handleCreateReferral} className="referral-form">
               <div className="form-group">
