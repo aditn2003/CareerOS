@@ -48,7 +48,10 @@ export default function NavBar() {
         <Logo size={80} />
       </div>
 
-      <h1 className="navbar-title">ATS for Candidates</h1>
+      <div className="navbar-title-container">
+        <h1 className="navbar-title">CareerOS</h1>
+        <p className="navbar-subtitle">Your Career Operating System</p>
+      </div>
 
       {/* Nav Links */}
       <nav className="navbar-right">
