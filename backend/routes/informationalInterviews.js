@@ -1,8 +1,19 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { auth } from "../auth.js";
+import { Resend } from "resend";
+import pkg from "pg";
 
+const { Pool } = pkg;
 const router = express.Router();
+
+// Initialize Resend client for sending emails
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Database pool for querying profiles (not in Supabase)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -745,6 +756,321 @@ router.put("/preparation/:id", auth, async (req, res) => {
   } catch (error) {
     console.error("Error updating preparation:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ======================================
+// EMAIL ENDPOINTS
+// ======================================
+
+// Helper function to get user name and email
+async function getUserInfo(userId) {
+  try {
+    // First try to get full_name from profiles table
+    const profileResult = await pool.query(
+      'SELECT full_name FROM profiles WHERE user_id = $1',
+      [userId]
+    );
+    
+    let userName = '';
+    if (profileResult.rows.length > 0 && profileResult.rows[0].full_name) {
+      userName = profileResult.rows[0].full_name.trim();
+    } else {
+      // Fallback to users table first_name and last_name
+      const userResult = await pool.query(
+        'SELECT first_name, last_name, email FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (userResult.rows.length > 0) {
+        const user = userResult.rows[0];
+        if (user.first_name || user.last_name) {
+          userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+        }
+        return {
+          name: userName || user.email,
+          email: user.email
+        };
+      }
+    }
+    
+    // Get email from users table
+    const emailResult = await pool.query(
+      'SELECT email FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    return {
+      name: userName || (emailResult.rows[0]?.email || ''),
+      email: emailResult.rows[0]?.email || ''
+    };
+  } catch (error) {
+    console.error('Error fetching user info:', error);
+    return { name: '', email: '' };
+  }
+}
+
+// POST send interview request email to candidate/interviewer
+router.post("/candidates/:id/send-email", auth, async (req, res) => {
+  try {
+    const candidateId = req.params.id;
+    const userId = req.user.id;
+    
+    // Get candidate information
+    const { data: candidate, error: candidateError } = await supabase
+      .from("interview_candidates")
+      .select("*")
+      .eq("id", candidateId)
+      .eq("user_id", userId)
+      .single();
+
+    if (candidateError) throw candidateError;
+    if (!candidate) {
+      return res.status(404).json({ error: "Candidate/interviewer not found" });
+    }
+
+    // Check if candidate email exists
+    if (!candidate.email) {
+      return res.status(400).json({ 
+        error: "Interviewer email is required. Please add an email address to this interviewer." 
+      });
+    }
+
+    // Get user information
+    const userInfo = await getUserInfo(userId);
+    if (!userInfo.email) {
+      return res.status(500).json({ 
+        error: "User email not available. Please ensure you are properly authenticated." 
+      });
+    }
+
+    const interviewerEmail = candidate.email;
+    const interviewerName = candidate.first_name 
+      ? `${candidate.first_name} ${candidate.last_name || ''}`.trim()
+      : 'there';
+
+    const userDisplayName = userInfo.name || userInfo.email;
+
+    // Check if there's a custom message in notes or use default
+    const messageContent = candidate.notes && candidate.notes.trim() !== ''
+      ? candidate.notes
+      : `Hi ${interviewerName},\n\nI hope this message finds you well! I came across your profile and was impressed by your background in ${candidate.industry || 'your field'} at ${candidate.company || 'your company'}.\n\nI would love the opportunity to have an informational interview with you to learn more about your career path, your experience at ${candidate.company || 'your company'}, and any advice you might have for someone looking to grow in this industry.\n\nWould you be available for a brief conversation in the coming weeks? I'm flexible with timing and can accommodate your schedule.\n\nThank you for considering this request, and I look forward to hearing from you!\n\nBest regards`;
+
+    // Prepare email content
+    const emailSubject = `Request for Informational Interview - ${candidate.company || 'Career Conversation'}`;
+    
+    // Convert message to HTML (preserve line breaks)
+    const messageHtml = messageContent
+      .replace(/\n/g, '<br>')
+      .replace(/\r\n/g, '<br>');
+
+    // Create HTML email template
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #2563eb; margin-top: 0;">Informational Interview Request</h2>
+          ${candidate.company ? `<p style="margin: 10px 0;"><strong>Company:</strong> ${candidate.company}</p>` : ''}
+          ${candidate.title ? `<p style="margin: 10px 0;"><strong>Your Title:</strong> ${candidate.title}</p>` : ''}
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.6;">
+          <p style="margin: 15px 0; padding: 15px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+            <strong>This email is from ${userDisplayName} (${userInfo.email})</strong> requesting an informational interview with you.
+          </p>
+          
+          <div style="margin: 20px 0;">
+            ${messageHtml}
+          </div>
+          
+          <p style="margin-top: 20px; margin-bottom: 0;">
+            Best regards,<br>
+            <strong>${userDisplayName}</strong><br>
+            ${userInfo.email}
+          </p>
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center;">
+          <p style="margin: 0;">This email was sent via ATS for Candidates on behalf of ${userDisplayName}</p>
+          <p style="margin: 5px 0 0 0;">You can reply directly to ${userInfo.email}</p>
+        </div>
+      </div>
+    `;
+
+    // Send email using Resend
+    const emailResult = await resend.emails.send({
+      from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: interviewerEmail,
+      subject: emailSubject,
+      html: emailHtml,
+      replyTo: userInfo.email,
+    });
+
+    if (emailResult.error) {
+      console.error('Resend API error:', emailResult.error);
+      return res.status(500).json({ 
+        error: 'Failed to send email', 
+        details: emailResult.error.message 
+      });
+    }
+
+    console.log(`📧 Sent interview request email to ${interviewerEmail} for candidate ${candidateId}`);
+
+    res.json({
+      message: 'Interview request email sent successfully',
+      emailId: emailResult.data?.id,
+      sentTo: interviewerEmail
+    });
+  } catch (err) {
+    console.error('Error sending interview request email:', err);
+    res.status(500).json({ error: err.message || 'Failed to send email' });
+  }
+});
+
+// POST send followup email after interview
+router.post("/interviews/:id/send-followup-email", auth, async (req, res) => {
+  try {
+    const interviewId = req.params.id;
+    const userId = req.user.id;
+    const { message_content } = req.body;
+
+    if (!message_content || message_content.trim() === '') {
+      return res.status(400).json({ 
+        error: 'Followup message is required.' 
+      });
+    }
+
+    // Get interview information
+    const { data: interview, error: interviewError } = await supabase
+      .from("informational_interviews")
+      .select("*")
+      .eq("id", interviewId)
+      .eq("user_id", userId)
+      .single();
+
+    if (interviewError) throw interviewError;
+    if (!interview || !interview.candidate_id) {
+      return res.status(404).json({ error: "Interview not found or missing candidate" });
+    }
+
+    // Get candidate information separately
+    const { data: candidate, error: candidateError } = await supabase
+      .from("interview_candidates")
+      .select("first_name, last_name, email, company, title")
+      .eq("id", interview.candidate_id)
+      .single();
+
+    if (candidateError) throw candidateError;
+    if (!candidate) {
+      return res.status(404).json({ error: "Candidate/interviewer not found" });
+    }
+
+    const candidateEmail = candidate.email || '';
+    const candidateName = candidate.first_name 
+      ? `${candidate.first_name} ${candidate.last_name || ''}`.trim()
+      : 'there';
+    const candidateCompany = candidate.company || '';
+
+    if (!candidateEmail) {
+      return res.status(400).json({ 
+        error: "Interviewer email is required. Please add an email address to this interviewer." 
+      });
+    }
+
+    // Get user information
+    const userInfo = await getUserInfo(userId);
+    if (!userInfo.email) {
+      return res.status(500).json({ 
+        error: "User email not available. Please ensure you are properly authenticated." 
+      });
+    }
+
+    const userDisplayName = userInfo.name || userInfo.email;
+
+    // Prepare email content
+    const emailSubject = `Thank You for the Informational Interview${candidateCompany ? ` - ${candidateCompany}` : ''}`;
+    
+    // Convert message to HTML (preserve line breaks)
+    const messageHtml = message_content
+      .replace(/\n/g, '<br>')
+      .replace(/\r\n/g, '<br>');
+
+    // Create HTML email template
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #2563eb; margin-top: 0;">Thank You for Your Time</h2>
+          ${candidateCompany ? `<p style="margin: 10px 0;"><strong>Company:</strong> ${candidateCompany}</p>` : ''}
+          ${interview.scheduled_date ? `<p style="margin: 10px 0;"><strong>Interview Date:</strong> ${new Date(interview.scheduled_date).toLocaleDateString()}</p>` : ''}
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.6;">
+          <p style="margin: 15px 0; padding: 15px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+            <strong>This email is from ${userDisplayName} (${userInfo.email})</strong> thanking you for meeting with them for an informational interview.
+          </p>
+          
+          <div style="margin: 20px 0;">
+            ${messageHtml}
+          </div>
+          
+          <p style="margin-top: 20px; margin-bottom: 0;">
+            Best regards,<br>
+            <strong>${userDisplayName}</strong><br>
+            ${userInfo.email}
+          </p>
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center;">
+          <p style="margin: 0;">This email was sent via ATS for Candidates on behalf of ${userDisplayName}</p>
+          <p style="margin: 5px 0 0 0;">You can reply directly to ${userInfo.email}</p>
+        </div>
+      </div>
+    `;
+
+    // Send email using Resend
+    const emailResult = await resend.emails.send({
+      from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: candidateEmail,
+      subject: emailSubject,
+      html: emailHtml,
+      replyTo: userInfo.email,
+    });
+
+    if (emailResult.error) {
+      console.error('Resend API error:', emailResult.error);
+      return res.status(500).json({ 
+        error: 'Failed to send email', 
+        details: emailResult.error.message 
+      });
+    }
+
+    // Save followup to database
+    const { error: followupError } = await supabase
+      .from("interview_followup")
+      .insert([{
+        interview_id: interviewId,
+        user_id: userId,
+        followup_type: "thank_you",
+        template_used: "professional",
+        message_content: message_content,
+        sent_at: new Date(),
+        action_items: "",
+      }]);
+
+    if (followupError) {
+      console.error('Error saving followup to database:', followupError);
+      // Don't fail the request if database save fails, email was already sent
+    }
+
+    console.log(`📧 Sent followup email to ${candidateEmail} for interview ${interviewId}`);
+
+    res.json({
+      message: 'Followup email sent successfully',
+      emailId: emailResult.data?.id,
+      sentTo: candidateEmail
+    });
+  } catch (err) {
+    console.error('Error sending followup email:', err);
+    res.status(500).json({ error: err.message || 'Failed to send email' });
   }
 });
 

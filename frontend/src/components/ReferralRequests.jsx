@@ -49,7 +49,6 @@ const ReferralRequests = () => {
     job_title: '',
     company: '',
     referral_message: '',
-    why_good_fit: '',
     industry_keywords: '',
     request_timing_score: 5,
     personalization_score: 5,
@@ -282,7 +281,6 @@ const ReferralRequests = () => {
         job_title: '',
         company: '',
         referral_message: '',
-        why_good_fit: '',
         industry_keywords: '',
         request_timing_score: 5,
         personalization_score: 5,
@@ -317,6 +315,51 @@ const ReferralRequests = () => {
     }
   };
 
+  // Send referral email
+  const [sendingEmail, setSendingEmail] = useState({});
+  
+  const handleSendEmail = async (referral) => {
+    // Check if contact email exists
+    if (!referral.contact?.email) {
+      setError('Contact email is required. Please add an email address to this contact.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    // Check if referral message exists
+    if (!referral.referral_message || referral.referral_message.trim() === '') {
+      setError('Referral message is required. Please add a message before sending.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    if (!window.confirm(`Send referral email to ${referral.contact.email}?`)) {
+      return;
+    }
+
+    try {
+      setSendingEmail(prev => ({ ...prev, [referral.id]: true }));
+      const token = localStorage.getItem('token');
+      
+      await axios.post(
+        `${API_BASE}/referrals/requests/${referral.id}/send-email`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setSuccessMessage(`Email sent successfully to ${referral.contact.email}!`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Failed to send email. Please try again.';
+      setError(errorMessage);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSendingEmail(prev => ({ ...prev, [referral.id]: false }));
+    }
+  };
+
   // Delete referral request
   const handleDeleteReferral = async (id) => {
     if (window.confirm('Are you sure you want to delete this referral request?')) {
@@ -343,7 +386,6 @@ const ReferralRequests = () => {
       job_title: '',
       company: '',
       referral_message: '',
-      why_good_fit: '',
       industry_keywords: '',
       request_timing_score: 5,
       personalization_score: 5,
@@ -567,6 +609,27 @@ const ReferralRequests = () => {
 
               <div className="referral-card-footer">
                 <button
+                  className="btn-small btn-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSendEmail(referral);
+                  }}
+                  disabled={sendingEmail[referral.id] || !referral.contact?.email || !referral.referral_message}
+                  title={!referral.contact?.email ? 'Contact email required' : !referral.referral_message ? 'Referral message required' : 'Send referral email'}
+                >
+                  {sendingEmail[referral.id] ? (
+                    <>
+                      <Clock size={14} />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={14} />
+                      Send Email
+                    </>
+                  )}
+                </button>
+                <button
                   className="btn-small btn-secondary btn-delete-small"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -699,6 +762,113 @@ const ReferralRequests = () => {
                     style={{ background: formData.job_id ? '#e8f5e9' : 'white' }}
                   />
                 </div>
+
+                <div className="form-group">
+                  <label>Select a Contact *</label>
+                  {contacts.length === 0 ? (
+                    <p style={{ color: '#999', padding: '10px' }}>Loading your contacts...</p>
+                  ) : (
+                    <select
+                      value={formData.contact_id}
+                      onChange={(e) => handleContactChange(e.target.value)}
+                      required
+                    >
+                      <option value="">-- Select a contact --</option>
+                      {contacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.first_name} {contact.last_name}
+                          {contact.company ? ` (${contact.company})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0 }}>Referral Message</label>
+                    <button
+                      type="button"
+                      onClick={generateReferralTemplate}
+                      disabled={generatingTemplate || !formData.contact_id || !formData.job_title}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: formData.contact_id && formData.job_title ? 'pointer' : 'not-allowed',
+                        opacity: formData.contact_id && formData.job_title ? 1 : 0.6,
+                        transition: 'all 0.2s'
+                      }}
+                      title={!formData.contact_id || !formData.job_title ? 'Select a contact and fill job details first' : 'Generate a personalized message template'}
+                    >
+                      <Zap size={14} />
+                      {generatingTemplate ? 'Generating...' : 'Generate Template'}
+                    </button>
+                  </div>
+                  <textarea
+                    value={formData.referral_message}
+                    onChange={(e) =>
+                      setFormData({ ...formData, referral_message: e.target.value })
+                    }
+                    placeholder="Write a personalized message or click 'Generate Template' to create one automatically"
+                    rows={4}
+                  />
+                </div>
+
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => { resetForm(); setShowCreateModal(false); }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-primary" 
+                    disabled={contacts.length === 0}
+                    onClick={() => {
+                      if (formData.job_title && formData.company && formData.contact_id) {
+                        handleCreateReferral({ preventDefault: () => {} });
+                      }
+                    }}
+                  >
+                    {contacts.length === 0 ? 'Loading contacts...' : 'Create Referral Request'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <form onSubmit={handleCreateReferral} className="referral-form">
+              <div className="form-group">
+                <label>Job Title *</label>
+                <input
+                  type="text"
+                  value={formData.job_title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, job_title: e.target.value })
+                  }
+                  placeholder="e.g., Senior Software Engineer"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Company *</label>
+                <input
+                  type="text"
+                  value={formData.company}
+                  onChange={(e) =>
+                    setFormData({ ...formData, company: e.target.value })
+                  }
+                  placeholder="e.g., Google"
+                  required
+                />
               </div>
 
               {suggestedContacts.length > 0 && (
@@ -722,7 +892,7 @@ const ReferralRequests = () => {
               )}
 
               <div className="form-group">
-                <label>Select Contact to Refer *</label>
+                <label>Select a Contact *</label>
                 {contacts.length === 0 ? (
                   <p style={{ color: '#999' }}>Loading your contacts...</p>
                 ) : (
@@ -769,17 +939,6 @@ const ReferralRequests = () => {
                 </div>
               )}
 
-              <div className="form-group">
-                <label>Why Are They a Good Fit?</label>
-                <textarea
-                  value={formData.why_good_fit}
-                  onChange={(e) =>
-                    setFormData({ ...formData, why_good_fit: e.target.value })
-                  }
-                  placeholder="Explain how this person's background aligns with the position"
-                  rows={3}
-                />
-              </div>
 
               <div className="form-group">
                 <label>Industry Keywords</label>

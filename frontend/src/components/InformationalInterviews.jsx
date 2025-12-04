@@ -13,6 +13,7 @@ const InformationalInterviews = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [sendingEmail, setSendingEmail] = useState({});
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
   const [showRequestInterviewModal, setShowRequestInterviewModal] =
@@ -258,6 +259,41 @@ const InformationalInterviews = () => {
     }
   };
 
+  // Send interview request email to interviewer
+  const handleSendInterviewRequestEmail = async (candidate) => {
+    // Check if interviewer email exists
+    if (!candidate.email) {
+      setError('Interviewer email is required. Please add an email address to this interviewer.');
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    if (!window.confirm(`Send interview request email to ${candidate.email}?`)) {
+      return;
+    }
+
+    try {
+      setSendingEmail(prev => ({ ...prev, [candidate.id]: true }));
+      
+      const response = await axios.post(
+        `${API_BASE}/informational-interviews/candidates/${candidate.id}/send-email`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setSuccess(`Email sent successfully to ${candidate.email}!`);
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Failed to send email. Please try again.';
+      setError(errorMessage);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setSendingEmail(prev => ({ ...prev, [candidate.id]: false }));
+    }
+  };
+
   // Edit candidate
   const handleEditCandidate = (candidate) => {
     setCandidateForm({
@@ -418,21 +454,38 @@ const InformationalInterviews = () => {
     setGeneratingTemplate(false);
   };
 
-  // Send follow-up
+  // Send follow-up email
+  const [sendingFollowupEmail, setSendingFollowupEmail] = useState(false);
+  
   const handleSendFollowup = async (e) => {
     e.preventDefault();
     if (!selectedInterview || !followupForm.message_content) {
-      setError("Please select interview and enter message");
+      setError("Please enter a followup message");
+      return;
+    }
+
+    // Check if interview has a candidate with email
+    if (!selectedInterview.candidate?.email) {
+      setError("Interviewer email is required. Please add an email address to this interviewer.");
+      setTimeout(() => setError(''), 5000);
+      return;
+    }
+
+    if (!window.confirm(`Send followup email to ${selectedInterview.candidate.email}?`)) {
       return;
     }
 
     try {
+      setSendingFollowupEmail(true);
+      
+      // Send the email via the backend endpoint
       await axios.post(
-        `${API_BASE}/informational-interviews/followups`,
-        { interview_id: selectedInterview.id, ...followupForm },
+        `${API_BASE}/informational-interviews/interviews/${selectedInterview.id}/send-followup-email`,
+        { message_content: followupForm.message_content },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setSuccess("✅ Follow-up sent");
+      
+      setSuccess(`✅ Follow-up email sent successfully to ${selectedInterview.candidate.email}!`);
       setFollowupForm({
         followup_type: "thank_you",
         template_used: "professional",
@@ -441,10 +494,14 @@ const InformationalInterviews = () => {
       });
       setShowFollowupModal(false);
       fetchInterviews();
-      setTimeout(() => setSuccess(""), 3000);
+      setTimeout(() => setSuccess(""), 5000);
     } catch (err) {
-      setError("Failed to send follow-up");
+      const errorMessage = err.response?.data?.error || 'Failed to send followup email. Please try again.';
+      setError(errorMessage);
+      setTimeout(() => setError(''), 5000);
       console.error(err);
+    } finally {
+      setSendingFollowupEmail(false);
     }
   };
 
@@ -609,7 +666,7 @@ const InformationalInterviews = () => {
           className={`tab-button ${activeTab === "candidates" ? "active" : ""}`}
           onClick={() => setActiveTab("candidates")}
         >
-          🔍 Find Candidates
+          🔍 Find Interviewers
         </button>
         <button
           className={`tab-button ${activeTab === "interviews" ? "active" : ""}`}
@@ -625,16 +682,16 @@ const InformationalInterviews = () => {
         </button>
       </div>
 
-      {/* FIND CANDIDATES TAB */}
+      {/* FIND INTERVIEWERS TAB */}
       {activeTab === "candidates" && (
         <div className="tab-content">
           <div className="tab-header">
-            <h3>🔍 Identify Potential Interview Candidates</h3>
+            <h3>🔍 Find Potential Interviewers</h3>
             <button
               className="btn-primary"
               onClick={() => setShowAddCandidateModal(true)}
             >
-              + Add Candidate
+              + Add Interviewer
             </button>
           </div>
 
@@ -692,6 +749,18 @@ const InformationalInterviews = () => {
                     )}
                   </div>
                   <div className="card-actions">
+                    <button
+                      className="btn-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSendInterviewRequestEmail(candidate);
+                      }}
+                      disabled={sendingEmail[candidate.id] || !candidate.email}
+                      title={!candidate.email ? 'Interviewer email required' : 'Send interview request email'}
+                      style={{ backgroundColor: '#7c3aed', color: 'white', border: 'none' }}
+                    >
+                      {sendingEmail[candidate.id] ? '📤 Sending...' : '📧 Send Email'}
+                    </button>
                     <button
                       className="btn-secondary"
                       onClick={() => {
@@ -956,7 +1025,7 @@ const InformationalInterviews = () => {
           });
         }}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>{selectedCandidate ? "Edit Candidate" : "Add Interview Candidate"}</h3>
+            <h3>{selectedCandidate ? "Edit Interviewer" : "Add Interviewer"}</h3>
             <form onSubmit={handleAddCandidate}>
               <div className="form-row">
                 <div className="form-group">
@@ -1119,7 +1188,7 @@ const InformationalInterviews = () => {
                 </div>
                 <div className="modal-actions">
                   <button type="submit" className="btn-primary">
-                    {selectedCandidate ? "Update Candidate" : "Add Candidate"}
+                    {selectedCandidate ? "Update Interviewer" : "Add Interviewer"}
                   </button>
                   <button
                     type="button"
@@ -1365,6 +1434,32 @@ const InformationalInterviews = () => {
           <div className="modal-overlay" onClick={() => setShowFollowupModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <h3>✉️ Follow-up with Interviewee</h3>
+              {selectedInterview && !selectedInterview.candidate?.email && (
+                <div style={{
+                  padding: '12px',
+                  backgroundColor: '#fef3c7',
+                  border: '1px solid #f59e0b',
+                  borderRadius: '6px',
+                  marginBottom: '16px',
+                  fontSize: '13px',
+                  color: '#92400e'
+                }}>
+                  ⚠️ <strong>Warning:</strong> This interviewer doesn't have an email address. Please add an email address to send a followup email.
+                </div>
+              )}
+              {selectedInterview && selectedInterview.candidate?.email && (
+                <div style={{
+                  padding: '10px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #3b82f6',
+                  borderRadius: '6px',
+                  marginBottom: '16px',
+                  fontSize: '13px',
+                  color: '#1e40af'
+                }}>
+                  📧 Email will be sent to: <strong>{selectedInterview.candidate.email}</strong>
+                </div>
+              )}
               <form onSubmit={handleSendFollowup}>
                 <div className="form-group">
                   <label>Follow-up Type</label>
@@ -1460,8 +1555,12 @@ const InformationalInterviews = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Send Follow-up
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={sendingFollowupEmail || !selectedInterview?.candidate?.email || !followupForm.message_content?.trim()}
+                  >
+                    {sendingFollowupEmail ? '📤 Sending...' : '📧 Send Follow-up'}
                   </button>
                 </div>
               </form>

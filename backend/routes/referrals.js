@@ -4,8 +4,19 @@
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import pkg from 'pg';
 
+const { Pool } = pkg;
 const router = express.Router();
+
+// Database pool for querying profiles (not in Supabase)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Initialize Resend client for sending emails
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -614,6 +625,176 @@ router.get('/recommendations/timing/:contact_id', authMiddleware, async (req, re
   } catch (err) {
     console.error('Error getting timing recommendations:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// SEND REFERRAL EMAIL ENDPOINT
+// ======================================
+
+// POST send referral email to contact
+router.post('/requests/:id/send-email', authMiddleware, async (req, res) => {
+  try {
+    // Get the referral request with contact information
+    const { data: referralRequest, error: referralError } = await supabase
+      .from('referral_requests')
+      .select(`
+        *,
+        contact:professional_contacts(first_name, last_name, email, company, title)
+      `)
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (referralError) throw referralError;
+    if (!referralRequest) {
+      return res.status(404).json({ error: 'Referral request not found' });
+    }
+
+    // Check if contact email exists
+    if (!referralRequest.contact?.email) {
+      return res.status(400).json({ 
+        error: 'Contact email is required. Please add an email address to this contact.' 
+      });
+    }
+
+    // Check if referral message exists
+    if (!referralRequest.referral_message || referralRequest.referral_message.trim() === '') {
+      return res.status(400).json({ 
+        error: 'Referral message is required. Please add a message before sending.' 
+      });
+    }
+
+    const contactEmail = referralRequest.contact.email;
+    const contactName = referralRequest.contact.first_name 
+      ? `${referralRequest.contact.first_name} ${referralRequest.contact.last_name || ''}`.trim()
+      : 'there';
+
+    // Get user email - should be available from req.user set by auth middleware
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      return res.status(500).json({ 
+        error: 'User email not available. Please ensure you are properly authenticated.' 
+      });
+    }
+
+    // Get user's name from profile (try profiles.full_name first, then users.first_name + last_name)
+    let userName = '';
+    try {
+      // First try to get full_name from profiles table
+      const profileResult = await pool.query(
+        'SELECT full_name FROM profiles WHERE user_id = $1',
+        [req.user.id]
+      );
+      
+      if (profileResult.rows.length > 0 && profileResult.rows[0].full_name) {
+        userName = profileResult.rows[0].full_name.trim();
+      } else {
+        // Fallback to users table first_name and last_name
+        const userResult = await pool.query(
+          'SELECT first_name, last_name FROM users WHERE id = $1',
+          [req.user.id]
+        );
+        
+        if (userResult.rows.length > 0) {
+          const user = userResult.rows[0];
+          if (user.first_name || user.last_name) {
+            userName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+          }
+        }
+      }
+    } catch (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      // Continue without name - will use email instead
+    }
+
+    // Use user's name if available, otherwise use email
+    const userDisplayName = userName || userEmail;
+
+    // Prepare email content
+    const emailSubject = `Referral Request: ${referralRequest.job_title} at ${referralRequest.company}`;
+    
+    // Convert referral message to HTML (preserve line breaks)
+    const messageHtml = referralRequest.referral_message
+      .replace(/\n/g, '<br>')
+      .replace(/\r\n/g, '<br>');
+
+    // Create HTML email template
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          <h2 style="color: #2563eb; margin-top: 0;">Referral Request</h2>
+          <p style="margin: 10px 0;"><strong>Position:</strong> ${referralRequest.job_title}</p>
+          <p style="margin: 10px 0;"><strong>Company:</strong> ${referralRequest.company}</p>
+        </div>
+        
+        <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; line-height: 1.6;">
+          <p style="margin-top: 0;">Hi ${contactName},</p>
+          
+          <p style="margin: 15px 0; padding: 15px; background-color: #eff6ff; border-left: 4px solid #2563eb; border-radius: 4px;">
+            <strong>This email is from ${userDisplayName} (${userEmail})</strong> asking you for a referral.
+          </p>
+          
+          <div style="margin: 20px 0;">
+            ${messageHtml}
+          </div>
+          
+          <p style="margin-top: 20px; margin-bottom: 0;">
+            Best regards,<br>
+            <strong>${userDisplayName}</strong><br>
+            ${userEmail}
+          </p>
+        </div>
+        
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center;">
+          <p style="margin: 0;">This email was sent via ATS for Candidates on behalf of ${userDisplayName}</p>
+          <p style="margin: 5px 0 0 0;">You can reply directly to ${userEmail}</p>
+        </div>
+      </div>
+    `;
+
+    // Send email using Resend
+    const emailResult = await resend.emails.send({
+      from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: contactEmail,
+      subject: emailSubject,
+      html: emailHtml,
+      replyTo: userEmail, // Allow contact to reply directly to the user
+    });
+
+    if (emailResult.error) {
+      console.error('Resend API error:', emailResult.error);
+      return res.status(500).json({ 
+        error: 'Failed to send email', 
+        details: emailResult.error.message 
+      });
+    }
+
+    // Update referral request status to indicate email was sent
+    // Optionally, you could add a field like email_sent_at
+    const { error: updateError } = await supabase
+      .from('referral_requests')
+      .update({ 
+        status: 'pending', // Keep as pending until contact responds
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id);
+
+    if (updateError) {
+      console.error('Error updating referral request:', updateError);
+      // Don't fail the request if update fails, email was already sent
+    }
+
+    console.log(`📧 Sent referral email to ${contactEmail} for referral request ${req.params.id}`);
+
+    res.json({
+      message: 'Referral email sent successfully',
+      emailId: emailResult.data?.id,
+      sentTo: contactEmail
+    });
+  } catch (err) {
+    console.error('Error sending referral email:', err);
+    res.status(500).json({ error: err.message || 'Failed to send email' });
   }
 });
 
