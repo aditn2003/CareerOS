@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./JobDetails.css";
 import { api, createOffer, getOffers, updateOffer } from "../api";
+import FileUpload from "./FileUpload";
 
 const STAGES = [
   "Interested",
@@ -30,6 +31,8 @@ export default function JobDetailsModal({
   const [selectedResume, setSelectedResume] = useState(""); // ✅ CURRENTLY CHOSEN RESUME
   const [selectedCover, setSelectedCover] = useState(""); // ✅ CURRENTLY CHOSEN COVER
   const [coverLetter, setCoverLetter] = useState(null);
+  const [showResumeUpload, setShowResumeUpload] = useState(false);
+  const [showCoverLetterUpload, setShowCoverLetterUpload] = useState(false);
   
   // Offer management
   const [existingOffer, setExistingOffer] = useState(null);
@@ -236,8 +239,6 @@ export default function JobDetailsModal({
       const res = await api.put(`/api/jobs/${jobId}/materials`, {
         resume_id: selectedResume || null,
         cover_letter_id: selectedCover || null,
-        resume_customization: job.resume_customization || "none",
-        cover_letter_customization: job.cover_letter_customization || "none",
       });
 
       alert("Materials and customization levels updated!");
@@ -679,54 +680,112 @@ export default function JobDetailsModal({
           <h4>Change Materials</h4>
 
           <label>Resume</label>
-          <select
-            value={selectedResume}
-            onChange={(e) => setSelectedResume(e.target.value)}
-          >
-            <option value="">-- Select Resume --</option>
-            {resumes.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.title}
-              </option>
-            ))}
-          </select>
-
-          <label style={{ marginTop: "10px" }}>Resume Customization Level</label>
-          <select
-            value={job.resume_customization || "none"}
-            onChange={(e) => setJob({ ...job, resume_customization: e.target.value })}
-            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #d1d5db" }}
-          >
-            <option value="none">None - Used generic resume</option>
-            <option value="light">Light - Minor adjustments</option>
-            <option value="heavy">Heavy - Significant customization</option>
-            <option value="tailored">Tailored - Fully customized for this job</option>
-          </select>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+            <select
+              value={selectedResume}
+              onChange={(e) => setSelectedResume(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <option value="">-- Select Resume --</option>
+              {resumes.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowResumeUpload(!showResumeUpload)}
+              style={{
+                padding: "8px 16px",
+                background: showResumeUpload ? "#dc2626" : "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {showResumeUpload ? "✕" : "⬆️ Upload"}
+            </button>
+          </div>
+          
+          {showResumeUpload && (
+            <div style={{ marginBottom: "16px" }}>
+              <FileUpload
+                type="resume"
+                onUploadSuccess={async (data) => {
+                  setShowResumeUpload(false);
+                  // Reload resumes
+                  try {
+                    const res = await api.get("/api/resumes");
+                    setResumes(res.data.resumes || []);
+                    if (data.resume?.id) {
+                      setSelectedResume(data.resume.id.toString());
+                    }
+                  } catch (err) {
+                    console.error("Failed to reload resumes:", err);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <label style={{ marginTop: "10px" }}>Cover Letter</label>
-          <select
-            value={selectedCover}
-            onChange={(e) => setSelectedCover(e.target.value)}
-          >
-            <option value="">-- Select Cover Letter --</option>
-            {coverLetters.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-
-          <label style={{ marginTop: "10px" }}>Cover Letter Customization Level</label>
-          <select
-            value={job.cover_letter_customization || "none"}
-            onChange={(e) => setJob({ ...job, cover_letter_customization: e.target.value })}
-            style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid #d1d5db" }}
-          >
-            <option value="none">None - Used generic cover letter</option>
-            <option value="light">Light - Minor adjustments</option>
-            <option value="heavy">Heavy - Significant customization</option>
-            <option value="tailored">Tailored - Fully customized for this job</option>
-          </select>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <select
+              value={selectedCover}
+              onChange={(e) => setSelectedCover(e.target.value)}
+              style={{ flex: 1 }}
+            >
+              <option value="">-- Select Cover Letter --</option>
+              {coverLetters.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setShowCoverLetterUpload(!showCoverLetterUpload)}
+              style={{
+                padding: "8px 16px",
+                background: showCoverLetterUpload ? "#dc2626" : "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {showCoverLetterUpload ? "✕" : "⬆️ Upload"}
+            </button>
+          </div>
+          
+          {showCoverLetterUpload && (
+            <div style={{ marginTop: "16px" }}>
+              <FileUpload
+                type="cover-letter"
+                onUploadSuccess={async (data) => {
+                  setShowCoverLetterUpload(false);
+                  // Reload cover letters
+                  try {
+                    const res = await api.get("/api/cover-letters");
+                    setCoverLetters(res.data.cover_letters || []);
+                    if (data.cover_letter?.id) {
+                      setSelectedCover(data.cover_letter.id.toString());
+                    }
+                  } catch (err) {
+                    console.error("Failed to reload cover letters:", err);
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <button
             onClick={handleMaterialUpdate}

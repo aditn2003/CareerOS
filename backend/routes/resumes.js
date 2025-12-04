@@ -516,7 +516,7 @@ ${textContent}
   router.get("/", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, template_name, preview_url, created_at, format
+      `SELECT id, title, template_name, preview_url, file_url, created_at, format
        FROM resumes WHERE user_id=$1 ORDER BY created_at DESC`,
       [req.user.id]
     );
@@ -555,6 +555,127 @@ ${textContent}
       return res.status(404).json({ error: "Resume not found" });
 
     const resume = rows[0];
+    
+    // ✅ If this is an uploaded resume (has file_url), serve the original file directly
+    if (resume.file_url) {
+      // file_url is stored as /uploads/resumes/filename, need to resolve to absolute path
+      const filename = path.basename(resume.file_url);
+      const filePath = path.join(UPLOAD_PREVIEW_DIR, filename);
+      
+      if (fs.existsSync(filePath)) {
+        const ext = path.extname(resume.file_url).toLowerCase();
+        
+        // ✅ Convert DOC/DOCX to PDF for inline viewing
+        if ((ext === ".doc" || ext === ".docx") && mammoth) {
+          try {
+            console.log(`🔄 [RESUME DOWNLOAD] Converting ${ext} to PDF for viewing`);
+            
+            // Read the DOCX file
+            const fileBuffer = fs.readFileSync(filePath);
+            
+            // Convert DOCX to HTML using mammoth
+            const result = await mammoth.convertToHtml({ buffer: fileBuffer });
+            const html = result.value;
+            
+            // Create a temporary HTML file
+            const tempDir = path.join(__dirname, "..", "temp");
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+            
+            const tempHtmlPath = path.join(tempDir, `resume-${resume.id}-${Date.now()}.html`);
+            const tempPdfPath = path.join(tempDir, `resume-${resume.id}-${Date.now()}.pdf`);
+            
+            // Create HTML with proper styling
+            const fullHtml = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <style>
+                    body {
+                      font-family: Arial, sans-serif;
+                      max-width: 8.5in;
+                      margin: 0 auto;
+                      padding: 1in;
+                      line-height: 1.6;
+                    }
+                    p { margin: 0.5em 0; }
+                  </style>
+                </head>
+                <body>
+                  ${html}
+                </body>
+              </html>
+            `;
+            
+            fs.writeFileSync(tempHtmlPath, fullHtml);
+            
+            // Convert HTML to PDF using Puppeteer
+            const browser = await puppeteer.launch({
+              headless: true,
+              args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            });
+            
+            const page = await browser.newPage();
+            await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+            
+            await page.pdf({
+              path: tempPdfPath,
+              format: "A4",
+              printBackground: true,
+              margin: { top: "1in", right: "1in", bottom: "1in", left: "1in" },
+            });
+            
+            await browser.close();
+            
+            // Clean up temp HTML file
+            if (fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
+            
+            // Serve the PDF
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `inline; filename="${resume.title}.pdf"`);
+            res.sendFile(tempPdfPath, (err) => {
+              // Clean up temp PDF file after sending
+              if (fs.existsSync(tempPdfPath)) {
+                setTimeout(() => fs.unlinkSync(tempPdfPath), 1000);
+              }
+              if (err) console.error("Error sending PDF:", err);
+            });
+            
+            console.log(`✅ [RESUME DOWNLOAD] Converted and served PDF: ${tempPdfPath}`);
+            return;
+          } catch (convErr) {
+            console.error("❌ [RESUME DOWNLOAD] Conversion error:", convErr);
+            // Fall through to serve original file
+          }
+        }
+        
+        // ✅ Serve PDF and TXT files directly
+        if (ext === ".pdf" || ext === ".txt") {
+          const contentTypes = {
+            ".pdf": "application/pdf",
+            ".txt": "text/plain",
+          };
+          res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+          res.setHeader("Content-Disposition", `inline; filename="${resume.title}${ext}"`);
+          return res.sendFile(filePath);
+        }
+        
+        // For DOC/DOCX without mammoth, serve as-is
+        console.log(`⚠️ [RESUME DOWNLOAD] Serving ${ext} file directly (conversion not available)`);
+        const contentTypes = {
+          ".doc": "application/msword",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        };
+        res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${resume.title}${ext}"`);
+        return res.sendFile(filePath);
+      } else {
+        console.warn(`⚠️ Uploaded file not found: ${filePath} (from file_url: ${resume.file_url})`);
+        // Fall through to render from sections if file is missing
+      }
+    }
+
+    // ✅ Otherwise, render from sections (for resumes built in the editor)
     const sections =
       typeof resume.sections === "string"
         ? normalizeSections(JSON.parse(resume.sections))

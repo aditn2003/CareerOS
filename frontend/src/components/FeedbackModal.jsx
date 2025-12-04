@@ -11,21 +11,31 @@ export default function FeedbackModal({
   existingFeedback = null,
   taskId = null, // For task-linked feedback
   taskTitle = null, // Task title for display
+  jobId: materialJobId = null, // For application material feedback
+  materialType = null, // "resume" or "cover_letter" for application material feedback
+  materialJobTitle = null, // Job title for display in application material feedback
   onClose,
   onSuccess,
 }) {
   // When taskId is provided, feedbackType must be "task" and cannot be changed
-  // Check if taskId exists (could be number or string, but not null/undefined/empty string)
+  // When materialType is provided, feedbackType must be "application_material" and cannot be changed
   const isTaskFeedback = taskId != null && taskId !== "" && String(taskId).trim() !== "";
-  // For new feedback with taskId, always use "task". For editing, use existing type. Otherwise default to "general"
-  const initialFeedbackType = isTaskFeedback && !existingFeedback ? "task" : (existingFeedback?.feedbackType || "general");
+  const isApplicationMaterialFeedback = materialType != null && materialType !== "";
+  
+  // For new feedback with taskId, always use "task". For application material, use "application_material". For editing, use existing type. Otherwise default to "general"
+  const initialFeedbackType = isTaskFeedback && !existingFeedback 
+    ? "task" 
+    : isApplicationMaterialFeedback && !existingFeedback 
+    ? "application_material" 
+    : (existingFeedback?.feedbackType || "general");
   
   const [formData, setFormData] = useState({
-    feedbackType: initialFeedbackType, // Always "task" when taskId is provided for new feedback
+    feedbackType: initialFeedbackType,
     content: existingFeedback?.content || "",
-    jobId: existingFeedback?.jobId || "",
+    jobId: existingFeedback?.jobId || materialJobId || "",
     skillName: existingFeedback?.skillName || "",
     taskId: existingFeedback?.taskId || taskId || "",
+    materialType: existingFeedback?.materialType || materialType || "",
   });
   const [candidateJobs, setCandidateJobs] = useState([]);
   const [candidateSkills, setCandidateSkills] = useState([]);
@@ -35,7 +45,7 @@ export default function FeedbackModal({
 
   const isEditMode = feedbackId !== null;
 
-  // Ensure feedbackType is "task" when taskId is provided (enforce on mount and when taskId changes)
+  // Ensure feedbackType is "task" when taskId is provided, or "application_material" when materialType is provided
   useEffect(() => {
     if (isTaskFeedback && !isEditMode && formData.feedbackType !== "task") {
       setFormData(prev => ({
@@ -43,8 +53,15 @@ export default function FeedbackModal({
         feedbackType: "task",
         taskId: taskId || prev.taskId,
       }));
+    } else if (isApplicationMaterialFeedback && !isEditMode && formData.feedbackType !== "application_material") {
+      setFormData(prev => ({
+        ...prev,
+        feedbackType: "application_material",
+        jobId: materialJobId || prev.jobId,
+        materialType: materialType || prev.materialType,
+      }));
     }
-  }, [taskId, isTaskFeedback, isEditMode, formData.feedbackType]);
+  }, [taskId, materialType, materialJobId, isTaskFeedback, isApplicationMaterialFeedback, isEditMode, formData.feedbackType]);
 
   useEffect(() => {
     if (candidateId && teamId) {
@@ -89,16 +106,23 @@ export default function FeedbackModal({
     setLoading(true);
 
     try {
-      // Ensure feedbackType is "task" if taskId is provided (enforce this even if somehow changed)
-      const finalFeedbackType = (taskId !== null && taskId !== undefined && taskId !== "") ? "task" : formData.feedbackType;
+      // Ensure feedbackType is correct based on what's provided
+      const finalFeedbackType = (taskId !== null && taskId !== undefined && taskId !== "") 
+        ? "task" 
+        : (materialType !== null && materialType !== undefined && materialType !== "") 
+        ? "application_material" 
+        : formData.feedbackType;
       
       const payload = {
         candidateId,
         feedbackType: finalFeedbackType,
         content: formData.content.trim(),
-        jobId: finalFeedbackType === "job" ? parseInt(formData.jobId) || null : null,
+        jobId: finalFeedbackType === "job" || finalFeedbackType === "application_material" 
+          ? parseInt(materialJobId || formData.jobId) || null 
+          : null,
         skillName: finalFeedbackType === "skill" ? formData.skillName.trim() || null : null,
         taskId: finalFeedbackType === "task" ? parseInt(taskId || formData.taskId) || null : null,
+        materialType: finalFeedbackType === "application_material" ? (materialType || formData.materialType) : null,
       };
 
       if (isEditMode) {
@@ -134,6 +158,9 @@ export default function FeedbackModal({
         <p className="feedback-modal-subtitle">
           Feedback for {candidateName}
           {taskTitle && ` - Task: ${taskTitle}`}
+          {materialJobTitle && materialType && (
+            ` - ${materialType === "resume" ? "Resume" : "Cover Letter"} for ${materialJobTitle}`
+          )}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -152,16 +179,22 @@ export default function FeedbackModal({
                 });
               }}
               required
-              disabled={isEditMode || isTaskFeedback} // Disable if editing or if taskId is provided (task-related feedback)
+              disabled={isEditMode || isTaskFeedback || isApplicationMaterialFeedback} // Disable if editing, task-related, or application material feedback
             >
               <option value="general">General Progress</option>
               <option value="task">Task Related</option>
               <option value="job">Related to Job Application</option>
               <option value="skill">Related to Skill</option>
+              <option value="application_material">Application Material Related</option>
             </select>
             {isTaskFeedback && (
               <p className="form-hint" style={{ marginTop: "0.5rem", color: "#6b7280", fontStyle: "italic" }}>
                 This feedback is linked to a task and cannot be changed.
+              </p>
+            )}
+            {isApplicationMaterialFeedback && (
+              <p className="form-hint" style={{ marginTop: "0.5rem", color: "#6b7280", fontStyle: "italic" }}>
+                This feedback is for application materials ({materialType === "resume" ? "Resume" : "Cover Letter"}) and cannot be changed.
               </p>
             )}
           </div>

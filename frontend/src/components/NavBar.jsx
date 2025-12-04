@@ -11,7 +11,6 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
@@ -85,6 +84,10 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Docs Management
+            </NavLink>
+
             {/* ═══════════════════════════════════════════
                 INTERVIEWS - Prepare & Track
             ═══════════════════════════════════════════ */}
@@ -106,7 +109,6 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-           
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -125,8 +127,6 @@ export default function NavBar() {
             <NavLink to="/network">
               <FaUsers /> Network
             </NavLink>
-
-            
 
             {/* 👤 Profile */}
             <NavLink to="/archived">

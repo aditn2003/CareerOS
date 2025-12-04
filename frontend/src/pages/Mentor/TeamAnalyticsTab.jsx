@@ -125,28 +125,34 @@ export default function TeamAnalyticsTab() {
 
   if (!teamId) {
     return (
-      <section className="profile-box">
-        <h3>Team Analytics</h3>
-        <p>No team found. Please join a team to view analytics.</p>
-      </section>
+      <div className="team-analytics-container">
+        <div className="team-analytics-empty">
+          <FaChartLine className="team-analytics-empty-icon" />
+          <h3 className="team-analytics-empty-title">No Team Found</h3>
+          <p className="team-analytics-empty-text">
+            Please join a team to view analytics and insights.
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (loading) {
     return (
-      <section className="profile-box">
-        <h3>Team Analytics</h3>
-        <p>Loading milestone achievements...</p>
-      </section>
+      <div className="team-analytics-container">
+        <div className="team-analytics-loading">
+          <div className="team-analytics-loading-spinner"></div>
+          <p>Loading analytics...</p>
+        </div>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <section className="profile-box">
-        <h3>Team Analytics</h3>
-        <div className="error-banner">{error}</div>
-      </section>
+      <div className="team-analytics-container">
+        <div className="team-analytics-error-banner">{error}</div>
+      </div>
     );
   }
 
@@ -181,12 +187,14 @@ export default function TeamAnalyticsTab() {
   };
 
   return (
-    <section className="profile-box team-analytics-container">
+    <div className="team-analytics-container">
       <div className="team-analytics-header">
-        <h3>Team Analytics & Insights</h3>
-        <p className="team-analytics-subtitle">
-          Track milestones, celebrate achievements, and analyze team performance
-        </p>
+        <div className="team-analytics-header-content">
+          <h2 className="team-analytics-main-title">Team Analytics & Insights</h2>
+          <p className="team-analytics-main-subtitle">
+            Track milestones, celebrate achievements, and analyze team performance
+          </p>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -523,7 +531,7 @@ export default function TeamAnalyticsTab() {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
