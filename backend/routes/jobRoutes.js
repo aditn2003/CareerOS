@@ -3,14 +3,17 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const router = express.Router();
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+// Factory function for dependency injection (for testing)
+function createJobRoutes(genAIClient = null) {
+  const router = express.Router();
+  // Use injected client or create default one
+  const genAI = genAIClient || new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-/* ============================================================
-   🔹 AI JOB IMPORT — Axios + Gemini only (No Puppeteer)
-   Fast, lightweight, and AI-powered job info extraction.
-============================================================ */
-router.post("/import-job", async (req, res) => {
+  /* ============================================================
+     🔹 AI JOB IMPORT — Axios + Gemini only (No Puppeteer)
+     Fast, lightweight, and AI-powered job info extraction.
+  ============================================================ */
+  router.post("/import-job", async (req, res) => {
   const { url } = req.body;
 
   if (!url || !/^https?:\/\//.test(url)) {
@@ -121,24 +124,27 @@ ${bodyText}
       error: "Failed to import job. Please fill manually.",
     });
   }
-});
-//import express from "express";
-//import { GoogleGenerativeAI } from "@google/generative-ai";
+  });
 
-//const router = express.Router();
-//const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+  router.get("/test-ai", async (req, res) => {
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent(
+        "Respond only with 'Gemini is working ✅'"
+      );
+      res.json({ success: true, response: result.response.text() });
+    } catch (err) {
+      console.error("Gemini test error:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
-router.get("/test-ai", async (req, res) => {
-  try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-    const result = await model.generateContent(
-      "Respond only with 'Gemini is working ✅'"
-    );
-    res.json({ success: true, response: result.response.text() });
-  } catch (err) {
-    console.error("Gemini test error:", err);
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  return router;
+}
 
+// Export default router (production use - maintains backward compatibility)
+const router = createJobRoutes();
 export default router;
+
+// Export factory function for testing
+export { createJobRoutes };

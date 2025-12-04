@@ -148,6 +148,35 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
+// ✅ GET single cover letter by ID
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    
+    // Try with 'title' first, fall back to 'name' if that column doesn't exist
+    let result;
+    try {
+      result = await pool.query(
+        `SELECT * FROM cover_letters WHERE id = $1 AND user_id = $2`,
+        [id, userId]
+      );
+    } catch (err) {
+      console.error("❌ Fetch cover letter error:", err);
+      throw err;
+    }
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+    
+    res.json({ cover_letter: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Fetch cover letter error:", err);
+    res.status(500).json({ error: "Failed to load cover letter" });
+  }
+});
+
 // ✅ Delete a cover letter
 router.delete("/:id", auth, async (req, res) => {
   try {

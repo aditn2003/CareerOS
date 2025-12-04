@@ -6,6 +6,7 @@ import FeedbackTab from "./FeedbackTab";
 import TaskManagementTab from "./TaskManagementTab";
 import ActivityFeedTab from "./ActivityFeedTab";
 import SharedJobsTab from "./SharedJobsTab";
+import TeamAnalyticsTab from "./TeamAnalyticsTab";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTeam } from "../../contexts/TeamContext";
 import InviteHandler from "./InviteHandler";
@@ -70,6 +71,7 @@ export default function MentorLayout() {
         <Route path="feedback" element={<FeedbackTab />} />
         <Route path="tasks" element={<TaskManagementTab />} />
         <Route path="shared-jobs" element={<SharedJobsTab />} />
+        <Route path="analytics" element={<TeamAnalyticsTab />} />
         <Route path="activity" element={<ActivityFeedTab />} />
         
         {/* Fallback */}

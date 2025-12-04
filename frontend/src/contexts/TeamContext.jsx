@@ -39,6 +39,7 @@ export function TeamProvider({ children }) {
 
       setState({
         accountType: data?.accountType || null,
+        userId: data?.userId || null, // Current user ID
         teams,
         primaryTeam,
         role,
@@ -60,9 +61,8 @@ export function TeamProvider({ children }) {
   }, [token, refreshTeam]);
 
   const value = useMemo(() => {
-    const isAdmin =
-      state.role === "admin" || state.accountType === "team_admin";
-    const isMentor = state.role === "mentor";
+    const isMentor = state.role === "mentor" || state.accountType === "mentor";
+    const isAdmin = isMentor; // Mentors have admin privileges
     const isCandidate = state.accountType === "candidate" && !isMentor;
 
     return {

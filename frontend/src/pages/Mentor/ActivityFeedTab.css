@@ -358,16 +358,47 @@
   border: 1px solid #fef3c7;
   border-radius: 6px;
   background: #fffbeb;
+}
+
+.attention-content {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attention-candidate-name {
+  font-weight: 600;
+  color: #92400e;
+  font-size: 0.875rem;
 }
 
 .attention-candidate {
   font-weight: 500;
   color: #92400e;
   font-size: 0.875rem;
+}
+
+.attention-reasons {
+  margin-top: 0.25rem;
+}
+
+.attention-reasons-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.8125rem;
+  color: #6b7280;
+  line-height: 1.6;
+  list-style-type: disc;
+}
+
+.attention-reasons-list li {
+  margin-bottom: 0.125rem;
+}
+
+.attention-no-reason {
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  font-style: italic;
 }
 
 .attention-action-btn {

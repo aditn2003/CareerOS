@@ -3,34 +3,41 @@ import express from "express";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 
-const router = express.Router();
+// Factory function for dependency injection (for testing)
+function createSalaryNegotiationRoutes(supabaseClient = null, openaiApiKey = null) {
+  const router = express.Router();
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+  const OPENAI_KEY = openaiApiKey || process.env.OPENAI_API_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  throw new Error("Missing Supabase credentials");
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  db: {
-    schema: 'public'
-  },
-  auth: {
-    persistSession: false
-  },
-  global: {
-    fetch: (...args) => {
-      return fetch(...args);
+  // Use injected client or create default one
+  let supabase;
+  if (supabaseClient) {
+    supabase = supabaseClient;
+  } else {
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      throw new Error("Missing Supabase credentials");
     }
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      db: {
+        schema: 'public'
+      },
+      auth: {
+        persistSession: false
+      },
+      global: {
+        fetch: (...args) => {
+          return fetch(...args);
+        }
+      }
+    });
   }
-});
 
-/* ============================================================
-   HELPER: Retry database operations
-============================================================ */
-async function retryDatabaseOperation(operation, maxRetries = 3) {
+  /* ============================================================
+     HELPER: Retry database operations
+  ============================================================ */
+  async function retryDatabaseOperation(operation, maxRetries = 3) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await operation();
@@ -42,10 +49,10 @@ async function retryDatabaseOperation(operation, maxRetries = 3) {
   }
 }
 
-/* ============================================================
-   AI: Generate Salary Negotiation Package
-============================================================ */
-async function generateNegotiationPackage(
+  /* ============================================================
+     AI: Generate Salary Negotiation Package
+  ============================================================ */
+  async function generateNegotiationPackage(
   company,
   role,
   location,
@@ -263,13 +270,13 @@ Return ONLY valid JSON.
     console.error("❌ OpenAI Negotiation Generation Error:", err.message);
     return null;
   }
-}
+  }
 
-/* ============================================================
-   POST /generate
-   Generate comprehensive negotiation package
-============================================================ */
-router.post("/generate", async (req, res) => {
+  /* ============================================================
+     POST /generate
+     Generate comprehensive negotiation package
+  ============================================================ */
+  router.post("/generate", async (req, res) => {
   try {
     const {
       userId,
@@ -372,13 +379,13 @@ router.post("/generate", async (req, res) => {
       message: "Failed to generate negotiation package"
     });
   }
-});
+  });
 
-/* ============================================================
-   GET /list
-   Get all negotiations for user
-============================================================ */
-router.get("/list", async (req, res) => {
+  /* ============================================================
+     GET /list
+     Get all negotiations for user
+  ============================================================ */
+  router.get("/list", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
     const status = req.query.status?.trim();
@@ -436,13 +443,13 @@ router.get("/list", async (req, res) => {
       message: "Failed to fetch negotiations"
     });
   }
-});
+  });
 
-/* ============================================================
-   GET /:id
-   Get specific negotiation
-============================================================ */
-router.get("/:id", async (req, res) => {
+  /* ============================================================
+     GET /:id
+     Get specific negotiation
+  ============================================================ */
+  router.get("/:id", async (req, res) => {
   try {
     const negotiationId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -484,13 +491,13 @@ router.get("/:id", async (req, res) => {
       message: "Failed to fetch negotiation"
     });
   }
-});
+  });
 
-/* ============================================================
-   PUT /:id/update
-   Update negotiation details
-============================================================ */
-router.put("/:id/update", async (req, res) => {
+  /* ============================================================
+     PUT /:id/update
+     Update negotiation details
+  ============================================================ */
+  router.put("/:id/update", async (req, res) => {
   try {
     const negotiationId = parseInt(req.params.id, 10);
     const {
@@ -567,11 +574,11 @@ router.put("/:id/update", async (req, res) => {
   }
 });
 
-/* ============================================================
-   PUT /:id/outcome
-   Track negotiation outcome
-============================================================ */
-router.put("/:id/outcome", async (req, res) => {
+  /* ============================================================
+     PUT /:id/outcome
+     Track negotiation outcome
+  ============================================================ */
+  router.put("/:id/outcome", async (req, res) => {
   try {
     const negotiationId = parseInt(req.params.id, 10);
     const {
@@ -635,11 +642,11 @@ router.put("/:id/outcome", async (req, res) => {
   }
 });
 
-/* ============================================================
-   GET /stats
-   Get negotiation statistics
-============================================================ */
-router.get("/stats", async (req, res) => {
+  /* ============================================================
+     GET /stats
+     Get negotiation statistics
+  ============================================================ */
+  router.get("/stats", async (req, res) => {
   try {
     const userId = req.query.userId?.trim();
 
@@ -729,11 +736,11 @@ router.get("/stats", async (req, res) => {
   }
 });
 
-/* ============================================================
-   DELETE /:id
-   Delete a negotiation package
-============================================================ */
-router.delete("/:id", async (req, res) => {
+  /* ============================================================
+     DELETE /:id
+     Delete a negotiation package
+  ============================================================ */
+  router.delete("/:id", async (req, res) => {
   try {
     const negotiationId = parseInt(req.params.id, 10);
     const userId = req.query.userId?.trim();
@@ -784,6 +791,14 @@ router.delete("/:id", async (req, res) => {
       message: "Failed to delete negotiation"
     });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createSalaryNegotiationRoutes();
 export default router;
+
+// Export factory function for testing
+export { createSalaryNegotiationRoutes };

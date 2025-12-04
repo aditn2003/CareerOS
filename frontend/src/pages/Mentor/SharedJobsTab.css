@@ -661,3 +661,203 @@
     font-size: 0.875rem !important;
   }
 }
+
+/* Application Materials Styles */
+.materials-loading,
+.materials-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #6b7280;
+}
+
+.materials-empty p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.application-materials-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.candidate-materials-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.candidate-materials-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.candidate-materials-header h4 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.job-count-badge {
+  background: #ede9fe;
+  color: #6d28d9;
+  padding: 0.375rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.candidate-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.job-materials-item {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.job-materials-header {
+  margin-bottom: 0.75rem;
+}
+
+.job-materials-header h5 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.job-company {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-right: 0.5rem;
+}
+
+.job-status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.job-status-badge.status-interested {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.job-status-badge.status-applied {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.job-status-badge.status-phone_screen,
+.job-status-badge.status-phone-screen {
+  background: #e0e7ff;
+  color: #4c1d95;
+}
+
+.job-status-badge.status-interview {
+  background: #ddd6fe;
+  color: #5b21b6;
+}
+
+.job-status-badge.status-offer {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.job-status-badge.status-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.job-status-badge.status-unknown {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.materials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.material-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.material-item.no-material {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.material-icon {
+  font-size: 1.25rem;
+  color: #6d28d9;
+  flex-shrink: 0;
+}
+
+.material-item.no-material .material-icon {
+  color: #dc2626;
+}
+
+.material-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.material-title {
+  font-weight: 500;
+  color: #111827;
+  font-size: 0.9375rem;
+}
+
+.material-format {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.no-material-text {
+  font-size: 0.875rem;
+  color: #991b1b;
+}
+
+/* Responsive for Application Materials */
+@media (max-width: 768px) {
+  .candidate-materials-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .job-materials-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
