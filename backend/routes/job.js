@@ -947,11 +947,22 @@ router.delete("/:id", auth, async (req, res) => {
     await client.query("COMMIT");
     res.status(200).json({ message: "Job permanently deleted" });
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    if (client && client.query) {
+      try {
+        const rollbackPromise = client.query("ROLLBACK");
+        if (rollbackPromise && typeof rollbackPromise.catch === 'function') {
+          await rollbackPromise.catch(() => {});
+        }
+      } catch (rollbackErr) {
+        // Ignore rollback errors
+      }
+    }
     console.error("❌ Delete job error:", err.message);
     res.status(500).json({ error: "Database error" });
   } finally {
-    client.release();
+    if (client && client.release) {
+      client.release();
+    }
   }
 });
 

@@ -34,10 +34,14 @@ const mockCalendar = vi.fn(() => ({
 
 // Mock googleapis - must be before any imports
 vi.mock('googleapis', () => {
-  function MockOAuth2() {
-    Object.assign(this, mockOAuth2Client);
+  class MockOAuth2 {
+    constructor(clientId, clientSecret, redirectUri) {
+      this.generateAuthUrl = mockGenerateAuthUrl;
+      this.getToken = mockGetToken;
+      this.refreshAccessToken = mockRefreshAccessToken;
+      this.setCredentials = mockSetCredentials;
+    }
   }
-  Object.assign(MockOAuth2.prototype, mockOAuth2Client);
   
   return {
     google: {
@@ -50,15 +54,21 @@ vi.mock('googleapis', () => {
 });
 
 const mockEmailsSend = vi.fn();
-const mockResend = vi.fn(() => ({
-  emails: {
-    send: mockEmailsSend,
-  },
-}));
 
-vi.mock('resend', () => ({
-  Resend: mockResend,
-}));
+vi.mock('resend', () => {
+  class MockResend {
+    constructor(apiKey) {
+      this.apiKey = apiKey;
+    }
+    emails = {
+      send: mockEmailsSend,
+    };
+  }
+  
+  return {
+    Resend: MockResend,
+  };
+});
 
 const mockSupabaseSelect = vi.fn();
 const mockSupabaseUpdate = vi.fn();

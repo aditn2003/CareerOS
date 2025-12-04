@@ -13,12 +13,24 @@ import express from 'express';
 
 const mockQueryFn = vi.fn();
 const mockGenerateContent = vi.fn();
-const mockGetGenerativeModel = vi.fn(() => ({
-  generateContent: mockGenerateContent,
-}));
-const mockGoogleGenerativeAI = vi.fn(() => ({
-  getGenerativeModel: mockGetGenerativeModel,
-}));
+
+// Must define mock before importing
+vi.mock('@google/generative-ai', () => {
+  const mockGetGenerativeModel = vi.fn(() => ({
+    generateContent: mockGenerateContent,
+  }));
+  
+  class MockGoogleGenerativeAI {
+    constructor(apiKey) {
+      this.apiKey = apiKey;
+    }
+    getGenerativeModel = mockGetGenerativeModel;
+  }
+  
+  return {
+    GoogleGenerativeAI: MockGoogleGenerativeAI,
+  };
+});
 
 vi.mock('../../db/pool.js', () => ({
   default: {
@@ -36,9 +48,6 @@ vi.mock('../../auth.js', () => ({
   }),
 }));
 
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: mockGoogleGenerativeAI,
-}));
 
 // ============================================
 // MOCK DATA
@@ -87,9 +96,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockGetGenerativeModel.mockReturnValue({
-    generateContent: mockGenerateContent,
-  });
   mockGenerateContent.mockResolvedValue({
     response: {
       text: () => JSON.stringify(mockBenchmarkData),
@@ -251,6 +257,47 @@ describe('Market Benchmarks Routes - Full Coverage', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to fetch market benchmark data');
+    });
+
+    it('should handle JSON parsing with markdown code blocks', async () => {
+      mockGenerateContent.mockResolvedValue({
+        response: {
+          text: () => '```json\n' + JSON.stringify(mockBenchmarkData) + '\n```',
+        },
+      });
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockBenchmarkRecord], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/market-benchmarks/fetch')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          role_title: 'Software Engineer',
+          role_level: 'mid',
+          location: 'San Francisco, CA',
+        });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should handle missing percentile_10 in AI response', async () => {
+      const incompleteData = { percentile_50: 120000 };
+      mockGenerateContent.mockResolvedValue({
+        response: {
+          text: () => JSON.stringify(incompleteData),
+        },
+      });
+
+      const res = await request(app)
+        .post('/api/market-benchmarks/fetch')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          role_title: 'Software Engineer',
+          role_level: 'mid',
+          location: 'San Francisco, CA',
+        });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe('AI returned incomplete data');
     });
   });
 

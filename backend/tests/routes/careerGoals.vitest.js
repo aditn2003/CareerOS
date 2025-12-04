@@ -668,6 +668,71 @@ describe('Career Goals Routes - Full Coverage', () => {
 
       expect(res.status).toBe(200);
     });
+
+    it('should handle goal completion with completed_date', async () => {
+      const existingGoal = {
+        ...mockGoal,
+        status: 'active',
+        start_date: '2024-01-01',
+        target_date: '2025-12-31',
+        progress_percent: 80,
+      };
+      const updatedGoal = {
+        ...mockGoal,
+        status: 'completed',
+        completed_date: '2025-06-01',
+        start_date: '2024-01-01',
+        target_date: '2025-12-31',
+        progress_percent: 100,
+      };
+
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [existingGoal], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [updatedGoal], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // Insert achievement
+
+      const res = await request(app)
+        .put('/api/career-goals/1')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          status: 'completed',
+          completed_date: '2025-06-01',
+        });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should handle goal completion without completed_date (uses current date)', async () => {
+      const existingGoal = {
+        ...mockGoal,
+        status: 'active',
+        start_date: '2024-01-01',
+        target_date: '2025-12-31',
+        progress_percent: 80,
+      };
+      const updatedGoal = {
+        ...mockGoal,
+        status: 'completed',
+        completed_date: null,
+        start_date: '2024-01-01',
+        target_date: '2025-12-31',
+        progress_percent: 100,
+      };
+
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [existingGoal], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [updatedGoal], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // Insert achievement
+
+      const res = await request(app)
+        .put('/api/career-goals/1')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          status: 'completed',
+        });
+
+      expect(res.status).toBe(200);
+    });
   });
 });
 
