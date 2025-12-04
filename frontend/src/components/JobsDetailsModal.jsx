@@ -521,6 +521,26 @@ export default function JobDetailsModal({
           <option value="contract">Contract</option>
         </select>
 
+        {/* ROLE LEVEL */}
+        <label>Role Level</label>
+        <select
+          value={job.role_level || ""}
+          onChange={(e) => setJob({ ...job, role_level: e.target.value })}
+        >
+          <option value="">Select role level</option>
+          <option value="intern">Intern</option>
+          <option value="entry">Entry Level</option>
+          <option value="junior">Junior</option>
+          <option value="mid">Mid-Level</option>
+          <option value="senior">Senior</option>
+          <option value="staff">Staff</option>
+          <option value="principal">Principal</option>
+          <option value="lead">Lead</option>
+          <option value="manager">Manager</option>
+          <option value="director">Director</option>
+          <option value="vp">VP</option>
+        </select>
+
         {/* NOTES */}
         <label>Personal Notes</label>
         <textarea
