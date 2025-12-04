@@ -229,19 +229,51 @@ Rules:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are a factual company research assistant." },
-          { role: "user", content: basePrompt },
-        ],
-        temperature: 0.3,
-        response_format: { type: "json_object" },
-      },
-      { headers: { Authorization: `Bearer ${key}` } }
-    );
+    // Retry logic for SSL/TLS errors
+    let data;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await axios.post(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are a factual company research assistant." },
+              { role: "user", content: basePrompt },
+            ],
+            temperature: 0.3,
+            response_format: { type: "json_object" },
+          },
+          { 
+            headers: { Authorization: `Bearer ${key}` },
+            timeout: 30000
+          }
+        );
+        data = response.data;
+        break; // Success, exit retry loop
+      } catch (err) {
+        const isNetworkError = 
+          err.message?.includes('SSL') || 
+          err.message?.includes('TLS') || 
+          err.message?.includes('bad record mac') ||
+          err.message?.includes('socket hang up') ||
+          err.message?.includes('ECONNRESET') ||
+          err.code === 'ECONNRESET' ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ENOTFOUND' ||
+          err.code === 'ECONNREFUSED';
+        
+        if (isNetworkError && attempt < maxRetries) {
+          const delay = attempt * 1000; // 1s, 2s, 3s
+          console.warn(`⚠️ OpenAI SSL/TLS error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        throw err; // Re-throw if not network error or last attempt
+      }
+    }
 
     let aiData = JSON.parse(data?.choices?.[0]?.message?.content || "{}");
 
@@ -257,19 +289,43 @@ From public knowledge, fill them in realistically and return JSON only:
  "productsServices": string[],
  "competitiveLandscape": string[]
 }`;
-      const retry = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You fill in missing company fields accurately." },
-            { role: "user", content: retryPrompt },
-          ],
-          temperature: 0.3,
-          response_format: { type: "json_object" },
-        },
-        { headers: { Authorization: `Bearer ${key}` } }
-      );
+      // Retry logic for SSL/TLS errors on second API call
+      let retry;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          retry = await axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "You fill in missing company fields accurately." },
+                { role: "user", content: retryPrompt },
+              ],
+              temperature: 0.3,
+              response_format: { type: "json_object" },
+            },
+            { 
+              headers: { Authorization: `Bearer ${key}` },
+              timeout: 30000
+            }
+          );
+          break; // Success
+        } catch (err) {
+          const isNetworkError = 
+            err.message?.includes('SSL') || 
+            err.message?.includes('TLS') || 
+            err.message?.includes('bad record mac') ||
+            err.message?.includes('socket hang up') ||
+            err.message?.includes('ECONNRESET') ||
+            err.code === 'ECONNRESET' ||
+            err.code === 'ETIMEDOUT';
+          if (isNetworkError && attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+            continue;
+          }
+          throw err;
+        }
+      }
 
       const retryData = JSON.parse(
         retry?.data?.choices?.[0]?.message?.content || "{}"
@@ -308,7 +364,21 @@ From public knowledge, fill them in realistically and return JSON only:
         `${company} is a global technology leader known for innovation in AI, software, and digital services.`,
     };
   } catch (err) {
-    console.error("❌ OpenAI enrichment error:", err.message);
+    const errorMsg = err.message || 'Unknown error';
+    const isNetworkError = 
+      errorMsg.includes('SSL') || 
+      errorMsg.includes('TLS') || 
+      errorMsg.includes('bad record mac') ||
+      errorMsg.includes('socket hang up') ||
+      errorMsg.includes('ECONNRESET');
+    
+    if (isNetworkError) {
+      console.error("❌ OpenAI enrichment error (SSL/TLS):", errorMsg);
+      console.error("   Network connectivity issue detected. The request was retried but failed. Using fallback data.");
+    } else {
+      console.error("❌ OpenAI enrichment error:", errorMsg);
+    }
+    
     return {
       company,
       size: null,

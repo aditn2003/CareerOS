@@ -9,10 +9,6 @@ dotenv.config();
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const router = express.Router();
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const SERP_API_KEY = process.env.SERP_API_KEY;
-
 // Initialize Supabase client with proper configuration
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -30,6 +26,9 @@ const supabase = createClient(
         'x-application-name': 'ats-interview-prep',
       },
     },
+  }
+);
+
 // Factory function for dependency injection (for testing)
 function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = null, serpApiKey = null) {
   const router = express.Router();
@@ -1916,6 +1915,5 @@ router.put("/follow-up/:templateId/update-email", async (req, res) => {
   }
 });
 
-export default router;
 // Export factory function for testing
 export { createInterviewInsightsRoutes };
