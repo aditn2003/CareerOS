@@ -1,13 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import "../styles/IndustryContactDiscovery.css";
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || "http://localhost:4000/api",
-  headers: {
-    "Content-Type": "application/json"
-  }
-});
+const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000/api";
 
 // Pre-populated contacts database (same as backend)
 const CONTACT_DB = {
@@ -58,15 +53,6 @@ const CONTACT_DB = {
   ]
 };
 
-// Add JWT token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
 export default function IndustryContactDiscovery() {
   const [activeTab, setActiveTab] = useState("suggestions");
   const [suggestions, setSuggestions] = useState([]);
@@ -80,6 +66,11 @@ export default function IndustryContactDiscovery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Get fresh auth headers on each request
+  const getAuthHeaders = useCallback(() => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`
+  }), []);
 
   // Modals
   const [showSuggestionModal, setShowSuggestionModal] = useState(false);
@@ -167,6 +158,28 @@ export default function IndustryContactDiscovery() {
     custom_message: ""
   });
 
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    const isAnyModalOpen = 
+      showSuggestionModal || 
+      showAlumniModal || 
+      showEventModal || 
+      showConnectionModal || 
+      showOutreachModal || 
+      showReminderModal || 
+      showEditConnectionModal;
+    
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showSuggestionModal, showAlumniModal, showEventModal, showConnectionModal, showOutreachModal, showReminderModal, showEditConnectionModal]);
+
   // Fetch all data on component mount
   useEffect(() => {
     fetchAllData();
@@ -177,14 +190,15 @@ export default function IndustryContactDiscovery() {
       setLoading(true);
       setError("");
 
+      const headers = getAuthHeaders();
       const [suggestionsRes, connectionsRes, leadersRes, alumniRes, eventsRes, analyticsRes] =
         await Promise.all([
-          api.get("/industry-contacts/suggestions"),
-          api.get("/industry-contacts/connection-paths"),
-          api.get("/industry-contacts/industry-leaders"),
-          api.get("/industry-contacts/alumni"),
-          api.get("/industry-contacts/event-participants"),
-          api.get("/industry-contacts/discovery-analytics")
+          axios.get(`${API_BASE}/industry-contacts/suggestions`, { headers }),
+          axios.get(`${API_BASE}/industry-contacts/connection-paths`, { headers }),
+          axios.get(`${API_BASE}/industry-contacts/industry-leaders`, { headers }),
+          axios.get(`${API_BASE}/industry-contacts/alumni`, { headers }),
+          axios.get(`${API_BASE}/industry-contacts/event-participants`, { headers }),
+          axios.get(`${API_BASE}/industry-contacts/discovery-analytics`, { headers })
         ]);
 
       setSuggestions(suggestionsRes.data.suggestions || []);
@@ -249,7 +263,7 @@ export default function IndustryContactDiscovery() {
     e.preventDefault();
     try {
       console.log("📤 Submitting suggestion form:", suggestionForm);
-      const res = await api.post("/industry-contacts/suggestions", suggestionForm);
+      const res = await axios.post(`${API_BASE}/industry-contacts/suggestions`, suggestionForm, { headers: getAuthHeaders() });
       console.log("✅ Response:", res.data);
       setSuggestions([...suggestions, res.data.suggestion]);
       setShowSuggestionModal(false);
@@ -280,12 +294,12 @@ export default function IndustryContactDiscovery() {
     try {
       if (editingId) {
         // Update existing alumni
-        await api.put(`/industry-contacts/alumni/${editingId}`, alumniForm);
+        await axios.put(`${API_BASE}/industry-contacts/alumni/${editingId}`, alumniForm, { headers: getAuthHeaders() });
         setAlumni(alumni.map(a => a.id === editingId ? { ...a, ...alumniForm } : a));
         setSuccessMessage("Alumni updated successfully!");
       } else {
         // Add new alumni
-        const res = await api.post("/industry-contacts/alumni", alumniForm);
+        const res = await axios.post(`${API_BASE}/industry-contacts/alumni`, alumniForm, { headers: getAuthHeaders() });
         setAlumni([...alumni, res.data.alumni]);
         setSuccessMessage("Alumni connection added successfully!");
       }
@@ -314,12 +328,12 @@ export default function IndustryContactDiscovery() {
     try {
       if (editingId) {
         // Update existing event participant
-        await api.put(`/industry-contacts/event-participants/${editingId}`, eventForm);
+        await axios.put(`${API_BASE}/industry-contacts/event-participants/${editingId}`, eventForm, { headers: getAuthHeaders() });
         setEventParticipants(eventParticipants.map(p => p.id === editingId ? { ...p, ...eventForm } : p));
         setSuccessMessage("Event participant updated successfully!");
       } else {
         // Add new event participant
-        const res = await api.post("/industry-contacts/event-participants", eventForm);
+        const res = await axios.post(`${API_BASE}/industry-contacts/event-participants`, eventForm, { headers: getAuthHeaders() });
         setEventParticipants([...eventParticipants, res.data.participant]);
         setSuccessMessage("Event participant added successfully!");
       }
@@ -356,14 +370,14 @@ export default function IndustryContactDiscovery() {
     }
 
     try {
-      const response = await api.post("/industry-contacts/connection-paths", {
+      const response = await axios.post(`${API_BASE}/industry-contacts/connection-paths`, {
         mutual_contact_name: connectionForm.mutual_contact_name,
         target_contact_name: connectionForm.target_contact_name,
         target_company: connectionForm.target_company,
         connection_degree: connectionForm.connection_degree,
         relationship_strength: connectionForm.relationship_strength,
         introduction_message: connectionForm.introduction_message
-      });
+      }, { headers: getAuthHeaders() });
 
       if (response.data.success) {
         setConnections([...connections, response.data.path]);
@@ -388,7 +402,7 @@ export default function IndustryContactDiscovery() {
     if (!window.confirm("Delete this connection path?")) return;
 
     try {
-      await api.delete(`/industry-contacts/connection-paths/${connectionId}`);
+      await axios.delete(`${API_BASE}/industry-contacts/connection-paths/${connectionId}`, { headers: getAuthHeaders() });
       setConnections(connections.filter(c => c.id !== connectionId));
       setSuccessMessage("Connection deleted successfully!");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -413,7 +427,7 @@ export default function IndustryContactDiscovery() {
   const handleSaveConnection = async (e) => {
     e.preventDefault();
     try {
-      const response = await api.put(`/industry-contacts/connection-paths/${editingId}`, editConnectionForm);
+      const response = await axios.put(`${API_BASE}/industry-contacts/connection-paths/${editingId}`, editConnectionForm, { headers: getAuthHeaders() });
       if (response.data.success) {
         setConnections(connections.map(c => 
           c.id === editingId ? { ...c, ...editConnectionForm } : c
@@ -437,13 +451,13 @@ export default function IndustryContactDiscovery() {
     }
 
     try {
-      const response = await api.post("/industry-contacts/reminders", {
+      const response = await axios.post(`${API_BASE}/industry-contacts/reminders`, {
         contact_name: reminderForm.contact_name,
         contact_company: reminderForm.contact_company,
         reminder_type: reminderForm.reminder_type,
         reminder_date: reminderForm.reminder_date,
         custom_message: reminderForm.custom_message
-      });
+      }, { headers: getAuthHeaders() });
 
       if (response.data.success) {
         setReminders([...reminders, response.data.reminder]);
@@ -466,7 +480,7 @@ export default function IndustryContactDiscovery() {
   const handleSendOutreach = async (e) => {
     e.preventDefault();
     try {
-      await api.put(`/industry-contacts/discovery-outreach/${outreachType}/${selectedContact.id}`, outreachForm);
+      await axios.put(`${API_BASE}/industry-contacts/discovery-outreach/${outreachType}/${selectedContact.id}`, outreachForm, { headers: getAuthHeaders() });
       setShowOutreachModal(false);
       setOutreachForm({ outreach_message: "", outreach_template: "" });
       setSelectedContact(null);
@@ -481,9 +495,9 @@ export default function IndustryContactDiscovery() {
   // Handle action status update
   const handleUpdateAction = async (contactId, newStatus) => {
     try {
-      await api.put(`/industry-contacts/suggestions/${contactId}/action`, {
+      await axios.put(`${API_BASE}/industry-contacts/suggestions/${contactId}/action`, {
         action_status: newStatus
-      });
+      }, { headers: getAuthHeaders() });
       setSuggestions(
         suggestions.map((s) =>
           s.id === contactId ? { ...s, action_status: newStatus } : s
@@ -502,11 +516,11 @@ export default function IndustryContactDiscovery() {
 
     try {
       let endpoint = "";
-      if (type === "suggestion") endpoint = `/industry-contacts/suggestions/${contactId}`;
-      else if (type === "alumni") endpoint = `/industry-contacts/alumni/${contactId}`;
-      else if (type === "event") endpoint = `/industry-contacts/event-participants/${contactId}`;
+      if (type === "suggestion") endpoint = `${API_BASE}/industry-contacts/suggestions/${contactId}`;
+      else if (type === "alumni") endpoint = `${API_BASE}/industry-contacts/alumni/${contactId}`;
+      else if (type === "event") endpoint = `${API_BASE}/industry-contacts/event-participants/${contactId}`;
 
-      await api.delete(endpoint);
+      await axios.delete(endpoint, { headers: getAuthHeaders() });
 
       // Update UI
       if (type === "suggestion") {
@@ -582,7 +596,7 @@ export default function IndustryContactDiscovery() {
     }
 
     try {
-      await api.put(`/industry-contacts/suggestions/${editingId}`, suggestionForm);
+      await axios.put(`${API_BASE}/industry-contacts/suggestions/${editingId}`, suggestionForm, { headers: getAuthHeaders() });
       setSuggestions(
         suggestions.map((s) =>
           s.id === editingId ? { ...s, ...suggestionForm } : s
@@ -841,7 +855,21 @@ export default function IndustryContactDiscovery() {
               <h3>Alumni Connections</h3>
               <button
                 className="btn-primary"
-                onClick={() => setShowAlumniModal(true)}
+                onClick={() => {
+                  setAlumniForm({
+                    first_name: "",
+                    last_name: "",
+                    email: "",
+                    title: "",
+                    company: "",
+                    education_institution: "",
+                    graduation_year: new Date().getFullYear(),
+                    degree_type: "",
+                    field_of_study: ""
+                  });
+                  setEditingId(null);
+                  setShowAlumniModal(true);
+                }}
               >
                 + Add Alumni
               </button>
@@ -979,94 +1007,124 @@ export default function IndustryContactDiscovery() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingId ? "Edit Contact" : "Add Contact Suggestion"}</h3>
             <form onSubmit={editingId ? handleUpdateSuggestion : handleAddSuggestion}>
-              <input
-                type="text"
-                placeholder="First Name *"
-                value={suggestionForm.first_name}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, first_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="text"
-                placeholder="Last Name *"
-                value={suggestionForm.last_name}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, last_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={suggestionForm.email}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, email: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={suggestionForm.title}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, title: e.target.value })
-                }
-              />
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  placeholder="Company *"
-                  value={suggestionForm.company}
-                  onChange={(e) => handleCompanyChange(e.target.value)}
-                  onFocus={() => suggestionForm.company && setShowContactDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowContactDropdown(false), 200)}
-                  required
-                />
-                {showContactDropdown && contactOptions.length > 0 && (
-                  <div className="autocomplete-dropdown">
-                    <div className="dropdown-header">Select a contact:</div>
-                    {contactOptions.map((contact, idx) => (
-                      <div
-                        key={idx}
-                        className="dropdown-item"
-                        onClick={() => handleSelectContact(contact)}
-                      >
-                        <div className="dropdown-name">{contact.firstName} {contact.lastName}</div>
-                        <div className="dropdown-details">{contact.title} • {contact.company}</div>
-                        <div className="dropdown-score">{contact.matchScore}% match</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="form-row">
+                <div>
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={suggestionForm.first_name}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, first_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={suggestionForm.last_name}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, last_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="Industry"
-                value={suggestionForm.industry}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, industry: e.target.value })
-                }
-              />
-              <input
-                type="url"
-                placeholder="LinkedIn URL"
-                value={suggestionForm.linkedin_url}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, linkedin_url: e.target.value })
-                }
-              />
-              <select
-                value={suggestionForm.suggestion_reason}
-                onChange={(e) =>
-                  setSuggestionForm({ ...suggestionForm, suggestion_reason: e.target.value })
-                }
-              >
-                <option value="target_company_match">Target Company Match</option>
-                <option value="role_match">Role Match</option>
-                <option value="industry_leader">Industry Leader</option>
-                <option value="skill_match">Skill Match</option>
-              </select>
+              <div className="form-row">
+                <div>
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={suggestionForm.email}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={suggestionForm.title}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, title: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div style={{ position: "relative" }}>
+                  <label>Company *</label>
+                  <input
+                    type="text"
+                    placeholder="Company"
+                    value={suggestionForm.company}
+                    onChange={(e) => handleCompanyChange(e.target.value)}
+                    onFocus={() => suggestionForm.company && setShowContactDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowContactDropdown(false), 200)}
+                    required
+                  />
+                  {showContactDropdown && contactOptions.length > 0 && (
+                    <div className="autocomplete-dropdown">
+                      <div className="dropdown-header">Select a contact:</div>
+                      {contactOptions.map((contact, idx) => (
+                        <div
+                          key={idx}
+                          className="dropdown-item"
+                          onClick={() => handleSelectContact(contact)}
+                        >
+                          <div className="dropdown-name">{contact.firstName} {contact.lastName}</div>
+                          <div className="dropdown-details">{contact.title} • {contact.company}</div>
+                          <div className="dropdown-score">{contact.matchScore}% match</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label>Industry</label>
+                  <input
+                    type="text"
+                    placeholder="Industry"
+                    value={suggestionForm.industry}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, industry: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div>
+                  <label>LinkedIn URL</label>
+                  <input
+                    type="url"
+                    placeholder="LinkedIn URL"
+                    value={suggestionForm.linkedin_url}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, linkedin_url: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Suggestion Reason</label>
+                  <select
+                    value={suggestionForm.suggestion_reason}
+                    onChange={(e) =>
+                      setSuggestionForm({ ...suggestionForm, suggestion_reason: e.target.value })
+                    }
+                  >
+                    <option value="target_company_match">Target Company Match</option>
+                    <option value="role_match">Role Match</option>
+                    <option value="industry_leader">Industry Leader</option>
+                    <option value="skill_match">Skill Match</option>
+                  </select>
+                </div>
+              </div>
               <div className="form-row">
                 <div>
                   <label>Match Score (0-100): {suggestionForm.match_score}</label>
@@ -1107,76 +1165,112 @@ export default function IndustryContactDiscovery() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h3>{editingId ? "Edit Alumni Connection" : "Add Alumni Connection"}</h3>
             <form onSubmit={handleAddAlumni}>
-              <input
-                type="text"
-                placeholder="First Name *"
-                value={alumniForm.first_name}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, first_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="text"
-                placeholder="Last Name *"
-                value={alumniForm.last_name}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, last_name: e.target.value })
-                }
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={alumniForm.email}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, email: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Title"
-                value={alumniForm.title}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, title: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Company"
-                value={alumniForm.company}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, company: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Institution *"
-                value={alumniForm.education_institution}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, education_institution: e.target.value })
-                }
-                required
-              />
-              <input
-                type="number"
-                placeholder="Graduation Year"
-                value={alumniForm.graduation_year}
-                onChange={(e) =>
-                  setAlumniForm({
-                    ...alumniForm,
-                    graduation_year: parseInt(e.target.value)
-                  })
-                }
-              />
-              <input
-                type="text"
-                placeholder="Degree Type"
-                value={alumniForm.degree_type}
-                onChange={(e) =>
-                  setAlumniForm({ ...alumniForm, degree_type: e.target.value })
-                }
-              />
+              <div className="form-row">
+                <div>
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    placeholder="First Name"
+                    value={alumniForm.first_name}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, first_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div>
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    placeholder="Last Name"
+                    value={alumniForm.last_name}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, last_name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={alumniForm.email}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={alumniForm.title}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, title: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Company</label>
+                  <input
+                    type="text"
+                    placeholder="Company"
+                    value={alumniForm.company}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, company: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Institution *</label>
+                  <input
+                    type="text"
+                    placeholder="Institution"
+                    value={alumniForm.education_institution}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, education_institution: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div>
+                  <label>Graduation Year</label>
+                  <input
+                    type="number"
+                    placeholder="Graduation Year"
+                    value={alumniForm.graduation_year}
+                    onChange={(e) =>
+                      setAlumniForm({
+                        ...alumniForm,
+                        graduation_year: parseInt(e.target.value)
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label>Degree Type</label>
+                  <input
+                    type="text"
+                    placeholder="Degree Type"
+                    value={alumniForm.degree_type}
+                    onChange={(e) =>
+                      setAlumniForm({ ...alumniForm, degree_type: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+
               <div className="modal-actions">
                 <button type="submit" className="btn-primary">
                   {editingId ? "Save Changes" : "Add Alumni"}
@@ -1377,19 +1471,6 @@ export default function IndustryContactDiscovery() {
                 required
               />
               <label>
-                Connection Degree:
-                <select
-                  value={connectionForm.connection_degree}
-                  onChange={(e) =>
-                    setConnectionForm({ ...connectionForm, connection_degree: parseInt(e.target.value) })
-                  }
-                >
-                  <option value={1}>1st Degree</option>
-                  <option value={2}>2nd Degree</option>
-                  <option value={3}>3rd Degree</option>
-                </select>
-              </label>
-              <label>
                 Relationship Strength (1-5):
                 <input
                   type="range"
@@ -1460,19 +1541,6 @@ export default function IndustryContactDiscovery() {
                 }
                 required
               />
-              <label>
-                Connection Degree:
-                <select
-                  value={editConnectionForm.connection_degree}
-                  onChange={(e) =>
-                    setEditConnectionForm({ ...editConnectionForm, connection_degree: parseInt(e.target.value) })
-                  }
-                >
-                  <option value={1}>1st Degree</option>
-                  <option value={2}>2nd Degree</option>
-                  <option value={3}>3rd Degree</option>
-                </select>
-              </label>
               <label>
                 Relationship Strength (1-5):
                 <input

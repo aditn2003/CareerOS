@@ -71,6 +71,7 @@ import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 import careerGoalsRoutes from "./routes/careerGoals.js";
 import calendarRoutes from "./routes/calendar.js";
 
+import referencesRoutes from "./routes/references.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -752,6 +753,7 @@ app.use("/api/linkedin", linkedinRoutes);
 app.use("/api/mentors", mentorsRoutes);
 app.use("/api/informational-interviews", informationalInterviewsRoutes);
 app.use("/api/industry-contacts", industryContactsRoutes);
+app.use("/api/references", referencesRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);

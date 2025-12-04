@@ -637,26 +637,31 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 999999;
+  animation: fadeIn 0.2s ease-out;
+  pointer-events: auto;
+}
+
+.modal-overlay {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content {
   background: white;
   border-radius: 0.75rem;
   padding: 2rem;
-  max-width: 500px;
+  max-width: 600px;
   width: 90%;
   max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: visible;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   animation: slideUp 0.3s ease-out;
   position: relative;
+  pointer-events: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 @keyframes slideUp {
@@ -726,6 +731,7 @@
 
 .form-row {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
@@ -1041,4 +1047,14 @@
   .tab-header h3 {
     font-size: 1.25rem;
   }
+}
+
+/* Hide navbar when modal is open */
+body:has(.modal-overlay) {
+  overflow: hidden;
+}
+
+body:has(.modal-overlay) .navbar {
+  pointer-events: none;
+  opacity: 0.5;
 }
