@@ -122,12 +122,12 @@ router.get("/full", async (req, res) => {
     const conversionQuery = `
       SELECT 
         DATE_TRUNC('month', status_updated_at) AS month,
-        COUNT(*) FILTER (WHERE status = 'Interview' OR status = 'Offer') AS total_interviews,
+        COUNT(*) FILTER (WHERE status = 'Interview') AS total_interviews,
         COUNT(*) FILTER (WHERE status = 'Offer') AS offers
       FROM jobs
       WHERE user_id = $1 
         AND (status = 'Interview' OR status = 'Offer')
-        AND ("isarchived" IS NULL OR "isarchived" = false)
+        AND ("isArchived" = false OR "isArchived" IS NULL)
         AND status_updated_at IS NOT NULL
       GROUP BY month
       ORDER BY month DESC
@@ -135,24 +135,33 @@ router.get("/full", async (req, res) => {
     `;
     const conversionResult = await pool.query(conversionQuery, [userId]);
     
-    const conversionOverTime = conversionResult.rows.map(row => ({
-      month: row.month,
-      monthLabel: row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Unknown',
-      totalInterviews: ensureNumber(row.total_interviews),
-      offers: ensureNumber(row.offers),
-      conversionRate: ensureNumber(row.total_interviews) > 0 
-        ? ensureNumber(row.offers) / ensureNumber(row.total_interviews) 
-        : 0
-    }));
+    const conversionOverTime = conversionResult.rows.map(row => {
+      const interviews = ensureNumber(row.total_interviews);
+      const offers = ensureNumber(row.offers);
+      // Conversion rate = offers / interviews, capped at 100% (1.0)
+      // If offers > interviews, it means some jobs went straight to offer without interview status
+      let conversionRate = interviews > 0 ? offers / interviews : 0;
+      // Cap at 100% - if it's higher, it means data inconsistency (offers without interviews)
+      conversionRate = Math.min(conversionRate, 1.0);
+      
+      return {
+        month: row.month,
+        monthLabel: row.month ? new Date(row.month).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'Unknown',
+        totalInterviews: interviews,
+        offers: offers,
+        conversionRate: conversionRate
+      };
+    });
 
     // Overall conversion stats
+    // Only count jobs with status='Interview' as real interviews (not offers)
     const overallConversionQuery = `
       SELECT 
-        COUNT(*) FILTER (WHERE status = 'Interview' OR status = 'Offer') AS total_interviews,
+        COUNT(*) FILTER (WHERE status = 'Interview') AS total_interviews,
         COUNT(*) FILTER (WHERE status = 'Offer') AS total_offers
       FROM jobs
       WHERE user_id = $1 
-        AND ("isarchived" IS NULL OR "isarchived" = false);
+        AND ("isArchived" = false OR "isArchived" IS NULL);
     `;
     const overallConversion = (await pool.query(overallConversionQuery, [userId])).rows[0];
 
@@ -303,7 +312,16 @@ router.get("/full", async (req, res) => {
     // --------------------------------------------------------
     const realInterviews = ensureNumber(overallConversion.total_interviews);
     const realOffers = ensureNumber(overallConversion.total_offers);
-    const realConversionRate = realInterviews > 0 ? realOffers / realInterviews : 0;
+    
+    // Calculate conversion rate: offers / interviews
+    // Cap at 100% (1.0) - if offers > interviews, it means some jobs went straight to offer
+    let realConversionRate = realInterviews > 0 ? realOffers / realInterviews : 0;
+    realConversionRate = Math.min(realConversionRate, 1.0); // Cap at 100%
+    
+    // Log warning if there's data inconsistency
+    if (realOffers > realInterviews && realInterviews > 0) {
+      console.warn(`⚠️ Data inconsistency: ${realOffers} offers but only ${realInterviews} interviews. Some jobs may have gone straight to offer status.`);
+    }
 
     const mockVsReal = {
       mock: {
@@ -385,7 +403,7 @@ router.get("/full", async (req, res) => {
         status
       FROM jobs
       WHERE user_id = $1 
-        AND ("isarchived" IS NULL OR "isarchived" = false);
+        AND ("isArchived" = false OR "isArchived" IS NULL);
     `;
     const industryResult = await pool.query(industryQuery, [userId]);
     

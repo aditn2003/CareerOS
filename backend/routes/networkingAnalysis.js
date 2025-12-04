@@ -73,8 +73,9 @@ router.get("/full", async (req, res) => {
         ORDER BY total_activities DESC;
       `;
       activityResult = await pool.query(activityQuery, [userId]);
+      console.log(`✓ Activities: ${activityResult.rows.length} activity groups found`);
     } catch (err) {
-      console.warn("networking_activities table not found:", err.message);
+      console.warn("⚠ networking_activities table not found or query failed:", err.message);
       activityResult = { rows: [] };
     }
 
@@ -184,8 +185,9 @@ router.get("/full", async (req, res) => {
         ORDER BY relationship_strength DESC, last_contact_date DESC NULLS LAST;
       `;
       contactsResult = await pool.query(contactsQuery, [userId]);
+      console.log(`✓ Contacts: ${contactsResult.rows.length} contacts found`);
     } catch (err) {
-      console.warn("networking_contacts table not found:", err.message);
+      console.warn("⚠ networking_contacts table not found or query failed:", err.message);
       contactsResult = { rows: [] };
     }
 
@@ -276,8 +278,9 @@ router.get("/full", async (req, res) => {
         ORDER BY r.created_at DESC;
       `;
       referralsResult = await pool.query(referralsQuery, [userId]);
+      console.log(`✓ Referrals: ${referralsResult.rows.length} referrals found`);
     } catch (err) {
-      console.warn("networking_referrals table not found:", err.message);
+      console.warn("⚠ networking_referrals table not found or query failed:", err.message);
       referralsResult = { rows: [] };
     }
 
@@ -374,26 +377,82 @@ router.get("/full", async (req, res) => {
     // Check if networking_events table exists and has the expected columns
     let eventsResult = { rows: [] };
     try {
-      const eventsQuery = `
+      // First check which columns exist in the table
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'networking_events' 
+        AND column_name IN ('event_start_time', 'event_end_time', 'actual_connections_made', 'expected_connections', 'networking_roi_score', 'contacts_met', 'roi_score', 'duration_hours')
+        AND table_schema = 'public'
+      `);
+      
+      const availableColumns = new Set(columnCheck.rows.map(r => r.column_name));
+      
+      // Build query based on available columns
+      let eventsQuery = `
         SELECT 
           id,
           event_name,
           event_type,
           event_date,
-          event_start_time,
-          event_end_time,
-          COALESCE(cost, 0) AS cost,
-          COALESCE(actual_connections_made, 0) AS contacts_met,
-          COALESCE(expected_connections, 0) AS expected_connections,
-          networking_roi_score AS roi_score
+          COALESCE(cost, 0) AS cost
+      `;
+      
+      // Add time columns if they exist
+      if (availableColumns.has('event_start_time')) {
+        eventsQuery += `, event_start_time`;
+      } else {
+        eventsQuery += `, NULL AS event_start_time`;
+      }
+      
+      if (availableColumns.has('event_end_time')) {
+        eventsQuery += `, event_end_time`;
+      } else {
+        eventsQuery += `, NULL AS event_end_time`;
+      }
+      
+      // Add connections columns - prefer actual_connections_made, fallback to contacts_met
+      if (availableColumns.has('actual_connections_made')) {
+        eventsQuery += `, COALESCE(actual_connections_made, 0) AS contacts_met`;
+      } else if (availableColumns.has('contacts_met')) {
+        eventsQuery += `, COALESCE(contacts_met, 0) AS contacts_met`;
+      } else {
+        eventsQuery += `, 0 AS contacts_met`;
+      }
+      
+      if (availableColumns.has('expected_connections')) {
+        eventsQuery += `, COALESCE(expected_connections, 0) AS expected_connections`;
+      } else {
+        eventsQuery += `, 0 AS expected_connections`;
+      }
+      
+      // Add ROI score - prefer networking_roi_score, fallback to roi_score
+      if (availableColumns.has('networking_roi_score')) {
+        eventsQuery += `, networking_roi_score AS roi_score`;
+      } else if (availableColumns.has('roi_score')) {
+        eventsQuery += `, roi_score`;
+      } else {
+        eventsQuery += `, NULL AS roi_score`;
+      }
+      
+      // Add duration_hours if available
+      if (availableColumns.has('duration_hours')) {
+        eventsQuery += `, duration_hours`;
+      } else {
+        eventsQuery += `, NULL AS duration_hours`;
+      }
+      
+      eventsQuery += `
         FROM networking_events
         WHERE user_id = $1
         ORDER BY event_date DESC;
       `;
+      
       eventsResult = await pool.query(eventsQuery, [userId]);
+      console.log(`✓ Events: ${eventsResult.rows.length} events found`);
     } catch (tableError) {
       // Table might not exist yet - return empty results
-      console.warn("networking_events table not found or missing columns:", tableError.message);
+      console.warn("⚠ networking_events table not found or query failed:", tableError.message);
       eventsResult = { rows: [] };
     }
 
@@ -417,15 +476,22 @@ router.get("/full", async (req, res) => {
 
     eventsResult.rows.forEach(event => {
       const cost = ensureNumber(event.cost);
-      const opportunities = ensureNumber(event.contacts_met); // Use actual_connections_made
-      // Calculate duration from start/end time
+      const opportunities = ensureNumber(event.contacts_met); // Use actual_connections_made or contacts_met
+      // Calculate duration from start/end time, or use duration_hours if available
       let duration = 2; // default 2 hours
-      if (event.event_start_time && event.event_end_time) {
-        const start = event.event_start_time.split(':').map(Number);
-        const end = event.event_end_time.split(':').map(Number);
-        const startMinutes = start[0] * 60 + (start[1] || 0);
-        const endMinutes = end[0] * 60 + (end[1] || 0);
-        duration = Math.max(0, (endMinutes - startMinutes) / 60);
+      if (event.duration_hours) {
+        duration = ensureNumber(event.duration_hours);
+      } else if (event.event_start_time && event.event_end_time) {
+        try {
+          const start = event.event_start_time.split(':').map(Number);
+          const end = event.event_end_time.split(':').map(Number);
+          const startMinutes = start[0] * 60 + (start[1] || 0);
+          const endMinutes = end[0] * 60 + (end[1] || 0);
+          duration = Math.max(0, (endMinutes - startMinutes) / 60);
+        } catch (timeErr) {
+          // If time parsing fails, use default
+          duration = 2;
+        }
       }
       const type = event.event_type || 'other';
 
@@ -655,6 +721,23 @@ router.get("/full", async (req, res) => {
     // --------------------------------------------------------
     // FINAL RESPONSE
     // --------------------------------------------------------
+    const dataQuality = {
+      hasContacts: relationshipMetrics.totalContacts > 0,
+      hasActivities: activityMetrics.totalActivities > 0,
+      hasReferrals: referralAnalytics.totalReferrals > 0,
+      hasEvents: roiMetrics.totalEvents > 0,
+      sufficientData: relationshipMetrics.totalContacts >= 10 || activityMetrics.totalActivities >= 20
+    };
+    
+    console.log("========================================");
+    console.log("Networking Analysis Summary:");
+    console.log(`  Contacts: ${relationshipMetrics.totalContacts}`);
+    console.log(`  Activities: ${activityMetrics.totalActivities}`);
+    console.log(`  Referrals: ${referralAnalytics.totalReferrals}`);
+    console.log(`  Events: ${roiMetrics.totalEvents}`);
+    console.log(`  Data Quality: ${dataQuality.sufficientData ? 'Sufficient' : 'Limited'}`);
+    console.log("========================================");
+    
     res.json({
       activityMetrics,
       monthlyActivity,
@@ -672,18 +755,19 @@ router.get("/full", async (req, res) => {
         totalEventInvestment: roiMetrics.totalInvestment,
         totalEventOpportunities: roiMetrics.totalOpportunities
       },
-      dataQuality: {
-        hasContacts: relationshipMetrics.totalContacts > 0,
-        hasActivities: activityMetrics.totalActivities > 0,
-        hasReferrals: referralAnalytics.totalReferrals > 0,
-        hasEvents: roiMetrics.totalEvents > 0,
-        sufficientData: relationshipMetrics.totalContacts >= 10 || activityMetrics.totalActivities >= 20
-      }
+      dataQuality
     });
 
   } catch (err) {
+    console.error("========================================");
     console.error("Networking analysis error:", err);
-    res.status(500).json({ error: "Failed to compute networking analysis", details: err.message });
+    console.error("Stack trace:", err.stack);
+    console.error("========================================");
+    res.status(500).json({ 
+      error: "Failed to compute networking analysis", 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 

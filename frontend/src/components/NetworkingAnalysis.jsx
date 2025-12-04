@@ -17,11 +17,97 @@ export default function NetworkingAnalysis() {
     async function loadData() {
       try {
         setLoading(true);
+        setError(null);
         const res = await getNetworkingAnalysis();
-        setData(res.data);
+        console.log("Networking analysis data received:", res.data);
+        
+        // Validate data structure
+        if (!res.data) {
+          throw new Error("No data received from server");
+        }
+        
+        // Ensure all required fields exist with defaults
+        const validatedData = {
+          summaryCards: res.data.summaryCards || {
+            totalContacts: 0,
+            totalActivities: 0,
+            totalReferrals: 0,
+            avgResponseRate: 0,
+            avgRelationshipStrength: 0,
+            totalEventInvestment: 0,
+            totalEventOpportunities: 0
+          },
+          activityMetrics: res.data.activityMetrics || {
+            totalActivities: 0,
+            byType: {},
+            byChannel: {},
+            inboundVsOutbound: { inbound: 0, outbound: 0 },
+            totalTimeSpent: 0,
+            responseRate: 0
+          },
+          monthlyActivity: res.data.monthlyActivity || [],
+          relationshipMetrics: res.data.relationshipMetrics || {
+            totalContacts: 0,
+            avgRelationshipStrength: 0,
+            avgEngagementScore: 0,
+            avgReciprocityScore: 0,
+            byStrengthTier: { strong: 0, medium: 0, weak: 0 },
+            warmingUp: [],
+            coolingDown: [],
+            highValueContacts: []
+          },
+          referralAnalytics: res.data.referralAnalytics || {
+            totalReferrals: 0,
+            byType: {},
+            byContact: {},
+            conversionRates: {
+              referralToInterview: 0,
+              referralToOffer: 0,
+              overallConversion: 0
+            },
+            warmVsCold: {
+              warm: { count: 0, converted: 0 },
+              cold: { count: 0, converted: 0 }
+            },
+            avgQualityScore: 0,
+            topReferrers: []
+          },
+          roiMetrics: res.data.roiMetrics || {
+            totalEvents: 0,
+            totalInvestment: 0,
+            totalOpportunities: 0,
+            avgROI: 0,
+            byEventType: {},
+            topROIEvents: [],
+            outreachROI: {
+              timeInvested: 0,
+              opportunities: 0,
+              roi: 0
+            }
+          },
+          insights: res.data.insights || [],
+          benchmarkComparison: res.data.benchmarkComparison || {
+            responseRate: { user: 0, industry: 0.15, status: 'below' },
+            referralConversion: { user: 0, industry: 0.30, status: 'below' },
+            relationshipStrength: { user: 0, industry: 5.0, status: 'below' },
+            monthlyContacts: { user: 0, industry: 20, status: 'below' },
+            eventROI: { user: 0, industry: 2.5, status: 'below' },
+            warmVsCold: { userWarm: 0, userCold: 0, industryWarm: 0.25, industryCold: 0.05 }
+          },
+          dataQuality: res.data.dataQuality || {
+            hasContacts: false,
+            hasActivities: false,
+            hasReferrals: false,
+            hasEvents: false,
+            sufficientData: false
+          }
+        };
+        
+        setData(validatedData);
       } catch (err) {
         console.error("Networking analysis error:", err);
-        setError("Failed to load networking analysis data");
+        console.error("Error details:", err.response?.data || err.message);
+        setError(err.response?.data?.details || err.message || "Failed to load networking analysis data");
       } finally {
         setLoading(false);
       }
