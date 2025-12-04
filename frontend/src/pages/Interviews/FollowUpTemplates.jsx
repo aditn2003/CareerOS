@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../../api";
 import { getUserId } from "../../utils/auth";
 import "./FollowUpTemplates.css";
 
 export default function FollowUpTemplates() {
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState([]);
   const [activeCompany, setActiveCompany] = useState("");
   const [roleMap, setRoleMap] = useState({});
@@ -18,9 +20,18 @@ export default function FollowUpTemplates() {
     templateType: "thank_you",
     interviewerName: "",
     interviewerTitle: "",
+    interviewerEmail: "",
     interviewDate: "",
     conversationHighlights: ["", "", ""]
   });
+
+  // Email and editing state
+  const [interviewerEmail, setInterviewerEmail] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedSubject, setEditedSubject] = useState("");
+  const [editedContent, setEditedContent] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const userId = getUserId();
 
@@ -49,7 +60,11 @@ export default function FollowUpTemplates() {
 
         setRoleMap(finalMap);
 
-        if (uniqueCompanies.length > 0) {
+        // Check for company from URL query params (from Interview Tracker)
+        const companyFromUrl = searchParams.get("company");
+        if (companyFromUrl && uniqueCompanies.includes(companyFromUrl)) {
+          setActiveCompany(companyFromUrl);
+        } else if (uniqueCompanies.length > 0) {
           setActiveCompany(uniqueCompanies[0]);
         }
       } catch (err) {
@@ -57,7 +72,7 @@ export default function FollowUpTemplates() {
       }
     }
     loadJobs();
-  }, []);
+  }, [searchParams]);
 
   /* ============================================================
      Load templates when company changes
@@ -118,11 +133,20 @@ export default function FollowUpTemplates() {
         templateType: generatorForm.templateType,
         interviewerName: generatorForm.interviewerName || null,
         interviewerTitle: generatorForm.interviewerTitle || null,
+        interviewerEmail: generatorForm.interviewerEmail || null,
         interviewDate: generatorForm.interviewDate || null,
         conversationHighlights: highlights.length > 0 ? highlights : null
       });
 
-      setSelectedTemplate(res.data.data);
+      const newTemplate = res.data.data;
+      setSelectedTemplate(newTemplate);
+      
+      // Initialize edited content with the generated template
+      setEditedSubject(newTemplate.subject_line || "");
+      setEditedContent(newTemplate.template_content || "");
+      setInterviewerEmail(newTemplate.interviewer_email || generatorForm.interviewerEmail || "");
+      setIsEditing(false);
+      
       setShowGenerator(false);
       await fetchTemplates();
       await fetchStats();
@@ -132,6 +156,7 @@ export default function FollowUpTemplates() {
         templateType: "thank_you",
         interviewerName: "",
         interviewerTitle: "",
+        interviewerEmail: "",
         interviewDate: "",
         conversationHighlights: ["", "", ""]
       });
@@ -188,6 +213,188 @@ export default function FollowUpTemplates() {
       console.error("Error tracking response:", err);
       alert("Failed to track response. Please try again.");
     }
+  }
+
+  /* ============================================================
+     Delete template
+  ============================================================ */
+  async function deleteTemplate(templateId) {
+    if (!window.confirm("Are you sure you want to delete this template? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/interview-insights/follow-up/${templateId}`, {
+        params: { userId }
+      });
+      
+      // Close the template view if we're viewing the deleted template
+      if (selectedTemplate && selectedTemplate.id === templateId) {
+        setSelectedTemplate(null);
+      }
+      
+      await fetchTemplates();
+      await fetchStats();
+      
+      alert("✅ Template deleted successfully!");
+    } catch (err) {
+      console.error("Error deleting template:", err);
+      alert("Failed to delete template. Please try again.");
+    }
+  }
+
+  /* ============================================================
+     Send Email
+  ============================================================ */
+  async function sendEmail(templateId, fromCard = false) {
+    // Validate email
+    const emailToUse = fromCard ? interviewerEmail : (interviewerEmail || selectedTemplate?.interviewer_email);
+    
+    if (!emailToUse || !emailToUse.trim()) {
+      alert("⚠️ Please enter the interviewer's email address before sending.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailToUse)) {
+      alert("⚠️ Please enter a valid email address.");
+      return;
+    }
+
+    if (!window.confirm(`Send this follow-up email to ${emailToUse}?`)) {
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      
+      // Always use the current edited content (which may have been saved)
+      // The backend will use editedSubject/editedContent if provided, otherwise fall back to template
+      const response = await api.post(
+        `/api/interview-insights/follow-up/${templateId}/send-email`,
+        {
+          userId,
+          interviewerEmail: emailToUse,
+          editedSubject: editedSubject || selectedTemplate?.subject_line,
+          editedContent: editedContent || selectedTemplate?.template_content,
+          userEmail: localStorage.getItem("userEmail") || undefined,
+          userName: localStorage.getItem("userName") || undefined
+        }
+      );
+
+      if (response.data.success) {
+        alert("✅ Email sent successfully!");
+        
+        // Update local state immediately to lock the template
+        if (selectedTemplate && selectedTemplate.id === templateId) {
+          setSelectedTemplate(prev => ({ 
+            ...prev, 
+            is_sent: true, 
+            sent_at: new Date().toISOString(),
+            interviewer_email: emailToUse
+          }));
+        }
+        
+        // Force preview mode after sending
+        setIsEditing(false);
+        
+        // Refresh data from server
+        await fetchTemplates();
+        await fetchStats();
+      }
+    } catch (err) {
+      console.error("Error sending email:", err);
+      const errorData = err.response?.data;
+      
+      // Special handling for test mode restriction
+      if (errorData?.testMode) {
+        alert(`⚠️ Test Mode Restriction\n\n${errorData.message}\n\nFor testing, please enter your own email address (${errorData.userEmail || 'the one you registered with'}) in the email field.`);
+      } else {
+        const errorMsg = errorData?.message || "Failed to send email. Please try again.";
+        alert(`❌ ${errorMsg}`);
+      }
+    } finally {
+      setSendingEmail(false);
+    }
+  }
+
+  /* ============================================================
+     Update interviewer email
+  ============================================================ */
+  async function updateInterviewerEmail(templateId, email) {
+    try {
+      await api.put(
+        `/api/interview-insights/follow-up/${templateId}/update-email`,
+        {
+          userId,
+          interviewerEmail: email
+        }
+      );
+      
+      if (selectedTemplate && selectedTemplate.id === templateId) {
+        setSelectedTemplate(prev => ({ ...prev, interviewer_email: email }));
+      }
+      
+      await fetchTemplates();
+    } catch (err) {
+      console.error("Error updating email:", err);
+    }
+  }
+
+  /* ============================================================
+     Save template edits
+  ============================================================ */
+  async function saveTemplateEdits(templateId) {
+    if (!editedSubject.trim() || !editedContent.trim()) {
+      alert("⚠️ Subject and content cannot be empty.");
+      return;
+    }
+
+    try {
+      setSavingTemplate(true);
+      const response = await api.put(
+        `/api/interview-insights/follow-up/${templateId}/save`,
+        {
+          userId,
+          subject_line: editedSubject,
+          template_content: editedContent
+        }
+      );
+
+      if (response.data.success) {
+        // Update the selected template with saved content
+        if (selectedTemplate && selectedTemplate.id === templateId) {
+          setSelectedTemplate(prev => ({
+            ...prev,
+            subject_line: editedSubject,
+            template_content: editedContent
+          }));
+        }
+        
+        // Refresh templates list to get updated content
+        await fetchTemplates();
+        
+        alert("✅ Template saved successfully!");
+      }
+    } catch (err) {
+      console.error("Error saving template:", err);
+      alert("❌ Failed to save template. Please try again.");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  /* ============================================================
+     Handle template selection
+  ============================================================ */
+  function handleTemplateSelect(template) {
+    setSelectedTemplate(template);
+    setInterviewerEmail(template.interviewer_email || "");
+    // Load saved content from template (which includes any previous edits)
+    setEditedSubject(template.subject_line || "");
+    setEditedContent(template.template_content || "");
+    // Force preview mode if template is already sent
+    setIsEditing(false);
   }
 
   /* ============================================================
@@ -310,6 +517,17 @@ export default function FollowUpTemplates() {
               </div>
 
               <div className="form-group">
+                <label>Interviewer Email (Optional - can add later)</label>
+                <input
+                  type="email"
+                  placeholder="e.g., sarah.johnson@company.com"
+                  value={generatorForm.interviewerEmail}
+                  onChange={(e) => setGeneratorForm(prev => ({ ...prev, interviewerEmail: e.target.value }))}
+                />
+                <p className="form-helper">You can send the email directly from the template view.</p>
+              </div>
+
+              <div className="form-group">
                 <label>Interview Date (Optional)</label>
                 <input
                   type="date"
@@ -370,6 +588,57 @@ export default function FollowUpTemplates() {
                 </button>
               </div>
 
+              {/* Email Input Section */}
+              <div className="email-section">
+                <label>
+                  📧 Interviewer Email Address
+                </label>
+                
+                <input
+                  type="email"
+                  placeholder="interviewer@company.com"
+                  value={interviewerEmail}
+                  onChange={(e) => setInterviewerEmail(e.target.value)}
+                  onBlur={(e) => {
+                    if (e.target.value && e.target.value !== selectedTemplate.interviewer_email) {
+                      updateInterviewerEmail(selectedTemplate.id, e.target.value);
+                    }
+                  }}
+                  disabled={selectedTemplate.is_sent}
+                  style={{ width: "100%", marginBottom: "12px" }}
+                />
+                
+                {selectedTemplate.is_sent ? (
+                  <div style={{ 
+                    color: "#10b981", 
+                    fontSize: "16px", 
+                    fontWeight: "700",
+                    marginTop: "4px"
+                  }}>
+                    ✅ Sent
+                  </div>
+                ) : (
+                  <button 
+                    className="send-email-btn"
+                    onClick={() => sendEmail(selectedTemplate.id)}
+                    disabled={sendingEmail}
+                  >
+                    {sendingEmail ? "📤 Sending..." : "📧 Send Email"}
+                  </button>
+                )}
+                
+                {!interviewerEmail && !selectedTemplate.is_sent && (
+                  <p style={{ 
+                    color: "#dc3545", 
+                    fontSize: "13px", 
+                    marginTop: "8px",
+                    marginBottom: 0
+                  }}>
+                    ⚠️ Email address required to send
+                  </p>
+                )}
+              </div>
+
               <div className="template-timing">
                 <div className="timing-item">
                   <strong>📅 Suggested Send Date:</strong> {selectedTemplate.suggested_send_date}
@@ -382,26 +651,118 @@ export default function FollowUpTemplates() {
                 )}
               </div>
 
-              <div className="template-content">
-                <div className="subject-line">
-                  <strong>Subject:</strong> {selectedTemplate.subject_line}
-                  <button 
-                    className="copy-btn"
-                    onClick={() => copyToClipboard(selectedTemplate.subject_line)}
-                  >
-                    📋 Copy
-                  </button>
+              {/* Edit Mode Toggle and Save Button */}
+              {!selectedTemplate.is_sent && (
+                <div style={{ marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    {isEditing && (
+                      <button 
+                        onClick={() => saveTemplateEdits(selectedTemplate.id)}
+                        disabled={savingTemplate}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#28a745",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: savingTemplate ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          opacity: savingTemplate ? 0.6 : 1
+                        }}
+                      >
+                        {savingTemplate ? "💾 Saving..." : "💾 Save Template"}
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <button 
+                      onClick={() => setIsEditing(!isEditing)}
+                      style={{
+                        padding: "8px 16px",
+                        background: isEditing ? "#ffc107" : "#007bff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      {isEditing ? "📝 Preview Mode" : "✏️ Edit Mode"}
+                    </button>
+                  </div>
                 </div>
+              )}
+              
+              {selectedTemplate.is_sent && (
+                <div className="email-sent-banner">
+                  ✅ Email Sent - Template is now locked
+                </div>
+              )}
 
-                <div className="email-body">
-                  <pre>{selectedTemplate.template_content}</pre>
-                  <button 
-                    className="copy-btn-large"
-                    onClick={() => copyToClipboard(selectedTemplate.template_content)}
-                  >
-                    📋 Copy Email Body
-                  </button>
-                </div>
+              <div className="template-content">
+                {isEditing && !selectedTemplate.is_sent ? (
+                  <>
+                    <div className="subject-line" style={{ marginBottom: "20px" }}>
+                      <strong>Subject:</strong>
+                      <input
+                        type="text"
+                        value={editedSubject}
+                        onChange={(e) => setEditedSubject(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "10px",
+                          marginTop: "8px",
+                          border: "1px solid #ced4da",
+                          borderRadius: "5px",
+                          fontSize: "14px"
+                        }}
+                      />
+                    </div>
+
+                    <div className="email-body">
+                      <strong>Email Body:</strong>
+                      <textarea
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        rows={15}
+                        style={{
+                          width: "100%",
+                          padding: "12px",
+                          marginTop: "8px",
+                          border: "1px solid #ced4da",
+                          borderRadius: "5px",
+                          fontSize: "14px",
+                          fontFamily: "monospace",
+                          resize: "vertical"
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="subject-line">
+                      <strong>Subject:</strong> {editedSubject}
+                      <button 
+                        className="copy-btn"
+                        onClick={() => copyToClipboard(editedSubject)}
+                      >
+                        📋 Copy
+                      </button>
+                    </div>
+
+                    <div className="email-body">
+                      <pre>{editedContent}</pre>
+                      <button 
+                        className="copy-btn-large"
+                        onClick={() => copyToClipboard(editedContent)}
+                      >
+                        📋 Copy Email Body
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
 
               {selectedTemplate.personalizationTips && (
@@ -477,6 +838,25 @@ export default function FollowUpTemplates() {
                     📬 Response tracked: {selectedTemplate.response_type} on {new Date(selectedTemplate.response_date).toLocaleDateString()}
                   </div>
                 )}
+
+                {/* Delete Button in Template View */}
+                <button 
+                  className="delete-btn"
+                  onClick={() => deleteTemplate(selectedTemplate.id)}
+                  style={{ 
+                    backgroundColor: '#dc3545', 
+                    color: 'white',
+                    marginTop: '15px',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  🗑️ Delete Template
+                </button>
               </div>
             </div>
           )}
@@ -498,32 +878,67 @@ export default function FollowUpTemplates() {
                     <div 
                       key={template.id}
                       className="template-card"
-                      onClick={() => setSelectedTemplate(template)}
+                      style={{ position: 'relative' }}
                     >
-                      <div className="template-card-header">
-                        <span className="template-icon">
-                          {getTemplateTypeIcon(template.template_type)}
-                        </span>
-                        <span className="template-type">
-                          {getTemplateTypeLabel(template.template_type)}
-                        </span>
-                      </div>
-                      <div className="template-card-subject">
-                        {template.subject_line}
-                      </div>
-                      <div className="template-card-meta">
-                        <div>{template.role}</div>
-                        <div>{new Date(template.created_at).toLocaleDateString()}</div>
-                      </div>
-                      <div className="template-card-status">
-                        {template.is_sent ? (
-                          <span className="status-sent">✉️ Sent</span>
-                        ) : (
-                          <span className="status-draft">📝 Draft</span>
-                        )}
-                        {template.response_received && (
-                          <span className="status-response">📬 Response</span>
-                        )}
+                      {/* Delete Button on Card */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteTemplate(template.id);
+                        }}
+                        style={{ 
+                          position: 'absolute', 
+                          top: '10px', 
+                          right: '10px', 
+                          background: 'rgba(220, 53, 69, 0.1)', 
+                          border: '1px solid rgba(220, 53, 69, 0.3)', 
+                          borderRadius: '4px',
+                          cursor: 'pointer', 
+                          fontSize: '18px',
+                          zIndex: 10,
+                          padding: '4px 8px',
+                          opacity: 0.7,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.background = 'rgba(220, 53, 69, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.7';
+                          e.currentTarget.style.background = 'rgba(220, 53, 69, 0.1)';
+                        }}
+                        title="Delete template"
+                      >
+                        🗑️
+                      </button>
+
+                      <div onClick={() => handleTemplateSelect(template)}>
+                        <div className="template-card-header">
+                          <span className="template-icon">
+                            {getTemplateTypeIcon(template.template_type)}
+                          </span>
+                          <span className="template-type">
+                            {getTemplateTypeLabel(template.template_type)}
+                          </span>
+                        </div>
+                        <div className="template-card-subject">
+                          {template.subject_line}
+                        </div>
+                        <div className="template-card-meta">
+                          <div>{template.role}</div>
+                          <div>{new Date(template.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <div className="template-card-status">
+                          {template.is_sent ? (
+                            <span className="status-sent">✉️ Sent</span>
+                          ) : (
+                            <span className="status-draft">📝 Draft</span>
+                          )}
+                          {template.response_received && (
+                            <span className="status-response">📬 Response</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

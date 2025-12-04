@@ -18,20 +18,27 @@ import ResetPassword from "./pages/ResetPassword";
 import ProfileLayout from "./pages/Profile/ProfileLayout";
 import Jobs from "./pages/Jobs";
 import StatisticsPage from "./pages/StatisticsPage";
-import ArchivedJobs from "./pages/ArchivedJobs";
 import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
 import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
 import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
+import Interviews from "./pages/Interviews/Interviews";
+import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
+import NetworkLayout from "./pages/Network/NetworkLayout"; // ✅ ADDED (Consolidated Network/Referrals/Networking)
 import InterviewsLayout from "./pages/Interviews/InterviewsLayout"; // Layout wrapper
 import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-074
 import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
 import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
 import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
+import TechnicalPrep from "./pages/Interviews/TechnicalPrep"; // ✅ UC-078
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
 import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
-import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
+import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-083
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
+import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
+import InterviewTracker from './pages/Interviews/InterviewTracker';
+import DocsManagement from "./pages/DocsManagement";
+
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
 // ---------- Resume Flow ----------
@@ -59,11 +66,11 @@ export default function App() {
   return (
     <AuthProvider>
       <TeamProvider>
-        <ProfileProvider>
-          <Router>
-            <MainLayout />
-          </Router>
-        </ProfileProvider>
+      <ProfileProvider>
+        <Router>
+          <MainLayout />
+        </Router>
+      </ProfileProvider>
       </TeamProvider>
     </AuthProvider>
   );
@@ -166,16 +173,6 @@ function MainLayout() {
             }
           />
 
-          {/* --- Networking (Protected) --- */}
-          <Route
-            path="/networking"
-            element={
-              <ProtectedRoute>
-                <Networking />
-              </ProtectedRoute>
-            }
-          />
-
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"
@@ -186,15 +183,6 @@ function MainLayout() {
             }
           />
 
-          {/* --- Archived Jobs (Protected) --- */}
-          <Route
-            path="/archived"
-            element={
-              <ProtectedRoute>
-                <ArchivedJobs />
-              </ProtectedRoute>
-            }
-          />
 
           {/* --- Company Research (Redirect to Interviews) --- */}
           <Route
@@ -214,6 +202,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <JobMatch />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Docs Management (Protected) --- */}
+          <Route
+            path="/docs-management"
+            element={
+              <ProtectedRoute>
+                <DocsManagement />
               </ProtectedRoute>
             }
           />
@@ -255,9 +253,13 @@ function MainLayout() {
             <Route path="question-bank" element={<QuestionBank />} />
             <Route path="response-coaching" element={<ResponseCoaching />} />
             <Route path="mock-interview" element={<MockInterview />} />
+            <Route path="technical-prep" element={<TechnicalPrep />} /> {/* ✅ UC-078 */}
             <Route path="follow-up" element={<FollowUpTemplates />} />
             <Route path="company-research" element={<CompanyResearch />} /> {/* 🆕 MOVED HERE */}
             <Route path="salary-research" element={<SalaryResearch />} /> {/* 🆕 MOVED HERE */}
+            <Route path="salary-negotiation" element={<SalaryNegotiation />} /> {/* ✅ UC-083 */}
+            <Route path="tracker" element={<InterviewTracker />} />
+            <Route path="analytics" element={<InterviewAnalytics />} />
           </Route>
 
           {/* --- Cover Letter (UC-055, Protected) --- */}
@@ -269,6 +271,36 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
+          {/* --- Cover Letter (UC-055)  --- */}
+          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
+          {/* ✅ NEW */}
+          {/* --- Consolidated Network & Relationships (UC-10x, UC-087, UC-088) --- */}
+          <Route
+            path="/network"
+            element={
+              <ProtectedRoute>
+                <NetworkLayout />
+              </ProtectedRoute>
+            }
+          />
+          {/* --- Legacy Routes (Redirect to /network) --- */}
+          <Route
+            path="/referrals"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/network" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/networking"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/network" replace />
+              </ProtectedRoute>
+            }
+          />
+          {/* ✅ CONSOLIDATED */}
 
           {/* --- Mentor Routes (Protected) --- */}
           <Route

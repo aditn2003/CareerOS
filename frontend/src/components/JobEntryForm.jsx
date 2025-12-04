@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./JobEntryForm.css";
 import { api } from "../api";
+import FileUpload from "./FileUpload";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -16,15 +17,12 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     description: "",
     industry: "",
     type: "",
+    role_level: "",
     applied_on: today,
 
     // ⭐ MATERIAL LINKING
     resume_id: "",
     cover_letter_id: "",
-
-    // ⭐ CUSTOMIZATION LEVELS
-    resume_customization: "none",
-    cover_letter_customization: "none",
 
     // ⭐ REQUIRED SKILLS (string input → array)
     required_skills: "",
@@ -37,41 +35,43 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
   // ⭐ MATERIAL LISTS
   const [resumes, setResumes] = useState([]);
   const [coverLetters, setCoverLetters] = useState([]);
+  const [showResumeUpload, setShowResumeUpload] = useState(false);
+  const [showCoverLetterUpload, setShowCoverLetterUpload] = useState(false);
 
   // -------------------------------------------------------
   // Load resumes + cover letters
   // -------------------------------------------------------
-  useEffect(() => {
-    async function fetchMaterials() {
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
+  const fetchMaterials = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
 
-        const [resResumes, resCovers] = await Promise.all([
-          fetch("http://localhost:4000/api/resumes", { headers }),
-          fetch("http://localhost:4000/api/cover-letters", { headers }),
-        ]);
+      const [resResumes, resCovers] = await Promise.all([
+        fetch("http://localhost:4000/api/resumes", { headers }),
+        fetch("http://localhost:4000/api/cover-letters", { headers }),
+      ]);
 
-        if (resResumes.ok) {
-          const data = await resResumes.json();
-          setResumes(data.resumes || []);
-        }
-
-        if (resCovers.ok) {
-          const data = await resCovers.json();
-          console.log("📄 Cover letters data:", data);
-          console.log("📄 Cover letters array:", data.cover_letters);
-          console.log("📄 User letters:", data.user_letters);
-          console.log("📄 Templates:", data.templates);
-          // Use the combined list from backend (already includes templates with prefixed IDs)
-          setCoverLetters(data.cover_letters || []);
-        } else {
-          console.error("❌ Cover letters response not OK:", resCovers.status, resCovers.statusText);
-        }
-      } catch (err) {
-        console.error("❌ Failed to load materials:", err);
+      if (resResumes.ok) {
+        const data = await resResumes.json();
+        setResumes(data.resumes || []);
       }
-    }
 
+      if (resCovers.ok) {
+        const data = await resCovers.json();
+        console.log("📄 Cover letters data:", data);
+        console.log("📄 Cover letters array:", data.cover_letters);
+        console.log("📄 User letters:", data.user_letters);
+        console.log("📄 Templates:", data.templates);
+        // Use the combined list from backend (already includes templates with prefixed IDs)
+        setCoverLetters(data.cover_letters || []);
+      } else {
+        console.error("❌ Cover letters response not OK:", resCovers.status, resCovers.statusText);
+      }
+    } catch (err) {
+      console.error("❌ Failed to fetch materials:", err);
+    }
+  };
+
+  useEffect(() => {
     if (token) fetchMaterials();
   }, [token]);
 
@@ -297,6 +297,25 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="contract">Contract</option>
       </select>
 
+      <label>Role Level</label>
+      <select
+        value={form.role_level}
+        onChange={(e) => setForm({ ...form, role_level: e.target.value })}
+      >
+        <option value="">Select role level</option>
+        <option value="intern">Intern</option>
+        <option value="entry">Entry Level</option>
+        <option value="junior">Junior</option>
+        <option value="mid">Mid-Level</option>
+        <option value="senior">Senior</option>
+        <option value="staff">Staff</option>
+        <option value="principal">Principal</option>
+        <option value="lead">Lead</option>
+        <option value="manager">Manager</option>
+        <option value="director">Director</option>
+        <option value="vp">VP</option>
+      </select>
+
       {/* ⭐ REQUIRED SKILLS */}
       <label>Required Skills (comma-separated)</label>
       <input
@@ -306,53 +325,105 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       />
 
       {/* ⭐ Material Linking */}
-      <label>Resume Used</label>
-      <select
-        value={form.resume_id}
-        onChange={(e) => setForm({ ...form, resume_id: e.target.value })}
-      >
-        <option value="">Select a Resume</option>
-        {resumes.map((r) => (
-          <option key={r.id} value={r.id}>
-            {r.title}
-          </option>
-        ))}
-      </select>
+      <div style={{ marginTop: "20px", padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+        <h3 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 600 }}>Application Materials</h3>
+        
+        <label>Resume Used</label>
+        <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+          <select
+            value={form.resume_id}
+            onChange={(e) => setForm({ ...form, resume_id: e.target.value })}
+            style={{ flex: 1 }}
+          >
+            <option value="">Select a Resume</option>
+            {resumes.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowResumeUpload(!showResumeUpload)}
+            style={{
+              padding: "8px 16px",
+              background: showResumeUpload ? "#dc2626" : "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {showResumeUpload ? "✕" : "⬆️ Upload"}
+          </button>
+        </div>
+        
+        {showResumeUpload && (
+          <div style={{ marginBottom: "16px" }}>
+            <FileUpload
+              type="resume"
+              onUploadSuccess={(data) => {
+                setShowResumeUpload(false);
+                fetchMaterials(); // Reload materials
+                if (data.resume?.id) {
+                  setForm({ ...form, resume_id: data.resume.id });
+                }
+              }}
+            />
+          </div>
+        )}
 
-      <label>Resume Customization Level</label>
-      <select
-        value={form.resume_customization}
-        onChange={(e) => setForm({ ...form, resume_customization: e.target.value })}
-      >
-        <option value="none">None - Used generic resume</option>
-        <option value="light">Light - Minor adjustments</option>
-        <option value="heavy">Heavy - Significant customization</option>
-        <option value="tailored">Tailored - Fully customized for this job</option>
-      </select>
-
-      <label>Cover Letter Used</label>
-      <select
-        value={form.cover_letter_id}
-        onChange={(e) => setForm({ ...form, cover_letter_id: e.target.value })}
-      >
-        <option value="">Select a Cover Letter</option>
-        {coverLetters.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.title} {c.isTemplate ? '(Global Template)' : ''}
-          </option>
-        ))}
-      </select>
-
-      <label>Cover Letter Customization Level</label>
-      <select
-        value={form.cover_letter_customization}
-        onChange={(e) => setForm({ ...form, cover_letter_customization: e.target.value })}
-      >
-        <option value="none">None - Used generic cover letter</option>
-        <option value="light">Light - Minor adjustments</option>
-        <option value="heavy">Heavy - Significant customization</option>
-        <option value="tailored">Tailored - Fully customized for this job</option>
-      </select>
+        <label>Cover Letter Used</label>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <select
+            value={form.cover_letter_id}
+            onChange={(e) => setForm({ ...form, cover_letter_id: e.target.value })}
+            style={{ flex: 1 }}
+          >
+            <option value="">Select a Cover Letter</option>
+            {coverLetters.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title} {c.isTemplate ? '(Global Template)' : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowCoverLetterUpload(!showCoverLetterUpload)}
+            style={{
+              padding: "8px 16px",
+              background: showCoverLetterUpload ? "#dc2626" : "#2563eb",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {showCoverLetterUpload ? "✕" : "⬆️ Upload"}
+          </button>
+        </div>
+        
+        {showCoverLetterUpload && (
+          <div style={{ marginTop: "16px" }}>
+            <FileUpload
+              type="cover-letter"
+              onUploadSuccess={(data) => {
+                setShowCoverLetterUpload(false);
+                fetchMaterials(); // Reload materials
+                if (data.cover_letter?.id) {
+                  setForm({ ...form, cover_letter_id: data.cover_letter.id });
+                }
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* BUTTONS */}
       <div className="button-group">

@@ -176,6 +176,7 @@ export const duplicateTemplate = (id) =>
     export const deleteOffer = (id) => api.delete(`/api/offers/${id}`);
     export const recordNegotiation = (id, data) => api.post(`/api/offers/${id}/negotiate`, data);
     export const acceptOffer = (id) => api.post(`/api/offers/${id}/accept`);
+    export const recalculateCompetingOffers = () => api.post("/api/offers/recalculate-competing");
 
     // Compensation Analytics
     export const getCompensationAnalytics = () => api.get("/api/compensation-analytics/full");
@@ -183,5 +184,25 @@ export const duplicateTemplate = (id) =>
     export const getNegotiationSuccess = () => api.get("/api/compensation-analytics/negotiation-success");
     export const getMarketComparison = (offerId) => api.get(`/api/compensation-analytics/market-comparison/${offerId}`);
     export const getCompensationEvolution = () => api.get("/api/compensation-analytics/evolution");
+
+    // Market Benchmarks (Gemini-powered)
+    export const fetchMarketBenchmark = (data) => api.post("/api/market-benchmarks/fetch", data);
+    export const batchFetchMarketBenchmarks = (benchmarks) => api.post("/api/market-benchmarks/batch-fetch", { benchmarks });
+    export const autoFetchBenchmarkForOffer = (offerId) => api.post("/api/market-benchmarks/auto-fetch-for-offer", { offer_id: offerId });
+    export const testMarketBenchmarkAPI = () => api.get("/api/market-benchmarks/test");
+
+    // Compensation History (Manual Entry)
+    export const getCompensationHistory = () => api.get("/api/compensation-history");
+    export const createCompensationHistory = (data) => api.post("/api/compensation-history", data);
+    export const updateCompensationHistory = (id, data) => api.put(`/api/compensation-history/${id}`, data);
+    export const deleteCompensationHistory = (id) => api.delete(`/api/compensation-history/${id}`);
+
+    // Career Goals
+    export const getCareerGoals = () => api.get("/api/career-goals");
+    export const getCareerGoal = (id) => api.get(`/api/career-goals/${id}`);
+    export const createCareerGoal = (data) => api.post("/api/career-goals", data);
+    export const updateCareerGoal = (id, data) => api.put(`/api/career-goals/${id}`, data);
+    export const deleteCareerGoal = (id) => api.delete(`/api/career-goals/${id}`);
+    export const getGoalAnalytics = () => api.get("/api/career-goals/analytics/insights");
 
     

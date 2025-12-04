@@ -1,0 +1,42 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:John Smith
+N:Smith;John;;;
+EMAIL:john.smith@example.com
+TEL:555-0101
+TITLE:Senior Developer
+ORG:Tech Corp;
+URL;TYPE=work:https://www.linkedin.com/in/johnsmith
+NOTE:Met at tech conference 2024
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Sarah Johnson
+N:Johnson;Sarah;;;
+EMAIL:sarah.j@example.com
+TEL:555-0102
+TITLE:Product Manager
+ORG:Innovation Inc;
+URL;TYPE=work:https://www.linkedin.com/in/sarahjohnson
+NOTE:Former colleague
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Michael Brown
+N:Brown;Michael;;;
+EMAIL:michael.brown@example.com
+TEL:555-0103
+TITLE:Sales Manager
+ORG:Sales Pro LLC;
+NOTE:Potential client
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+FN:Emily Davis
+N:Davis;Emily;;;
+EMAIL:emily.davis@example.com
+TEL:555-0104
+TITLE:HR Director
+ORG:People First;
+URL;TYPE=work:https://www.linkedin.com/in/emilydavis
+END:VCARD

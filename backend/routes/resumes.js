@@ -16,13 +16,8 @@ import puppeteer from "puppeteer";
 dotenv.config();
 
 /* ------------------------------------------------------------------
-   ⚙️ Setup
+   ⚙️ Setup - Constants and helper functions (outside factory)
 ------------------------------------------------------------------ */
-const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const upload = multer({ dest: "uploads/" });
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -33,13 +28,16 @@ const UPLOAD_PREVIEW_DIR = path.resolve("uploads/resumes");
 if (!fs.existsSync(UPLOAD_PREVIEW_DIR))
   fs.mkdirSync(UPLOAD_PREVIEW_DIR, { recursive: true });
 
+// Load mammoth asynchronously (using IIFE to avoid top-level await issues)
 let mammoth;
-try {
-  const mod = await import("mammoth");
-  mammoth = mod.default || mod;
-} catch {
-  console.warn("⚠️ DOCX parsing disabled (mammoth not available)");
-}
+(async () => {
+  try {
+    const mod = await import("mammoth");
+    mammoth = mod.default || mod;
+  } catch {
+    console.warn("⚠️ DOCX parsing disabled (mammoth not available)");
+  }
+})();
 
 async function extractPdfText(buffer) {
   const uint8Array = new Uint8Array(buffer);
@@ -126,38 +124,52 @@ function normalizeSections(sections = {}) {
   return normalized;
 }
 
-// Map UI names to file basenames (just in case)
-function toTemplateFileBase(name = "") {
-  const n = (name || "").toLowerCase().trim();
-  // normalize spaces to dashes
-  const dashed = n.replace(/\s+/g, "-");
-  // explicit mapping if you ever change UI labels
-  const map = {
-    "ats optimized": "ats-optimized",
-    "two column": "two-column",
-    professional: "professional",
-    creative: "creative",
-  };
-  return map[n] || dashed;
-}
+/* ------------------------------------------------------------------
+   ⚙️ Factory function for dependency injection (for testing)
+------------------------------------------------------------------ */
+function createResumesRoutes(
+  genAIClient = null,
+  dbPool = null,
+  multerUpload = null
+) {
+  const router = express.Router();
+  // Use injected dependencies or create defaults
+  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const upload = multerUpload || multer({ dest: "uploads/" });
+  const genAI = genAIClient || new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-// Flatten `{sections}` into top-level fields expected by .hbs
-function flattenForTemplate(sections) {
-  return {
-    summary: sections.summary || {},
-    experience: sections.experience || [],
-    education: sections.education || [],
-    skills: sections.skills || [],
-    projects: sections.projects || [],
-    certifications: sections.certifications || [],
-  };
-}
+  // Map UI names to file basenames (just in case)
+  function toTemplateFileBase(name = "") {
+    const n = (name || "").toLowerCase().trim();
+    // normalize spaces to dashes
+    const dashed = n.replace(/\s+/g, "-");
+    // explicit mapping if you ever change UI labels
+    const map = {
+      "ats optimized": "ats-optimized",
+      "two column": "two-column",
+      professional: "professional",
+      creative: "creative",
+    };
+    return map[n] || dashed;
+  }
 
-router.get("/test", (_req, res) =>
-  res.json({ ok: true, message: "Resume routes reachable ✅" })
-);
+  // Flatten `{sections}` into top-level fields expected by .hbs
+  function flattenForTemplate(sections) {
+    return {
+      summary: sections.summary || {},
+      experience: sections.experience || [],
+      education: sections.education || [],
+      skills: sections.skills || [],
+      projects: sections.projects || [],
+      certifications: sections.certifications || [],
+    };
+  }
 
-router.get("/templates", auth, async (req, res) => {
+  router.get("/test", (_req, res) =>
+    res.json({ ok: true, message: "Resume routes reachable ✅" })
+  );
+
+  router.get("/templates", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT * FROM resume_templates WHERE user_id=$1 OR user_id IS NULL ORDER BY is_default DESC, name`,
@@ -168,9 +180,9 @@ router.get("/templates", auth, async (req, res) => {
     console.error("❌ Error loading templates:", err);
     res.status(500).json({ error: "Failed to load templates" });
   }
-});
+  });
 
-router.post("/", auth, async (req, res) => {
+  router.post("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
     let {
@@ -253,16 +265,16 @@ router.post("/", auth, async (req, res) => {
     console.error("❌ Save resume error:", err);
     res.status(500).json({ error: err.message || "Failed to save resume" });
   }
-});
+  });
 
-router.get("/preview/:filename", (req, res) => {
+  router.get("/preview/:filename", (req, res) => {
   const filePath = path.join(UPLOAD_PREVIEW_DIR, req.params.filename);
   if (!fs.existsSync(filePath))
     return res.status(404).send("Preview not found");
   res.sendFile(filePath);
-});
+  });
 
-router.get("/from-profile", auth, async (req, res) => {
+  router.get("/from-profile", auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const q = (t, p) => pool.query(t, p);
@@ -321,9 +333,9 @@ router.get("/from-profile", auth, async (req, res) => {
       .status(500)
       .json({ error: err.message || "Failed to build resume draft" });
   }
-});
+  });
 
-router.post("/import", auth, upload.single("file"), async (req, res) => {
+  router.post("/import", auth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded." });
 
@@ -499,12 +511,12 @@ ${textContent}
     console.error("❌ Fatal import error:", err);
     res.status(500).json({ error: err.message || "Failed to parse resume" });
   }
-});
+  });
 
-router.get("/", auth, async (req, res) => {
+  router.get("/", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, template_name, preview_url, created_at, format
+      `SELECT id, title, template_name, preview_url, file_url, created_at, format
        FROM resumes WHERE user_id=$1 ORDER BY created_at DESC`,
       [req.user.id]
     );
@@ -515,9 +527,9 @@ router.get("/", auth, async (req, res) => {
       .status(500)
       .json({ error: err.message || "Failed to load saved resumes" });
   }
-});
+  });
 
-router.delete("/:id", auth, async (req, res) => {
+  router.delete("/:id", auth, async (req, res) => {
   try {
     await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
       req.params.id,
@@ -528,12 +540,12 @@ router.delete("/:id", auth, async (req, res) => {
     console.error("❌ Delete resume error:", err);
     res.status(500).json({ error: err.message || "Failed to delete resume" });
   }
-});
+  });
 
-/* ------------------------------------------------------------------
-   🔹 EXPORT (PDF/DOCX/TXT/HTML)
------------------------------------------------------------------- */
-router.get("/:id/download", auth, async (req, res) => {
+  /* ------------------------------------------------------------------
+     🔹 EXPORT (PDF/DOCX/TXT/HTML)
+  ------------------------------------------------------------------ */
+  router.get("/:id/download", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
       "SELECT * FROM resumes WHERE id=$1 AND user_id=$2",
@@ -543,6 +555,127 @@ router.get("/:id/download", auth, async (req, res) => {
       return res.status(404).json({ error: "Resume not found" });
 
     const resume = rows[0];
+    
+    // ✅ If this is an uploaded resume (has file_url), serve the original file directly
+    if (resume.file_url) {
+      // file_url is stored as /uploads/resumes/filename, need to resolve to absolute path
+      const filename = path.basename(resume.file_url);
+      const filePath = path.join(UPLOAD_PREVIEW_DIR, filename);
+      
+      if (fs.existsSync(filePath)) {
+        const ext = path.extname(resume.file_url).toLowerCase();
+        
+        // ✅ Convert DOC/DOCX to PDF for inline viewing
+        if ((ext === ".doc" || ext === ".docx") && mammoth) {
+          try {
+            console.log(`🔄 [RESUME DOWNLOAD] Converting ${ext} to PDF for viewing`);
+            
+            // Read the DOCX file
+            const fileBuffer = fs.readFileSync(filePath);
+            
+            // Convert DOCX to HTML using mammoth
+            const result = await mammoth.convertToHtml({ buffer: fileBuffer });
+            const html = result.value;
+            
+            // Create a temporary HTML file
+            const tempDir = path.join(__dirname, "..", "temp");
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+            
+            const tempHtmlPath = path.join(tempDir, `resume-${resume.id}-${Date.now()}.html`);
+            const tempPdfPath = path.join(tempDir, `resume-${resume.id}-${Date.now()}.pdf`);
+            
+            // Create HTML with proper styling
+            const fullHtml = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <style>
+                    body {
+                      font-family: Arial, sans-serif;
+                      max-width: 8.5in;
+                      margin: 0 auto;
+                      padding: 1in;
+                      line-height: 1.6;
+                    }
+                    p { margin: 0.5em 0; }
+                  </style>
+                </head>
+                <body>
+                  ${html}
+                </body>
+              </html>
+            `;
+            
+            fs.writeFileSync(tempHtmlPath, fullHtml);
+            
+            // Convert HTML to PDF using Puppeteer
+            const browser = await puppeteer.launch({
+              headless: true,
+              args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            });
+            
+            const page = await browser.newPage();
+            await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+            
+            await page.pdf({
+              path: tempPdfPath,
+              format: "A4",
+              printBackground: true,
+              margin: { top: "1in", right: "1in", bottom: "1in", left: "1in" },
+            });
+            
+            await browser.close();
+            
+            // Clean up temp HTML file
+            if (fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
+            
+            // Serve the PDF
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `inline; filename="${resume.title}.pdf"`);
+            res.sendFile(tempPdfPath, (err) => {
+              // Clean up temp PDF file after sending
+              if (fs.existsSync(tempPdfPath)) {
+                setTimeout(() => fs.unlinkSync(tempPdfPath), 1000);
+              }
+              if (err) console.error("Error sending PDF:", err);
+            });
+            
+            console.log(`✅ [RESUME DOWNLOAD] Converted and served PDF: ${tempPdfPath}`);
+            return;
+          } catch (convErr) {
+            console.error("❌ [RESUME DOWNLOAD] Conversion error:", convErr);
+            // Fall through to serve original file
+          }
+        }
+        
+        // ✅ Serve PDF and TXT files directly
+        if (ext === ".pdf" || ext === ".txt") {
+          const contentTypes = {
+            ".pdf": "application/pdf",
+            ".txt": "text/plain",
+          };
+          res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+          res.setHeader("Content-Disposition", `inline; filename="${resume.title}${ext}"`);
+          return res.sendFile(filePath);
+        }
+        
+        // For DOC/DOCX without mammoth, serve as-is
+        console.log(`⚠️ [RESUME DOWNLOAD] Serving ${ext} file directly (conversion not available)`);
+        const contentTypes = {
+          ".doc": "application/msword",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        };
+        res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${resume.title}${ext}"`);
+        return res.sendFile(filePath);
+      } else {
+        console.warn(`⚠️ Uploaded file not found: ${filePath} (from file_url: ${resume.file_url})`);
+        // Fall through to render from sections if file is missing
+      }
+    }
+
+    // ✅ Otherwise, render from sections (for resumes built in the editor)
     const sections =
       typeof resume.sections === "string"
         ? normalizeSections(JSON.parse(resume.sections))
@@ -610,6 +743,24 @@ router.get("/:id/download", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Download resume error:", err);
     res.status(500).json({ error: err.message || "Failed to export resume" });
+  }
+  });
+
+// GET single resume by ID (must come after /:id/download to avoid route conflicts)
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT * FROM resumes WHERE id=$1 AND user_id=$2`,
+      [id, req.user.id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    res.json({ resume: rows[0] });
+  } catch (err) {
+    console.error("❌ Fetch resume error:", err);
+    res.status(500).json({ error: err.message || "Failed to load resume" });
   }
 });
 
@@ -712,9 +863,10 @@ ${JSON.stringify(sections, null, 2)}
     console.error("❌ AI optimization failed:", err);
     res.status(500).json({ error: "AI optimization failed" });
   }
-});
-// ✅ Normalize Gemini output into consistent resume schema
-function normalizeGeminiOutput(ai) {
+  });
+
+  // ✅ Normalize Gemini output into consistent resume schema
+  function normalizeGeminiOutput(ai) {
   if (!ai) return {};
   const norm = {};
 
@@ -748,13 +900,13 @@ function normalizeGeminiOutput(ai) {
   norm.education = ai.education || [];
   norm.projects = ai.projects || [];
 
-  return norm;
-}
+    return norm;
+  }
 
-/* ------------------------------------------------------------------
-   🤝 AI Merge / Reconciliation (Fixed for Experience)
------------------------------------------------------------------- */
-router.post("/reconcile", auth, async (req, res) => {
+  /* ------------------------------------------------------------------
+     🤝 AI Merge / Reconciliation (Fixed for Experience)
+  ------------------------------------------------------------------ */
+  router.post("/reconcile", auth, async (req, res) => {
   try {
     const { masterResume, aiSuggestions } = req.body;
     if (!masterResume || !aiSuggestions)
@@ -894,6 +1046,14 @@ ${JSON.stringify(aiSuggestions, null, 2)}
     console.error("❌ Reconcile error:", err);
     res.status(500).json({ error: "Reconciliation failed" });
   }
-});
+  });
 
+  return router;
+}
+
+// Export default router (production use - maintains backward compatibility)
+const router = createResumesRoutes();
 export default router;
+
+// Export factory function for testing
+export { createResumesRoutes };

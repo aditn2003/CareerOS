@@ -6,14 +6,12 @@ import {
   Box,
   Typography,
   CircularProgress,
-  Tabs,
-  Tab,
-  Paper,
   Chip,
   Alert,
   Button,
   IconButton,
 } from '@mui/material';
+import './StatisticsLayout.css';
 import {
   BarChart,
   Bar,
@@ -41,6 +39,7 @@ import CompetitiveAnalysis from '../components/CompetitiveAnalysis';
 import SuccessPatternAnalysis from '../components/SuccessPatternAnalysis';
 import CustomReportGenerator from '../components/CustomReportGenerator';
 import PerformancePrediction from '../components/PerformancePrediction';
+import CareerGoals from '../components/CareerGoals';
 
 // Custom styles
 const styles = {
@@ -83,6 +82,7 @@ const styles = {
   },
   scrollButtonRight: {
     right: 0,
+    width: '100%',
   },
   tab: {
     fontWeight: 600,
@@ -102,6 +102,8 @@ const styles = {
     border: '1px solid #e5e7eb',
     marginBottom: '24px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+    minWidth: 0,
+    minHeight: 0,
   },
   sectionTitle: {
     fontSize: '1rem',
@@ -146,7 +148,7 @@ const styles = {
   },
 };
 
-const COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+const COLORS = ['#3b82f6', '#10b981', '#06b6d4', '#f59e0b', '#ef4444', '#14b8a6', '#6366f1'];
 
 // Month names helper
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -161,7 +163,7 @@ const formatMonth = (dateString) => {
 function TabPanel({ children, value, index, ...other }) {
   return (
     <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={styles.contentArea}>{children}</Box>}
+      {value === index && <Box sx={{ p: 3, background: 'transparent' }}>{children}</Box>}
     </div>
   );
 }
@@ -357,22 +359,18 @@ const StatisticsPage = () => {
 
   if (loading) {
     return (
-      <Box sx={styles.pageWrapper}>
-        <Container maxWidth="lg">
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-            <CircularProgress sx={{ color: '#fff' }} size={48} />
+      <Box className="statistics-layout">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress sx={{ color: '#fff' }} size={48} />
         </Box>
-      </Container>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box sx={styles.pageWrapper}>
-        <Container maxWidth="lg">
-          <Alert severity="error" sx={{ borderRadius: '8px' }}>{error}</Alert>
-      </Container>
+      <Box className="statistics-layout">
+        <Alert severity="error" sx={{ borderRadius: '8px' }}>{error}</Alert>
       </Box>
     );
   }
@@ -380,44 +378,107 @@ const StatisticsPage = () => {
   const roleTypeData = getRoleTypeData();
 
   return (
-    <Box sx={styles.pageWrapper}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Box sx={styles.headerCard}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827', mb: 0.5 }}>
-                Analytics Dashboard
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#6b7280' }}>
-                Track your job application performance and success patterns
+    <Box className="statistics-layout">
+      {/* Header */}
+      <Box className="statistics-header">
+        <Typography className="statistics-main-title">Analytics Dashboard</Typography>
+        <Typography className="statistics-main-subtitle">
+          Track your job application performance and success patterns
         </Typography>
-            </Box>
         {stats && (
-              <Button
-                variant="contained"
-                size="small"
-                sx={{
-                  background: '#3b82f6',
-                  borderRadius: '8px',
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 2.5,
-                  py: 1,
-                  '&:hover': { background: '#2563eb' },
-                }}
-              >
-            <CSVLink 
-              data={getCsvData()} 
-                  filename="job-statistics.csv"
-              style={{ textDecoration: 'none', color: 'inherit' }}
+          <Box sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              size="small"
+              sx={{
+                background: 'rgba(139, 92, 246, 0.2)',
+                border: '1px solid rgba(139, 92, 246, 0.4)',
+                color: '#c4b5fd',
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 2.5,
+                py: 1,
+                '&:hover': { 
+                  background: 'rgba(139, 92, 246, 0.3)',
+                  borderColor: 'rgba(139, 92, 246, 0.6)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)',
+                },
+              }}
             >
-                  Export CSV
-            </CSVLink>
-          </Button>
+              <CSVLink 
+                data={getCsvData()} 
+                filename="job-statistics.csv"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                Export CSV
+              </CSVLink>
+            </Button>
+          </Box>
         )}
       </Box>
+
+      {/* Navigation Tabs */}
+      <Box className="statistics-nav-container">
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Analytics</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 0 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 0)}
+            >
+              <span className="statistics-tab-icon">📊</span>
+              <span className="statistics-tab-text">Job Stats</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 1 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 1)}
+            >
+              <span className="statistics-tab-icon">✅</span>
+              <span className="statistics-tab-text">Success</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 2 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 2)}
+            >
+              <span className="statistics-tab-icon">💼</span>
+              <span className="statistics-tab-text">Interview</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${tabValue === 3 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 3)}
+            >
+              <span className="statistics-tab-icon">🤝</span>
+              <span className="statistics-tab-text">Networking</span>
+            </button>
+          </Box>
         </Box>
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Compensation</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 4 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 4)}
+            >
+              <span className="statistics-tab-icon">💰</span>
+              <span className="statistics-tab-text">Compensation</span>
+            </button>
+          </Box>
+        </Box>
+        <Box className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Career</span>
+          <Box className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab career ${tabValue === 5 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 5)}
+            >
+              <span className="statistics-tab-icon">🎯</span>
+              <span className="statistics-tab-text">Goals</span>
+            </button>
+          </Box>
+        </Box>
+      </Box>
 
         {/* Tabs Container */}
         <Paper sx={styles.tabsContainer}>
@@ -487,6 +548,8 @@ const StatisticsPage = () => {
               </IconButton>
             )}
           </Box>
+      {/* Content Area */}
+      <Box className="statistics-content">
 
           {/* Tab 1: Job Statistics */}
           <TabPanel value={tabValue} index={0}>
@@ -501,7 +564,7 @@ const StatisticsPage = () => {
                   <KPICard title="Total Jobs" value={stats?.totalJobs || 0} color="#3b82f6" />
                   <KPICard title="Response Rate" value={`${stats?.responseRate || 0}%`} color="#10b981" />
                   <KPICard title="Avg. Time to Offer" value={`${stats?.avgTimeToOffer || 0} days`} color="#f59e0b" />
-                  <KPICard title="Deadline Adherence" value={`${stats?.adherenceRate || 0}%`} color="#8b5cf6" />
+                  <KPICard title="Deadline Adherence" value={`${stats?.adherenceRate || 0}%`} color="#06b6d4" />
                 </Box>
 
                 {/* Charts Grid */}
@@ -587,7 +650,7 @@ const StatisticsPage = () => {
                 {/* Charts Grid */}
                 <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3} mb={3}>
             {/* Industry Success */}
-                  <ChartCard title="Success by Industry" icon="I" iconColor="#8b5cf6">
+                  <ChartCard title="Success by Industry" icon="I" iconColor="#06b6d4">
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={analysis.industryData || []}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -667,7 +730,7 @@ const StatisticsPage = () => {
 
                 {/* Customization Impact */}
                 {analysis.customizationData && (analysis.customizationData.resume?.length > 1 || analysis.customizationData.coverLetter?.length > 1) && (
-                  <ChartCard title="Customization Impact" icon="C" iconColor="#8b5cf6">
+                  <ChartCard title="Customization Impact" icon="C" iconColor="#06b6d4">
                     <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3}>
                       {analysis.customizationData.resume?.length > 1 && (
                         <Box>
@@ -868,6 +931,11 @@ const StatisticsPage = () => {
           </TabPanel>
         </Paper>
     </Container>
+          {/* Tab 6: Career Goals */}
+          <TabPanel value={tabValue} index={5}>
+            <CareerGoals />
+          </TabPanel>
+      </Box>
     </Box>
   );
 };
