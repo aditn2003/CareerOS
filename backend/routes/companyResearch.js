@@ -231,7 +231,6 @@ Rules:
   try {
     // Retry logic for SSL/TLS errors
     let data;
-    let lastError;
     const maxRetries = 3;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -255,16 +254,24 @@ Rules:
         data = response.data;
         break; // Success, exit retry loop
       } catch (err) {
-        lastError = err;
-        const isSslError = err.message?.includes('SSL') || err.message?.includes('TLS') || err.message?.includes('bad record mac');
+        const isNetworkError = 
+          err.message?.includes('SSL') || 
+          err.message?.includes('TLS') || 
+          err.message?.includes('bad record mac') ||
+          err.message?.includes('socket hang up') ||
+          err.message?.includes('ECONNRESET') ||
+          err.code === 'ECONNRESET' ||
+          err.code === 'ETIMEDOUT' ||
+          err.code === 'ENOTFOUND' ||
+          err.code === 'ECONNREFUSED';
         
-        if (isSslError && attempt < maxRetries) {
+        if (isNetworkError && attempt < maxRetries) {
           const delay = attempt * 1000; // 1s, 2s, 3s
           console.warn(`⚠️ OpenAI SSL/TLS error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        throw err; // Re-throw if not SSL error or last attempt
+        throw err; // Re-throw if not network error or last attempt
       }
     }
 
@@ -299,17 +306,20 @@ From public knowledge, fill them in realistically and return JSON only:
             },
             { 
               headers: { Authorization: `Bearer ${key}` },
-              timeout: 30000,
-              httpsAgent: new (require('https').Agent)({ 
-                keepAlive: true,
-                rejectUnauthorized: true 
-              })
+              timeout: 30000
             }
           );
           break; // Success
         } catch (err) {
-          const isSslError = err.message?.includes('SSL') || err.message?.includes('TLS') || err.message?.includes('bad record mac');
-          if (isSslError && attempt < 3) {
+          const isNetworkError = 
+            err.message?.includes('SSL') || 
+            err.message?.includes('TLS') || 
+            err.message?.includes('bad record mac') ||
+            err.message?.includes('socket hang up') ||
+            err.message?.includes('ECONNRESET') ||
+            err.code === 'ECONNRESET' ||
+            err.code === 'ETIMEDOUT';
+          if (isNetworkError && attempt < 3) {
             await new Promise(resolve => setTimeout(resolve, attempt * 1000));
             continue;
           }
@@ -355,11 +365,16 @@ From public knowledge, fill them in realistically and return JSON only:
     };
   } catch (err) {
     const errorMsg = err.message || 'Unknown error';
-    const isSslError = errorMsg.includes('SSL') || errorMsg.includes('TLS') || errorMsg.includes('bad record mac');
+    const isNetworkError = 
+      errorMsg.includes('SSL') || 
+      errorMsg.includes('TLS') || 
+      errorMsg.includes('bad record mac') ||
+      errorMsg.includes('socket hang up') ||
+      errorMsg.includes('ECONNRESET');
     
-    if (isSslError) {
+    if (isNetworkError) {
       console.error("❌ OpenAI enrichment error (SSL/TLS):", errorMsg);
-      console.error("   Network connectivity issue detected. Using fallback data.");
+      console.error("   Network connectivity issue detected. The request was retried but failed. Using fallback data.");
     } else {
       console.error("❌ OpenAI enrichment error:", errorMsg);
     }

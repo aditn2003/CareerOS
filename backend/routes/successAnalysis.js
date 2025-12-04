@@ -526,45 +526,180 @@ router.get("/full", auth, async (req, res) => {
        5. MATERIALS IMPACT (resume + cover letter correlation)
        Note: Joins with resumes and cover_letters tables to get names
     ------------------------------------------------------------------ */
-    // First, let's check how many jobs have resume_id set
-    const resumeCheckQuery = `
-      SELECT COUNT(*) as with_resume, 
-             (SELECT COUNT(*) FROM jobs WHERE user_id = $1 AND (\"isarchived\" IS NULL OR \"isarchived\" = false)) as total_jobs
-      FROM jobs 
-      WHERE user_id = $1 
-        AND resume_id IS NOT NULL 
-        AND (\"isarchived\" IS NULL OR \"isarchived\" = false);
-    `;
-    const resumeCheck = (await pool.query(resumeCheckQuery, [userId])).rows[0];
-    console.log("Resume check:", resumeCheck);
+    // Check if application_materials_history table exists, otherwise use fallback
+    let resumeCheck, materialsDataRaw;
+    
+    try {
+      // First, let's check how many jobs have resume_id set (using application_materials_history)
+      const resumeCheckQuery = `
+        SELECT 
+          COUNT(DISTINCT amh.job_id) as with_resume, 
+          (SELECT COUNT(*) FROM jobs WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false)) as total_jobs
+        FROM application_materials_history amh
+        INNER JOIN jobs j ON amh.job_id = j.id
+        WHERE j.user_id = $1 
+          AND amh.resume_id IS NOT NULL 
+          AND (j."isarchived" IS NULL OR j."isarchived" = false);
+      `;
+      resumeCheck = (await pool.query(resumeCheckQuery, [userId])).rows[0];
+      console.log("Resume check:", resumeCheck);
 
-    const materialsQuery = `
-      SELECT 
-        j.resume_id,
-        r.title AS resume_name,
-        j.cover_letter_id,
-        cl.name AS cover_letter_name,
-        COUNT(*)::INTEGER AS total,
-        SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
-        SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
-        SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
-      FROM jobs j
-      LEFT JOIN resumes r ON j.resume_id = r.id
-      LEFT JOIN cover_letters cl ON j.cover_letter_id = cl.id
-      WHERE j.user_id = $1 
-        AND j.resume_id IS NOT NULL
-        AND (j."isarchived" IS NULL OR j."isarchived" = false)
-      GROUP BY 
-        j.resume_id,
-        r.title,
-        j.cover_letter_id,
-        cl.name
-      HAVING COUNT(*) > 0
-      ORDER BY 
-        SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
-        SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
-    `;
-    const materialsDataRaw = (await pool.query(materialsQuery, [userId])).rows;
+      // Use application_materials_history to get resume and cover letter associations
+      // Get the most recent entry per job to avoid duplicates
+      const materialsQuery = `
+        WITH latest_materials AS (
+          SELECT DISTINCT ON (job_id)
+            job_id,
+            resume_id,
+            cover_letter_id
+          FROM application_materials_history
+          WHERE job_id IN (
+            SELECT id FROM jobs WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false)
+          )
+          ORDER BY job_id, changed_at DESC
+        )
+        SELECT 
+          lm.resume_id,
+          r.title AS resume_name,
+          lm.cover_letter_id,
+          cl.name AS cover_letter_name,
+          COUNT(DISTINCT j.id)::INTEGER AS total,
+          SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
+          SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
+          SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
+        FROM jobs j
+        INNER JOIN latest_materials lm ON j.id = lm.job_id
+        LEFT JOIN resumes r ON lm.resume_id = r.id
+        LEFT JOIN cover_letters cl ON lm.cover_letter_id = cl.id
+        WHERE j.user_id = $1 
+          AND lm.resume_id IS NOT NULL
+          AND (j."isarchived" IS NULL OR j."isarchived" = false)
+        GROUP BY 
+          lm.resume_id,
+          r.title,
+          lm.cover_letter_id,
+          cl.name
+        HAVING COUNT(DISTINCT j.id) > 0
+        ORDER BY 
+          SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
+          SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
+      `;
+      materialsDataRaw = (await pool.query(materialsQuery, [userId])).rows;
+      
+      // If no data from history table, try job_materials table as fallback
+      if (!materialsDataRaw || materialsDataRaw.length === 0) {
+        console.log("📊 No data in application_materials_history, checking job_materials table...");
+        try {
+          const jobMaterialsQuery = `
+            SELECT 
+              jm.resume_id,
+              r.title AS resume_name,
+              jm.cover_letter_id,
+              ucl.title AS cover_letter_name,
+              COUNT(DISTINCT j.id)::INTEGER AS total,
+              SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
+              SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
+              SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
+            FROM job_materials jm
+            INNER JOIN jobs j ON jm.job_id = j.id
+            LEFT JOIN resumes r ON jm.resume_id = r.id
+            LEFT JOIN uploaded_cover_letters ucl ON jm.cover_letter_id = ucl.id
+            WHERE jm.user_id = $1 
+              AND jm.resume_id IS NOT NULL
+              AND (j."isarchived" IS NULL OR j."isarchived" = false)
+            GROUP BY 
+              jm.resume_id,
+              r.title,
+              jm.cover_letter_id,
+              ucl.title
+            HAVING COUNT(DISTINCT j.id) > 0
+            ORDER BY 
+              SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
+              SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
+          `;
+          materialsDataRaw = (await pool.query(jobMaterialsQuery, [userId])).rows;
+          
+          // Update resume check with job_materials data
+          if (materialsDataRaw && materialsDataRaw.length > 0) {
+            const totalJobsQuery = `
+              SELECT COUNT(*) as total_jobs
+              FROM jobs 
+              WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+            `;
+            const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
+            resumeCheck = {
+              with_resume: materialsDataRaw.length,
+              total_jobs: parseInt(totalJobsResult.total_jobs) || 0
+            };
+            console.log("✅ Found resume data in job_materials table");
+          }
+        } catch (jobMaterialsErr) {
+          console.warn("⚠️ job_materials table also not available:", jobMaterialsErr.message);
+        }
+      }
+    } catch (err) {
+      // Table doesn't exist, use fallback
+      console.warn("⚠️ application_materials_history table not found, trying job_materials fallback:", err.message);
+      
+      try {
+        // Try job_materials table as fallback
+        const jobMaterialsQuery = `
+          SELECT 
+            jm.resume_id,
+            r.title AS resume_name,
+            jm.cover_letter_id,
+            ucl.title AS cover_letter_name,
+            COUNT(DISTINCT j.id)::INTEGER AS total,
+            SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
+            SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
+            SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
+          FROM job_materials jm
+          INNER JOIN jobs j ON jm.job_id = j.id
+          LEFT JOIN resumes r ON jm.resume_id = r.id
+          LEFT JOIN uploaded_cover_letters ucl ON jm.cover_letter_id = ucl.id
+          WHERE jm.user_id = $1 
+            AND jm.resume_id IS NOT NULL
+            AND (j."isarchived" IS NULL OR j."isarchived" = false)
+          GROUP BY 
+            jm.resume_id,
+            r.title,
+            jm.cover_letter_id,
+            ucl.title
+          HAVING COUNT(DISTINCT j.id) > 0
+          ORDER BY 
+            SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
+            SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
+        `;
+        materialsDataRaw = (await pool.query(jobMaterialsQuery, [userId])).rows;
+        
+        // Update resume check
+        const totalJobsQuery = `
+          SELECT COUNT(*) as total_jobs
+          FROM jobs 
+          WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+        `;
+        const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
+        resumeCheck = {
+          with_resume: materialsDataRaw && materialsDataRaw.length > 0 ? materialsDataRaw.length : 0,
+          total_jobs: parseInt(totalJobsResult.total_jobs) || 0
+        };
+        console.log("✅ Using job_materials table as fallback");
+      } catch (fallbackErr) {
+        console.warn("⚠️ Both tables unavailable, using empty fallback:", fallbackErr.message);
+        // Final fallback: Get total jobs count only
+        const totalJobsQuery = `
+          SELECT COUNT(*) as total_jobs
+          FROM jobs 
+          WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+        `;
+        const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
+        resumeCheck = {
+          with_resume: 0,
+          total_jobs: parseInt(totalJobsResult.total_jobs) || 0
+        };
+        materialsDataRaw = [];
+      }
+    }
     console.log("Materials data raw:", JSON.stringify(materialsDataRaw, null, 2));
     
     // Process the data - use resume title from join

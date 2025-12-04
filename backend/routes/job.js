@@ -12,7 +12,14 @@ const router = express.Router();
 //const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
-const STAGES = ["Interested", "Applied", "Phone Screen", "Interview", "Offer", "Rejected"];
+const STAGES = [
+  "Interested",
+  "Applied",
+  "Phone Screen",
+  "Interview",
+  "Offer",
+  "Rejected",
+];
 
 // ---------- AUTH MIDDLEWARE ----------
 function auth(req, res, next) {
@@ -23,7 +30,7 @@ function auth(req, res, next) {
     const data = jwt.verify(token, JWT_SECRET);
     // Set BOTH to ensure compatibility with all code
     req.userId = data.id;
-    req.user = { id: data.id }; 
+    req.user = { id: data.id };
     next();
   } catch {
     return res.status(401).json({ error: "Invalid token" });
@@ -36,7 +43,8 @@ function auth(req, res, next) {
 router.post("/", auth, async (req, res) => {
   try {
     // FIX: Handle frontend sending 'dateApplied' instead of 'applicationDate'
-    const applicationDate = req.body.applicationDate || req.body.dateApplied || null;
+    const applicationDate =
+      req.body.applicationDate || req.body.dateApplied || null;
 
     const {
       title,
@@ -76,79 +84,29 @@ router.post("/", auth, async (req, res) => {
     const safeSalaryMin = cleanNumber(salary_min);
     const safeSalaryMax = cleanNumber(salary_max);
 
-    // Handle template cover letters: if cover_letter_id starts with "template_", 
+    // Handle template cover letters: if cover_letter_id starts with "template_",
     // create a copy of the template as a user cover letter
     let finalCoverLetterId = cover_letter_id || null;
-    
+
     // Only process if it's a valid number or a template ID
     if (cover_letter_id) {
       const coverLetterIdStr = String(cover_letter_id);
-      
+
       // Check if it's a template ID (starts with "template_")
-      if (coverLetterIdStr.startsWith('template_')) {
-        try {
-          const templateId = parseInt(coverLetterIdStr.replace('template_', ''), 10);
-          if (!isNaN(templateId)) {
-            // Fetch the template
-            const templateResult = await pool.query(
-              `SELECT name, content FROM cover_letter_templates WHERE id = $1`,
-              [templateId]
-            );
-            
-            if (templateResult.rows.length > 0) {
-              const template = templateResult.rows[0];
-              // Try different column combinations based on what exists in the table
-              // Start without 'format' since it likely doesn't exist
-              try {
-                // Try with 'title' first (no format)
-                const newCoverLetterResult = await pool.query(
-                  `INSERT INTO cover_letters (user_id, title, content)
-                   VALUES ($1, $2, $3)
-                   RETURNING id`,
-                  [req.userId, `${template.name} (from template)`, template.content || '']
-                );
-                finalCoverLetterId = newCoverLetterResult.rows[0].id;
-                console.log(`✅ Created cover letter from template ${templateId}, new ID: ${finalCoverLetterId}`);
-              } catch (insertErr) {
-                if (insertErr.code === '42703') { // Column doesn't exist
-                  // Try with 'name' instead of 'title'
-                  try {
-                    const newCoverLetterResult = await pool.query(
-                      `INSERT INTO cover_letters (user_id, name, content)
-                       VALUES ($1, $2, $3)
-                       RETURNING id`,
-                      [req.userId, `${template.name} (from template)`, template.content || '']
-                    );
-                    finalCoverLetterId = newCoverLetterResult.rows[0].id;
-                    console.log(`✅ Created cover letter from template ${templateId} (using 'name'), new ID: ${finalCoverLetterId}`);
-                  } catch (insertErr2) {
-                    console.error("❌ Failed to create cover letter from template:", insertErr2.message);
-                    console.error("❌ Error details:", insertErr2);
-                    finalCoverLetterId = null;
-                  }
-                } else {
-                  console.error("❌ Failed to create cover letter from template:", insertErr.message);
-                  finalCoverLetterId = null;
-                }
-              }
-            } else {
-              console.warn(`⚠️ Template ${templateId} not found`);
-              finalCoverLetterId = null;
-            }
-          } else {
-            console.warn(`⚠️ Invalid template ID format: ${coverLetterIdStr}`);
-            finalCoverLetterId = null;
-          }
-        } catch (templateErr) {
-          console.error("❌ Failed to create cover letter from template:", templateErr.message);
-          // Fall back to null if template creation fails
-          finalCoverLetterId = null;
-        }
+      if (coverLetterIdStr.startsWith("template_")) {
+        // Skip template conversion - user only wants uploaded cover letters
+        // Templates are not supported for uploaded_cover_letters table
+        console.warn(
+          `⚠️ Template cover letters not supported. Only uploaded cover letters are used.`
+        );
+        finalCoverLetterId = null;
       } else {
         // It's a regular cover letter ID - ensure it's a valid number
         const numericId = parseInt(coverLetterIdStr, 10);
         if (isNaN(numericId)) {
-          console.warn(`⚠️ Invalid cover_letter_id format: ${coverLetterIdStr}, setting to null`);
+          console.warn(
+            `⚠️ Invalid cover_letter_id format: ${coverLetterIdStr}, setting to null`
+          );
           finalCoverLetterId = null;
         } else {
           finalCoverLetterId = numericId;
@@ -156,28 +114,33 @@ router.post("/", auth, async (req, res) => {
       }
     }
 
-    const insertJobQuery = `
-      INSERT INTO jobs (
-        user_id, title, company, location, salary_min, salary_max,
-        url, deadline, description, industry, type, role_level,
-        "applicationDate", resume_id, cover_letter_id, "required_skills",
-        status, status_updated_at, created_at
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'Interested',NOW(),NOW())
-      RETURNING *;
-    `;
+    // Convert resume_id and cover_letter_id from strings to numbers (or null if empty)
+    const parseId = (id) => {
+      if (!id || id === "" || id === "null" || id === "undefined") return null;
+      const num = parseInt(String(id), 10);
+      return isNaN(num) ? null : num;
+    };
+
+    const parsedResumeId = parseId(resume_id);
+    const parsedCoverLetterId = parseId(cover_letter_id);
 
     // Final safety check: ensure finalCoverLetterId is a number or null
     if (finalCoverLetterId !== null) {
       const coverLetterIdStr = String(finalCoverLetterId);
-      if (coverLetterIdStr.startsWith('template_')) {
-        console.error(`❌ ERROR: finalCoverLetterId still contains template prefix: ${finalCoverLetterId}`);
-        console.error(`❌ This should not happen - template conversion should have occurred`);
+      if (coverLetterIdStr.startsWith("template_")) {
+        console.error(
+          `❌ ERROR: finalCoverLetterId still contains template prefix: ${finalCoverLetterId}`
+        );
+        console.error(
+          `❌ This should not happen - template conversion should have occurred`
+        );
         finalCoverLetterId = null; // Set to null to prevent database error
       } else {
         const numericId = parseInt(coverLetterIdStr, 10);
         if (isNaN(numericId)) {
-          console.error(`❌ ERROR: finalCoverLetterId is not a valid number: ${finalCoverLetterId}`);
+          console.error(
+            `❌ ERROR: finalCoverLetterId is not a valid number: ${finalCoverLetterId}`
+          );
           finalCoverLetterId = null;
         } else {
           finalCoverLetterId = numericId;
@@ -185,16 +148,35 @@ router.post("/", auth, async (req, res) => {
       }
     }
 
-    // Debug: Log the final cover letter ID before inserting
-    console.log(`🔍 Final cover_letter_id value before insert:`, finalCoverLetterId);
+    // Debug: Log the final values before inserting
+    console.log(
+      `🔍 Original resume_id from request:`,
+      resume_id,
+      `→ Parsed:`,
+      parsedResumeId
+    );
+    console.log(`🔍 Final cover_letter_id value:`, finalCoverLetterId);
     console.log(`🔍 Type of finalCoverLetterId:`, typeof finalCoverLetterId);
-    console.log(`🔍 Original cover_letter_id from request:`, cover_letter_id);
+
+    // Remove resume_id and cover_letter_id from jobs table INSERT (they don't exist anymore)
+    const insertJobQuery = `
+      INSERT INTO jobs (
+        user_id, title, company, location, salary_min, salary_max,
+        url, deadline, description, industry, type, role_level,
+        "applicationDate", "required_skills",
+        status, status_updated_at, created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Interested',NOW(),NOW())
+      RETURNING *;
+    `;
 
     // Handle industry: convert empty string to null for consistency
-    const industryValue = industry && industry.trim() !== '' ? industry.trim() : null;
+    const industryValue =
+      industry && industry.trim() !== "" ? industry.trim() : null;
     // Handle role_level: convert empty string to null for consistency
-    const roleLevelValue = role_level && role_level.trim() !== '' ? role_level.trim() : null;
-    
+    const roleLevelValue =
+      role_level && role_level.trim() !== "" ? role_level.trim() : null;
+
     const jobValues = [
       req.userId,
       title.trim(),
@@ -209,27 +191,71 @@ router.post("/", auth, async (req, res) => {
       getRoleTypeFromTitle(title),
       roleLevelValue,
       applicationDate, // Uses the fixed date variable
-      resume_id || null,
-      finalCoverLetterId,
       Array.isArray(required_skills) ? required_skills : [],
     ];
-
-    console.log(`🔍 Job values array (cover_letter_id at index 13):`, jobValues[13]);
 
     const { rows } = await pool.query(insertJobQuery, jobValues);
     const newJob = rows[0];
 
-    // 🧩 RECORD MATERIAL HISTORY
-    // Use finalCoverLetterId instead of cover_letter_id to handle template conversions
-    if (resume_id || finalCoverLetterId) {
-      await pool.query(
-        `INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        `,
-        [newJob.id, req.userId, resume_id || null, finalCoverLetterId || null, "initial_set", JSON.stringify({})]
+    // 🧩 STORE MATERIALS IN CLEAN TABLE
+    // Always create a row in job_materials, even if both IDs are null
+    try {
+      // Validate resume_id exists if provided
+      let validResumeId = null;
+      if (parsedResumeId) {
+        const resumeCheck = await pool.query(
+          `SELECT id FROM resumes WHERE id = $1 AND user_id = $2`,
+          [parsedResumeId, req.userId]
+        );
+        if (resumeCheck.rows.length > 0) {
+          validResumeId = parsedResumeId;
+          console.log(
+            `✅ Resume ID ${parsedResumeId} validated for user ${req.userId}`
+          );
+        } else {
+          console.warn(
+            `⚠️ Resume ID ${parsedResumeId} not found for user ${req.userId}`
+          );
+        }
+      }
 
+      // Validate cover_letter_id exists if provided (check uploaded_cover_letters table)
+      let validCoverLetterId = null;
+      if (finalCoverLetterId) {
+        const coverCheck = await pool.query(
+          `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+          [finalCoverLetterId, req.userId]
+        );
+        if (coverCheck.rows.length > 0) {
+          validCoverLetterId = finalCoverLetterId;
+          console.log(
+            `✅ Cover letter ID ${finalCoverLetterId} validated for user ${req.userId}`
+          );
+        } else {
+          console.warn(
+            `⚠️ Cover letter ID ${finalCoverLetterId} not found for user ${req.userId}`
+          );
+        }
+      }
+
+      // Always insert into job_materials (even if both are null)
+      await pool.query(
+        `INSERT INTO job_materials (job_id, user_id, resume_id, cover_letter_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (job_id) 
+         DO UPDATE SET 
+           resume_id = EXCLUDED.resume_id,
+           cover_letter_id = EXCLUDED.cover_letter_id,
+           updated_at = NOW()`,
+        [newJob.id, req.userId, validResumeId, validCoverLetterId]
       );
-      
+      console.log(
+        `✅ Stored materials for job ${newJob.id}: resume_id=${validResumeId}, cover_letter_id=${validCoverLetterId}`
+      );
+    } catch (err) {
+      console.error("❌ Failed to store materials:", err.message);
+      console.error("❌ Error details:", err);
+      // Don't fail job creation if materials storage fails
     }
 
     res.status(201).json({
@@ -260,10 +286,10 @@ router.post("/fix-role-types", auth, async (req, res) => {
       const roleType = getRoleTypeFromTitle(job.title);
       console.log(`Updating: ${job.title} → ${roleType}`);
 
-      await pool.query(
-        `UPDATE jobs SET type=$1 WHERE id=$2`,
-        [roleType, job.id]
-      );
+      await pool.query(`UPDATE jobs SET type=$1 WHERE id=$2`, [
+        roleType,
+        job.id,
+      ]);
     }
 
     res.json({ message: "Role types updated for all jobs!" });
@@ -272,8 +298,6 @@ router.post("/fix-role-types", auth, async (req, res) => {
     res.status(500).json({ error: "Failed to update role types" });
   }
 });
-
-
 
 // ---------- LIST ALL JOBS (Filters out archived) ----------
 router.get("/", auth, async (req, res) => {
@@ -291,73 +315,77 @@ router.get("/", auth, async (req, res) => {
     } = req.query;
 
     const params = [req.userId];
-    // FIX: Added quotes around "isArchived"
-    const whereClauses = ["user_id = $1", `"isArchived" = false`]; 
+    // FIX: Added quotes around "isArchived" and qualified user_id with table alias
+    // Include jobs where isArchived is false OR NULL (not explicitly archived)
+    const whereClauses = ["j.user_id = $1", `(j."isArchived" = false OR j."isArchived" IS NULL)`];
     let i = 2;
 
     if (search) {
       whereClauses.push(
-        `(title ILIKE $${i} OR company ILIKE $${i} OR description ILIKE $${i})`
+        `(j.title ILIKE $${i} OR j.company ILIKE $${i} OR j.description ILIKE $${i})`
       );
       params.push(`%${search}%`);
       i++;
     }
     if (status && STAGES.includes(status)) {
-      whereClauses.push(`LOWER(status) = LOWER($${i})`);
+      whereClauses.push(`LOWER(j.status) = LOWER($${i})`);
       params.push(status.trim());
       i++;
     }
-     if (industry) {
-      whereClauses.push(`industry ILIKE $${i}`);
+    if (industry) {
+      whereClauses.push(`j.industry ILIKE $${i}`);
       params.push(`%${industry}%`);
       i++;
     }
     if (location) {
-      whereClauses.push(`location ILIKE $${i}`);
+      whereClauses.push(`j.location ILIKE $${i}`);
       params.push(`%${location}%`);
       i++;
     }
     if (salaryMin) {
-      whereClauses.push(`salary_min >= $${i}`);
+      whereClauses.push(`j.salary_min >= $${i}`);
       params.push(salaryMin);
       i++;
     }
     if (salaryMax) {
-      whereClauses.push(`salary_max <= $${i}`);
+      whereClauses.push(`j.salary_max <= $${i}`);
       params.push(salaryMax);
       i++;
     }
     if (dateFrom) {
-      whereClauses.push(`deadline >= $${i}`);
+      whereClauses.push(`j.deadline >= $${i}`);
       params.push(dateFrom);
       i++;
     }
     if (dateTo) {
-      whereClauses.push(`deadline <= $${i}`);
+      whereClauses.push(`j.deadline <= $${i}`);
       params.push(dateTo);
       i++;
     }
 
-    let orderColumn = "created_at";
+    let orderColumn = "j.created_at";
     switch (sortBy) {
       case "deadline":
-        orderColumn = "deadline";
+        orderColumn = "j.deadline";
         break;
       case "salary":
-        orderColumn = "salary_max";
+        orderColumn = "j.salary_max";
         break;
       case "company":
-        orderColumn = "company";
+        orderColumn = "j.company";
         break;
       default:
-        orderColumn = "created_at";
+        orderColumn = "j.created_at";
     }
 
     const result = await pool.query(
       `
-      SELECT *,
-        GREATEST(0, CEIL(EXTRACT(EPOCH FROM (NOW() - COALESCE(status_updated_at, created_at))) / 86400.0))::int AS days_in_stage
-      FROM jobs
+      SELECT j.*,
+        GREATEST(0, CEIL(EXTRACT(EPOCH FROM (NOW() - COALESCE(j.status_updated_at, j.created_at))) / 86400.0))::int AS days_in_stage,
+        jm.resume_id,
+        jm.cover_letter_id
+      FROM jobs j
+      LEFT JOIN job_materials jm ON j.id = jm.job_id
       WHERE ${whereClauses.join(" AND ")}
       ORDER BY ${orderColumn} DESC
     `,
@@ -440,34 +468,32 @@ router.get("/stats", auth, async (req, res) => {
 
     const result = await pool.query(query, [req.userId]);
     const stats = result.rows[0];
-    
+
     const safeNum = (val) => {
-        const num = parseFloat(val);
-        return isNaN(num) ? 0 : num;
+      const num = parseFloat(val);
+      return isNaN(num) ? 0 : num;
     };
 
     stats.totalJobs = parseInt(stats.totalJobs, 10) || 0;
     stats.jobsByStatus = stats.jobsByStatus || [];
     stats.monthlyVolume = stats.monthlyVolume || [];
-    
+
     stats.responseRate = safeNum(stats.responseRate).toFixed(1);
     stats.adherenceRate = safeNum(stats.adherenceRate).toFixed(1);
     stats.avgTimeToOffer = safeNum(stats.avgTimeToOffer).toFixed(1);
-    
+
     stats.avgTimeInStage = stats.avgTimeInStage || [];
 
     if (stats.totalJobs === 0) {
-      stats.message = 'No job data available to calculate statistics.';
+      stats.message = "No job data available to calculate statistics.";
     }
 
     res.json(stats);
-
   } catch (err) {
     console.error("❌ Statistics query error:", err);
     res.status(500).json({ error: "Database error" });
   }
 });
-
 
 //
 // ==================================================================
@@ -490,17 +516,59 @@ router.get("/archived", auth, async (req, res) => {
   }
 });
 
-
 // ---------- GET JOB BY ID ----------
 router.get("/:id", auth, async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query(`SELECT * FROM jobs WHERE id = $1 AND user_id = $2`, [
-      id,
-      req.userId,
-    ]);
-    if (result.rows.length === 0) return res.status(404).json({ error: "Job not found" });
-    res.json({ job: result.rows[0] });
+    // Get job from jobs table
+    const result = await pool.query(
+      `SELECT * FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: "Job not found" });
+
+    const job = result.rows[0];
+
+    // Get materials from clean table
+    try {
+      const materialsResult = await pool.query(
+        `SELECT resume_id, cover_letter_id
+         FROM job_materials
+         WHERE job_id = $1`,
+        [id]
+      );
+
+      if (materialsResult.rows.length > 0) {
+        const materials = materialsResult.rows[0];
+        // Set job's resume_id and cover_letter_id from materials table
+        job.resume_id = materials.resume_id;
+        job.cover_letter_id = materials.cover_letter_id;
+        console.log(
+          `✅ [GET JOB ${id}] Materials found: resume_id=${materials.resume_id}, cover_letter_id=${materials.cover_letter_id}`
+        );
+      } else {
+        // No materials found in job_materials table
+        job.resume_id = null;
+        job.cover_letter_id = null;
+        console.log(
+          `⚠️ [GET JOB ${id}] No materials found in job_materials table`
+        );
+      }
+    } catch (materialsErr) {
+      // Table might not exist yet, that's okay
+      console.warn(
+        `⚠️ [GET JOB ${id}] Error fetching materials:`,
+        materialsErr.message
+      );
+      job.resume_id = null;
+      job.cover_letter_id = null;
+    }
+
+    console.log(
+      `📤 [GET JOB ${id}] Returning job with resume_id=${job.resume_id}, cover_letter_id=${job.cover_letter_id}`
+    );
+    res.json({ job });
   } catch (err) {
     console.error("❌ Get job details error:", err);
     res.status(500).json({ error: "Database error" });
@@ -514,7 +582,7 @@ router.put("/:id", auth, async (req, res) => {
 
     // FIX: Handle dateApplied from frontend for Update as well
     if (req.body.dateApplied !== undefined) {
-       req.body.applicationDate = req.body.dateApplied;
+      req.body.applicationDate = req.body.dateApplied;
     }
 
     const allowed = [
@@ -535,25 +603,28 @@ router.put("/:id", auth, async (req, res) => {
       "contact_phone",
       "salary_notes",
       "interview_feedback",
-      "resume_id",
-      "cover_letter_id",
       "applicationDate",
       "offerDate",
       "required_skills",
-      "resume_customization",
-      "cover_letter_customization",
     ];
 
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
         // Handle industry field specially - trim and convert empty string to null
-        if (key === 'industry') {
+        if (key === "industry") {
           const industryValue = req.body[key];
-          if (industryValue === null || industryValue === undefined || (typeof industryValue === 'string' && industryValue.trim() === '')) {
+          if (
+            industryValue === null ||
+            industryValue === undefined ||
+            (typeof industryValue === "string" && industryValue.trim() === "")
+          ) {
             updates[key] = null; // Set to null instead of empty string
           } else {
-            updates[key] = typeof industryValue === 'string' ? industryValue.trim() : industryValue;
+            updates[key] =
+              typeof industryValue === "string"
+                ? industryValue.trim()
+                : industryValue;
           }
         } else {
           updates[key] = req.body[key];
@@ -570,6 +641,18 @@ router.put("/:id", auth, async (req, res) => {
 
     if (updates.status === "Offer" && !updates.offerDate) {
       updates.offerDate = new Date();
+    }
+
+    // Get the old status before updating (if status is being changed)
+    let oldStatus = null;
+    if (updates.status) {
+      const oldJobResult = await pool.query(
+        `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+        [id, req.userId]
+      );
+      if (oldJobResult.rows.length > 0) {
+        oldStatus = oldJobResult.rows[0].status;
+      }
     }
 
     // Dynamic SQL
@@ -600,15 +683,134 @@ router.put("/:id", auth, async (req, res) => {
 
     const job = result.rows[0];
 
-    if (updates.resume_id || updates.cover_letter_id) {
-      await pool.query(
-        `
-        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `,
-      [id, req.userId, updates.resume_id || null, updates.cover_letter_id || null, "updated", JSON.stringify({})]
+    // 🧩 UPDATE MATERIALS IN CLEAN TABLE
+    // Note: resume_id and cover_letter_id are NOT in the allowed fields for PUT /:id
+    // They should be updated via PUT /:id/materials endpoint instead
+    // But we'll handle them here if they're provided for backward compatibility
+    if (
+      req.body.resume_id !== undefined ||
+      req.body.cover_letter_id !== undefined
+    ) {
+      try {
+        // Get current materials from job_materials table
+        const currentMaterials = await pool.query(
+          `SELECT resume_id, cover_letter_id FROM job_materials WHERE job_id = $1`,
+          [id]
+        );
 
+        let resumeId =
+          req.body.resume_id !== undefined
+            ? req.body.resume_id
+            : currentMaterials.rows[0]?.resume_id || null;
+        let coverLetterId =
+          req.body.cover_letter_id !== undefined
+            ? req.body.cover_letter_id
+            : currentMaterials.rows[0]?.cover_letter_id || null;
+
+        // Validate resume_id exists if provided
+        if (resumeId) {
+          const resumeCheck = await pool.query(
+            `SELECT id FROM resumes WHERE id = $1 AND user_id = $2`,
+            [resumeId, req.userId]
+          );
+          if (resumeCheck.rows.length === 0) {
+            resumeId = null;
+          }
+        }
+
+        // Validate cover_letter_id exists if provided (check uploaded_cover_letters table)
+        if (coverLetterId) {
+          const coverCheck = await pool.query(
+            `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+            [coverLetterId, req.userId]
+          );
+          if (coverCheck.rows.length === 0) {
+            coverLetterId = null;
+          }
+        }
+
+        // Update job_materials table
+        await pool.query(
+          `INSERT INTO job_materials (job_id, user_id, resume_id, cover_letter_id)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (job_id) 
+           DO UPDATE SET 
+             resume_id = COALESCE(EXCLUDED.resume_id, job_materials.resume_id),
+             cover_letter_id = COALESCE(EXCLUDED.cover_letter_id, job_materials.cover_letter_id),
+             updated_at = NOW()`,
+          [id, req.userId, resumeId || null, coverLetterId || null]
+        );
+      } catch (err) {
+        console.error("❌ Failed to update materials:", err.message);
+        // Don't fail job update if materials update fails
+      }
+    }
+
+    // Fetch materials from job_materials table and attach to job
+    try {
+      const materialsResult = await pool.query(
+        `SELECT resume_id, cover_letter_id FROM job_materials WHERE job_id = $1`,
+        [id]
       );
+      if (materialsResult.rows.length > 0) {
+        job.resume_id = materialsResult.rows[0].resume_id;
+        job.cover_letter_id = materialsResult.rows[0].cover_letter_id;
+        console.log(
+          `✅ [PUT JOB ${id}] Attached materials: resume_id=${job.resume_id}, cover_letter_id=${job.cover_letter_id}`
+        );
+      } else {
+        job.resume_id = null;
+        job.cover_letter_id = null;
+      }
+    } catch (materialsErr) {
+      job.resume_id = null;
+      job.cover_letter_id = null;
+    }
+
+    // Log status change to application_history if status was updated
+    if (updates.status && updates.status !== oldStatus) {
+      try {
+        await pool.query(
+          `
+          INSERT INTO application_history (job_id, user_id, event, from_status, to_status, timestamp)
+          VALUES ($1, $2, $3, $4, $5, NOW())
+          `,
+          [id, req.userId, `Status changed from "${oldStatus || 'N/A'}" to "${updates.status}"`, oldStatus, updates.status]
+        );
+      } catch (historyErr) {
+        // If application_history table doesn't exist or has different schema, try fallback
+        console.warn("⚠️ Could not insert into application_history with full schema, trying fallback:", historyErr.message);
+        try {
+          await pool.query(
+            `
+            INSERT INTO application_history (job_id, event)
+            VALUES ($1, $2)
+            `,
+            [id, `Status changed to "${updates.status}"`]
+          );
+        } catch (fallbackErr) {
+          console.warn("⚠️ Could not insert into application_history at all:", fallbackErr.message);
+          // Don't fail the request if history logging fails
+        }
+      }
+      
+      // 🔒 CRITICAL: Re-verify status after history insert (in case a trigger overwrote it)
+      // The jobs.status field should ONLY contain the final status value (e.g., "Rejected"), NOT the event text
+      const finalCheck = await pool.query(
+        `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+        [id, req.userId]
+      );
+      
+      if (finalCheck.rows.length > 0 && finalCheck.rows[0].status !== updates.status) {
+        console.warn(`⚠️ Status was overwritten! Expected: "${updates.status}", Got: "${finalCheck.rows[0].status}". Fixing...`);
+        // Force the correct status value (just the status, not the event text)
+        await pool.query(
+          `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+          [updates.status, id, req.userId]
+        );
+        job.status = updates.status;
+        console.log(`✅ Fixed: jobs.status is now "${updates.status}"`);
+      }
     }
 
     res.json({ job });
@@ -623,282 +825,96 @@ router.put("/:id", auth, async (req, res) => {
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 router.get("/:id/materials-history", auth, async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Check if table exists first
-    const tableCheck = await pool.query(
-      `SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'application_materials_history'
-      )`
-    );
-
-    if (!tableCheck.rows[0].exists) {
-      console.warn("⚠️ application_materials_history table does not exist");
-      return res.json({ history: [] }); // Return empty array instead of error
-    }
-
-    const result = await pool.query(
-      `
-      SELECT 
-        h.id,
-        h.changed_at,
-        h.action,
-        h.resume_id,
-        h.cover_letter_id,
-        h.details,
-        r.title AS resume_title,
-        c.name AS cover_title
-      FROM application_materials_history h
-      LEFT JOIN resumes r ON r.id = h.resume_id
-      LEFT JOIN cover_letters c ON c.id = h.cover_letter_id
-          WHERE h.job_id = $1
-          ORDER BY h.changed_at DESC NULLS LAST;
-          `,
-          [req.params.id] // Use req.params.id from the route parameter
-        );
-
-    res.json({ history: result.rows });
+    // History tracking removed - we now use job_materials table only
+    // Current materials are in job_materials table, no history is tracked
+    res.json({ history: [] });
   } catch (err) {
     console.error("❌ History fetch error:", err);
-    console.error("Error details:", {
-      message: err.message,
-      code: err.code,
-      detail: err.detail,
-      hint: err.hint,
-      stack: err.stack,
-      position: err.position
-    });
-    
-    // If table doesn't exist, return empty array instead of error
-    if (err.code === '42P01') { // undefined_table
-      console.warn("⚠️ application_materials_history table not found. Returning empty history.");
-      return res.json({ history: [] });
-    }
-    
-    // If column doesn't exist, try a simpler query
-    if (err.code === '42703') { // undefined_column
-      console.warn("⚠️ Some columns may not exist, trying simplified query");
-      try {
-        const simpleResult = await pool.query(
-          `
-          SELECT 
-            h.id,
-            h.changed_at,
-            h.action,
-            h.resume_id,
-            h.cover_letter_id
-          FROM application_materials_history h
-          WHERE h.job_id = $1
-          ORDER BY h.changed_at DESC NULLS LAST;
-          `,
-          [req.params.id] // Use req.params.id instead of id
-        );
-        return res.json({ history: simpleResult.rows });
-      } catch (simpleErr) {
-        console.error("❌ Simplified query also failed:", simpleErr);
-        // Return empty array as last resort
-        return res.json({ history: [] });
-      }
-    }
-    
-    res.status(500).json({ 
-      error: "Failed to load materials history",
-      details: err.message,
-      code: err.code,
-      hint: err.code === '42P01' ? "Run backend/db/add_application_materials_history.sql to create the table." : 
-            err.code === '42703' ? "Some columns may be missing. Check your database schema." : undefined
-    });
+    res.json({ history: [] });
   }
 });
 
-
-// ---------- UPDATE MATERIALS (resume + cover letter + customization levels) ----------
+// ---------- UPDATE MATERIALS (resume + cover letter) ----------
 router.put("/:id/materials", auth, async (req, res) => {
   try {
     const { id } = req.params;
-    let { resume_id, cover_letter_id, resume_customization, cover_letter_customization } = req.body;
+    let { resume_id, cover_letter_id } = req.body;
 
-    // Handle template cover letters: if cover_letter_id starts with "template_", 
+    // Handle template cover letters: if cover_letter_id starts with "template_",
     // create a copy of the template as a user cover letter
     let finalCoverLetterId = cover_letter_id || null;
-    
+
     // Only process if it's a valid number or a template ID
     if (cover_letter_id) {
       const coverLetterIdStr = String(cover_letter_id);
-      
+
       // Check if it's a template ID (starts with "template_")
-      if (coverLetterIdStr.startsWith('template_')) {
-        try {
-          const templateId = parseInt(coverLetterIdStr.replace('template_', ''), 10);
-          if (!isNaN(templateId)) {
-            // Fetch the template from cover_letter_templates table
-            const templateResult = await pool.query(
-              `SELECT name, content FROM cover_letter_templates WHERE id = $1`,
-              [templateId]
-            );
-            
-            if (templateResult.rows.length > 0) {
-              const template = templateResult.rows[0];
-              // Try different column combinations based on what exists in the table
-              try {
-                // Try with 'title' first
-                const newCoverLetterResult = await pool.query(
-                  `INSERT INTO cover_letters (user_id, title, content)
-                   VALUES ($1, $2, $3)
-                   RETURNING id`,
-                  [req.userId, `${template.name} (from template)`, template.content || '']
-                );
-                finalCoverLetterId = newCoverLetterResult.rows[0].id;
-                console.log(`✅ Created cover letter from template ${templateId}, new ID: ${finalCoverLetterId}`);
-              } catch (insertErr) {
-                if (insertErr.code === '42703') { // Column doesn't exist
-                  // Try with 'name' instead of 'title'
-                  try {
-                    const newCoverLetterResult = await pool.query(
-                      `INSERT INTO cover_letters (user_id, name, content)
-                       VALUES ($1, $2, $3)
-                       RETURNING id`,
-                      [req.userId, `${template.name} (from template)`, template.content || '']
-                    );
-                    finalCoverLetterId = newCoverLetterResult.rows[0].id;
-                    console.log(`✅ Created cover letter from template ${templateId} (using 'name'), new ID: ${finalCoverLetterId}`);
-                  } catch (insertErr2) {
-                    console.error("❌ Failed to create cover letter from template:", insertErr2.message);
-                    console.error("❌ Error details:", insertErr2);
-                    finalCoverLetterId = null;
-                  }
-                } else {
-                  console.error("❌ Failed to create cover letter from template:", insertErr.message);
-                  console.error("❌ Error details:", insertErr);
-                  finalCoverLetterId = null;
-                }
-              }
-            } else {
-              console.warn(`⚠️ Template ${templateId} not found`);
-              finalCoverLetterId = null;
-            }
-          } else {
-            console.warn(`⚠️ Invalid template ID format: ${coverLetterIdStr}`);
-            finalCoverLetterId = null;
-          }
-        } catch (templateErr) {
-          console.error("❌ Error processing template cover letter:", templateErr);
-          finalCoverLetterId = null;
-        }
+      if (coverLetterIdStr.startsWith("template_")) {
+        // Skip template conversion - user only wants uploaded cover letters
+        // Templates are not supported for uploaded_cover_letters table
+        console.warn(
+          `⚠️ Template cover letters not supported. Only uploaded cover letters are used.`
+        );
+        finalCoverLetterId = null;
       } else {
-        // It's a regular cover letter ID, use it as-is (convert to number if it's a string)
-        finalCoverLetterId = isNaN(Number(cover_letter_id)) ? null : Number(cover_letter_id);
+        // It's a regular cover letter ID, use it as-is
+        finalCoverLetterId = isNaN(Number(cover_letter_id))
+          ? null
+          : Number(cover_letter_id);
       }
     }
 
-    // Validate customization levels
-    const validLevels = ['none', 'light', 'heavy', 'tailored'];
-    const safeResumeCustomization = validLevels.includes(resume_customization) ? resume_customization : 'none';
-    const safeCoverLetterCustomization = validLevels.includes(cover_letter_customization) ? cover_letter_customization : 'none';
-
-    // Try to update with customization columns first
-    let result;
-    try {
-      const updateQuery = `
-        UPDATE jobs 
-        SET resume_id = $1,
-            cover_letter_id = $2,
-            resume_customization = $3,
-            cover_letter_customization = $4
-        WHERE id = $5 AND user_id = $6
-        RETURNING *;
-      `;
-      result = await pool.query(updateQuery, [
-        resume_id || null,
-        finalCoverLetterId, // Use the processed cover letter ID (template converted or original)
-        safeResumeCustomization,
-        safeCoverLetterCustomization,
-        id,
-        req.userId,
-      ]);
-    } catch (colErr) {
-      // If customization columns don't exist, fall back to basic update
-      if (colErr.code === '42703') { // undefined_column
-        console.warn("⚠️ Customization columns not found, updating only resume_id and cover_letter_id");
-        const basicUpdateQuery = `
-          UPDATE jobs 
-          SET resume_id = $1,
-              cover_letter_id = $2
-          WHERE id = $3 AND user_id = $4
-          RETURNING *;
-        `;
-        result = await pool.query(basicUpdateQuery, [
-          resume_id || null,
-          finalCoverLetterId, // Use the processed cover letter ID (template converted or original)
-          id,
-          req.userId,
-        ]);
-      } else {
-        // Re-throw if it's a different error
-        throw colErr;
-      }
-    }
-
-    if (result.rows.length === 0)
-      return res.status(404).json({ error: "Job not found or unauthorized" });
-
-    const updatedJob = result.rows[0];
-
-    // Insert a new materials history log (if table exists)
-    try {
-      await pool.query(
-        `
-        INSERT INTO application_materials_history (job_id, user_id, resume_id, cover_letter_id, action, details)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `,
-      [id, req.userId, resume_id || null, finalCoverLetterId, "materials_updated", JSON.stringify({})]
+    // Validate resume_id and cover_letter_id exist
+    let validResumeId = null;
+    if (resume_id) {
+      const resumeCheck = await pool.query(
+        `SELECT id FROM resumes WHERE id = $1 AND user_id = $2`,
+        [resume_id, req.userId]
       );
-    } catch (historyErr) {
-      // If table doesn't exist, log warning but don't fail the update
-      if (historyErr.code === '42P01') { // undefined_table
-        console.warn("⚠️ application_materials_history table not found. Materials updated but history not recorded.");
-        console.warn("   Run backend/db/add_application_materials_history.sql to create the table.");
-      } else {
-        // Re-throw if it's a different error
-        throw historyErr;
+      if (resumeCheck.rows.length > 0) {
+        validResumeId = resume_id;
       }
     }
 
-    res.json({
-      message: "Materials and customization levels updated successfully",
-      job: updatedJob,
-    });
-  } catch (err) {
-    console.error("❌ Materials update error:", err);
-    console.error("Error details:", {
-      message: err.message,
-      code: err.code,
-      detail: err.detail,
-      hint: err.hint,
-      stack: err.stack
-    });
-    
-    let errorMessage = "Failed to update materials";
-    let errorHint = "";
-    
-    if (err.code === '42703') { // undefined_column
-      errorMessage = "Database column not found";
-      errorHint = "The resume_customization or cover_letter_customization columns may not exist. Please run the database migration.";
-    } else if (err.code === '42P01') { // undefined_table
-      errorMessage = "Database table not found";
-      errorHint = "The application_materials_history table may not exist. Please check your database schema.";
-    } else if (err.message) {
-      errorMessage = err.message;
+    let validCoverLetterId = null;
+    if (finalCoverLetterId) {
+      const coverCheck = await pool.query(
+        `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+        [finalCoverLetterId, req.userId]
+      );
+      if (coverCheck.rows.length > 0) {
+        validCoverLetterId = finalCoverLetterId;
+      }
     }
-    
-    res.status(500).json({ 
-      error: errorMessage,
-      hint: errorHint,
-      details: err.message,
-      code: err.code
-    });
+
+    // Update job_materials table
+    if (validResumeId || validCoverLetterId) {
+      await pool.query(
+        `INSERT INTO job_materials (job_id, user_id, resume_id, cover_letter_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (job_id) 
+         DO UPDATE SET 
+           resume_id = COALESCE(EXCLUDED.resume_id, job_materials.resume_id),
+           cover_letter_id = COALESCE(EXCLUDED.cover_letter_id, job_materials.cover_letter_id),
+           updated_at = NOW()`,
+        [id, req.userId, validResumeId, validCoverLetterId]
+      );
+    }
+
+    // Get updated job
+    const result = await pool.query(
+      `SELECT * FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    res.json({ job: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Update materials error:", err);
+    res.status(500).json({ error: "Failed to update materials" });
   }
 });
 
@@ -922,21 +938,24 @@ router.delete("/:id", auth, async (req, res) => {
 
     // Delete related records first (to avoid foreign key constraint violations)
     // Delete application_history records
-    await client.query(
-      `DELETE FROM application_history WHERE job_id = $1`,
-      [id]
-    );
+    await client.query(`DELETE FROM application_history WHERE job_id = $1`, [
+      id,
+    ]);
 
     // Delete application_materials_history records
-    await client.query(
-      `DELETE FROM application_materials_history WHERE job_id = $1`,
-      [id]
-    ).catch((err) => {
-      // Table might not exist, that's okay
-      if (err.code !== '42P01') {
-        console.warn("⚠️ Error deleting from application_materials_history:", err.message);
-      }
-    });
+    await client
+      .query(`DELETE FROM application_materials_history WHERE job_id = $1`, [
+        id,
+      ])
+      .catch((err) => {
+        // Table might not exist, that's okay
+        if (err.code !== "42P01") {
+          console.warn(
+            "⚠️ Error deleting from application_materials_history:",
+            err.message
+          );
+        }
+      });
 
     // Now delete the job
     const result = await client.query(
@@ -997,7 +1016,7 @@ router.put("/:id/status", auth, async (req, res) => {
         UPDATE jobs
         SET status = $1,
             status_updated_at = NOW(),
-            offer_date = COALESCE(offer_date, NOW())
+            "offerDate" = COALESCE("offerDate", NOW())
         WHERE id = $2 AND user_id = $3
         RETURNING *;
       `;
@@ -1016,22 +1035,134 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
+    // Get the old status BEFORE updating (needed for application_history)
+    const oldJobResult = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    
+    if (oldJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
+    
+    const oldStatus = oldJobResult.rows[0].status;
+
+    // ✅ UPDATE jobs.status to the NEW/FINAL status (e.g., if changing from "Offer" to "Rejected", status becomes "Rejected")
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
-    // Log into application history
-    await pool.query(
-      `
-      INSERT INTO application_history (job_id, event)
-      VALUES ($1, $2)
-      `,
-      [id, `Status changed to "${status}"`]
-    );
+    const updatedJob = result.rows[0];
+    // ✅ updatedJob.status now contains the FINAL/CURRENT status
+    
+    // Verify the status was updated correctly
+    if (updatedJob.status !== status) {
+      console.error(`⚠️ Status mismatch! Expected: ${status}, Got: ${updatedJob.status}`);
+      // Force update if there's a mismatch (shouldn't happen, but defensive)
+      await pool.query(
+        `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+        [status, id, req.userId]
+      );
+      updatedJob.status = status;
+    }
+    
+    console.log(`✅ Job ${id} status updated: "${oldStatus}" → "${status}" (final status in jobs table: "${updatedJob.status}")`);
 
-    res.json({ job: result.rows[0] });
+    // If status changed to "Offer", automatically create an offers entry if it doesn't exist
+    if (status === "Offer") {
+      try {
+        // Check if offer already exists for this job
+        const existingOffer = await pool.query(
+          `SELECT id FROM offers WHERE job_id = $1 AND user_id = $2`,
+          [id, req.userId]
+        );
+
+        if (existingOffer.rows.length === 0) {
+          // Create offer entry from job data
+          const offerDate = updatedJob.offerDate || updatedJob.status_updated_at || new Date();
+          const baseSalary = updatedJob.salary_max || updatedJob.salary_min || null;
+          
+          await pool.query(
+            `INSERT INTO offers (
+              user_id, job_id, company, role_title, role_level, location, industry,
+              base_salary, total_comp_year1, offer_status, offer_date, initial_base_salary
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id`,
+            [
+              req.userId,
+              id,
+              updatedJob.company || 'Unknown',
+              updatedJob.title || 'Unknown',
+              updatedJob.role_level || null,
+              updatedJob.location || null,
+              updatedJob.industry || null,
+              baseSalary,
+              baseSalary,
+              'pending', // Default to pending, user can accept later
+              offerDate instanceof Date ? offerDate.toISOString().split('T')[0] : offerDate,
+              baseSalary
+            ]
+          );
+          console.log(`✅ Auto-created offer entry for job ${id} (status changed to Offer via status endpoint)`);
+        } else {
+          console.log(`ℹ️ Offer already exists for job ${id}`);
+        }
+      } catch (offerErr) {
+        console.error("⚠️ Error auto-creating offer entry:", offerErr.message);
+        // Don't fail the status update if offer creation fails
+      }
+    }
+
+    // ✅ Log transition to application_history (records the change, but jobs.status is already the final status)
+    // Example: If changing from "Offer" to "Rejected":
+    //   - jobs.status = "Rejected" (final status)
+    //   - application_history: from_status="Offer", to_status="Rejected", event="Status changed from 'Offer' to 'Rejected'"
+    try {
+      await pool.query(
+        `
+        INSERT INTO application_history (job_id, user_id, event, from_status, to_status, timestamp)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        `,
+        [id, req.userId, `Status changed from "${oldStatus || 'N/A'}" to "${status}"`, oldStatus, status]
+      );
+    } catch (historyErr) {
+      // If application_history table doesn't exist or has different schema, try fallback
+      console.warn("⚠️ Could not insert into application_history with full schema, trying fallback:", historyErr.message);
+      try {
+        await pool.query(
+          `
+          INSERT INTO application_history (job_id, event)
+          VALUES ($1, $2)
+          `,
+          [id, `Status changed to "${status}"`]
+        );
+      } catch (fallbackErr) {
+        console.warn("⚠️ Could not insert into application_history at all:", fallbackErr.message);
+        // Don't fail the request if history logging fails
+      }
+    }
+
+    // 🔒 CRITICAL: Re-verify status after history insert (in case a trigger overwrote it)
+    // The jobs.status field should ONLY contain the final status value (e.g., "Rejected"), NOT the event text
+    const finalCheck = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    
+    if (finalCheck.rows.length > 0 && finalCheck.rows[0].status !== status) {
+      console.warn(`⚠️ Status was overwritten! Expected: "${status}", Got: "${finalCheck.rows[0].status}". Fixing...`);
+      // Force the correct status value (just the status, not the event text)
+      await pool.query(
+        `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+        [status, id, req.userId]
+      );
+      updatedJob.status = status;
+      console.log(`✅ Fixed: jobs.status is now "${status}"`);
+    }
+
+    res.json({ job: updatedJob });
   } catch (err) {
     console.error("❌ Failed to update job stage:", err.message);
     res.status(500).json({ error: "Database error" });
@@ -1040,32 +1171,31 @@ router.put("/:id/status", auth, async (req, res) => {
 
 // ---------- BULK DEADLINE UPDATE ----------
 router.put("/bulk/deadline", auth, async (req, res) => {
-    const { jobIds, daysToAdd } = req.body;
-  
-    if (!Array.isArray(jobIds) || jobIds.length === 0)
-      return res.status(400).json({ error: "No job IDs provided" });
-  
-    const days = parseInt(daysToAdd, 10);
-    if (isNaN(days) || days === 0)
-      return res.status(400).json({ error: "Invalid daysToAdd value" });
-  
-    try {
-      const result = await pool.query(
-        `UPDATE jobs
+  const { jobIds, daysToAdd } = req.body;
+
+  if (!Array.isArray(jobIds) || jobIds.length === 0)
+    return res.status(400).json({ error: "No job IDs provided" });
+
+  const days = parseInt(daysToAdd, 10);
+  if (isNaN(days) || days === 0)
+    return res.status(400).json({ error: "Invalid daysToAdd value" });
+
+  try {
+    const result = await pool.query(
+      `UPDATE jobs
          SET deadline = deadline + INTERVAL '${days} days',
              status_updated_at = NOW()
          WHERE user_id = $1 AND id = ANY($2::int[])
          RETURNING id, title, deadline`,
-        [req.userId, jobIds]
-      );
-  
-      res.json({ updated: result.rows });
-    } catch (err) {
-      console.error("❌ Bulk deadline update error:", err.message);
-      res.status(500).json({ error: "Database error" });
-    }
-  });
+      [req.userId, jobIds]
+    );
 
+    res.json({ updated: result.rows });
+  } catch (err) {
+    console.error("❌ Bulk deadline update error:", err.message);
+    res.status(500).json({ error: "Database error" });
+  }
+});
 
 //
 // ==================================================================
@@ -1112,7 +1242,5 @@ router.put("/:id/restore", auth, async (req, res) => {
     res.status(500).json({ error: "Database error" });
   }
 });
-
-
 
 export default router;

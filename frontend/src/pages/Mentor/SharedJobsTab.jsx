@@ -13,7 +13,12 @@ import {
   FaArrowRight,
   FaFileAlt,
   FaEnvelope,
+  FaEye,
+  FaDownload,
+  FaChevronDown,
+  FaSync,
 } from "react-icons/fa";
+import FeedbackModal from "../../components/FeedbackModal";
 import "./SharedJobsTab.css";
 
 export default function SharedJobsTab() {
@@ -25,16 +30,16 @@ export default function SharedJobsTab() {
   const isCandidate = teamState?.isCandidate;
   const currentUserId = teamState?.userId;
 
-  const [sharedJobs, setSharedJobs] = useState([]);
-  const [myJobs, setMyJobs] = useState([]); // For mentors to select jobs to share
-  const [progress, setProgress] = useState(null); // For mentor progress dashboard
+  const [sharedJobs, setSharedJobs] = useState([]);
+  const [myJobs, setMyJobs] = useState([]); // For mentors to select jobs to share
+  const [progress, setProgress] = useState(null); // For mentor progress dashboard
   const [applicationMaterials, setApplicationMaterials] = useState(null); // For application materials
-  const [loading, setLoading] = useState(true);
-  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingJobs, setLoadingJobs] = useState(false);
   const [loadingMaterials, setLoadingMaterials] = useState(false);
-  const [error, setError] = useState(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [editingComments, setEditingComments] = useState(null); // { sharedJobId, comments }
+  const [error, setError] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [editingComments, setEditingComments] = useState(null); // { sharedJobId, comments }
   const [viewMode, setViewMode] = useState("jobs"); // "jobs", "progress", or "materials" (for mentors)
 
   // Load shared jobs
@@ -71,20 +76,20 @@ export default function SharedJobsTab() {
     }
   }, [token, isMentor, isAdmin]);
 
-  // Load progress dashboard (mentors/admins only)
-  const loadProgress = useCallback(async () => {
-    if (!teamId || (!isMentor && !isAdmin)) return;
-    try {
-      const { data } = await api.get(`/api/team/${teamId}/shared-jobs/progress`);
-      setProgress(data);
-    } catch (err) {
-      console.error("Failed to load progress:", err);
-    }
-  }, [teamId, isMentor, isAdmin]);
+  // Load progress dashboard (mentors/admins only)
+  const loadProgress = useCallback(async () => {
+    if (!teamId || (!isMentor && !isAdmin)) return;
+    try {
+      const { data } = await api.get(`/api/team/${teamId}/shared-jobs/progress`);
+      setProgress(data);
+    } catch (err) {
+      console.error("Failed to load progress:", err);
+    }
+  }, [teamId, isMentor, isAdmin]);
 
-  // Load application materials (mentors/admins only)
+  // Load application materials (mentors/admins can see all candidates, candidates see only their own)
   const loadApplicationMaterials = useCallback(async () => {
-    if (!teamId || (!isMentor && !isAdmin)) return;
+    if (!teamId || (!isMentor && !isAdmin && !isCandidate)) return;
     setLoadingMaterials(true);
     try {
       const { data } = await api.get(`/api/team/${teamId}/shared-jobs/application-materials`);
@@ -95,7 +100,7 @@ export default function SharedJobsTab() {
     } finally {
       setLoadingMaterials(false);
     }
-  }, [teamId, isMentor, isAdmin]);
+  }, [teamId, isMentor, isAdmin, isCandidate]);
 
   useEffect(() => {
     loadSharedJobs();
@@ -105,8 +110,18 @@ export default function SharedJobsTab() {
       if (viewMode === "materials") {
         loadApplicationMaterials();
       }
+    } else if (isCandidate && viewMode === "materials") {
+      // Candidates can also load their own materials
+      loadApplicationMaterials();
     }
-  }, [loadSharedJobs, loadMyJobs, loadProgress, loadApplicationMaterials, isMentor, isAdmin, viewMode]);
+  }, [loadSharedJobs, loadMyJobs, loadProgress, loadApplicationMaterials, isMentor, isAdmin, isCandidate, viewMode]);
+
+  // Refresh application materials when viewMode changes to materials
+  useEffect(() => {
+    if (viewMode === "materials" && (isMentor || isAdmin || isCandidate)) {
+      loadApplicationMaterials();
+    }
+  }, [viewMode, isMentor, isAdmin, isCandidate, loadApplicationMaterials]);
 
   const handleShareJob = async (jobId, comments) => {
     if (!teamId) return;
@@ -166,85 +181,101 @@ export default function SharedJobsTab() {
 
   if (!teamId) {
     return (
-      <section className="profile-box">
-        <h3>Job Posts</h3>
-        <p>No team found. Please join a team to view shared jobs.</p>
-      </section>
+      <div className="shared-jobs-container">
+        <div className="shared-jobs-empty">
+          <FaBriefcase className="shared-jobs-empty-icon" />
+          <h3 className="shared-jobs-empty-title">No Team Found</h3>
+          <p className="shared-jobs-empty-text">
+            Please join a team to view and manage shared jobs.
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (loading) {
     return (
-      <section className="profile-box">
-        <h3>Job Posts</h3>
+      <div className="shared-jobs-container">
+        <div className="shared-jobs-loading">
+          <div className="shared-jobs-loading-spinner"></div>
         <p>Loading shared jobs...</p>
-      </section>
+        </div>
+      </div>
     );
   }
 
-  const canShare = isMentor || isAdmin;
-  const canViewProgress = isMentor || isAdmin;
+  const canShare = isMentor || isAdmin;
+  const canViewProgress = isMentor || isAdmin;
+  const canViewMaterials = isMentor || isAdmin || isCandidate; // Candidates can view their own materials
 
   return (
-    <section className="profile-box shared-jobs-container">
+    <div className="shared-jobs-container">
       <div className="shared-jobs-header">
-        <h3>Job Posts</h3>
-        {canShare && (
-          <div className="shared-jobs-actions">
-            <button className="btn-primary" onClick={() => setShowShareModal(true)}>
-              <FaBriefcase /> Share Job
-            </button>
-            {canViewProgress && (
-              <div className="view-toggle">
+        <div className="shared-jobs-header-content">
+          <h2 className="shared-jobs-main-title">Job Posts</h2>
+          <p className="shared-jobs-main-subtitle">
+            Discover opportunities and track team progress
+          </p>
+        </div>
+        <div className="shared-jobs-actions">
+          {canShare && (
+            <button className="shared-jobs-share-btn" onClick={() => setShowShareModal(true)}>
+              <FaBriefcase />
+              <span>Share Job</span>
+            </button>
+          )}
+          {canViewMaterials && (
+            <div className="shared-jobs-view-toggle">
+              <button
+                className={`shared-jobs-toggle-btn ${viewMode === "jobs" ? "active" : ""}`}
+                onClick={() => setViewMode("jobs")}
+              >
+                Shared Jobs
+              </button>
+              {(isMentor || isAdmin) && (
                 <button
-                  className={`toggle-btn ${viewMode === "jobs" ? "active" : ""}`}
-                  onClick={() => setViewMode("jobs")}
-                >
-                  Shared Jobs
-                </button>
-                <button
-                  className={`toggle-btn ${viewMode === "progress" ? "active" : ""}`}
+                  className={`shared-jobs-toggle-btn ${viewMode === "progress" ? "active" : ""}`}
                   onClick={() => setViewMode("progress")}
                 >
                   Progress Dashboard
                 </button>
-                <button
-                  className={`toggle-btn ${viewMode === "materials" ? "active" : ""}`}
-                  onClick={() => {
-                    setViewMode("materials");
-                    if (!applicationMaterials) {
-                      loadApplicationMaterials();
-                    }
-                  }}
-                >
-                  Job Application Materials
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+              <button
+                className={`shared-jobs-toggle-btn ${viewMode === "materials" ? "active" : ""}`}
+                onClick={() => {
+                  setViewMode("materials");
+                  loadApplicationMaterials(); // Always refresh when switching to materials view
+                }}
+              >
+                Application Materials
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="shared-jobs-error-banner">{error}</div>}
 
       {viewMode === "progress" && canViewProgress ? (
         <ProgressDashboard progress={progress} />
-      ) : viewMode === "materials" && canViewProgress ? (
+      ) : viewMode === "materials" && canViewMaterials ? (
         <ApplicationMaterials
           materials={applicationMaterials}
           loading={loadingMaterials}
+          onRefresh={loadApplicationMaterials}
+          isCandidate={isCandidate}
         />
       ) : (
-        <SharedJobsList
-          sharedJobs={sharedJobs}
-          isCandidate={isCandidate}
-          editingComments={editingComments}
-          setEditingComments={setEditingComments}
-          onUpdateComments={handleUpdateComments}
-          onExportJob={handleExportJob}
-          formatDate={formatDate}
-        />
-      )}
+        <SharedJobsList
+          sharedJobs={sharedJobs}
+          isCandidate={isCandidate}
+          editingComments={editingComments}
+          setEditingComments={setEditingComments}
+          onUpdateComments={handleUpdateComments}
+          onExportJob={handleExportJob}
+          formatDate={formatDate}
+        />
+      )}
 
       {showShareModal && (
         <ShareJobModal
@@ -254,7 +285,7 @@ export default function SharedJobsTab() {
           onClose={() => setShowShareModal(false)}
         />
       )}
-    </section>
+    </div>
   );
 }
 
@@ -271,7 +302,11 @@ function SharedJobsList({
   if (sharedJobs.length === 0) {
     return (
       <div className="shared-jobs-empty">
-        <p>No jobs have been shared with the team yet.</p>
+        <FaBriefcase className="shared-jobs-empty-icon" />
+        <h3 className="shared-jobs-empty-title">No Jobs Shared Yet</h3>
+        <p className="shared-jobs-empty-text">
+          No jobs have been shared with the team yet. Share a job to get started!
+        </p>
       </div>
     );
   }
@@ -553,15 +588,100 @@ function ProgressDashboard({ progress }) {
                 <FaExclamationTriangle /> No candidates have exported this job yet.
               </div>
             )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Application Materials Component
-function ApplicationMaterials({ materials, loading }) {
+function ApplicationMaterials({ materials, loading, onRefresh, isCandidate = false }) {
+  const { teamState } = useTeam() || {};
+  const teamId = teamState?.primaryTeam?.id;
+  const [feedbackModal, setFeedbackModal] = useState(null); // { candidateId, candidateName, jobId, jobTitle, materialType }
+  const [expandedCandidates, setExpandedCandidates] = useState(new Set()); // Track which candidates are expanded
+
+  const toggleCandidate = (candidateId) => {
+    setExpandedCandidates((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(candidateId)) {
+        newSet.delete(candidateId);
+      } else {
+        newSet.add(candidateId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleViewResume = async (resumeId, jobId = null) => {
+    if (!teamId) {
+      alert("Team not found");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      let downloadUrl = `http://localhost:4000/api/team/${teamId}/resume/${resumeId}/download`;
+      if (jobId) {
+        downloadUrl += `?jobId=${jobId}`;
+      }
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to load resume");
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      // Open PDF in a new tab for viewing
+      window.open(blobUrl, "_blank");
+      // Note: We don't revoke the URL immediately to allow the browser to load it
+      // The browser will handle cleanup when the tab is closed
+    } catch (err) {
+      console.error("Failed to load resume:", err);
+      alert("Failed to load resume. Please try again.");
+    }
+  };
+
+  const handleViewCoverLetter = async (coverLetterId, jobId = null) => {
+    if (!teamId) {
+      alert("Team not found");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      let downloadUrl = `http://localhost:4000/api/team/${teamId}/cover-letter/${coverLetterId}/download`;
+      if (jobId) {
+        downloadUrl += `?jobId=${jobId}`;
+      }
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to load cover letter");
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      // Open PDF/DOC in a new tab for viewing
+      window.open(blobUrl, "_blank");
+      // Note: We don't revoke the URL immediately to allow the browser to load it
+      // The browser will handle cleanup when the tab is closed
+    } catch (err) {
+      console.error("Failed to load cover letter:", err);
+      alert("Failed to load cover letter. Please try again.");
+    }
+  };
+
   if (loading) {
     return <div className="materials-loading">Loading application materials...</div>;
   }
@@ -576,18 +696,55 @@ function ApplicationMaterials({ materials, loading }) {
 
   return (
     <div className="application-materials-container">
-      {materials.materials.map((candidate) => (
-        <div key={candidate.candidateId} className="candidate-materials-card">
-          <div className="candidate-materials-header">
-            <h4>
-              <FaUser /> {candidate.candidateName}
-            </h4>
-            <span className="job-count-badge">
-              {candidate.jobs.length} job{candidate.jobs.length !== 1 ? "s" : ""}
-            </span>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h3 style={{ margin: 0 }}>Application Materials</h3>
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            backgroundColor: '#4f22ea',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+            fontSize: '14px',
+            fontWeight: 500,
+          }}
+          title="Refresh application materials"
+        >
+          <FaSync style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          Refresh
+        </button>
+      </div>
+      {materials.materials.map((candidate) => {
+        const isExpanded = expandedCandidates.has(candidate.candidateId);
+        return (
+          <div key={candidate.candidateId} className="candidate-materials-card">
+            <div 
+              className="candidate-materials-header"
+              onClick={() => toggleCandidate(candidate.candidateId)}
+              style={{ cursor: 'pointer' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                <FaChevronDown 
+                  className={`candidate-expand-arrow ${isExpanded ? 'expanded' : ''}`}
+                />
+                <h4>
+                  <FaUser /> {candidate.candidateName}
+                </h4>
+              </div>
+              <span className="job-count-badge">
+                {candidate.jobs.length} job{candidate.jobs.length !== 1 ? "s" : ""}
+              </span>
+            </div>
 
-          <div className="candidate-jobs-list">
+            {isExpanded && (
+              <div className="candidate-jobs-list">
             {candidate.jobs.map((job) => (
               <div key={job.jobId} className="job-materials-item">
                 <div className="job-materials-header">
@@ -608,6 +765,30 @@ function ApplicationMaterials({ materials, loading }) {
                         <span className="material-title">{job.resume.title}</span>
                         <span className="material-format">{job.resume.format.toUpperCase()}</span>
                       </div>
+                      <div className="material-actions">
+                        <button
+                          className="material-view-btn"
+                          onClick={() => handleViewResume(job.resume.id, job.jobId)}
+                          title="View Resume"
+                        >
+                          <FaEye /> View
+                        </button>
+                        {!isCandidate && (
+                          <button
+                            className="material-feedback-btn"
+                            onClick={() => setFeedbackModal({
+                              candidateId: candidate.candidateId,
+                              candidateName: candidate.candidateName,
+                              jobId: job.jobId,
+                              jobTitle: job.jobTitle,
+                              materialType: "resume"
+                            })}
+                            title="Add Feedback"
+                          >
+                            <FaComment /> Feedback
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="material-item no-material">
@@ -623,6 +804,30 @@ function ApplicationMaterials({ materials, loading }) {
                         <span className="material-title">{job.coverLetter.title}</span>
                         <span className="material-format">{job.coverLetter.format.toUpperCase()}</span>
                       </div>
+                      <div className="material-actions">
+                        <button
+                          className="material-view-btn"
+                          onClick={() => handleViewCoverLetter(job.coverLetter.id, job.jobId)}
+                          title="View Cover Letter"
+                        >
+                          <FaEye /> View
+                        </button>
+                        {!isCandidate && (
+                          <button
+                            className="material-feedback-btn"
+                            onClick={() => setFeedbackModal({
+                              candidateId: candidate.candidateId,
+                              candidateName: candidate.candidateName,
+                              jobId: job.jobId,
+                              jobTitle: job.jobTitle,
+                              materialType: "cover_letter"
+                            })}
+                            title="Add Feedback"
+                          >
+                            <FaComment /> Feedback
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="material-item no-material">
@@ -633,9 +838,27 @@ function ApplicationMaterials({ materials, loading }) {
                 </div>
               </div>
             ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
+      
+      {feedbackModal && (
+        <FeedbackModal
+          teamId={teamId}
+          candidateId={feedbackModal.candidateId}
+          candidateName={feedbackModal.candidateName}
+          jobId={feedbackModal.jobId}
+          materialType={feedbackModal.materialType}
+          materialJobTitle={feedbackModal.jobTitle}
+          onClose={() => setFeedbackModal(null)}
+          onSuccess={() => {
+            setFeedbackModal(null);
+            // Optionally refresh materials or show success message
+          }}
+        />
+      )}
     </div>
   );
 }

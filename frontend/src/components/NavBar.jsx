@@ -11,7 +11,6 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
@@ -85,17 +84,13 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
-            {/* ═══════════════════════════════════════════
-                INTERVIEWS - Prepare & Track
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Doc Management
             </NavLink>
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
+
+           
 
             {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
@@ -106,9 +101,6 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-            <NavLink to="/networking">
-              <FaUsers /> Networking
-            </NavLink>
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -128,12 +120,7 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
-            
-
-            {/* 👤 Profile */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
 
             {/* ═══════════════════════════════════════════
                 ACCOUNT
