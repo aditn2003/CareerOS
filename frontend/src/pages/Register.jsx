@@ -71,8 +71,8 @@ export default function Register() {
           <option value="candidate">
             Individual job seeker (candidate)
           </option>
-          <option value="team_admin">
-            Team mentor / admin (career coach or team lead)
+          <option value="mentor">
+            Team mentor (career coach or team lead)
           </option>
         </select>
       </label>

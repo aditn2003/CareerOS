@@ -14,11 +14,14 @@ export default function FeedbackModal({
   onClose,
   onSuccess,
 }) {
-  // Ensure feedbackType is always "task" when taskId is provided (for new feedback)
-  const initialFeedbackType = existingFeedback?.feedbackType || (taskId ? "task" : "general");
+  // When taskId is provided, feedbackType must be "task" and cannot be changed
+  // Check if taskId exists (could be number or string, but not null/undefined/empty string)
+  const isTaskFeedback = taskId != null && taskId !== "" && String(taskId).trim() !== "";
+  // For new feedback with taskId, always use "task". For editing, use existing type. Otherwise default to "general"
+  const initialFeedbackType = isTaskFeedback && !existingFeedback ? "task" : (existingFeedback?.feedbackType || "general");
   
   const [formData, setFormData] = useState({
-    feedbackType: taskId && !existingFeedback ? "task" : initialFeedbackType, // Force "task" if taskId provided and not editing
+    feedbackType: initialFeedbackType, // Always "task" when taskId is provided for new feedback
     content: existingFeedback?.content || "",
     jobId: existingFeedback?.jobId || "",
     skillName: existingFeedback?.skillName || "",
@@ -31,6 +34,17 @@ export default function FeedbackModal({
   const [loadingJobs, setLoadingJobs] = useState(false);
 
   const isEditMode = feedbackId !== null;
+
+  // Ensure feedbackType is "task" when taskId is provided (enforce on mount and when taskId changes)
+  useEffect(() => {
+    if (isTaskFeedback && !isEditMode && formData.feedbackType !== "task") {
+      setFormData(prev => ({
+        ...prev,
+        feedbackType: "task",
+        taskId: taskId || prev.taskId,
+      }));
+    }
+  }, [taskId, isTaskFeedback, isEditMode, formData.feedbackType]);
 
   useEffect(() => {
     if (candidateId && teamId) {
@@ -75,8 +89,8 @@ export default function FeedbackModal({
     setLoading(true);
 
     try {
-      // Ensure feedbackType is "task" if taskId is provided
-      const finalFeedbackType = formData.taskId ? "task" : formData.feedbackType;
+      // Ensure feedbackType is "task" if taskId is provided (enforce this even if somehow changed)
+      const finalFeedbackType = (taskId !== null && taskId !== undefined && taskId !== "") ? "task" : formData.feedbackType;
       
       const payload = {
         candidateId,
@@ -84,7 +98,7 @@ export default function FeedbackModal({
         content: formData.content.trim(),
         jobId: finalFeedbackType === "job" ? parseInt(formData.jobId) || null : null,
         skillName: finalFeedbackType === "skill" ? formData.skillName.trim() || null : null,
-        taskId: finalFeedbackType === "task" ? parseInt(formData.taskId) || null : null,
+        taskId: finalFeedbackType === "task" ? parseInt(taskId || formData.taskId) || null : null,
       };
 
       if (isEditMode) {
@@ -138,13 +152,18 @@ export default function FeedbackModal({
                 });
               }}
               required
-              disabled={isEditMode || (taskId !== null)} // Disable if taskId is provided (pre-set)
+              disabled={isEditMode || isTaskFeedback} // Disable if editing or if taskId is provided (task-related feedback)
             >
               <option value="general">General Progress</option>
+              <option value="task">Task Related</option>
               <option value="job">Related to Job Application</option>
               <option value="skill">Related to Skill</option>
-              <option value="task">Related to Task</option>
             </select>
+            {isTaskFeedback && (
+              <p className="form-hint" style={{ marginTop: "0.5rem", color: "#6b7280", fontStyle: "italic" }}>
+                This feedback is linked to a task and cannot be changed.
+              </p>
+            )}
           </div>
 
           {formData.feedbackType === "job" && (
