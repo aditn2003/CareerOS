@@ -16,6 +16,7 @@ import {
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter
   FaUserGraduate, // ✅ Icon for Mentor
+  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -101,7 +102,7 @@ export default function NavBar() {
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
             <NavLink to="/networking">
-              <FaNetworkWired /> Networking
+              <FaUsers /> Networking
             </NavLink>
 
             {showMentorButton && (

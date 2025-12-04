@@ -32,6 +32,43 @@ function calculatePercentile(value, p10, p25, p50, p75, p90) {
 }
 
 // Helper: Find matching benchmark
+// Helper function to normalize industry names
+function normalizeIndustry(industry) {
+  if (!industry || industry.trim() === '' || industry.toLowerCase() === 'unknown') {
+    return 'Unknown';
+  }
+  
+  const normalized = industry.trim().toLowerCase();
+  
+  // Normalize common variations
+  if (normalized === 'tech' || normalized === 'technology' || normalized.includes('tech')) {
+    return 'Technology';
+  }
+  if (normalized.includes('finance') || normalized.includes('financial')) {
+    return 'Finance';
+  }
+  if (normalized.includes('health') || normalized.includes('medical') || normalized.includes('healthcare')) {
+    return 'Healthcare';
+  }
+  if (normalized.includes('consult')) {
+    return 'Consulting';
+  }
+  if (normalized.includes('retail')) {
+    return 'Retail';
+  }
+  if (normalized.includes('education')) {
+    return 'Education';
+  }
+  if (normalized.includes('government') || normalized.includes('govt') || normalized.includes('gov')) {
+    return 'Government';
+  }
+  
+  // Capitalize first letter of each word for consistency
+  return industry.trim().split(' ').map(word => 
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+}
+
 async function findMatchingBenchmark(criteria) {
   try {
     const { rows } = await pool.query(
@@ -456,11 +493,14 @@ router.get("/comprehensive", async (req, res) => {
     
     // Get all data - handle cases where tables might not exist
     let offersResult, compHistoryResult, negotiationResult, jobsResult;
+    let archivedJobIds = new Set(); // Initialize empty set
     
     try {
       const queries = await Promise.allSettled([
         pool.query(`SELECT * FROM offers WHERE user_id = $1 ORDER BY offer_date DESC`, [userId]),
         pool.query(`SELECT * FROM compensation_history WHERE user_id = $1 ORDER BY start_date ASC`, [userId]),
+        // Get job IDs that are archived to exclude offers linked to them
+        pool.query(`SELECT id FROM jobs WHERE user_id = $1 AND ("isArchived" = true)`, [userId]),
         pool.query(`
           SELECT nh.*, o.company, o.role_title, o.industry, o.company_size, o.location_type, o.role_level
           FROM negotiation_history nh
@@ -469,18 +509,22 @@ router.get("/comprehensive", async (req, res) => {
           ORDER BY nh.negotiation_date DESC
         `, [userId]),
         pool.query(`
-          SELECT id, title, company, location, salary_min, salary_max, status, industry, created_at
+          SELECT id, title, company, location, salary_min, salary_max, status, industry, role_level, created_at
           FROM jobs 
           WHERE user_id = $1 
-            AND (salary_min IS NOT NULL OR salary_max IS NOT NULL)
+            AND ("isArchived" = false OR "isArchived" IS NULL)
           ORDER BY created_at DESC
         `, [userId])
       ]);
       
       offersResult = queries[0].status === 'fulfilled' ? queries[0].value : { rows: [] };
       compHistoryResult = queries[1].status === 'fulfilled' ? queries[1].value : { rows: [] };
-      negotiationResult = queries[2].status === 'fulfilled' ? queries[2].value : { rows: [] };
-      jobsResult = queries[3].status === 'fulfilled' ? queries[3].value : { rows: [] };
+      const archivedJobsResult = queries[2].status === 'fulfilled' ? queries[2].value : { rows: [] };
+      negotiationResult = queries[3].status === 'fulfilled' ? queries[3].value : { rows: [] };
+      jobsResult = queries[4].status === 'fulfilled' ? queries[4].value : { rows: [] };
+      
+      // Get set of archived job IDs to exclude offers linked to them
+      archivedJobIds = new Set(archivedJobsResult.rows.map(j => Number(j.id)));
       
       // Log any rejected queries
       queries.forEach((q, idx) => {
@@ -495,31 +539,106 @@ router.get("/comprehensive", async (req, res) => {
       compHistoryResult = { rows: [] };
       negotiationResult = { rows: [] };
       jobsResult = { rows: [] };
+      archivedJobIds = new Set(); // Keep empty set
     }
     
-    const offers = offersResult.rows;
+    // Filter out offers linked to archived jobs
+    let offers = offersResult.rows;
+    const offersBeforeFilter = offers.length;
+    offers = offers.filter(o => {
+      // Include offers that don't have a job_id, or have a job_id that's not archived
+      if (o.job_id == null || o.job_id === undefined) {
+        return true; // Include offers without job_id
+      }
+      return !archivedJobIds.has(Number(o.job_id)); // Exclude if job is archived
+    });
+    
+    if (offersBeforeFilter !== offers.length) {
+      console.log(`📊 Filtered out ${offersBeforeFilter - offers.length} offer(s) linked to archived jobs`);
+    }
+    
     const compHistory = compHistoryResult.rows;
     const negotiations = negotiationResult.rows;
     const jobs = jobsResult.rows;
     
+    // Debug: Log all offers fetched
+    console.log("📊 Offers Fetched from Database:", {
+      totalOffers: offers.length,
+      userId: userId,
+      offers: offers.map((o, idx) => ({
+        index: idx + 1,
+        id: o.id,
+        company: o.company || 'MISSING',
+        role_title: o.role_title || 'MISSING',
+        role_level: o.role_level || 'MISSING',
+        location: o.location || 'MISSING',
+        base_salary: o.base_salary || 0,
+        offer_status: o.offer_status || 'MISSING',
+        offer_date: o.offer_date || 'MISSING',
+        job_id: o.job_id || null
+      }))
+    });
+    
+    // Verify we have all offers
+    if (offers.length === 0) {
+      console.warn("⚠️ No offers found for user", userId);
+    }
+    
     // Get offer IDs that have compensation history (these are accepted offers)
-    const acceptedOfferIds = new Set(compHistory.map(ch => ch.offer_id).filter(id => id != null));
+    // Only include compensation history entries where the offer still exists
+    const existingOfferIds = new Set(offers.map(o => o.id));
+    const acceptedOfferIds = new Set(
+      compHistory
+        .filter(ch => ch.offer_id != null && existingOfferIds.has(ch.offer_id))
+        .map(ch => ch.offer_id)
+    );
+    
+    // Filter out compensation history entries for deleted offers
+    // Only include entries where the offer still exists (or entries without offer_id, which are manual entries)
+    const validCompHistory = compHistory.filter(ch => 
+      ch.offer_id == null || existingOfferIds.has(ch.offer_id)
+    );
+    
+    console.log("📊 Compensation History Filtering:", {
+      totalCompHistory: compHistory.length,
+      validCompHistory: validCompHistory.length,
+      filteredOut: compHistory.length - validCompHistory.length,
+      filteredEntries: compHistory
+        .filter(ch => ch.offer_id != null && !existingOfferIds.has(ch.offer_id))
+        .map(ch => ({
+          id: ch.id,
+          offer_id: ch.offer_id,
+          company: ch.company,
+          role_title: ch.role_title
+        }))
+    });
     
     // Analyze job salary ranges vs actual offers
+    // Filter to only jobs that have salary data (salary_min > 0 OR salary_max > 0)
+    const jobsWithSalary = jobs.filter(j => {
+      const min = Number(j.salary_min) || 0;
+      const max = Number(j.salary_max) || 0;
+      return min > 0 || max > 0;
+    });
+    
     const jobSalaryAnalysis = {
-      totalJobsWithSalary: jobs.length,
-      avgSalaryMin: jobs.length > 0 
-        ? jobs.reduce((sum, j) => sum + (Number(j.salary_min) || 0), 0) / jobs.length 
+      totalJobsWithSalary: jobsWithSalary.length, // Only count jobs with actual salary data
+      avgSalaryMin: jobsWithSalary.length > 0 
+        ? jobsWithSalary.reduce((sum, j) => sum + (Number(j.salary_min) || 0), 0) / jobsWithSalary.length 
         : 0,
-      avgSalaryMax: jobs.length > 0 
-        ? jobs.reduce((sum, j) => sum + (Number(j.salary_max) || 0), 0) / jobs.length 
+      avgSalaryMax: jobsWithSalary.length > 0 
+        ? jobsWithSalary.reduce((sum, j) => sum + (Number(j.salary_max) || 0), 0) / jobsWithSalary.length 
         : 0,
-      avgSalaryRange: jobs.length > 0
-        ? jobs.reduce((sum, j) => {
+      avgSalaryRange: jobsWithSalary.length > 0
+        ? jobsWithSalary.reduce((sum, j) => {
             const min = Number(j.salary_min) || 0;
             const max = Number(j.salary_max) || 0;
-            return sum + ((min + max) / 2);
-          }, 0) / jobs.length
+            // Calculate midpoint for each job
+            const midpoint = (min > 0 && max > 0) 
+              ? (min + max) / 2 
+              : (min > 0 ? min : max); // Use the one that exists if only one is present
+            return sum + midpoint;
+          }, 0) / jobsWithSalary.length
         : 0,
       jobsWithOffers: jobs.filter(j => {
         // Check if this job has a corresponding offer
@@ -607,36 +726,125 @@ router.get("/comprehensive", async (req, res) => {
       }))
     };
     
-    // Group offers by various dimensions
+    // Group offers by various dimensions - include ALL offers, even if missing fields
     offers.forEach(offer => {
       const role = offer.role_title || 'Unknown';
       const company = offer.company || 'Unknown';
       const location = offer.location || 'Unknown';
       const level = offer.role_level || 'Unknown';
       
+      // Always include in byRole, even if role is Unknown
       if (!offerTracking.byRole[role]) {
         offerTracking.byRole[role] = { count: 0, avgBase: 0, avgTotal: 0, salaries: [] };
       }
       offerTracking.byRole[role].count++;
       offerTracking.byRole[role].salaries.push(Number(offer.base_salary) || 0);
       
+      // Always include in byCompany
       if (!offerTracking.byCompany[company]) {
         offerTracking.byCompany[company] = { count: 0, avgBase: 0, salaries: [] };
       }
       offerTracking.byCompany[company].count++;
       offerTracking.byCompany[company].salaries.push(Number(offer.base_salary) || 0);
       
+      // Always include in byLocation
       if (!offerTracking.byLocation[location]) {
         offerTracking.byLocation[location] = { count: 0, avgBase: 0, salaries: [] };
       }
       offerTracking.byLocation[location].count++;
       offerTracking.byLocation[location].salaries.push(Number(offer.base_salary) || 0);
       
-      if (!offerTracking.byLevel[level]) {
-        offerTracking.byLevel[level] = { count: 0, avgBase: 0, salaries: [] };
+      // Normalize role level (handle case variations and nulls)
+      const normalizedLevel = level && level !== 'Unknown' 
+        ? level.toLowerCase().trim() 
+        : 'unknown';
+      
+      // Always include in byLevel, even if level is unknown
+      if (!offerTracking.byLevel[normalizedLevel]) {
+        offerTracking.byLevel[normalizedLevel] = { count: 0, avgBase: 0, salaries: [] };
       }
-      offerTracking.byLevel[level].count++;
-      offerTracking.byLevel[level].salaries.push(Number(offer.base_salary) || 0);
+      offerTracking.byLevel[normalizedLevel].count++;
+      offerTracking.byLevel[normalizedLevel].salaries.push(Number(offer.base_salary) || 0);
+    });
+    
+    // Also include jobs with role_level (only if they don't have offers and have salary data)
+    // This ensures jobs that had offers removed are not counted
+    console.log("📊 Processing jobs with role_level:", {
+      totalJobs: jobs.length,
+      jobsWithRoleLevel: jobs.filter(j => j.role_level && j.role_level.trim() !== '').length,
+      jobs: jobs.filter(j => j.role_level && j.role_level.trim() !== '').map(j => ({
+        id: j.id,
+        title: j.title,
+        company: j.company,
+        role_level: j.role_level,
+        salary_min: j.salary_min,
+        salary_max: j.salary_max
+      }))
+    });
+    
+    // Get all job IDs that have offers (including those with null job_id that might have been removed)
+    const jobIdsWithOffers = new Set(
+      offers
+        .filter(o => o.job_id !== null && o.job_id !== undefined)
+        .map(o => Number(o.job_id))
+    );
+    
+    jobs.forEach(job => {
+      const jobLevel = job.role_level;
+      if (jobLevel && jobLevel.trim() !== '') {
+        const normalizedLevel = jobLevel.toLowerCase().trim();
+        
+        // Check if this job has an offer (including offers that might have job_id set)
+        const hasOffer = jobIdsWithOffers.has(Number(job.id));
+        
+        // Only add job data if:
+        // 1. It doesn't have an offer (never had one, or offer was removed)
+        // 2. It has salary data (more meaningful for statistics)
+        if (!hasOffer) {
+          // Use salary range midpoint if available
+          const salaryMin = Number(job.salary_min) || 0;
+          const salaryMax = Number(job.salary_max) || 0;
+          
+          // Only count jobs with salary data to make statistics more meaningful
+          if (salaryMin > 0 || salaryMax > 0) {
+            const salaryMidpoint = salaryMin > 0 && salaryMax > 0 
+              ? (salaryMin + salaryMax) / 2 
+              : (salaryMin > 0 ? salaryMin : salaryMax);
+            
+            // Initialize if not exists
+            if (!offerTracking.byLevel[normalizedLevel]) {
+              offerTracking.byLevel[normalizedLevel] = { count: 0, avgBase: 0, salaries: [] };
+            }
+            
+            offerTracking.byLevel[normalizedLevel].count++;
+            offerTracking.byLevel[normalizedLevel].salaries.push(salaryMidpoint);
+            console.log(`✅ Added job ${job.id} (${job.company}) with role_level "${normalizedLevel}" and salary midpoint $${salaryMidpoint}`);
+          } else {
+            console.log(`⏭️ Skipped job ${job.id} (${job.company}) - no salary data`);
+          }
+        } else {
+          console.log(`⏭️ Skipped job ${job.id} (${job.company}) - already has an offer`);
+        }
+      }
+    });
+    
+    // Debug: Log all offers to see what's being processed
+    console.log("📊 All Offers Processed:", {
+      totalOffers: offers.length,
+      offers: offers.map(o => ({
+        id: o.id,
+        company: o.company,
+        role_title: o.role_title,
+        role_level: o.role_level,
+        location: o.location,
+        base_salary: o.base_salary,
+        offer_status: o.offer_status
+      })),
+      byLevelCounts: Object.entries(offerTracking.byLevel).map(([level, data]) => ({
+        level,
+        count: data.count,
+        avgBase: data.avgBase
+      }))
     });
     
     // Calculate averages
@@ -654,7 +862,33 @@ router.get("/comprehensive", async (req, res) => {
     });
     Object.keys(offerTracking.byLevel).forEach(level => {
       const data = offerTracking.byLevel[level];
-      data.avgBase = data.salaries.reduce((a, b) => a + b, 0) / data.salaries.length;
+      data.avgBase = data.salaries.length > 0 
+        ? data.salaries.reduce((a, b) => a + b, 0) / data.salaries.length 
+        : 0;
+    });
+    
+    // Calculate overall average base salary and add acceptedCount for frontend compatibility
+    const allSalaries = offers.map(o => Number(o.base_salary) || 0).filter(s => s > 0);
+    offerTracking.avgBaseSalary = allSalaries.length > 0 
+      ? allSalaries.reduce((a, b) => a + b, 0) / allSalaries.length 
+      : 0;
+    offerTracking.acceptedCount = allAcceptedOffers.length;
+    
+    // Debug logging
+    console.log("📊 Offer Tracking Stats:", {
+      totalOffers: offerTracking.totalOffers,
+      actualOffersCount: offers.length,
+      acceptedCount: offerTracking.acceptedCount,
+      acceptedVsRejected: offerTracking.acceptedVsRejected,
+      avgBaseSalary: offerTracking.avgBaseSalary,
+      allSalariesCount: allSalaries.length,
+      allAcceptedOffersCount: allAcceptedOffers.length,
+      byLevel: offerTracking.byLevel,
+      roleLevels: Object.keys(offerTracking.byLevel),
+      offersWithRoleLevel: offers.filter(o => o.role_level).length,
+      offersWithoutRoleLevel: offers.filter(o => !o.role_level).length,
+      allOfferIds: offers.map(o => o.id),
+      allOfferCompanies: offers.map(o => `${o.id}: ${o.company || 'MISSING'}`)
     });
     
     // 2. NEGOTIATION ANALYTICS
@@ -815,8 +1049,9 @@ router.get("/comprehensive", async (req, res) => {
     }
     
     // 4. TOTAL COMPENSATION EVOLUTION
-    const evolution = compHistory.map((role, index) => {
-      const prevRole = compHistory[index - 1];
+    // Use validCompHistory to exclude entries for deleted offers
+    const evolution = validCompHistory.map((role, index) => {
+      const prevRole = validCompHistory[index - 1];
       const increase = prevRole && Number(prevRole.base_salary_current) > 0
         ? ((Number(role.base_salary_start) - Number(prevRole.base_salary_current)) / Number(prevRole.base_salary_current)) * 100
         : 0;
@@ -827,9 +1062,9 @@ router.get("/comprehensive", async (req, res) => {
       };
     });
     
-    // Calculate milestones from compensation history
+    // Calculate milestones from compensation history (use validCompHistory)
     const milestones = [];
-    compHistory.forEach(role => {
+    validCompHistory.forEach(role => {
       const baseSalary = Number(role.base_salary_start) || 0;
       const totalComp = Number(role.total_comp_start) || 0;
       
@@ -866,12 +1101,12 @@ router.get("/comprehensive", async (req, res) => {
       }
     });
     
-    // Detect plateaus and growth phases
+    // Detect plateaus and growth phases (use validCompHistory)
     const plateaus = [];
     const growthPhases = [];
-    for (let i = 1; i < compHistory.length; i++) {
-      const prev = compHistory[i - 1];
-      const curr = compHistory[i];
+    for (let i = 1; i < validCompHistory.length; i++) {
+      const prev = validCompHistory[i - 1];
+      const curr = validCompHistory[i];
       
       // Calculate time between roles in years (use 365.25 for leap years)
       const prevEndDate = prev.end_date ? new Date(prev.end_date) : new Date(prev.start_date);
@@ -917,8 +1152,8 @@ router.get("/comprehensive", async (req, res) => {
     
     // 5. CAREER PROGRESSION & EARNING POTENTIAL
     const levelProgression = ['intern', 'entry', 'junior', 'mid', 'senior', 'staff', 'principal', 'lead', 'manager', 'director', 'vp'];
-    const progression = compHistory.map((role, index) => {
-      const prevRole = compHistory[index - 1];
+    const progression = validCompHistory.map((role, index) => {
+      const prevRole = validCompHistory[index - 1];
       const levelIndex = levelProgression.indexOf(role.role_level || '');
       const prevLevelIndex = prevRole ? levelProgression.indexOf(prevRole.role_level || '') : -1;
       const prevSalary = Number(prevRole?.base_salary_current) || Number(prevRole?.base_salary_start) || 0;
@@ -977,12 +1212,12 @@ router.get("/comprehensive", async (req, res) => {
     // 2. Salary decreased between roles (unusual but possible)
     // 3. Data quality issues
     // In these cases, use industry-standard estimates instead
-    if (avgGrowthRate <= 0 || (compHistory.length === 1 && avgGrowthRate === 0)) {
-      if (avgGrowthRate < 0) {
-        console.warn(`⚠️ Negative growth rate detected (${avgGrowthRate.toFixed(2)}%). This may indicate data quality issues or salary decreases. Using estimated growth rate instead.`);
-      }
-      
-      const role = compHistory[compHistory.length - 1]; // Get most recent role (compHistory is sorted ASC, oldest first)
+        if (avgGrowthRate <= 0 || (validCompHistory.length === 1 && avgGrowthRate === 0)) {
+          if (avgGrowthRate < 0) {
+            console.warn(`⚠️ Negative growth rate detected (${avgGrowthRate.toFixed(2)}%). This may indicate data quality issues or salary decreases. Using estimated growth rate instead.`);
+          }
+          
+          const role = validCompHistory[validCompHistory.length - 1]; // Get most recent role (validCompHistory is sorted ASC, oldest first)
       const level = role.role_level || 'mid';
       
       // Estimated annual growth rates by level (conservative estimates)
@@ -1004,7 +1239,7 @@ router.get("/comprehensive", async (req, res) => {
       };
       
       avgGrowthRate = estimatedGrowthRates[level.toLowerCase()] || 8; // Default to 8% if level not found
-      const reason = avgGrowthRate <= 0 ? 'negative/zero growth detected' : (compHistory.length === 1 ? 'single role' : 'no historical data');
+      const reason = avgGrowthRate <= 0 ? 'negative/zero growth detected' : (validCompHistory.length === 1 ? 'single role' : 'no historical data');
       console.log(`📊 Using estimated growth rate: ${avgGrowthRate}% for ${level} level (${reason})`);
     }
     
@@ -1024,7 +1259,8 @@ router.get("/comprehensive", async (req, res) => {
     
     // PRIORITY 2: Get the most recent ACTIVE compensation history entry
     // Only use this if there's no accepted offer, or if the accepted offer is already in comp history
-    const activeRoles = compHistory.filter(ch => !ch.end_date || new Date(ch.end_date) >= new Date());
+    // Use validCompHistory to exclude entries for deleted offers
+    const activeRoles = validCompHistory.filter(ch => !ch.end_date || new Date(ch.end_date) >= new Date());
     
     let mostRecentActiveRole = null;
     if (activeRoles.length > 0) {
@@ -1086,9 +1322,9 @@ router.get("/comprehensive", async (req, res) => {
         console.warn(`⚠️ Multiple active roles detected (${activeRoles.length}). Using: ${mostRecentActiveRole.company} - ${mostRecentActiveRole.role_title}`);
         console.warn(`   All active roles:`, activeRoles.map(r => `${r.company} - ${r.role_title} (Start: ${r.start_date}, Offer ID: ${r.offer_id || 'Manual'})`));
       }
-    } else if (compHistory.length > 0) {
+    } else if (validCompHistory.length > 0) {
       // Fallback to most recent role overall if no active roles
-      selectedRole = compHistory[compHistory.length - 1];
+      selectedRole = validCompHistory[validCompHistory.length - 1];
       currentSalary = Number(selectedRole.base_salary_current || selectedRole.base_salary_start || 0);
       currentSalarySource = `compensation_history:${selectedRole.id} (${selectedRole.company} - ${selectedRole.role_title} [Past])`;
       console.log(`💰 Current salary from most recent role (past): $${currentSalary} (Role: ${selectedRole.company} - ${selectedRole.role_title})`);
@@ -1253,13 +1489,13 @@ router.get("/comprehensive", async (req, res) => {
       });
     }
     
-    // Optimal timing for career moves
-    if (compHistory.length >= 2) {
-      const avgTimeBetweenRoles = compHistory.slice(1).reduce((sum, role, idx) => {
-        const prev = compHistory[idx];
+    // Optimal timing for career moves (use validCompHistory)
+    if (validCompHistory.length >= 2) {
+      const avgTimeBetweenRoles = validCompHistory.slice(1).reduce((sum, role, idx) => {
+        const prev = validCompHistory[idx];
         const timeBetween = (new Date(role.start_date) - new Date(prev.end_date || prev.start_date)) / (1000 * 60 * 60 * 24 * 365);
         return sum + timeBetween;
-      }, 0) / (compHistory.length - 1);
+      }, 0) / (validCompHistory.length - 1);
       
       recommendations.push({
         type: 'info',
@@ -1274,9 +1510,10 @@ router.get("/comprehensive", async (req, res) => {
     const locationPositioning = {};
     const industryPositioning = {};
     
+    // Process offers
     offers.forEach(offer => {
       const location = offer.location || 'Unknown';
-      const industry = offer.industry || 'Unknown';
+      const industry = normalizeIndustry(offer.industry); // Normalize industry name
       
       if (!locationPositioning[location]) {
         locationPositioning[location] = {
@@ -1293,11 +1530,42 @@ router.get("/comprehensive", async (req, res) => {
         industryPositioning[industry] = {
           industry,
           offers: [],
+          jobs: [], // Track jobs separately
           avgSalary: 0,
           marketComparisons: []
         };
       }
       industryPositioning[industry].offers.push(offer);
+    });
+    
+    // Also include jobs with industries (even if they don't have offers yet)
+    jobs.forEach(job => {
+      const industry = normalizeIndustry(job.industry);
+      if (industry && industry !== 'Unknown') {
+        // Check if this job already has an offer (to avoid double counting)
+        const hasOffer = offers.some(o => o.job_id === job.id);
+        
+        if (!industryPositioning[industry]) {
+          industryPositioning[industry] = {
+            industry,
+            offers: [],
+            jobs: [],
+            avgSalary: 0,
+            marketComparisons: []
+          };
+        }
+        
+        // Only add job if it doesn't already have an offer
+        if (!hasOffer) {
+          industryPositioning[industry].jobs.push({
+            id: job.id,
+            title: job.title,
+            company: job.company,
+            salary_min: job.salary_min,
+            salary_max: job.salary_max
+          });
+        }
+      }
     });
     
     // Calculate averages and get COL indices
@@ -1332,7 +1600,28 @@ router.get("/comprehensive", async (req, res) => {
     Object.keys(industryPositioning).forEach(industry => {
       const data = industryPositioning[industry];
       const salaries = data.offers.map(o => Number(o.base_salary) || 0);
-      data.avgSalary = salaries.reduce((a, b) => a + b, 0) / salaries.length;
+      
+      // Also include job salary ranges if no offers
+      if (salaries.length === 0 && data.jobs.length > 0) {
+        // Use midpoint of salary ranges from jobs
+        const jobSalaries = data.jobs
+          .map(j => {
+            const min = Number(j.salary_min) || 0;
+            const max = Number(j.salary_max) || 0;
+            return min > 0 && max > 0 ? (min + max) / 2 : (min > 0 ? min : max);
+          })
+          .filter(s => s > 0);
+        
+        if (jobSalaries.length > 0) {
+          data.avgSalary = jobSalaries.reduce((a, b) => a + b, 0) / jobSalaries.length;
+        } else {
+          data.avgSalary = 0;
+        }
+      } else if (salaries.length > 0) {
+        data.avgSalary = salaries.reduce((a, b) => a + b, 0) / salaries.length;
+      } else {
+        data.avgSalary = 0;
+      }
     });
     
     // Add market comparisons to positioning
@@ -1340,7 +1629,7 @@ router.get("/comprehensive", async (req, res) => {
       const offer = offers.find(o => o.id === comp.offerId);
       if (offer) {
         const location = offer.location || 'Unknown';
-        const industry = offer.industry || 'Unknown';
+        const industry = normalizeIndustry(offer.industry); // Normalize industry name
         
         if (locationPositioning[location]) {
           locationPositioning[location].marketComparisons.push(comp);
@@ -1361,6 +1650,7 @@ router.get("/comprehensive", async (req, res) => {
         growthPhases,
         milestones: milestones
       },
+      // Note: Using validCompHistory instead of compHistory to exclude deleted offers
       careerProgression: {
         progression,
         earningPotential,

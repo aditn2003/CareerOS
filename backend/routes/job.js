@@ -49,6 +49,7 @@ router.post("/", auth, async (req, res) => {
       description,
       industry,
       type,
+      role_level,
       // applicationDate is handled above
       resume_id,
       cover_letter_id,
@@ -158,11 +159,11 @@ router.post("/", auth, async (req, res) => {
     const insertJobQuery = `
       INSERT INTO jobs (
         user_id, title, company, location, salary_min, salary_max,
-        url, deadline, description, industry, type,
+        url, deadline, description, industry, type, role_level,
         "applicationDate", resume_id, cover_letter_id, "required_skills",
         status, status_updated_at, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Interested',NOW(),NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'Interested',NOW(),NOW())
       RETURNING *;
     `;
 
@@ -189,6 +190,11 @@ router.post("/", auth, async (req, res) => {
     console.log(`🔍 Type of finalCoverLetterId:`, typeof finalCoverLetterId);
     console.log(`🔍 Original cover_letter_id from request:`, cover_letter_id);
 
+    // Handle industry: convert empty string to null for consistency
+    const industryValue = industry && industry.trim() !== '' ? industry.trim() : null;
+    // Handle role_level: convert empty string to null for consistency
+    const roleLevelValue = role_level && role_level.trim() !== '' ? role_level.trim() : null;
+    
     const jobValues = [
       req.userId,
       title.trim(),
@@ -199,8 +205,9 @@ router.post("/", auth, async (req, res) => {
       url || "",
       deadline || null,
       description || "",
-      industry || "",
+      industryValue,
       getRoleTypeFromTitle(title),
+      roleLevelValue,
       applicationDate, // Uses the fixed date variable
       resume_id || null,
       finalCoverLetterId,
@@ -521,6 +528,7 @@ router.put("/:id", auth, async (req, res) => {
       "description",
       "industry",
       "type",
+      "role_level",
       "notes",
       "contact_name",
       "contact_email",
@@ -539,7 +547,17 @@ router.put("/:id", auth, async (req, res) => {
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
-        updates[key] = req.body[key];
+        // Handle industry field specially - trim and convert empty string to null
+        if (key === 'industry') {
+          const industryValue = req.body[key];
+          if (industryValue === null || industryValue === undefined || (typeof industryValue === 'string' && industryValue.trim() === '')) {
+            updates[key] = null; // Set to null instead of empty string
+          } else {
+            updates[key] = typeof industryValue === 'string' ? industryValue.trim() : industryValue;
+          }
+        } else {
+          updates[key] = req.body[key];
+        }
       }
     }
 
@@ -952,12 +970,10 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
-  try {
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0)
       return res.status(404).json({ error: "Job not found or unauthorized" });
-    }
 
     // Log into application history
     await pool.query(
