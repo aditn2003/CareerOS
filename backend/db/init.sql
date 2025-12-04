@@ -132,9 +132,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     contact_phone TEXT,
     salary_notes TEXT,
     interview_notes TEXT,
-    application_history JSONB DEFAULT '[]'::jsonb,
-    resume_customization VARCHAR(20) DEFAULT 'none' CHECK (resume_customization IN ('none', 'light', 'heavy', 'tailored')),
-    cover_letter_customization VARCHAR(20) DEFAULT 'none' CHECK (cover_letter_customization IN ('none', 'light', 'heavy', 'tailored'))
+    application_history JSONB DEFAULT '[]'::jsonb
 );
 -- JOBS INDEXES
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
@@ -603,20 +601,42 @@ CREATE TABLE IF NOT EXISTS cover_letters (
 CREATE INDEX IF NOT EXISTS idx_cover_letters_user_id ON cover_letters(user_id);
 
 -- ======================================
--- APPLICATION MATERIALS HISTORY TABLE
+-- JOB MATERIALS TABLE (CLEAN & SIMPLE)
 -- ======================================
-CREATE TABLE IF NOT EXISTS application_materials_history (
+-- One table, one row per job, stores current resume and cover letter
+CREATE TABLE IF NOT EXISTS job_materials (
     id SERIAL PRIMARY KEY,
+    job_id INTEGER NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    
     resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL,
     cover_letter_id INTEGER REFERENCES cover_letters(id) ON DELETE SET NULL,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP DEFAULT NOW()
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    CONSTRAINT unique_job_materials UNIQUE(job_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_application_materials_history_user_id ON application_materials_history(user_id);
-CREATE INDEX IF NOT EXISTS idx_application_materials_history_job_id ON application_materials_history(job_id);
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_job_materials_job_id ON job_materials(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_materials_user_id ON job_materials(user_id);
+CREATE INDEX IF NOT EXISTS idx_job_materials_resume_id ON job_materials(resume_id);
+CREATE INDEX IF NOT EXISTS idx_job_materials_cover_letter_id ON job_materials(cover_letter_id);
+
+-- Auto-update updated_at
+CREATE OR REPLACE FUNCTION update_job_materials_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_job_materials_updated_at
+    BEFORE UPDATE ON job_materials
+    FOR EACH ROW
+    EXECUTE FUNCTION update_job_materials_updated_at();
 
 -- ======================================
 -- ADD MISSING COLUMNS TO JOBS TABLE

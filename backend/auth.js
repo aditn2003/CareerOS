@@ -17,3 +17,6 @@ export function auth(req, res, next) {
     return res.status(401).json({ error: "INVALID_TOKEN" });
   }
 }
+
+// Export as authMiddleware for consistency across routes
+export const authMiddleware = auth;

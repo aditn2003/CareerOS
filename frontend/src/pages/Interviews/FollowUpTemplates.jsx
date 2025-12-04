@@ -31,6 +31,7 @@ export default function FollowUpTemplates() {
   const [editedSubject, setEditedSubject] = useState("");
   const [editedContent, setEditedContent] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   const userId = getUserId();
 
@@ -267,13 +268,15 @@ export default function FollowUpTemplates() {
     try {
       setSendingEmail(true);
       
+      // Always use the current edited content (which may have been saved)
+      // The backend will use editedSubject/editedContent if provided, otherwise fall back to template
       const response = await api.post(
         `/api/interview-insights/follow-up/${templateId}/send-email`,
         {
           userId,
           interviewerEmail: emailToUse,
-          editedSubject: isEditing ? editedSubject : undefined,
-          editedContent: isEditing ? editedContent : undefined,
+          editedSubject: editedSubject || selectedTemplate?.subject_line,
+          editedContent: editedContent || selectedTemplate?.template_content,
           userEmail: localStorage.getItem("userEmail") || undefined,
           userName: localStorage.getItem("userName") || undefined
         }
@@ -339,13 +342,57 @@ export default function FollowUpTemplates() {
   }
 
   /* ============================================================
+     Save template edits
+  ============================================================ */
+  async function saveTemplateEdits(templateId) {
+    if (!editedSubject.trim() || !editedContent.trim()) {
+      alert("⚠️ Subject and content cannot be empty.");
+      return;
+    }
+
+    try {
+      setSavingTemplate(true);
+      const response = await api.put(
+        `/api/interview-insights/follow-up/${templateId}/save`,
+        {
+          userId,
+          subject_line: editedSubject,
+          template_content: editedContent
+        }
+      );
+
+      if (response.data.success) {
+        // Update the selected template with saved content
+        if (selectedTemplate && selectedTemplate.id === templateId) {
+          setSelectedTemplate(prev => ({
+            ...prev,
+            subject_line: editedSubject,
+            template_content: editedContent
+          }));
+        }
+        
+        // Refresh templates list to get updated content
+        await fetchTemplates();
+        
+        alert("✅ Template saved successfully!");
+      }
+    } catch (err) {
+      console.error("Error saving template:", err);
+      alert("❌ Failed to save template. Please try again.");
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  /* ============================================================
      Handle template selection
   ============================================================ */
   function handleTemplateSelect(template) {
     setSelectedTemplate(template);
     setInterviewerEmail(template.interviewer_email || "");
-    setEditedSubject(template.subject_line);
-    setEditedContent(template.template_content);
+    // Load saved content from template (which includes any previous edits)
+    setEditedSubject(template.subject_line || "");
+    setEditedContent(template.template_content || "");
     // Force preview mode if template is already sent
     setIsEditing(false);
   }
@@ -604,24 +651,47 @@ export default function FollowUpTemplates() {
                 )}
               </div>
 
-              {/* Edit Mode Toggle */}
+              {/* Edit Mode Toggle and Save Button */}
               {!selectedTemplate.is_sent && (
-                <div style={{ marginBottom: "15px", textAlign: "right" }}>
-                  <button 
-                    onClick={() => setIsEditing(!isEditing)}
-                    style={{
-                      padding: "8px 16px",
-                      background: isEditing ? "#ffc107" : "#007bff",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "5px",
-                      cursor: "pointer",
-                      fontSize: "14px",
-                      fontWeight: "500"
-                    }}
-                  >
-                    {isEditing ? "📝 Preview Mode" : "✏️ Edit Mode"}
-                  </button>
+                <div style={{ marginBottom: "15px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    {isEditing && (
+                      <button 
+                        onClick={() => saveTemplateEdits(selectedTemplate.id)}
+                        disabled={savingTemplate}
+                        style={{
+                          padding: "8px 16px",
+                          background: "#28a745",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "5px",
+                          cursor: savingTemplate ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          opacity: savingTemplate ? 0.6 : 1
+                        }}
+                      >
+                        {savingTemplate ? "💾 Saving..." : "💾 Save Template"}
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <button 
+                      onClick={() => setIsEditing(!isEditing)}
+                      style={{
+                        padding: "8px 16px",
+                        background: isEditing ? "#ffc107" : "#007bff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "5px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "500"
+                      }}
+                    >
+                      {isEditing ? "📝 Preview Mode" : "✏️ Edit Mode"}
+                    </button>
+                  </div>
                 </div>
               )}
               

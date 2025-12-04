@@ -47,9 +47,9 @@ export default function SavedResumes() {
         {resumes.map((resume) => (
           <div className="saved-resume-card" key={resume.id}>
             {/* ✅ PDF Preview or Placeholder */}
-            {resume.preview_url ? (
+            {(resume.preview_url || resume.file_url) ? (
               <iframe
-                src={`http://localhost:4000${resume.preview_url}`}
+                src={`http://localhost:4000${resume.file_url || resume.preview_url}`}
                 title={resume.title}
                 className="saved-preview"
               />
@@ -81,7 +81,7 @@ export default function SavedResumes() {
                 </button>
 
                 <a
-                  href={`http://localhost:4000${resume.preview_url}`}
+                  href={`http://localhost:4000${resume.file_url || resume.preview_url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-primary"

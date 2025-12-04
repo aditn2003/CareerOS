@@ -11,10 +11,11 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter
+  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
+  FaHandshake, // ✅ Icon for Referrals
+  FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
   FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
 } from "react-icons/fa";
@@ -83,6 +84,10 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Docs Management
+            </NavLink>
+
             {/* ═══════════════════════════════════════════
                 INTERVIEWS - Prepare & Track
             ═══════════════════════════════════════════ */}
@@ -104,9 +109,6 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-            <NavLink to="/networking">
-              <FaUsers /> Networking
-            </NavLink>
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -121,6 +123,12 @@ export default function NavBar() {
               <FaChartBar /> Statistics
             </NavLink>
 
+            {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
+            <NavLink to="/network">
+              <FaUsers /> Network
+            </NavLink>
+
+            {/* 👤 Profile */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>

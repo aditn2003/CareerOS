@@ -380,11 +380,12 @@ router.get("/full", async (req, res) => {
           event_name,
           event_type,
           event_date,
-          COALESCE(duration_hours, 0) AS duration_hours,
+          event_start_time,
+          event_end_time,
           COALESCE(cost, 0) AS cost,
-          COALESCE(contacts_met, 0) AS contacts_met,
-          COALESCE(opportunities_generated, 0) AS opportunities_generated,
-          roi_score
+          COALESCE(actual_connections_made, 0) AS contacts_met,
+          COALESCE(expected_connections, 0) AS expected_connections,
+          networking_roi_score AS roi_score
         FROM networking_events
         WHERE user_id = $1
         ORDER BY event_date DESC;
@@ -416,8 +417,16 @@ router.get("/full", async (req, res) => {
 
     eventsResult.rows.forEach(event => {
       const cost = ensureNumber(event.cost);
-      const opportunities = ensureNumber(event.opportunities_generated);
-      const duration = ensureNumber(event.duration_hours);
+      const opportunities = ensureNumber(event.contacts_met); // Use actual_connections_made
+      // Calculate duration from start/end time
+      let duration = 2; // default 2 hours
+      if (event.event_start_time && event.event_end_time) {
+        const start = event.event_start_time.split(':').map(Number);
+        const end = event.event_end_time.split(':').map(Number);
+        const startMinutes = start[0] * 60 + (start[1] || 0);
+        const endMinutes = end[0] * 60 + (end[1] || 0);
+        duration = Math.max(0, (endMinutes - startMinutes) / 60);
+      }
       const type = event.event_type || 'other';
 
       totalCost += cost;

@@ -35,23 +35,37 @@ import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import teamRoutes from "./routes/team.js";
-import salaryNegotiationRoutes from './routes/salaryNegotiation.js';
+import salaryNegotiationRoutes from "./routes/salaryNegotiation.js";
 
 import responseCoachingRoutes from "./routes/responseCoaching.js";
 import mockInterviewsRoutes from "./routes/mockInterviews.js";
-import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
-import technicalPrepRoutes from './routes/technicalPrep.js'; // ✅ UC-078
+import interviewAnalyticsRoutes from "./routes/interviewAnalytics.js";
+import technicalPrepRoutes from "./routes/technicalPrep.js"; // ✅ UC-078
 
 import coverLetterRoutes from "./routes/cover_letter.js";
+import fileUploadRoutes from "./routes/fileUpload.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
+import contactsRoutes, { setContactsPool } from "./routes/contacts.js";
+import referralsRoutes from "./routes/referrals.js";
+import networkingRoutes from "./routes/networking.js";
+import linkedinRoutes from "./routes/linkedin.js";
+import mentorsRoutes from "./routes/mentors.js";
+import informationalInterviewsRoutes from "./routes/informationalInterviews.js";
+import industryContactsRoutes from "./routes/industryContacts.js";
+import versionControlRoutes from "./routes/versionControl.js";
 import puppeteer from "puppeteer";
 import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
-import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
+import marketIntelRoutes from "./routes/marketIntel.js";
+import timeInvestmentRoutes from "./routes/timeInvestment.js";
+import competitiveAnalysisRoutes from "./routes/competitiveAnalysis.js";
+import successPatternsRoutes from "./routes/successPatterns.js";
+import customReportsRoutes from "./routes/customReports.js";
+import performancePredictionRoutes from "./routes/performancePrediction.js";
 import compensationHistoryRoutes from "./routes/compensationHistory.js";
 import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 import careerGoalsRoutes from "./routes/careerGoals.js";
@@ -83,7 +97,12 @@ const transporter = nodemailer.createTransport({
 });
 
 // ===== Middleware =====
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // ✅ Serve uploaded images so React can access them
@@ -99,8 +118,19 @@ pool
   .connect()
   .then((client) => {
     console.log("✅ Connected to PostgreSQL");
+    // Initialize contacts route with the pool
+    setContactsPool(pool);
+
     // Release the test connection
-    client.release();
+    if (client && typeof client.release === "function") {
+      client.release();
+    } else {
+      console.error(
+        "⚠️ Client object does not have release method:",
+        typeof client,
+        client
+      );
+    }
   })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
@@ -165,14 +195,21 @@ app.post("/register", async (req, res) => {
       );
       if (existing.rows.length > 0) {
         await client.query("ROLLBACK");
-      return res.status(409).json({ error: "Email already in use" });
+        client.release();
+        return res.status(409).json({ error: "Email already in use" });
       }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+      const passwordHash = await bcrypt.hash(password, 10);
       const userResult = await client.query(
         "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'local',$5) RETURNING id, first_name, last_name",
-        [lower, passwordHash, firstName.trim(), lastName.trim(), normalizedAccountType]
-    );
+        [
+          lower,
+          passwordHash,
+          firstName.trim(),
+          lastName.trim(),
+          normalizedAccountType,
+        ]
+      );
       const userId = userResult.rows[0].id;
 
       // No auto-team creation - users can create teams manually after registration
@@ -180,16 +217,26 @@ app.post("/register", async (req, res) => {
 
       await client.query("COMMIT");
       const token = makeToken({ id: userId, email: lower });
-    return res.status(201).json({ message: "Registered", token });
+      client.release();
+      return res.status(201).json({ message: "Registered", token });
     } catch (dbErr) {
       try {
-        await client.query("ROLLBACK");
+        if (client && typeof client.query === "function") {
+          await client.query("ROLLBACK");
+        }
       } catch (rollbackErr) {
         console.error("Rollback failed:", rollbackErr.message);
       }
+      if (client && typeof client.release === "function") {
+        client.release();
+      } else if (client) {
+        console.error(
+          "⚠️ Client object does not have release method:",
+          typeof client,
+          client
+        );
+      }
       throw dbErr;
-    } finally {
-      client.release();
     }
   } catch (err) {
     console.error(err);
@@ -218,6 +265,70 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ========== LINKEDIN LOGIN ==========
+app.post("/linkedin-login", async (req, res) => {
+  const { linkedin_id, email, first_name, last_name, profile_pic_url } =
+    req.body;
+
+  try {
+    if (!linkedin_id) {
+      return res.status(400).json({ error: "Missing LinkedIn ID" });
+    }
+
+    const lower = email?.toLowerCase();
+
+    // Check if user exists by LinkedIn ID
+    let result = await pool.query("SELECT * FROM users WHERE linkedin_id=$1", [
+      linkedin_id,
+    ]);
+
+    let user;
+    if (result.rows.length > 0) {
+      // User exists, log them in
+      user = result.rows[0];
+    } else if (lower) {
+      // Check if user exists by email
+      result = await pool.query("SELECT * FROM users WHERE email=$1", [lower]);
+      if (result.rows.length > 0) {
+        // User exists by email, update LinkedIn ID
+        user = result.rows[0];
+        await pool.query("UPDATE users SET linkedin_id=$1 WHERE id=$2", [
+          linkedin_id,
+          user.id,
+        ]);
+      } else {
+        // Create new user with LinkedIn data
+        const hashedPassword = await bcrypt.hash(
+          Math.random().toString(36),
+          10
+        ); // Random password for OAuth users
+        const insertResult = await pool.query(
+          `INSERT INTO users (email, password_hash, first_name, last_name, linkedin_id, created_at) 
+           VALUES ($1, $2, $3, $4, $5, NOW()) 
+           RETURNING id, email, first_name, last_name`,
+          [lower, hashedPassword, first_name, last_name, linkedin_id]
+        );
+        user = insertResult.rows[0];
+
+        // Create profile for new user
+        await pool.query(
+          `INSERT INTO profiles (user_id, first_name, last_name, profile_picture, linkedin_picture_url, created_at) 
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [user.id, first_name, last_name, profile_pic_url, profile_pic_url]
+        );
+      }
+    } else {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const token = makeToken({ id: user.id, email: user.email });
+    return res.json({ message: "LinkedIn login successful", token, user });
+  } catch (err) {
+    console.error("LinkedIn login error:", err);
+    return res.status(500).json({ error: "LinkedIn login failed" });
   }
 });
 
@@ -420,6 +531,7 @@ app.post("/google", async (req, res) => {
 app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
+app.use("/api/upload", fileUploadRoutes);
 app.use("/api", auth, employmentRoutes);
 app.use("/skills", skillsRouter);
 app.use("/api", educationRoutes);
@@ -443,6 +555,7 @@ app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templa
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api/versions", versionControlRoutes);
 app.use("/api/success-analysis", successAnalysisRoutes);
 app.use("/api/goals", goalsRoutes);
 app.use("/api/interview-analysis", interviewAnalysisRoutes);
@@ -450,12 +563,19 @@ app.use("/api/networking-analysis", networkingAnalysisRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
+app.use("/api/market-intel", marketIntelRoutes);
+app.use("/api/time-investment", timeInvestmentRoutes);
+app.use("/api/competitive-analysis", competitiveAnalysisRoutes);
+app.use("/api/success-patterns", successPatternsRoutes);
+app.use("/api/custom-reports", customReportsRoutes);
+app.use("/api/performance-prediction", performancePredictionRoutes);
+
 app.use("/api/compensation-history", compensationHistoryRoutes);
 app.use("/api/market-benchmarks", marketBenchmarksRoutes);
 app.use("/api/career-goals", careerGoalsRoutes);
 
-app.use("/api/team", teamRoutes);app.use("/api", jobImportRoutes);
-
+app.use("/api/team", teamRoutes);
+app.use("/api", jobImportRoutes);
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -625,14 +745,20 @@ app.use("/api", sectionPresetsRoutes);
 app.use("/api", jobDescriptionsRoutes);
 app.use("/api/company-research", companyResearchRoutes);
 app.use("/api/match", matchRoutes);
+app.use("/api", contactsRoutes);
+app.use("/api/referrals", referralsRoutes);
+app.use("/api/networking", networkingRoutes);
+app.use("/api/linkedin", linkedinRoutes);
+app.use("/api/mentors", mentorsRoutes);
+app.use("/api/informational-interviews", informationalInterviewsRoutes);
+app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
 app.use("/api/mock-interviews", mockInterviewsRoutes);
-app.use('/api/salary-negotiation', salaryNegotiationRoutes);
-app.use('/api/interview-analytics', interviewAnalyticsRoutes);
-app.use('/api/technical-prep', technicalPrepRoutes); // ✅ UC-078
-
+app.use("/api/salary-negotiation", salaryNegotiationRoutes);
+app.use("/api/interview-analytics", interviewAnalyticsRoutes);
+app.use("/api/technical-prep", technicalPrepRoutes); // ✅ UC-078
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
@@ -648,45 +774,61 @@ app.post("/test-reminders", async (req, res) => {
   }
 });
 
-
-
 // ===== Global Error Handlers =====
 // Handle unhandled promise rejections (like database connection terminations)
-process.on('unhandledRejection', (reason, promise) => {
+process.on("unhandledRejection", (reason, promise) => {
   // Database connection termination errors are common with Supabase
-  if (reason && typeof reason === 'object') {
-    if (reason.code === 'XX000' || 
-        reason.message?.includes('shutdown') || 
-        reason.message?.includes('termination') ||
-        reason.message?.includes('db_termination')) {
-      console.error('⚠️ Database connection terminated. Pool will reconnect on next query.');
-      console.error('   Error code:', reason.code);
-      console.error('   Message:', reason.message);
+  if (reason && typeof reason === "object") {
+    const reasonStr = String(reason);
+    const reasonMessage = reason.message || reasonStr;
+
+    if (
+      reason.code === "XX000" ||
+      reasonMessage.includes("shutdown") ||
+      reasonMessage.includes("termination") ||
+      reasonMessage.includes("db_termination") ||
+      reasonStr.includes("shutdown") ||
+      reasonStr.includes("db_termination") ||
+      (reason.code && String(reason.code).includes("XX000"))
+    ) {
+      // These are expected with Supabase connection limits - log quietly
+      console.warn(
+        "⚠️ Database connection terminated (expected). Pool will reconnect on next query."
+      );
       // Don't crash - the pool will handle reconnection
       return;
     }
   }
   // For other unhandled rejections, log them but don't crash
-  console.error('⚠️ Unhandled Rejection at:', promise);
-  console.error('   Reason:', reason);
+  console.error("⚠️ Unhandled Rejection at:", promise);
+  console.error("   Reason:", reason);
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
+process.on("uncaughtException", (error) => {
   // Database connection errors should not crash the server
-  if (error.code === 'XX000' || 
-      error.message?.includes('shutdown') || 
-      error.message?.includes('termination') ||
-      error.message?.includes('db_termination')) {
-    console.error('⚠️ Uncaught database connection error. Server will continue running.');
-    console.error('   Error code:', error.code);
-    console.error('   Message:', error.message);
+  const errorStr = String(error);
+  const errorMessage = error.message || errorStr;
+
+  if (
+    error.code === "XX000" ||
+    errorMessage.includes("shutdown") ||
+    errorMessage.includes("termination") ||
+    errorMessage.includes("db_termination") ||
+    errorStr.includes("shutdown") ||
+    errorStr.includes("db_termination") ||
+    (error.code && String(error.code).includes("XX000"))
+  ) {
+    // These are expected with Supabase connection limits - log quietly
+    console.warn(
+      "⚠️ Database connection error (expected). Server will continue running."
+    );
     // Don't exit - let the server continue
     return;
   }
   // For other uncaught exceptions, log and exit gracefully
-  console.error('❌ Uncaught Exception:', error);
-  console.error('   Stack:', error.stack);
+  console.error("❌ Uncaught Exception:", error);
+  console.error("   Stack:", error.stack);
   // Give time for logs to be written, then exit
   setTimeout(() => {
     process.exit(1);
@@ -695,9 +837,11 @@ process.on('uncaughtException', (error) => {
 
 // ===== Start Server =====
 // FIX: Only start the server if we are NOT testing
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== "test") {
   const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => console.log(`✅ API running at http://localhost:${PORT}`));
+  app.listen(PORT, () =>
+    console.log(`✅ API running at http://localhost:${PORT}`)
+  );
 }
 
 // Export for tests

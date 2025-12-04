@@ -211,16 +211,34 @@
 /* ===============================================
    INTERVIEW CARDS - STUNNING WHITE CARDS
    =============================================== */
+
+.interviews-list {
+  margin-top: 32px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.interviews-list h2 {
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 32px 0;
+  width: 100%;
+}
   
-  .interviews-grid {
-    display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+.interviews-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
-  margin-top: 28px;
-  }
+  width: 100%;
+  max-width: 100%;
+}
   
-  .interview-card {
-    background: white;
+.interview-card {
+  background: white;
   border-radius: 20px;
   padding: 28px;
   border: 2px solid #f1f5f9;
@@ -230,6 +248,8 @@
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: visible;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .interview-card::before {
@@ -900,7 +920,7 @@
 
 @media (max-width: 1024px) {
   .interviews-grid {
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -948,6 +968,11 @@
   .interviews-grid {
     grid-template-columns: 1fr;
     }
+  
+  .interviews-list h2 {
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
   
   .filters-grid {
       grid-template-columns: 1fr;
