@@ -7,7 +7,7 @@
   margin: 0 auto;
   padding: 32px 24px;
   background: transparent;
-  min-height: 100vh;
+    min-height: 100vh;
   position: relative;
   overflow: hidden;
 }
@@ -43,13 +43,13 @@
   0%, 100% { transform: translate(0, 0) scale(1); }
   33% { transform: translate(30px, -30px) scale(1.1); }
   66% { transform: translate(-20px, 20px) scale(0.95); }
-}
-
+  }
+  
 /* ===============================================
    PAGE HEADER - HERO STYLE
    =============================================== */
 
-.research-header {
+  .research-header {
   font-size: 42px;
   font-weight: 800;
   background: linear-gradient(135deg, #7c3aed 0%, #4f22ea 50%, #6d28d9 100%);
@@ -73,16 +73,16 @@
   color: #6b7280;
   margin-bottom: 36px;
   font-weight: 500;
-}
-
+  }
+  
 /* ===============================================
    COMPANY NAVIGATION - GLASS MORPHISM
    =============================================== */
 
-.company-nav {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  .company-nav {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 28px;
   padding: 20px;
@@ -94,9 +94,9 @@
   box-shadow: 
     0 4px 30px rgba(124, 58, 237, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-.company-tab {
+  }
+  
+  .company-tab {
   background: white;
   border: 2px solid transparent;
   color: #4b5563;
@@ -104,7 +104,7 @@
   font-size: 14px;
   padding: 12px 24px;
   border-radius: 12px;
-  cursor: pointer;
+    cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -120,9 +120,9 @@
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.1), transparent);
   transition: left 0.5s ease;
-}
-
-.company-tab:hover {
+  }
+  
+  .company-tab:hover {
   border-color: #c4b5fd;
   color: #7c3aed;
   transform: translateY(-3px);
@@ -131,9 +131,9 @@
 
 .company-tab:hover::before {
   left: 100%;
-}
-
-.company-tab.active {
+  }
+  
+  .company-tab.active {
   background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
   border-color: transparent;
   color: white;
@@ -167,26 +167,26 @@
 @keyframes ripple {
   0% { transform: scale(0); opacity: 1; }
   100% { transform: scale(2); opacity: 0; }
-}
-
+  }
+  
 /* ===============================================
    REFRESH BUTTON - ANIMATED
    =============================================== */
 
-.refresh-container {
+  .refresh-container {
   text-align: center;
   margin-bottom: 28px;
-}
-
-.refresh-btn {
+  }
+  
+  .refresh-btn {
   background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-  color: white;
-  border: none;
+    color: white;
+    border: none;
   border-radius: 14px;
   padding: 14px 32px;
   font-weight: 700;
   font-size: 15px;
-  cursor: pointer;
+    cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -198,9 +198,9 @@
   margin-right: 8px;
   display: inline-block;
   transition: transform 0.5s ease;
-}
-
-.refresh-btn:hover {
+  }
+  
+  .refresh-btn:hover {
   transform: translateY(-3px) scale(1.02);
   box-shadow: 0 8px 30px rgba(124, 58, 237, 0.4);
 }
@@ -211,19 +211,19 @@
 
 .refresh-btn:active {
   transform: translateY(-1px) scale(0.98);
-}
-
+  }
+  
 /* ===============================================
    COMPANY CARD - ELEVATED DESIGN
    =============================================== */
 
-.company-content {
+  .company-content {
   background: white;
   border-radius: 24px;
   border: 1px solid rgba(124, 58, 237, 0.1);
   padding: 32px;
   max-width: 950px;
-  margin: 0 auto;
+    margin: 0 auto;
   box-shadow: 
     0 4px 20px rgba(124, 58, 237, 0.06),
     0 20px 50px rgba(124, 58, 237, 0.08);
@@ -246,16 +246,16 @@
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
-}
-
-.company-title {
+  }
+  
+  .company-title {
   font-size: 26px;
   font-weight: 800;
   color: #1f2937;
   margin-bottom: 24px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   gap: 14px;
   text-align: center;
 }
@@ -263,9 +263,9 @@
 .company-title::before {
   content: '🏢';
   font-size: 32px;
-}
-
-.verify-badge {
+  }
+  
+  .verify-badge {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
   font-size: 11px;
@@ -294,13 +294,13 @@
     0 4px 20px rgba(124, 58, 237, 0.08),
     0 20px 50px rgba(124, 58, 237, 0.12),
     0 0 60px rgba(124, 58, 237, 0.05);
-}
-
+  }
+  
 /* ===============================================
    STATES - ANIMATED
    =============================================== */
 
-.loading-msg {
+  .loading-msg {
   text-align: center;
   padding: 60px;
   color: #7c3aed;
@@ -322,9 +322,9 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.error-text {
+  }
+  
+  .error-text {
   text-align: center;
   color: #ef4444;
   font-weight: 600;
@@ -332,16 +332,16 @@
   background: #fef2f2;
   border-radius: 16px;
   border: 1px solid #fecaca;
-}
-
-.no-data {
+  }
+  
+  .no-data {
   text-align: center;
   color: #6b7280;
   padding: 60px;
   background: #f9fafb;
   border-radius: 16px;
   border: 2px dashed #e5e7eb;
-}
+  }
 
 /* ===============================================
    NEWS SECTION - CARD BASED
@@ -636,22 +636,22 @@
 }
 
 /* Category badge colors - Gradient variants */
-.cat-Funding { 
+.cat-Funding {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
 }
-.cat-Product-Launch { 
+.cat-Product-Launch {
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); 
 }
-.cat-Hiring { 
+.cat-Hiring {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
 }
-.cat-Partnership { 
+.cat-Partnership {
   background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); 
 }
-.cat-Legal { 
+.cat-Legal {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); 
 }
-.cat-General { 
+.cat-General {
   background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); 
 }
 

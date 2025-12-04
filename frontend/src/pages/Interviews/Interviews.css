@@ -58,7 +58,7 @@
 }
 
 /* ===============================================
-   COMPANY BUTTONS
+ COMPANY BUTTONS
    =============================================== */
 
 .company-buttons {
@@ -94,7 +94,7 @@
 }
 
 /* ===============================================
-   REFRESH BUTTON
+ REFRESH BUTTON
    =============================================== */
 
 .refresh-btn {
@@ -162,7 +162,7 @@
 }
 
 /* ===============================================
-   CHECKLIST
+ CHECKLIST
    =============================================== */
 
 .checklist-item {
@@ -1298,15 +1298,15 @@
   .scores-row {
     grid-template-columns: 1fr;
   }
-
+  
   .type-buttons {
     grid-template-columns: 1fr;
   }
-
+  
   .score-big {
     font-size: 48px;
   }
-
+  
   .coaching-intro h2,
   .mock-intro h2 {
     font-size: 20px;
