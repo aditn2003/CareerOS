@@ -371,6 +371,19 @@ router.delete('/connections/:connectionId', authMiddleware, async (req, res) => 
 router.post('/followups', authMiddleware, async (req, res) => {
   try {
     const {
+      event_name,
+      event_type,
+      location,
+      is_virtual = false,
+      event_date,
+      event_start_time,
+      event_end_time,
+      cost = 0,
+      expected_connections = 0,
+      actual_connections_made = 0,
+      notes,
+      industry,
+      description,
       event_id,
       connection_id,
       followup_type,
@@ -393,6 +406,21 @@ router.post('/followups', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const { rows } = await pool.query(
+      `INSERT INTO networking_events (
+        user_id, event_name, event_type, location, is_virtual,
+        event_date, event_start_time, event_end_time, cost, 
+        expected_connections, actual_connections_made, notes, industry, description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *`,
+      [
+        userId, event_name, event_type || 'networking_mixer', location || null, is_virtual,
+        event_date, event_start_time || null, event_end_time || null, cost,
+        expected_connections, actual_connections_made, notes || null, industry || null, description || null
+      ]
+    );
+
+    res.status(201).json({ event: rows[0] });
     // If attended is true, mark as completed with current date
     const insertData = {
       event_id,

@@ -1216,6 +1216,7 @@ router.get("/:teamId/feedback", async (req, res) => {
           mf.feedback_type,
           mf.content,
           mf.skill_name,
+          mf.material_type,
           mf.created_at,
           mf.updated_at,
           COALESCE(
@@ -1259,6 +1260,7 @@ router.get("/:teamId/feedback", async (req, res) => {
           mf.feedback_type,
           mf.content,
           mf.skill_name,
+          mf.material_type,
           mf.created_at,
           mf.updated_at,
           COALESCE(
@@ -1297,6 +1299,16 @@ router.get("/:teamId/feedback", async (req, res) => {
     const result = await pool.query(query, params);
     
     console.log(`[Feedback] Fetched ${result.rows.length} feedback entries for team ${teamId}, user ${userId}`);
+    console.log(`[Feedback] User role: ${membership.role}, isManager: ${isManager}, isCandidate: ${isCandidate}`);
+    console.log(`[Feedback] Query params:`, params);
+    if (result.rows.length > 0) {
+      console.log(`[Feedback] Sample feedback:`, {
+        id: result.rows[0].id,
+        candidate_id: result.rows[0].candidate_id,
+        mentor_id: result.rows[0].mentor_id,
+        feedback_type: result.rows[0].feedback_type
+      });
+    }
     
     res.json({
       feedback: result.rows.map(fb => ({
@@ -1308,6 +1320,7 @@ router.get("/:teamId/feedback", async (req, res) => {
         feedbackType: fb.feedback_type,
         content: fb.content,
         skillName: fb.skill_name,
+        materialType: fb.material_type,
         createdAt: fb.created_at,
         updatedAt: fb.updated_at,
         mentorName: fb.mentor_name,
@@ -1449,7 +1462,7 @@ router.post("/:teamId/feedback", async (req, res) => {
   try {
     const userId = req.user.id;
     const teamId = parseInt(req.params.teamId);
-    const { candidateId, jobId, feedbackType, content, skillName, taskId } = req.body;
+    const { candidateId, jobId, feedbackType, content, skillName, taskId, materialType } = req.body;
 
     if (isNaN(teamId)) {
       return res.status(400).json({ error: "INVALID_TEAM_ID" });
@@ -1459,7 +1472,7 @@ router.post("/:teamId/feedback", async (req, res) => {
       return res.status(400).json({ error: "MISSING_REQUIRED_FIELDS" });
     }
 
-    if (!["job", "skill", "general", "task"].includes(feedbackType)) {
+    if (!["job", "skill", "general", "task", "application_material"].includes(feedbackType)) {
       return res.status(400).json({ error: "INVALID_FEEDBACK_TYPE" });
     }
 
@@ -1475,6 +1488,16 @@ router.post("/:teamId/feedback", async (req, res) => {
 
     if (feedbackType === "skill" && !skillName) {
       return res.status(400).json({ error: "SKILL_NAME_REQUIRED" });
+    }
+
+    // Enforce that if feedbackType is "application_material", jobId and materialType must be provided
+    if (feedbackType === "application_material") {
+      if (!jobId) {
+        return res.status(400).json({ error: "JOB_ID_REQUIRED_FOR_APPLICATION_MATERIAL" });
+      }
+      if (!materialType || !["resume", "cover_letter"].includes(materialType)) {
+        return res.status(400).json({ error: "INVALID_MATERIAL_TYPE" });
+      }
     }
 
     const membership = await getMembership(teamId, userId);
@@ -1530,12 +1553,13 @@ router.post("/:teamId/feedback", async (req, res) => {
         FROM information_schema.columns 
         WHERE table_schema = 'public' 
         AND table_name = 'mentor_feedback' 
-        AND column_name IN ('task_id', 'relationship_id')
+        AND column_name IN ('task_id', 'relationship_id', 'material_type')
       `);
       
       const existingColumns = new Set(columnCheck.rows.map(r => r.column_name));
       const hasTaskIdColumn = existingColumns.has('task_id');
       const hasRelationshipIdColumn = existingColumns.has('relationship_id');
+      const hasMaterialTypeColumn = existingColumns.has('material_type');
       
       // Build the INSERT query based on which columns exist
       const columns = ['team_id', 'mentor_id', 'candidate_id', 'job_id'];
@@ -1550,6 +1574,12 @@ router.post("/:teamId/feedback", async (req, res) => {
       
       columns.push('feedback_type', 'content', 'skill_name');
       values.push(feedbackType, content, skillName || null);
+      
+      if (hasMaterialTypeColumn) {
+        columns.push('material_type');
+        values.push(feedbackType === "application_material" ? materialType : null);
+        paramIndex++;
+      }
       
       if (hasRelationshipIdColumn) {
         columns.push('relationship_id');
@@ -1566,6 +1596,32 @@ router.post("/:teamId/feedback", async (req, res) => {
       insertParams = values;
     } catch (checkErr) {
       // If check fails, use basic insert without optional columns
+      // Check if material_type column exists
+      const materialTypeCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'mentor_feedback' 
+        AND column_name = 'material_type'
+      `);
+      const hasMaterialType = materialTypeCheck.rows.length > 0;
+      
+      if (hasMaterialType) {
+        insertQuery = `INSERT INTO mentor_feedback 
+         (team_id, mentor_id, candidate_id, job_id, feedback_type, content, skill_name, material_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`;
+        insertParams = [
+          teamId,
+          userId,
+          candidateId,
+          jobId || null,
+          feedbackType,
+          content,
+          skillName || null,
+          feedbackType === "application_material" ? materialType : null,
+        ];
+      } else {
       insertQuery = `INSERT INTO mentor_feedback 
        (team_id, mentor_id, candidate_id, job_id, feedback_type, content, skill_name)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -1579,6 +1635,7 @@ router.post("/:teamId/feedback", async (req, res) => {
         content,
         skillName || null,
       ];
+      }
     }
 
     const result = await pool.query(insertQuery, insertParams);
@@ -2905,7 +2962,7 @@ router.get("/:teamId/activity", async (req, res) => {
     const upcomingDeadlines = deadlinesResult.rows.length;
 
     res.json({
-      activities: activities.slice(0, 10), // Limit to 10 most recent activities
+      activities: activities, // Return all activities for pagination
       summary: {
         totalCandidates,
         candidatesNeedingAttention,
@@ -3370,36 +3427,63 @@ router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
       return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
     }
 
-    // Only mentors can view application materials
-    if (!MANAGER_ROLES.has(membership.role)) {
-      return res.status(403).json({ error: "ONLY_MENTORS_CAN_VIEW_MATERIALS" });
+    const isMentorOrAdmin = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === 'candidate';
+
+    // Allow mentors/admins to view all candidates' materials, or candidates to view their own
+    if (!isMentorOrAdmin && !isCandidate) {
+      return res.status(403).json({ error: "ONLY_MENTORS_OR_CANDIDATES_CAN_VIEW_MATERIALS" });
     }
 
-    // Get all candidates in the team
-    const candidatesResult = await pool.query(
-      `SELECT tm.user_id AS candidate_id,
-              COALESCE(
-                NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
-                u_prof.full_name,
-                u.email,
-                'Unknown'
-              ) AS candidate_name
-       FROM team_members tm
-       JOIN users u ON tm.user_id = u.id
-       LEFT JOIN profiles u_prof ON tm.user_id = u_prof.user_id
-       WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
-       ORDER BY candidate_name`,
-      [teamId]
-    );
+    let candidates;
+    let candidateIds;
 
-    const candidates = candidatesResult.rows;
-    const candidateIds = candidates.map((c) => c.candidate_id);
+    if (isCandidate) {
+      // Candidates can only view their own materials
+      const candidateResult = await pool.query(
+        `SELECT tm.user_id AS candidate_id,
+                COALESCE(
+                  NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+                  u_prof.full_name,
+                  u.email,
+                  'Unknown'
+                ) AS candidate_name
+         FROM team_members tm
+         JOIN users u ON tm.user_id = u.id
+         LEFT JOIN profiles u_prof ON tm.user_id = u_prof.user_id
+         WHERE tm.team_id = $1 AND tm.user_id = $2 AND tm.status = 'active'
+         LIMIT 1`,
+        [teamId, userId]
+      );
+      candidates = candidateResult.rows;
+      candidateIds = candidates.map((c) => c.candidate_id);
+    } else {
+      // Mentors/admins can view all candidates' materials
+      const candidatesResult = await pool.query(
+        `SELECT tm.user_id AS candidate_id,
+                COALESCE(
+                  NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''),
+                  u_prof.full_name,
+                  u.email,
+                  'Unknown'
+                ) AS candidate_name
+         FROM team_members tm
+         JOIN users u ON tm.user_id = u.id
+         LEFT JOIN profiles u_prof ON tm.user_id = u_prof.user_id
+         WHERE tm.team_id = $1 AND tm.role = 'candidate' AND tm.status = 'active'
+         ORDER BY candidate_name`,
+        [teamId]
+      );
+      candidates = candidatesResult.rows;
+      candidateIds = candidates.map((c) => c.candidate_id);
+    }
 
     if (candidateIds.length === 0) {
       return res.json({ materials: [] });
     }
 
     // Get all jobs for these candidates with resume and cover letter info
+    // Use ONLY job_materials table (clean, simple approach)
     const materialsResult = await pool.query(
       `
       SELECT 
@@ -3408,16 +3492,29 @@ router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
         j.title AS job_title,
         j.company AS job_company,
         j.status AS job_status,
-        j.resume_id,
-        j.cover_letter_id,
+        jm.resume_id,
+        jm.cover_letter_id,
         r.title AS resume_title,
         r.format AS resume_format,
-        cl.title AS cover_letter_title,
-        cl.format AS cover_letter_format
+        COALESCE(cl.title, clt.name) AS cover_letter_title,
+        cl.file_url AS cover_letter_file_url,
+        cl.format AS cover_letter_format,
+        CASE 
+          WHEN cl.id IS NOT NULL THEN 'uploaded_cover_letters'
+          WHEN clt.id IS NOT NULL THEN 'cover_letter_templates'
+          ELSE NULL
+        END AS cover_letter_source
       FROM jobs j
-      LEFT JOIN resumes r ON j.resume_id = r.id AND r.user_id = j.user_id
-      LEFT JOIN cover_letters cl ON j.cover_letter_id = cl.id AND cl.user_id = j.user_id
+      LEFT JOIN job_materials jm ON jm.job_id = j.id
+      LEFT JOIN resumes r ON jm.resume_id = r.id AND r.user_id = j.user_id
+      LEFT JOIN uploaded_cover_letters cl ON jm.cover_letter_id = cl.id AND cl.user_id = j.user_id
+      LEFT JOIN cover_letter_templates clt ON jm.cover_letter_id = clt.id
       WHERE j.user_id = ANY($1)
+        AND NOT (
+          j."isArchived" = true OR 
+          j.isarchived = true OR 
+          j.is_archived = true
+        )
       ORDER BY j.user_id, j.created_at DESC
       `,
       [candidateIds]
@@ -3434,14 +3531,27 @@ router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
       };
     });
 
+    // Valid job statuses
+    const validStatuses = ['Interested', 'Applied', 'Phone Screen', 'Interview', 'Offer', 'Rejected'];
+    
     materialsResult.rows.forEach((row) => {
       const candidateId = row.candidate_id;
       if (materialsByCandidate[candidateId]) {
+        // Validate and sanitize status - if status is invalid or "status_change", use "Unknown"
+        let jobStatus = row.job_status;
+        if (!jobStatus || !validStatuses.includes(jobStatus) || jobStatus.toLowerCase() === 'status_change') {
+          console.warn(`⚠️ Invalid job status for job ${row.job_id}: "${jobStatus}", defaulting to "Unknown"`);
+          jobStatus = 'Unknown';
+        }
+        
+        // Log the resume_id being returned for debugging
+        console.log(`📋 [APPLICATION MATERIALS] Job ${row.job_id}: resume_id=${row.resume_id}, resume_title="${row.resume_title}"`);
+        
         materialsByCandidate[candidateId].jobs.push({
           jobId: row.job_id,
           jobTitle: row.job_title,
           jobCompany: row.job_company,
-          jobStatus: row.job_status,
+          jobStatus: jobStatus,
           resume: row.resume_id
             ? {
                 id: row.resume_id,
@@ -3453,7 +3563,7 @@ router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
             ? {
                 id: row.cover_letter_id,
                 title: row.cover_letter_title || `Cover Letter #${row.cover_letter_id}`,
-                format: row.cover_letter_format || "pdf",
+                format: row.cover_letter_format || "pdf", // Use actual format from database
               }
             : null,
         });
@@ -3469,6 +3579,653 @@ router.get("/:teamId/shared-jobs/application-materials", async (req, res) => {
   } catch (err) {
     console.error("Get application materials failed:", err);
     res.status(500).json({ error: "GET_APPLICATION_MATERIALS_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/cover-letter-template/:templateId - Get cover letter template content (mentor only)
+router.get("/:teamId/cover-letter-template/:templateId", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const teamId = parseInt(req.params.teamId);
+    const templateId = parseInt(req.params.templateId);
+
+    if (isNaN(teamId) || isNaN(templateId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isMentorOrAdmin = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === 'candidate';
+
+    // Allow mentors/admins to view any template, or candidates to view templates they've used
+    if (!isMentorOrAdmin && !isCandidate) {
+      return res.status(403).json({ error: "ONLY_MENTORS_OR_CANDIDATES_CAN_VIEW_TEMPLATES" });
+    }
+
+    // Check uploaded_cover_letters table (user only cares about uploaded ones)
+    let coverLetterResult = { rows: [] };
+    try {
+      coverLetterResult = await pool.query(
+        `SELECT id, title, content, format, file_url
+         FROM uploaded_cover_letters
+         WHERE id = $1`,
+        [templateId]
+      );
+      
+      // Verify ownership for candidates
+      if (isCandidate && coverLetterResult.rows.length > 0) {
+        const ownershipCheck = await pool.query(
+          `SELECT 1
+           FROM uploaded_cover_letters
+           WHERE id = $1 AND user_id = $2
+           LIMIT 1`,
+          [templateId, userId]
+        );
+        if (ownershipCheck.rows.length === 0) {
+          return res.status(403).json({ error: "COVER_LETTER_NOT_ACCESSIBLE" });
+        }
+      }
+    } catch (err) {
+      console.error("❌ Error fetching uploaded cover letter:", err);
+      coverLetterResult = { rows: [] };
+    }
+
+    if (coverLetterResult.rows.length === 0) {
+      return res.status(404).json({ error: "COVER_LETTER_NOT_FOUND" });
+    }
+
+    const coverLetter = coverLetterResult.rows[0];
+    
+    // ✅ If this is an uploaded cover letter (has file_url), return file_url info
+    // The frontend will handle opening it via the download endpoint
+    if (coverLetter.file_url) {
+      return res.json({ 
+        content: coverLetter.content, 
+        name: coverLetter.title || coverLetter.name,
+        file_url: coverLetter.file_url,
+        format: coverLetter.format,
+        has_file: true
+      });
+    }
+    
+    // Fallback: return content as JSON (for templates or if file is missing)
+    res.json({ 
+      content: coverLetter.content, 
+      name: coverLetter.title || coverLetter.name,
+      has_file: false
+    });
+  } catch (err) {
+    console.error("Get cover letter template failed:", err);
+    res.status(500).json({ error: "GET_TEMPLATE_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/cover-letter/:coverLetterId/download - Download team member cover letter
+// Optional query param: ?jobId=123 to verify cover letter is linked to specific job
+router.get("/:teamId/cover-letter/:coverLetterId/download", async (req, res) => {
+  console.log(`🔥 [COVER LETTER DOWNLOAD] ENDPOINT CALLED - teamId=${req.params.teamId}, coverLetterId=${req.params.coverLetterId}, jobId=${req.query.jobId || 'none'}`);
+  
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      console.error(`❌ [COVER LETTER DOWNLOAD] No user ID in request`);
+      return res.status(401).json({ error: "UNAUTHORIZED" });
+    }
+    
+    const teamId = parseInt(req.params.teamId);
+    const coverLetterId = parseInt(req.params.coverLetterId);
+    const jobId = req.query.jobId ? parseInt(req.query.jobId) : null;
+
+    console.log(`📄 [COVER LETTER DOWNLOAD] Parsed: userId=${userId}, teamId=${teamId}, coverLetterId=${coverLetterId}, jobId=${jobId || 'none'}`);
+
+    if (isNaN(teamId) || isNaN(coverLetterId)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isMentorOrAdmin = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === 'candidate';
+
+    // Get cover letter from uploaded_cover_letters table
+    let coverLetterQuery;
+    let coverLetterParams;
+    let jobOwnerId = null;
+
+    if (jobId && !isNaN(jobId)) {
+      // Get job owner
+      const jobOwnerQuery = await pool.query(
+        `SELECT j.user_id 
+         FROM jobs j
+         INNER JOIN team_members tm ON j.user_id = tm.user_id
+         WHERE j.id = $1 AND tm.team_id = $2 AND tm.status = 'active'`,
+        [jobId, teamId]
+      );
+      
+      if (jobOwnerQuery.rows.length > 0) {
+        jobOwnerId = jobOwnerQuery.rows[0].user_id;
+        console.log(`📄 [COVER LETTER DOWNLOAD] Job ${jobId} owner is user ${jobOwnerId}`);
+        
+        // Verify the cover letter belongs to the job owner and is linked to the job
+        coverLetterQuery = `SELECT cl.*
+                           FROM uploaded_cover_letters cl
+                           INNER JOIN job_materials jm ON jm.cover_letter_id = cl.id
+                           INNER JOIN team_members tm ON cl.user_id = tm.user_id
+                           WHERE cl.id = $1 AND jm.job_id = $2 AND cl.user_id = $3 AND tm.team_id = $4 AND tm.status = 'active'`;
+        coverLetterParams = [coverLetterId, jobId, jobOwnerId, teamId];
+      } else {
+        console.error(`❌ [COVER LETTER DOWNLOAD] Job ${jobId} not found or not accessible`);
+        return res.status(404).json({ error: "JOB_NOT_FOUND" });
+      }
+    } else if (isCandidate) {
+      // Candidates can only view their own cover letters
+      coverLetterQuery = `SELECT cl.*
+                         FROM uploaded_cover_letters cl
+                         INNER JOIN team_members tm ON cl.user_id = tm.user_id
+                         WHERE cl.id = $1 AND cl.user_id = $2 AND tm.team_id = $3 AND tm.status = 'active'`;
+      coverLetterParams = [coverLetterId, userId, teamId];
+    } else {
+      // Mentors/admins can view any candidate's cover letter in the team
+      coverLetterQuery = `SELECT cl.*
+                         FROM uploaded_cover_letters cl
+                         INNER JOIN team_members tm ON cl.user_id = tm.user_id
+                         WHERE cl.id = $1 AND tm.team_id = $2 AND tm.role = 'candidate' AND tm.status = 'active'`;
+      coverLetterParams = [coverLetterId, teamId];
+    }
+
+    console.log(`📄 [COVER LETTER DOWNLOAD] Fetching cover letter with ID: ${coverLetterId}`);
+    const coverLetterResult = await pool.query(coverLetterQuery, coverLetterParams);
+
+    if (coverLetterResult.rows.length === 0) {
+      console.error(`❌ [COVER LETTER DOWNLOAD] Cover letter ${coverLetterId} not found or not accessible`);
+      return res.status(404).json({ error: "COVER_LETTER_NOT_FOUND" });
+    }
+
+    const coverLetter = coverLetterResult.rows[0];
+    console.log(`✅ [COVER LETTER DOWNLOAD] Fetched cover letter: ID=${coverLetter.id}, Title="${coverLetter.title}"`);
+    console.log(`📄 [COVER LETTER DOWNLOAD] Cover letter file_url: ${coverLetter.file_url || 'N/A'}`);
+    
+    // Import necessary modules
+    const path = (await import("path")).default;
+    const { fileURLToPath } = await import("url");
+    const fs = (await import("fs")).default;
+    
+    // ✅ If this is an uploaded cover letter (has file_url), serve the original file directly
+    if (coverLetter.file_url) {
+      const filename = path.basename(coverLetter.file_url);
+      const __filename_team = fileURLToPath(import.meta.url);
+      const __dirname_team = path.dirname(__filename_team);
+      const coverLetterUploadDir = path.join(__dirname_team, "..", "uploads", "cover-letters");
+      const filePath = path.join(coverLetterUploadDir, filename);
+      
+      console.log(`🔍 [COVER LETTER DOWNLOAD] Checking for uploaded file:`);
+      console.log(`   - file_url: ${coverLetter.file_url}`);
+      console.log(`   - filename: ${filename}`);
+      console.log(`   - filePath: ${filePath}`);
+      console.log(`   - exists: ${fs.existsSync(filePath)}`);
+      
+      if (fs.existsSync(filePath)) {
+        console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
+        const ext = path.extname(coverLetter.file_url).toLowerCase();
+        const contentTypes = {
+          ".pdf": "application/pdf",
+          ".doc": "application/msword",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".txt": "text/plain",
+        };
+        res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
+        return res.sendFile(path.resolve(filePath));
+      } else {
+        console.warn(`⚠️ [COVER LETTER DOWNLOAD] Uploaded file not found: ${filePath}`);
+        // Fall through to return content as text
+      }
+    }
+    
+    // Fallback: return content as plain text if no file_url
+    console.log(`📄 [COVER LETTER DOWNLOAD] No file_url found, returning content as text`);
+    res.setHeader("Content-Type", "text/plain");
+    res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}.txt"`);
+    res.send(coverLetter.content || "");
+  } catch (err) {
+    console.error("❌ [COVER LETTER DOWNLOAD] Error:", err);
+    res.status(500).json({ error: "DOWNLOAD_FAILED" });
+  }
+});
+
+// GET /api/team/:teamId/resume/:resumeId/download - Download team member resume (mentor only)
+// Optional query param: ?jobId=123 to verify resume is linked to specific job
+router.get("/:teamId/resume/:resumeId/download", async (req, res) => {
+  console.log(`🔥 [RESUME DOWNLOAD] ENDPOINT CALLED - teamId=${req.params.teamId}, resumeId=${req.params.resumeId}, jobId=${req.query.jobId || 'none'}`);
+  
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      console.error(`❌ [RESUME DOWNLOAD] No user ID in request`);
+      return res.status(401).json({ error: "UNAUTHORIZED" });
+    }
+    
+    const teamId = parseInt(req.params.teamId);
+    const resumeId = parseInt(req.params.resumeId);
+    const jobId = req.query.jobId ? parseInt(req.query.jobId) : null;
+
+    console.log(`📄 [RESUME DOWNLOAD] Parsed: userId=${userId}, teamId=${teamId}, resumeId=${resumeId}, jobId=${jobId || 'none'}`);
+
+    if (isNaN(teamId) || isNaN(resumeId)) {
+      console.error(`❌ [RESUME DOWNLOAD] Invalid IDs: teamId=${req.params.teamId}, resumeId=${req.params.resumeId}`);
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+    
+    // If jobId is provided, verify the resume is linked to that job (for logging/debugging)
+    // Note: We'll override the resumeId later if needed, so this is just for verification
+    if (jobId && !isNaN(jobId)) {
+      try {
+        // Get the job's user_id first
+        const jobCheck = await pool.query(
+          `SELECT j.id, j.user_id, j.title 
+           FROM jobs j
+           INNER JOIN team_members tm ON j.user_id = tm.user_id
+           WHERE j.id = $1 AND tm.team_id = $2 AND tm.status = 'active'`,
+        [jobId, teamId]
+      );
+      
+        if (jobCheck.rows.length > 0) {
+          const jobUserId = jobCheck.rows[0].user_id;
+          
+          // Check job_materials table first
+      let expectedResumeId = null;
+          
+          try {
+            const materialsCheck = await pool.query(
+              `SELECT resume_id FROM job_materials 
+               WHERE job_id = $1 AND user_id = $2 AND resume_id IS NOT NULL`,
+              [jobId, jobUserId]
+        );
+            
+            if (materialsCheck.rows.length > 0 && materialsCheck.rows[0].resume_id) {
+              expectedResumeId = materialsCheck.rows[0].resume_id;
+              console.log(`📄 [RESUME DOWNLOAD] Job ${jobId} has resume_id ${expectedResumeId} from job_materials`);
+            }
+          } catch (materialsErr) {
+            // Table might not exist yet, that's okay
+            if (materialsErr.code !== '42P01') {
+              console.warn("⚠️ Error checking job_materials:", materialsErr.message);
+        }
+      }
+          
+          // No fallback needed - job_materials is the only source of truth
+      
+      if (expectedResumeId && expectedResumeId !== resumeId) {
+        console.warn(`⚠️ [RESUME DOWNLOAD] Mismatch! Requested resume ${resumeId} but job ${jobId} expects resume ${expectedResumeId}`);
+            // The actualResumeId will be set correctly in the next section
+      } else if (expectedResumeId) {
+        console.log(`✅ [RESUME DOWNLOAD] Verified resume ${resumeId} matches job ${jobId}`);
+          }
+        }
+      } catch (err) {
+        console.warn(`⚠️ [RESUME DOWNLOAD] Error verifying job-resume link:`, err.message);
+      }
+    }
+
+    const membership = await getMembership(teamId, userId);
+    if (!membership || membership.status !== "active") {
+      return res.status(403).json({ error: "NOT_TEAM_MEMBER" });
+    }
+
+    const isMentorOrAdmin = MANAGER_ROLES.has(membership.role);
+    const isCandidate = membership.role === 'candidate';
+
+    // Allow mentors/admins to view any team member resume, or candidates to view their own resumes
+    if (!isMentorOrAdmin && !isCandidate) {
+      return res.status(403).json({ error: "ONLY_MENTORS_OR_CANDIDATES_CAN_VIEW_RESUMES" });
+    }
+
+    // If jobId is provided, ALWAYS get the correct resume_id from job_application_materials
+    // This ensures we use the correct resume for the job, regardless of what the frontend sent
+    let actualResumeId = resumeId;
+    let jobOwnerId = null; // Store job owner ID for later use in resume verification
+    
+    if (jobId && !isNaN(jobId)) {
+      console.log(`🔍 [RESUME DOWNLOAD] Looking up correct resume_id for job ${jobId}...`);
+      
+      try {
+        // First, verify the job exists and get its user_id
+        const jobCheck = await pool.query(
+          `SELECT j.id, j.user_id, j.title 
+           FROM jobs j
+           INNER JOIN team_members tm ON j.user_id = tm.user_id
+           WHERE j.id = $1 AND tm.team_id = $2 AND tm.status = 'active'`,
+        [jobId, teamId]
+        );
+        
+        if (jobCheck.rows.length === 0) {
+          console.warn(`⚠️ [RESUME DOWNLOAD] Job ${jobId} not found or not accessible in team ${teamId}`);
+          // Continue with requested resumeId
+        } else {
+          jobOwnerId = jobCheck.rows[0].user_id;
+          console.log(`📄 [RESUME DOWNLOAD] Job ${jobId} belongs to user ${jobOwnerId}`);
+          
+          // Now get the resume_id from job_materials for this specific job
+          const correctResumeQuery = await pool.query(
+            `SELECT resume_id FROM job_materials 
+             WHERE job_id = $1 AND user_id = $2 AND resume_id IS NOT NULL`,
+            [jobId, jobOwnerId]
+      );
+      
+      if (correctResumeQuery.rows.length > 0 && correctResumeQuery.rows[0].resume_id) {
+            // Always use the resume_id from materials table when available
+        actualResumeId = parseInt(correctResumeQuery.rows[0].resume_id, 10);
+            console.log(`✅ [RESUME DOWNLOAD] Job ${jobId} has resume_id ${actualResumeId} in job_materials (requested: ${resumeId})`);
+        if (actualResumeId !== resumeId) {
+              console.warn(`⚠️ [RESUME DOWNLOAD] OVERRIDING requested resume_id ${resumeId} with correct resume_id ${actualResumeId} from job_materials`);
+        }
+      } else {
+            // No resume_id in job_materials for this job
+            console.warn(`⚠️ [RESUME DOWNLOAD] No resume_id found in job_materials for job ${jobId}, using requested ${resumeId}`);
+          }
+        }
+      } catch (materialsErr) {
+        // Table might not exist yet, fall back to jobs table
+        if (materialsErr.code === '42P01') {
+          console.log(`⚠️ [RESUME DOWNLOAD] job_materials table does not exist, checking jobs table...`);
+        } else {
+          console.warn(`⚠️ [RESUME DOWNLOAD] Error checking job_materials:`, materialsErr.message);
+        }
+        
+        // No fallback - job_materials is the only source
+        // Get job owner from jobs table if we don't have it yet
+        if (!jobOwnerId) {
+          const jobOwnerQuery = await pool.query(
+            `SELECT j.user_id
+             FROM jobs j
+             INNER JOIN team_members tm ON j.user_id = tm.user_id
+             WHERE j.id = $1 AND tm.team_id = $2 AND tm.status = 'active'`,
+          [jobId, teamId]
+        );
+          if (jobOwnerQuery.rows.length > 0) {
+            jobOwnerId = jobOwnerQuery.rows[0].user_id;
+          }
+        }
+      }
+    }
+
+    // Verify the resume belongs to a team member
+    // If jobId is provided, verify the resume belongs to the job's owner (candidate)
+    // Otherwise, verify based on role (candidates see their own, mentors see any candidate's)
+    let resumeQuery;
+    let resumeParams;
+    
+    if (jobId && !isNaN(jobId) && jobOwnerId) {
+      // We already have jobOwnerId from the earlier lookup
+      console.log(`📄 [RESUME DOWNLOAD] Job ${jobId} owner is user ${jobOwnerId}, verifying resume ${actualResumeId} belongs to them`);
+      
+      // Verify the resume belongs to the job owner
+      resumeQuery = `SELECT r.id, r.user_id, r.title, r.template_id, r.template_name, r.format, r.sections, r.created_at, r.updated_at, r.preview_url, r.file_url
+                     FROM resumes r
+                     INNER JOIN team_members tm ON r.user_id = tm.user_id
+                     WHERE r.id = $1 AND r.user_id = $2 AND tm.team_id = $3 AND tm.status = 'active'`;
+      resumeParams = [actualResumeId, jobOwnerId, teamId];
+    } else if (jobId && !isNaN(jobId)) {
+      // Fallback: get job owner if we don't have it yet
+      const jobOwnerQuery = await pool.query(
+        `SELECT j.user_id 
+         FROM jobs j
+         INNER JOIN team_members tm ON j.user_id = tm.user_id
+         WHERE j.id = $1 AND tm.team_id = $2 AND tm.status = 'active'`,
+        [jobId, teamId]
+      );
+      
+      if (jobOwnerQuery.rows.length > 0) {
+        jobOwnerId = jobOwnerQuery.rows[0].user_id;
+        console.log(`📄 [RESUME DOWNLOAD] Job ${jobId} owner is user ${jobOwnerId}, verifying resume ${actualResumeId} belongs to them`);
+        
+        resumeQuery = `SELECT r.id, r.user_id, r.title, r.template_id, r.template_name, r.format, r.sections, r.created_at, r.updated_at, r.preview_url, r.file_url
+                       FROM resumes r
+                       INNER JOIN team_members tm ON r.user_id = tm.user_id
+                       WHERE r.id = $1 AND r.user_id = $2 AND tm.team_id = $3 AND tm.status = 'active'`;
+        resumeParams = [actualResumeId, jobOwnerId, teamId];
+      } else {
+        console.error(`❌ [RESUME DOWNLOAD] Job ${jobId} not found or not accessible`);
+        return res.status(404).json({ error: "JOB_NOT_FOUND" });
+      }
+    } else if (isCandidate) {
+      // Candidates can only view their own resumes (when no jobId provided)
+      resumeQuery = `SELECT r.id, r.user_id, r.title, r.template_id, r.template_name, r.format, r.sections, r.created_at, r.updated_at, r.preview_url, r.file_url
+                     FROM resumes r
+                     INNER JOIN team_members tm ON r.user_id = tm.user_id
+                     WHERE r.id = $1 AND r.user_id = $2 AND tm.team_id = $3 AND tm.status = 'active'`;
+      resumeParams = [actualResumeId, userId, teamId];
+    } else {
+      // Mentors/admins can view any candidate's resume in the team (when no jobId provided)
+      resumeQuery = `SELECT r.id, r.user_id, r.title, r.template_id, r.template_name, r.format, r.sections, r.created_at, r.updated_at, r.preview_url, r.file_url
+                     FROM resumes r
+                     INNER JOIN team_members tm ON r.user_id = tm.user_id
+                     WHERE r.id = $1 AND tm.team_id = $2 AND tm.role = 'candidate' AND tm.status = 'active'`;
+      resumeParams = [actualResumeId, teamId];
+    }
+
+    console.log(`📄 [RESUME DOWNLOAD] Fetching resume with ID: ${actualResumeId} (requested: ${resumeId})`);
+    console.log(`📄 [RESUME DOWNLOAD] Query: ${resumeQuery}`);
+    console.log(`📄 [RESUME DOWNLOAD] Params:`, resumeParams);
+    
+    const resumeResult = await pool.query(resumeQuery, resumeParams);
+
+    if (resumeResult.rows.length === 0) {
+      console.error(`❌ [RESUME DOWNLOAD] Resume not found: resumeId=${resumeId}`);
+      return res.status(404).json({ error: "RESUME_NOT_FOUND" });
+    }
+
+    const resume = resumeResult.rows[0];
+    
+    // The query already ensures we got the correct resume by filtering with actualResumeId
+    // Just log for verification
+    console.log(`✅ [RESUME DOWNLOAD] Fetched resume: ID=${resume.id}, Title="${resume.title}", User=${resume.user_id} (requested: ${resumeId}, using: ${actualResumeId})`);
+    
+    // Log resume details for debugging
+    console.log(`📄 [RESUME DOWNLOAD] Fetched resume: ID=${resume.id}, Title="${resume.title}", User=${resume.user_id}, Template="${resume.template_name || 'N/A'}"`);
+    console.log(`📄 [RESUME DOWNLOAD] Resume sections type: ${typeof resume.sections}, keys: ${resume.sections ? Object.keys(resume.sections).join(', ') : 'null'}`);
+    console.log(`📄 [RESUME DOWNLOAD] Resume file_url: ${resume.file_url || 'N/A'}`);
+    
+    // Verify resume has valid data
+    if (!resume.title) {
+      console.error(`⚠️ Resume ${resume.id} has no title`);
+      return res.status(400).json({ error: "RESUME_HAS_NO_TITLE" });
+    }
+    
+    // Import necessary modules
+    const path = (await import("path")).default;
+    const { fileURLToPath } = await import("url");
+    const fs = (await import("fs")).default;
+    
+    // ✅ If this is an uploaded resume (has file_url), serve the original file directly
+    console.log(`🔍 [RESUME DOWNLOAD] Resume object keys:`, Object.keys(resume));
+    console.log(`🔍 [RESUME DOWNLOAD] Resume file_url value:`, resume.file_url);
+    console.log(`🔍 [RESUME DOWNLOAD] Resume file_url type:`, typeof resume.file_url);
+    
+    if (resume.file_url) {
+      const filename = path.basename(resume.file_url);
+      // Use same path resolution as fileUpload.js (relative to backend directory)
+      const __filename_team = fileURLToPath(import.meta.url);
+      const __dirname_team = path.dirname(__filename_team);
+      const resumeUploadDir = path.join(__dirname_team, "..", "uploads", "resumes");
+      const filePath = path.join(resumeUploadDir, filename);
+      
+      console.log(`🔍 [RESUME DOWNLOAD] Checking for uploaded file:`);
+      console.log(`   - file_url: ${resume.file_url}`);
+      console.log(`   - filename: ${filename}`);
+      console.log(`   - resumeUploadDir: ${resumeUploadDir}`);
+      console.log(`   - filePath: ${filePath}`);
+      console.log(`   - absolute filePath: ${path.resolve(filePath)}`);
+      console.log(`   - exists: ${fs.existsSync(filePath)}`);
+      
+      // Also try alternative paths in case of path resolution issues
+      const altPath1 = path.resolve("uploads/resumes", filename);
+      const altPath2 = path.join(process.cwd(), "backend", "uploads", "resumes", filename);
+      console.log(`   - altPath1 (resolve): ${altPath1}, exists: ${fs.existsSync(altPath1)}`);
+      console.log(`   - altPath2 (cwd): ${altPath2}, exists: ${fs.existsSync(altPath2)}`);
+      
+      // Try multiple paths
+      let finalPath = null;
+      if (fs.existsSync(filePath)) {
+        finalPath = filePath;
+      } else if (fs.existsSync(altPath1)) {
+        finalPath = altPath1;
+      } else if (fs.existsSync(altPath2)) {
+        finalPath = altPath2;
+      }
+      
+      if (finalPath) {
+        console.log(`✅ [RESUME DOWNLOAD] Serving uploaded file: ${finalPath}`);
+        const ext = path.extname(resume.file_url).toLowerCase();
+        const contentTypes = {
+          ".pdf": "application/pdf",
+          ".doc": "application/msword",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".txt": "text/plain",
+        };
+        res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${resume.title}${ext}"`);
+        return res.sendFile(path.resolve(finalPath));
+      } else {
+        console.warn(`⚠️ [RESUME DOWNLOAD] Uploaded file not found at any path`);
+        console.warn(`⚠️ [RESUME DOWNLOAD] Tried: ${filePath}, ${altPath1}, ${altPath2}`);
+        console.warn(`⚠️ [RESUME DOWNLOAD] Falling back to sections rendering`);
+        // Fall through to render from sections if file is missing
+      }
+    } else {
+      console.log(`📄 [RESUME DOWNLOAD] No file_url found, rendering from sections`);
+    }
+    
+    // ✅ Otherwise, render from sections (for resumes built in the editor)
+    const { renderTemplate } = await import("../utils/renderTemplate.js");
+    
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const EXPORT_DIR = path.join(__dirname, "..", "exports");
+    if (!fs.existsSync(EXPORT_DIR)) fs.mkdirSync(EXPORT_DIR, { recursive: true });
+
+    // Helper functions (simplified versions)
+    function normalizeSections(sections = {}) {
+      const normalized = { ...sections };
+      const arrayKeys = ["experience", "education", "projects", "certifications", "skills"];
+      for (const key of arrayKeys) {
+        if (!normalized[key]) normalized[key] = [];
+        if (!Array.isArray(normalized[key])) {
+          normalized[key] = typeof normalized[key] === "object" ? [normalized[key]] : [];
+        }
+      }
+      normalized.summary = normalized.summary && typeof normalized.summary === "object"
+        ? normalized.summary
+        : { full_name: "", title: "", contact: { email: "", phone: "", location: "" }, bio: "" };
+      return normalized;
+    }
+
+    function toTemplateFileBase(name = "") {
+      const n = (name || "").toLowerCase().trim().replace(/\s+/g, "-");
+      const map = { "ats optimized": "ats-optimized", "two column": "two-column", professional: "professional" };
+      return map[n] || n || "ats-optimized";
+    }
+
+    function flattenForTemplate(sections) {
+      const flat = {};
+      if (sections.summary) {
+        flat.full_name = sections.summary.full_name || "";
+        flat.title = sections.summary.title || "";
+        flat.email = sections.summary.contact?.email || "";
+        flat.phone = sections.summary.contact?.phone || "";
+        flat.location = sections.summary.contact?.location || "";
+        flat.bio = sections.summary.bio || "";
+      }
+      flat.experience = sections.experience || [];
+      flat.education = sections.education || [];
+      flat.skills = sections.skills || [];
+      flat.projects = sections.projects || [];
+      flat.certifications = sections.certifications || [];
+      return flat;
+    }
+
+    // Get resume sections (only needed if not an uploaded file)
+    const sections = typeof resume.sections === "string" 
+      ? JSON.parse(resume.sections) 
+      : resume.sections;
+    
+    // Validate sections exist (only if this is not an uploaded resume)
+    if (!resume.file_url) {
+      if (!sections || (typeof sections === 'object' && Object.keys(sections).length === 0)) {
+        console.error(`⚠️ Resume ${resume.id} has no sections data and no file_url`);
+        return res.status(400).json({ error: "RESUME_HAS_NO_SECTIONS" });
+      }
+    }
+    
+    console.log(`📄 Resume ${resume.id} sections keys:`, Object.keys(sections || {}));
+    const normalizedSections = normalizeSections(sections);
+
+    const format = (resume.format || "pdf").toLowerCase();
+    // Use a unique filename that includes timestamp to avoid caching issues
+    const timestamp = Date.now();
+    const base = path.join(
+      EXPORT_DIR,
+      `${resume.title}_${resume.id}_${timestamp}`.replace(/[^\w\-]/g, "_")
+    );
+
+    if (format === "pdf") {
+      const pdfPath = `${base}.pdf`;
+      const baseName = toTemplateFileBase(resume.template_name);
+      
+      console.log(`📄 Generating PDF for resume ${resume.id}: template="${baseName}", path="${pdfPath}"`);
+      console.log(`📄 Resume sections summary:`, {
+        hasSummary: !!normalizedSections.summary,
+        experienceCount: normalizedSections.experience?.length || 0,
+        educationCount: normalizedSections.education?.length || 0,
+        skillsCount: normalizedSections.skills?.length || 0
+      });
+      
+      // Delete existing file if it exists to ensure fresh generation
+      if (fs.existsSync(pdfPath)) {
+        console.log(`⚠️ Deleting existing PDF file: ${pdfPath}`);
+        fs.unlinkSync(pdfPath);
+      }
+      
+      await renderTemplate(baseName, flattenForTemplate(normalizedSections), pdfPath);
+      
+      // Verify file was created
+      if (!fs.existsSync(pdfPath)) {
+        console.error(`❌ PDF file was not created: ${pdfPath}`);
+        return res.status(500).json({ error: "Failed to generate resume PDF" });
+      }
+      
+      console.log(`✅ PDF generated successfully: ${pdfPath}`);
+      
+      // Set headers for inline viewing instead of download
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${resume.title}_${resume.id}.pdf"`);
+      const absolutePath = path.resolve(pdfPath);
+      
+      // Clean up file after sending (optional, can be done async)
+      res.on('finish', () => {
+        setTimeout(() => {
+          if (fs.existsSync(pdfPath)) {
+            fs.unlinkSync(pdfPath);
+          }
+        }, 5000); // Delete after 5 seconds
+      });
+      
+      return res.sendFile(absolutePath);
+    }
+
+    // For other formats, return error for now
+    return res.status(400).json({ error: "Only PDF format is supported for mentor downloads" });
+  } catch (err) {
+    console.error(`❌ [RESUME DOWNLOAD] FATAL ERROR:`, err);
+    console.error(`❌ [RESUME DOWNLOAD] Error stack:`, err.stack);
+    res.status(500).json({ error: "GET_RESUME_DOWNLOAD_FAILED", message: err.message });
   }
 });
 

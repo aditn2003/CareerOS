@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { api } from "../api";
+import FileUpload from "../components/FileUpload";
 import "./coverLetter.css";
 
 export default function CoverLetter() {
@@ -53,6 +54,7 @@ export default function CoverLetter() {
   // Edit Saved Letter
   const [editingLetter, setEditingLetter] = useState(null);
   const [editContent, setEditContent] = useState("");
+  const [showUpload, setShowUpload] = useState(false);
 
   // ============= UC-060 STATE (Editor & Assistance) =============
   // editorContent stores HTML (not plain text)
@@ -609,6 +611,37 @@ export default function CoverLetter() {
               </li>
             ))}
           </ul>
+
+          {/* Upload Section */}
+          <div style={{ marginTop: "20px", marginBottom: "20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h2 style={{ margin: 0 }}>Upload Cover Letter</h2>
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                style={{
+                  padding: "8px 16px",
+                  background: showUpload ? "#dc2626" : "#2563eb",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                }}
+              >
+                {showUpload ? "✕ Cancel" : "⬆️ Upload"}
+              </button>
+            </div>
+            {showUpload && (
+              <FileUpload
+                type="cover-letter"
+                onUploadSuccess={(data) => {
+                  setShowUpload(false);
+                  loadSavedLetters();
+                }}
+              />
+            )}
+          </div>
 
           {/* Saved AI Letters */}
           <h2 style={{ marginTop: "20px" }}>Saved AI Letters</h2>

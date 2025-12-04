@@ -4,6 +4,8 @@ import { useTeam } from "../../contexts/TeamContext";
 import { api } from "../../api";
 import FeedbackThreads from "../../components/FeedbackThreads";
 import FeedbackModal from "../../components/FeedbackModal";
+import { FaUsers } from "react-icons/fa";
+import "./FeedbackTab.css";
 
 export default function FeedbackTab() {
   const { teamState } = useTeam() || {};
@@ -59,23 +61,34 @@ export default function FeedbackTab() {
 
   if (!teamId) {
     return (
-      <section className="profile-box">
-        <h3>Feedback</h3>
-        <p>No team found. Please join a team to view feedback.</p>
-      </section>
+      <div className="feedback-tab-container">
+        <div className="feedback-tab-empty">
+          <FaUsers className="feedback-tab-empty-icon" />
+          <h3 className="feedback-tab-empty-title">No Team Found</h3>
+          <p className="feedback-tab-empty-text">
+            Please join a team to view and manage feedback.
+          </p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section className="profile-box">
-      <h3>Feedback</h3>
-      {teamName && (
-        <p>
-          <strong>Team:</strong> {teamName}
+    <div className="feedback-tab-container">
+      <div className="feedback-tab-header">
+        <h2 className="feedback-tab-title">Feedback Management</h2>
+        <p className="feedback-tab-subtitle">
+          Build meaningful connections through constructive feedback
         </p>
+      {teamName && (
+          <div className="feedback-tab-team-info">
+            <FaUsers />
+            <span>{teamName}</span>
+          </div>
       )}
+      </div>
 
-      <div style={{ marginTop: "1rem" }}>
+      <div className="feedback-tab-content">
         <FeedbackThreads 
           teamId={teamId} 
           onAddFeedback={(candidateId, candidateName) => {
@@ -100,7 +113,7 @@ export default function FeedbackTab() {
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
 

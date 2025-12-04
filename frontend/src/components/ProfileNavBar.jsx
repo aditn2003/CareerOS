@@ -14,6 +14,7 @@ export default function ProfileNavBar() {
     { key: "certifications", label: "Certifications" },
     { key: "projects", label: "Projects" },
     { key: "dashboard", label: "Dashboard" },
+    { key: "archived", label: "Archived" },
     { key: "danger", label: "Danger Zone" },
   ];
 

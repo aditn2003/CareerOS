@@ -113,6 +113,34 @@ async function loadJobs(currentFilters = filters) {
     loadJobs(filters);
   }, [filters]);
 
+  // Debug: Log all job statuses to see what we're getting
+  useEffect(() => {
+    if (jobs.length > 0) {
+      const statusCounts = {};
+      jobs.forEach(job => {
+        const status = job.status || 'NULL';
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+      console.log('📊 Job Status Breakdown:', statusCounts);
+      console.log('📊 Total Jobs:', jobs.length);
+      
+      // Check for jobs with non-standard statuses
+      const standardStatuses = STAGES.map(s => s.name);
+      const nonStandardJobs = jobs.filter(j => {
+        const jobStatus = (j.status || '').trim();
+        return !standardStatuses.some(s => s.toLowerCase() === jobStatus.toLowerCase());
+      });
+      if (nonStandardJobs.length > 0) {
+        console.warn('⚠️ Jobs with non-standard statuses:', nonStandardJobs.map(j => ({
+          id: j.id,
+          title: j.title,
+          company: j.company,
+          status: j.status
+        })));
+      }
+    }
+  }, [jobs]);
+
   // 🔁 Fetch logos whenever jobs change
   useEffect(() => {
     if (jobs.length > 0) loadCompanyLogos();
@@ -262,7 +290,12 @@ async function loadJobs(currentFilters = filters) {
       {/* === Pipeline Columns === */}
       <div className="pipeline">
         {filteredStages.map((stage) => {
-          const stageJobs = jobs.filter((j) => j.status === stage.name);
+          const stageJobs = jobs.filter((j) => {
+            // Normalize status comparison (case-insensitive, trim whitespace)
+            const jobStatus = (j.status || '').trim();
+            const stageName = stage.name.trim();
+            return jobStatus.toLowerCase() === stageName.toLowerCase();
+          });
           return (
             <div
               key={stage.name}
@@ -420,6 +453,158 @@ async function loadJobs(currentFilters = filters) {
             </div>
           );
         })}
+        
+        {/* Show jobs with non-standard statuses in an "Other" column */}
+        {filter === "All" && (() => {
+          const standardStatuses = STAGES.map(s => s.name.toLowerCase());
+          const otherJobs = jobs.filter((j) => {
+            const jobStatus = (j.status || '').trim().toLowerCase();
+            return jobStatus && !standardStatuses.includes(jobStatus);
+          });
+          
+          if (otherJobs.length > 0) {
+            return (
+              <div
+                key="Other"
+                className="pipeline-column"
+                style={{ borderTopColor: "#9ca3af" }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => dragged && updateJobStage(dragged.id, "Interested")}
+              >
+                <h3 style={{ color: "#9ca3af" }}>
+                  Other ({otherJobs.length})
+                </h3>
+                <div className="column-content">
+                  {otherJobs.map((job) => (
+                    <div key={job.id} className="job-wrapper">
+                      <input
+                        type="checkbox"
+                        className="job-select-checkbox"
+                        checked={selectedJobs.includes(job.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          setSelectedJobs((prev) =>
+                            prev.includes(job.id)
+                              ? prev.filter((id) => id !== job.id)
+                              : [...prev, job.id]
+                          );
+                        }}
+                      />
+                      <div
+                        className={`job-card ${
+                          selectedJobs.includes(job.id) ? "selected" : ""
+                        }`}
+                        draggable
+                        onDragStart={() => setDragged(job)}
+                        onClick={(e) => {
+                          if (e.shiftKey) {
+                            e.stopPropagation();
+                            setSelectedJobs((prev) =>
+                              prev.includes(job.id)
+                                ? prev.filter((id) => id !== job.id)
+                                : [...prev, job.id]
+                            );
+                          } else {
+                            setSelectedJobId(job.id);
+                          }
+                        }}
+                      >
+                        <div className="job-info-with-logo">
+                          <div className="job-info">
+                            <strong
+                              dangerouslySetInnerHTML={{
+                                __html: highlight(job.title, filters.search),
+                              }}
+                            />
+                            <p
+                              dangerouslySetInnerHTML={{
+                                __html: highlight(job.company, filters.search),
+                              }}
+                            />
+                            <small style={{ color: "#ef4444", fontWeight: 600 }}>
+                              Status: {job.status}
+                            </small>
+                            {job.deadline && (
+                              <small
+                                style={{
+                                  color: deadlineColor(job.deadline),
+                                  fontWeight: 500,
+                                  display: "block",
+                                }}
+                              >
+                                {daysUntilDeadline(job.deadline) < 0
+                                  ? `Overdue (${Math.abs(
+                                      daysUntilDeadline(job.deadline)
+                                    )} days ago)`
+                                  : `${daysUntilDeadline(
+                                      job.deadline
+                                    )} days remaining`}
+                              </small>
+                            )}
+                            <small>
+                              {formatDaysInStage(
+                                job.status_updated_at || job.created_at
+                              )}
+                            </small>
+                          </div>
+                          <div
+                            className="logo-wrapper"
+                            onMouseEnter={() => setHoveredLogo(job.id)}
+                            onMouseLeave={() => setHoveredLogo(null)}
+                          >
+                            <img
+                              src={
+                                companyLogos[job.company] ||
+                                job.company_logo_url ||
+                                "/company-placeholder.png"
+                              }
+                              alt={`${job.company} Logo`}
+                              className="company-logo-right"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCompany(job.company);
+                              }}
+                              onError={(e) =>
+                                (e.currentTarget.src = "/company-placeholder.png")
+                              }
+                            />
+                            {hoveredLogo === job.id && (
+                              <div className="react-tooltip">View Company Info</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="job-card-actions-bar">
+                        {onAnalyzeSkills && (
+                          <button
+                            className="job-card-btn-analyze"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAnalyzeSkills(job.id);
+                            }}
+                          >
+                            🔍 Analyze Skills
+                          </button>
+                        )}
+                        <button
+                          className="job-card-btn-archive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleArchive(job.id);
+                          }}
+                        >
+                          <FaArchive /> Archive
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Modals */}

@@ -58,8 +58,12 @@ export default function Interviews() {
 
   /* ============================================================
      Load JOBS → build unique company list & role list per company
+     (For non-mock tabs: insights, questions, coaching)
   ============================================================ */
   useEffect(() => {
+    // Only load from jobs if NOT on mock tab (mock tab uses Interview Tracker)
+    if (activeTab === "mock") return;
+    
     async function loadJobs() {
       try {
         const res = await api.get("/api/jobs");
@@ -92,7 +96,53 @@ export default function Interviews() {
       }
     }
     loadJobs();
-  }, []);
+  }, [activeTab]);
+
+  /* ============================================================
+     Load companies from Interview Tracker for Mock Interview tab
+  ============================================================ */
+  useEffect(() => {
+    if (activeTab !== "mock") return;
+    
+    async function loadInterviewCompanies() {
+      try {
+        // Load companies and roles from Interview Tracker (interview_outcomes)
+        const res = await api.get("/api/interview-analytics/outcomes", {
+          params: { userId }
+        });
+        const interviews = res.data.data || [];
+
+        // Extract unique companies from interviews
+        const uniqueCompanies = [...new Set(interviews
+          .filter(i => i.company)
+          .map((i) => i.company))];
+        setCompanies(uniqueCompanies);
+
+        // Build role map from interviews (company -> roles)
+        const roleMapTemp = {};
+        interviews.forEach((interview) => {
+          if (interview.company && interview.role) {
+            if (!roleMapTemp[interview.company]) roleMapTemp[interview.company] = new Set();
+            roleMapTemp[interview.company].add(interview.role);
+          }
+        });
+
+        const finalMap = {};
+        Object.keys(roleMapTemp).forEach((company) => {
+          finalMap[company] = [...roleMapTemp[company]];
+        });
+
+        setRoleMap(finalMap);
+
+        if (uniqueCompanies.length > 0) {
+          setActiveCompany(uniqueCompanies[0]);
+        }
+      } catch (err) {
+        console.error("Error loading interview companies and roles:", err);
+      }
+    }
+    loadInterviewCompanies();
+  }, [activeTab, userId]);
 
   /* ============================================================
      Load interview insights when company changes
