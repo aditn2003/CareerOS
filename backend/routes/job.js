@@ -905,18 +905,53 @@ router.put("/:id/materials", auth, async (req, res) => {
 // ---------- DELETE JOB ----------
 router.delete("/:id", auth, async (req, res) => {
   const { id } = req.params;
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // First, verify the job exists and belongs to the user
+    const jobCheck = await client.query(
+      `SELECT id FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (jobCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Delete related records first (to avoid foreign key constraint violations)
+    // Delete application_history records
+    await client.query(
+      `DELETE FROM application_history WHERE job_id = $1`,
+      [id]
+    );
+
+    // Delete application_materials_history records
+    await client.query(
+      `DELETE FROM application_materials_history WHERE job_id = $1`,
+      [id]
+    ).catch((err) => {
+      // Table might not exist, that's okay
+      if (err.code !== '42P01') {
+        console.warn("⚠️ Error deleting from application_materials_history:", err.message);
+      }
+    });
+
+    // Now delete the job
+    const result = await client.query(
       `DELETE FROM jobs WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
     );
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Job not found" });
-    }
+
+    await client.query("COMMIT");
     res.status(200).json({ message: "Job permanently deleted" });
   } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("❌ Delete job error:", err.message);
     res.status(500).json({ error: "Database error" });
+  } finally {
+    client.release();
   }
 });
 
