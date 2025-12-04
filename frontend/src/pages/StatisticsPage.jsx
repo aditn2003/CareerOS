@@ -1,6 +1,6 @@
 // frontend/src/pages/StatisticsPage.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Box,
@@ -12,6 +12,7 @@ import {
   Chip,
   Alert,
   Button,
+  IconButton,
 } from '@mui/material';
 import {
   BarChart,
@@ -34,6 +35,12 @@ import InterviewAnalysis from '../components/InterviewAnalysis';
 import NetworkingAnalysis from '../components/NetworkingAnalysis';
 import CompensationAnalysis from '../components/CompensationAnalysis';
 import ComprehensiveCompensationAnalysis from '../components/ComprehensiveCompensationAnalysis';
+import MarketIntel from '../components/MarketIntel';
+import TimeInvestmentAnalysis from '../components/TimeInvestmentAnalysis';
+import CompetitiveAnalysis from '../components/CompetitiveAnalysis';
+import SuccessPatternAnalysis from '../components/SuccessPatternAnalysis';
+import CustomReportGenerator from '../components/CustomReportGenerator';
+import PerformancePrediction from '../components/PerformancePrediction';
 
 // Custom styles
 const styles = {
@@ -55,6 +62,27 @@ const styles = {
     borderRadius: '16px',
     overflow: 'hidden',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+    position: 'relative',
+  },
+  tabsWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  scrollButton: {
+    position: 'absolute',
+    zIndex: 2,
+    background: '#fff',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    '&:hover': {
+      background: '#f3f4f6',
+    },
+  },
+  scrollButtonLeft: {
+    left: 0,
+  },
+  scrollButtonRight: {
+    right: 0,
   },
   tab: {
     fontWeight: 600,
@@ -176,7 +204,7 @@ function SectionIcon({ color, children }) {
 function ChartCard({ title, icon, iconColor, children }) {
   return (
     <Box sx={styles.chartCard}>
-      <Typography sx={styles.sectionTitle}>
+      <Typography component="div" sx={styles.sectionTitle}>
         <SectionIcon color={iconColor}>{icon}</SectionIcon>
         {title}
       </Typography>
@@ -191,6 +219,9 @@ const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [showLeftScroll, setShowLeftScroll] = useState(false);
+  const [showRightScroll, setShowRightScroll] = useState(true);
+  const tabsRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -214,6 +245,52 @@ const StatisticsPage = () => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
+
+  // Check scroll position and show/hide scroll buttons
+  const checkScrollButtons = () => {
+    if (tabsRef.current) {
+      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+      setShowLeftScroll(scrollLeft > 10);
+      setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  // Scroll handlers
+  const scrollLeft = () => {
+    if (tabsRef.current) {
+      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
+      scrollContainer.scrollBy({ left: -200, behavior: 'smooth' });
+      setTimeout(checkScrollButtons, 300);
+    }
+  };
+
+  const scrollRight = () => {
+    if (tabsRef.current) {
+      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
+      scrollContainer.scrollBy({ left: 200, behavior: 'smooth' });
+      setTimeout(checkScrollButtons, 300);
+    }
+  };
+
+  // Check scroll buttons on mount, resize, and tab change
+  useEffect(() => {
+    const timer = setTimeout(checkScrollButtons, 100);
+    window.addEventListener('resize', checkScrollButtons);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkScrollButtons);
+    };
+  }, [tabValue]);
+
+  // Also check when tabs container is scrolled
+  useEffect(() => {
+    if (tabsRef.current) {
+      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
+      scrollContainer.addEventListener('scroll', checkScrollButtons);
+      return () => scrollContainer.removeEventListener('scroll', checkScrollButtons);
+    }
+  }, []);
 
   // Format data
   const formattedMonthlyData = stats?.monthlyVolume?.map((item) => ({
@@ -344,23 +421,72 @@ const StatisticsPage = () => {
 
         {/* Tabs Container */}
         <Paper sx={styles.tabsContainer}>
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            sx={{
-              background: '#fff',
-              borderBottom: '1px solid #e5e7eb',
-              '& .MuiTab-root': styles.tab,
-              '& .Mui-selected': { color: '#3b82f6' },
-              '& .MuiTabs-indicator': { backgroundColor: '#3b82f6', height: 2 },
-            }}
-          >
-            <Tab label="Job Statistics" />
-            <Tab label="Success Analysis" />
-            <Tab label="Interview Analysis" />
-            <Tab label="Networking Analysis" />
-            <Tab label="Compensation Analysis" />
-          </Tabs>
+          <Box sx={styles.tabsWrapper}>
+            {showLeftScroll && (
+              <IconButton
+                onClick={scrollLeft}
+                sx={{
+                  ...styles.scrollButton,
+                  ...styles.scrollButtonLeft,
+                }}
+                size="small"
+              >
+                <Typography sx={{ fontSize: '20px', fontWeight: 700 }}>‹</Typography>
+              </IconButton>
+            )}
+            <Box
+              ref={tabsRef}
+              sx={{
+                flex: 1,
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <Tabs
+                value={tabValue}
+                onChange={handleTabChange}
+                variant="scrollable"
+                scrollButtons={false}
+                sx={{
+                  background: '#fff',
+                  borderBottom: '1px solid #e5e7eb',
+                  '& .MuiTabs-scrollableX': {
+                    scrollbarWidth: 'none',
+                    '&::-webkit-scrollbar': {
+                      display: 'none',
+                    },
+                  },
+                  '& .MuiTab-root': styles.tab,
+                  '& .Mui-selected': { color: '#3b82f6' },
+                  '& .MuiTabs-indicator': { backgroundColor: '#3b82f6', height: 2 },
+                }}
+              >
+              <Tab label="Job Statistics" />
+              <Tab label="Success Analysis" />
+              <Tab label="Interview Analysis" />
+              <Tab label="Networking Analysis" />
+              <Tab label="Compensation Analysis" />
+              <Tab label="Market Intelligence" />
+            <Tab label="Time Investment" />
+            <Tab label="Competitive Analysis" />
+            <Tab label="Success Patterns" />
+            <Tab label="Custom Reports" />
+            <Tab label="Performance Prediction" />
+              </Tabs>
+            </Box>
+            {showRightScroll && (
+              <IconButton
+                onClick={scrollRight}
+                sx={{
+                  ...styles.scrollButton,
+                  ...styles.scrollButtonRight,
+                }}
+                size="small"
+              >
+                <Typography sx={{ fontSize: '20px', fontWeight: 700 }}>›</Typography>
+              </IconButton>
+            )}
+          </Box>
 
           {/* Tab 1: Job Statistics */}
           <TabPanel value={tabValue} index={0}>
@@ -709,6 +835,36 @@ const StatisticsPage = () => {
           {/* Tab 5: Compensation Analysis */}
           <TabPanel value={tabValue} index={4}>
             <ComprehensiveCompensationAnalysis />
+          </TabPanel>
+
+          {/* Tab 6: Market Intelligence */}
+          <TabPanel value={tabValue} index={5}>
+            <MarketIntel />
+          </TabPanel>
+
+          {/* Tab 7: Time Investment (UC-103) */}
+          <TabPanel value={tabValue} index={6}>
+            <TimeInvestmentAnalysis />
+          </TabPanel>
+
+          {/* Tab 8: Competitive Analysis (UC-104) */}
+          <TabPanel value={tabValue} index={7}>
+            <CompetitiveAnalysis />
+          </TabPanel>
+
+          {/* Tab 9: Success Patterns (UC-105) */}
+          <TabPanel value={tabValue} index={8}>
+            <SuccessPatternAnalysis />
+          </TabPanel>
+
+          {/* Tab 10: Custom Reports (UC-106) */}
+          <TabPanel value={tabValue} index={9}>
+            <CustomReportGenerator />
+          </TabPanel>
+
+          {/* Tab 11: Performance Prediction (UC-107) */}
+          <TabPanel value={tabValue} index={10}>
+            <PerformancePrediction />
           </TabPanel>
         </Paper>
     </Container>

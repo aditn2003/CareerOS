@@ -267,14 +267,17 @@ router.post("/events", async (req, res) => {
     const {
       event_name,
       event_type,
-      organization,
       location,
+      is_virtual = false,
       event_date,
-      duration_hours = 0,
+      event_start_time,
+      event_end_time,
       cost = 0,
-      contacts_met = 0,
-      opportunities_generated = 0,
-      notes
+      expected_connections = 0,
+      actual_connections_made = 0,
+      notes,
+      industry,
+      description
     } = req.body;
 
     if (!event_name || !event_date) {
@@ -283,15 +286,15 @@ router.post("/events", async (req, res) => {
 
     const { rows } = await pool.query(
       `INSERT INTO networking_events (
-        user_id, event_name, event_type, organization, location,
-        event_date, duration_hours, cost, contacts_met, 
-        opportunities_generated, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        user_id, event_name, event_type, location, is_virtual,
+        event_date, event_start_time, event_end_time, cost, 
+        expected_connections, actual_connections_made, notes, industry, description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
-        userId, event_name, event_type || null, organization || null,
-        location || null, event_date, duration_hours, cost,
-        contacts_met, opportunities_generated, notes || null
+        userId, event_name, event_type || 'networking_mixer', location || null, is_virtual,
+        event_date, event_start_time || null, event_end_time || null, cost,
+        expected_connections, actual_connections_made, notes || null, industry || null, description || null
       ]
     );
 
