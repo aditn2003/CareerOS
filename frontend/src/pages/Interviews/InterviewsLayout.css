@@ -1,0 +1,397 @@
+/* ===============================================
+   INTERVIEW COMMAND CENTER - Layout Styles
+   =============================================== */
+
+.interviews-layout {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  min-height: 100vh;
+  /* Transparent - inherits from body's dark purple gradient */
+  background: transparent;
+}
+
+/* ===============================================
+   HEADER
+   =============================================== */
+
+.interviews-header {
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.main-title {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  letter-spacing: -1px;
+  text-shadow: 0 0 80px rgba(129, 140, 248, 0.5);
+}
+
+.main-subtitle {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ===============================================
+   NAVIGATION CONTAINER
+   =============================================== */
+
+.interview-nav-container {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  padding: 24px;
+  background: rgba(30, 27, 75, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  box-shadow: 
+    0 4px 24px rgba(91, 33, 182, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ===============================================
+   NAVIGATION GROUPS
+   =============================================== */
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nav-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #64748b;
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.nav-group-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(15, 10, 31, 0.6);
+  border-radius: 14px;
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+/* ===============================================
+   NAVIGATION TABS - Base Styles
+   =============================================== */
+
+.nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-width: 70px;
+}
+
+.nav-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.nav-tab:hover::before {
+  opacity: 1;
+}
+
+.tab-icon {
+  font-size: 20px;
+  transition: transform 0.3s ease;
+}
+
+.tab-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.nav-tab:hover {
+  transform: translateY(-2px);
+}
+
+.nav-tab:hover .tab-icon {
+  transform: scale(1.15);
+}
+
+/* ===============================================
+   RESEARCH TABS - Teal/Cyan Theme
+   =============================================== */
+
+.nav-tab.research {
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  color: #5eead4;
+}
+
+.nav-tab.research:hover {
+  background: rgba(20, 184, 166, 0.2);
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.3);
+}
+
+.nav-tab.research.active {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  border-color: #14b8a6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(20, 184, 166, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   PRACTICE TABS - Purple/Violet Theme
+   =============================================== */
+
+.nav-tab.practice {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+
+.nav-tab.practice:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+.nav-tab.practice.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  border-color: #8b5cf6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(139, 92, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   TRACK TABS - Blue Theme
+   =============================================== */
+
+.nav-tab.track {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.nav-tab.track:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.nav-tab.track.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(59, 130, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   OFFER TABS - Amber/Gold Theme
+   =============================================== */
+
+.nav-tab.offer {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.nav-tab.offer:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+}
+
+.nav-tab.offer.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #f59e0b;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(245, 158, 11, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   CONTENT AREA
+   =============================================== */
+
+.interview-content {
+  background: transparent;
+  border-radius: 20px;
+  min-height: 500px;
+  overflow: visible;
+}
+
+/* ===============================================
+   RESPONSIVE - Tablet
+   =============================================== */
+
+@media (max-width: 1024px) {
+  .interview-nav-container {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .nav-group-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .nav-tab {
+    padding: 10px 12px;
+    min-width: 60px;
+  }
+
+  .tab-icon {
+    font-size: 18px;
+  }
+
+  .tab-text {
+    font-size: 10px;
+  }
+}
+
+/* ===============================================
+   RESPONSIVE - Mobile
+   =============================================== */
+
+@media (max-width: 768px) {
+  .interviews-layout {
+    padding: 16px;
+  }
+
+  .main-title {
+    font-size: 32px;
+  }
+
+  .main-subtitle {
+    font-size: 14px;
+  }
+
+  .interview-nav-container {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .nav-group {
+    width: 100%;
+  }
+
+  .nav-group-tabs {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .nav-tab {
+    flex: 1;
+    min-width: 60px;
+    max-width: 80px;
+  }
+
+  .interview-content {
+    border-radius: 16px;
+  }
+}
+
+/* ===============================================
+   RESPONSIVE - Small Mobile
+   =============================================== */
+
+@media (max-width: 480px) {
+  .main-title {
+    font-size: 28px;
+  }
+
+  .nav-group-label {
+    font-size: 10px;
+  }
+
+  .nav-tab {
+    padding: 8px 10px;
+  }
+
+  .tab-icon {
+    font-size: 16px;
+  }
+
+  .tab-text {
+    font-size: 9px;
+  }
+}
+
+/* ===============================================
+   ANIMATIONS
+   =============================================== */
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(129, 140, 248, 0.5);
+  }
+}
+
+.interviews-header {
+  animation: fadeInDown 0.6s ease-out;
+}
+
+.interview-nav-container {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.interview-content {
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

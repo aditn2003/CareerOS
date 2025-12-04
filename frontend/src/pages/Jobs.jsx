@@ -5,6 +5,7 @@ import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
+import StatisticsDashboard from "../components/stats";   // <-- ADD THIS
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 
@@ -15,7 +16,6 @@ export default function Jobs() {
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
 
-  // 🔥 When user clicks “Analyze Skills” on a job card
   const handleAnalyzeSkills = (jobId) => {
     if (!jobId) return;
     navigate(`/skills-gap/${jobId}`);
@@ -23,7 +23,7 @@ export default function Jobs() {
 
   const handleSaved = () => {
     setShowForm(false);
-    setRefreshKey(Date.now()); // force JobPipeline to reload
+    setRefreshKey(Date.now());
   };
 
   return (
@@ -53,14 +53,15 @@ export default function Jobs() {
           <JobPipeline
             key={refreshKey}
             token={token}
-            onAnalyzeSkills={handleAnalyzeSkills} // <-- passed in
+            onAnalyzeSkills={handleAnalyzeSkills}
           />
         </div>
 
-        {/* 🗓️ Jobs Calendar */}
+
+        {/* 📈 PERFORMANCE STATS DASHBOARD — ADDED HERE */}
         <div className="profile-box">
-          <h3>🗓️ Jobs Calendar</h3>
-          <JobsCalendar token={token} />
+          <h3>Performance Dashboard</h3>
+          <StatisticsDashboard  token={token}/>   {/* <-- YOUR ENTIRE STATS COMPONENT */}
         </div>
       </div>
 

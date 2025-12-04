@@ -16,11 +16,16 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     description: "",
     industry: "",
     type: "",
+    role_level: "",
     applied_on: today,
 
     // ⭐ MATERIAL LINKING
     resume_id: "",
     cover_letter_id: "",
+
+    // ⭐ CUSTOMIZATION LEVELS
+    resume_customization: "none",
+    cover_letter_customization: "none",
 
     // ⭐ REQUIRED SKILLS (string input → array)
     required_skills: "",
@@ -54,7 +59,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
         if (resCovers.ok) {
           const data = await resCovers.json();
+          console.log("📄 Cover letters data:", data);
+          console.log("📄 Cover letters array:", data.cover_letters);
+          console.log("📄 User letters:", data.user_letters);
+          console.log("📄 Templates:", data.templates);
+          // Use the combined list from backend (already includes templates with prefixed IDs)
           setCoverLetters(data.cover_letters || []);
+        } else {
+          console.error("❌ Cover letters response not OK:", resCovers.status, resCovers.statusText);
         }
       } catch (err) {
         console.error("❌ Failed to load materials:", err);
@@ -286,6 +298,25 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="contract">Contract</option>
       </select>
 
+      <label>Role Level</label>
+      <select
+        value={form.role_level}
+        onChange={(e) => setForm({ ...form, role_level: e.target.value })}
+      >
+        <option value="">Select role level</option>
+        <option value="intern">Intern</option>
+        <option value="entry">Entry Level</option>
+        <option value="junior">Junior</option>
+        <option value="mid">Mid-Level</option>
+        <option value="senior">Senior</option>
+        <option value="staff">Staff</option>
+        <option value="principal">Principal</option>
+        <option value="lead">Lead</option>
+        <option value="manager">Manager</option>
+        <option value="director">Director</option>
+        <option value="vp">VP</option>
+      </select>
+
       {/* ⭐ REQUIRED SKILLS */}
       <label>Required Skills (comma-separated)</label>
       <input
@@ -308,6 +339,17 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         ))}
       </select>
 
+      <label>Resume Customization Level</label>
+      <select
+        value={form.resume_customization}
+        onChange={(e) => setForm({ ...form, resume_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic resume</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
+      </select>
+
       <label>Cover Letter Used</label>
       <select
         value={form.cover_letter_id}
@@ -316,9 +358,20 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="">Select a Cover Letter</option>
         {coverLetters.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.title}
+            {c.title} {c.isTemplate ? '(Global Template)' : ''}
           </option>
         ))}
+      </select>
+
+      <label>Cover Letter Customization Level</label>
+      <select
+        value={form.cover_letter_customization}
+        onChange={(e) => setForm({ ...form, cover_letter_customization: e.target.value })}
+      >
+        <option value="none">None - Used generic cover letter</option>
+        <option value="light">Light - Minor adjustments</option>
+        <option value="heavy">Heavy - Significant customization</option>
+        <option value="tailored">Tailored - Fully customized for this job</option>
       </select>
 
       {/* BUTTONS */}

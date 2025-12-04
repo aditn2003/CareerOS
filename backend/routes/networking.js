@@ -685,3 +685,4 @@ router.get('/discover/locations', authMiddleware, async (req, res) => {
 });
 
 export default router;
+

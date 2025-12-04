@@ -132,12 +132,134 @@ CREATE TABLE IF NOT EXISTS jobs (
     contact_phone TEXT,
     salary_notes TEXT,
     interview_notes TEXT,
-    application_history JSONB DEFAULT '[]'::jsonb
+    application_history JSONB DEFAULT '[]'::jsonb,
+    resume_customization VARCHAR(20) DEFAULT 'none' CHECK (resume_customization IN ('none', 'light', 'heavy', 'tailored')),
+    cover_letter_customization VARCHAR(20) DEFAULT 'none' CHECK (cover_letter_customization IN ('none', 'light', 'heavy', 'tailored'))
 );
 -- JOBS INDEXES
 CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE TABLE IF NOT EXISTS companies (
+
+-- USER GOALS TABLE (customizable performance targets)
+CREATE TABLE IF NOT EXISTS user_goals (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    monthly_applications INT DEFAULT 30,
+    interview_rate_target DECIMAL(3,2) DEFAULT 0.30,
+    offer_rate_target DECIMAL(3,2) DEFAULT 0.05,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+
+-- Contacts/Relationships
+CREATE TABLE IF NOT EXISTS networking_contacts (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT,
+    company TEXT,
+    title TEXT,
+    industry TEXT,
+    linkedin_url TEXT,
+    relationship_strength INT DEFAULT 1 CHECK (relationship_strength BETWEEN 1 AND 10),
+    engagement_score DECIMAL(3,2) DEFAULT 0.0 CHECK (engagement_score BETWEEN 0 AND 1),
+    reciprocity_score DECIMAL(3,2) DEFAULT 0.0 CHECK (reciprocity_score BETWEEN 0 AND 1),
+    last_contact_date TIMESTAMP,
+    next_followup_date TIMESTAMP,
+    notes TEXT,
+    tags TEXT[],
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Networking Activities (outreach, conversations, follow-ups)
+CREATE TABLE IF NOT EXISTS networking_activities (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_id INT REFERENCES networking_contacts(id) ON DELETE CASCADE,
+    activity_type VARCHAR(50) NOT NULL CHECK (activity_type IN (
+        'outreach', 'conversation', 'follow_up', 'referral_request', 
+        'referral_received', 'event_meeting', 'coffee_chat', 'email', 
+        'linkedin_message', 'phone_call', 'introduction'
+    )),
+    channel VARCHAR(50) CHECK (channel IN (
+        'linkedin', 'email', 'phone', 'in_person', 'event', 'referral', 'other'
+    )),
+    direction VARCHAR(20) DEFAULT 'outbound' CHECK (direction IN ('inbound', 'outbound')),
+    subject TEXT,
+    notes TEXT,
+    outcome VARCHAR(50) CHECK (outcome IN (
+        'positive', 'neutral', 'negative', 'no_response', 'referral', 'opportunity'
+    )),
+    relationship_impact INT DEFAULT 0 CHECK (relationship_impact BETWEEN -2 AND 2),
+    time_spent_minutes INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Networking Events
+CREATE TABLE IF NOT EXISTS networking_events (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    event_name TEXT NOT NULL,
+    event_type VARCHAR(50) CHECK (event_type IN (
+        'conference', 'meetup', 'workshop', 'webinar', 'hackathon', 
+        'networking_mixer', 'career_fair', 'alumni_event', 'other'
+    )),
+    organization TEXT,
+    location TEXT,
+    event_date DATE NOT NULL,
+    duration_hours DECIMAL(4,2) DEFAULT 0,
+    cost DECIMAL(10,2) DEFAULT 0,
+    contacts_met INT DEFAULT 0,
+    opportunities_generated INT DEFAULT 0,
+    notes TEXT,
+    roi_score DECIMAL(5,2),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Referrals Received
+CREATE TABLE IF NOT EXISTS networking_referrals (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_id INT REFERENCES networking_contacts(id) ON DELETE CASCADE,
+    job_id INT REFERENCES jobs(id) ON DELETE SET NULL,
+    referral_type VARCHAR(50) CHECK (referral_type IN (
+        'warm_introduction', 'direct_referral', 'recommendation', 'internal_referral'
+    )),
+    referrer_name TEXT,
+    referrer_company TEXT,
+    company_referred_to TEXT,
+    position_referred_for TEXT,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN (
+        'pending', 'submitted', 'interview', 'offer', 'rejected', 'accepted'
+    )),
+    quality_score INT DEFAULT 5 CHECK (quality_score BETWEEN 1 AND 10),
+    converted_to_interview BOOLEAN DEFAULT FALSE,
+    converted_to_offer BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Event-Contact Relationships (many-to-many)
+CREATE TABLE IF NOT EXISTS event_contacts (
+    id SERIAL PRIMARY KEY,
+    event_id INT NOT NULL REFERENCES networking_events(id) ON DELETE CASCADE,
+    contact_id INT NOT NULL REFERENCES networking_contacts(id) ON DELETE CASCADE,
+    relationship_boost INT DEFAULT 1 CHECK (relationship_boost BETWEEN 1 AND 3),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(event_id, contact_id)
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_networking_contacts_user_id ON networking_contacts(user_id);
+CREATE INDEX IF NOT EXISTS idx_networking_activities_user_id ON networking_activities(user_id);
+CREATE INDEX IF NOT EXISTS idx_networking_activities_contact_id ON networking_activities(contact_id);
+CREATE INDEX IF NOT EXISTS idx_networking_activities_type ON networking_activities(activity_type);
+CREATE INDEX IF NOT EXISTS idx_networking_events_user_id ON networking_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_networking_referrals_user_id ON networking_referrals(user_id);
+CREATE INDEX IF NOT EXISTS idx_networking_referrals_contact_id ON networking_referrals(contact_id);
 CREATE TABLE IF NOT EXISTS companies (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) UNIQUE NOT NULL,
@@ -157,7 +279,6 @@ CREATE TABLE IF NOT EXISTS companies (
 );
 -- resume_templates table
 CREATE TABLE IF NOT EXISTS resume_templates (
-CREATE TABLE IF NOT EXISTS resume_templates (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
@@ -170,7 +291,142 @@ CREATE TABLE IF NOT EXISTS resume_templates (
     is_default BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS resumes (
+CREATE TABLE public.practiced_questions (
+  id integer NOT NULL DEFAULT nextval('practiced_questions_id_seq'::regclass),
+  user_id integer NOT NULL,
+  question_id character varying NOT NULL,
+  question_category character varying,
+  response text,
+  response_length integer DEFAULT 0,
+  practiced_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT practiced_questions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id integer NOT NULL DEFAULT nextval('profiles_id_seq'::regclass),
+  user_id integer NOT NULL,
+  full_name character varying,
+  email character varying,
+  phone character varying,
+  location character varying,
+  title character varying,
+  bio text,
+  industry character varying,
+  experience character varying,
+  picture_url text,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.projects (
+  id integer NOT NULL DEFAULT nextval('projects_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  description text NOT NULL,
+  role character varying NOT NULL,
+  start_date date,
+  end_date date,
+  technologies ARRAY,
+  repository_link text,
+  team_size integer,
+  collaboration_details text,
+  outcomes text,
+  industry character varying,
+  project_type character varying,
+  media_url text,
+  status character varying DEFAULT 'Planned'::character varying CHECK (status::text = ANY (ARRAY['Completed'::character varying::text, 'Ongoing'::character varying::text, 'Planned'::character varying::text])),
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT projects_pkey PRIMARY KEY (id),
+  CONSTRAINT projects_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.resume_presets (
+  id integer NOT NULL DEFAULT nextval('resume_presets_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  section_order ARRAY,
+  visible_sections jsonb,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT resume_presets_pkey PRIMARY KEY (id),
+  CONSTRAINT resume_presets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.resume_templates (
+  id integer NOT NULL DEFAULT nextval('resume_templates_id_seq'::regclass),
+  user_id integer,
+  name character varying NOT NULL,
+  layout_type character varying NOT NULL,
+  font character varying DEFAULT 'Inter'::character varying,
+  color_scheme character varying DEFAULT 'blue'::character varying,
+  preview_url text,
+  is_default boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT resume_templates_pkey PRIMARY KEY (id),
+  CONSTRAINT resume_templates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.resumes (
+  id integer NOT NULL DEFAULT nextval('resumes_id_seq'::regclass),
+  user_id integer,
+  title character varying NOT NULL,
+  template_id integer,
+  sections jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  format character varying DEFAULT 'pdf'::character varying,
+  preview_url text,
+  template_name text,
+  CONSTRAINT resumes_pkey PRIMARY KEY (id),
+  CONSTRAINT resumes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.section_presets (
+  id integer NOT NULL DEFAULT nextval('section_presets_id_seq'::regclass),
+  user_id integer NOT NULL,
+  section_name character varying NOT NULL,
+  preset_name character varying NOT NULL,
+  section_data jsonb NOT NULL,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT section_presets_pkey PRIMARY KEY (id),
+  CONSTRAINT section_presets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.skill_progress (
+  id integer NOT NULL DEFAULT nextval('skill_progress_id_seq'::regclass),
+  user_id integer NOT NULL,
+  skill text NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['not started'::text, 'in progress'::text, 'completed'::text])),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT skill_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT skill_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.skills (
+  id integer NOT NULL DEFAULT nextval('skills_id_seq'::regclass),
+  user_id integer NOT NULL,
+  name character varying NOT NULL,
+  category character varying NOT NULL CHECK (category::text = ANY (ARRAY['Technical'::character varying::text, 'Soft Skills'::character varying::text, 'Languages'::character varying::text, 'Industry-Specific'::character varying::text])),
+  proficiency character varying NOT NULL CHECK (proficiency::text = ANY (ARRAY['Beginner'::character varying::text, 'Intermediate'::character varying::text, 'Advanced'::character varying::text, 'Expert'::character varying::text])),
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT skills_pkey PRIMARY KEY (id),
+  CONSTRAINT skills_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_job_goals (
+  id integer NOT NULL DEFAULT nextval('user_job_goals_id_seq'::regclass),
+  user_id integer NOT NULL,
+  goal_type character varying NOT NULL,
+  target_value integer NOT NULL,
+  period_start date NOT NULL,
+  period_end date NOT NULL,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_job_goals_pkey PRIMARY KEY (id),
+  CONSTRAINT user_job_goals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.users (
+  id integer NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  first_name text,
+  last_name text,
+  provider text DEFAULT 'local'::text,
+  created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);
 CREATE TABLE IF NOT EXISTS resumes (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -215,7 +471,6 @@ VALUES (
     ) ON CONFLICT DO NOTHING;
 
 
-CREATE TABLE IF NOT EXISTS resume_presets (
 CREATE TABLE IF NOT EXISTS resume_presets (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -328,24 +583,47 @@ VALUES
     )
 ON CONFLICT DO NOTHING;
 
-ALTER TABLE public.jobs
-ADD COLUMN IF NOT EXISTS "offerDate" DATE;
-
-CREATE TABLE IF NOT EXISTS match_history (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  job_id INTEGER NOT NULL,
-  match_score INTEGER NOT NULL,
-  skills_score INTEGER,
-  experience_score INTEGER,
-  education_score INTEGER,
-  strengths TEXT,
-  gaps TEXT,
-  improvements TEXT,
-  weights JSONB,         -- stores personalized weighting used
-  details JSONB,         -- raw AI response for future use
-  created_at TIMESTAMP DEFAULT NOW()
-);
 ALTER TABLE jobs
-ADD COLUMN required_skills TEXT[];
+ADD COLUMN IF NOT EXISTS required_skills TEXT[];
+
+-- ======================================
+-- COVER LETTERS TABLE
+-- ======================================
+CREATE TABLE IF NOT EXISTS cover_letters (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    format VARCHAR(10) DEFAULT 'pdf',
+    content TEXT,
+    file_url TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cover_letters_user_id ON cover_letters(user_id);
+
+-- ======================================
+-- APPLICATION MATERIALS HISTORY TABLE
+-- ======================================
+CREATE TABLE IF NOT EXISTS application_materials_history (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL,
+    cover_letter_id INTEGER REFERENCES cover_letters(id) ON DELETE SET NULL,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_application_materials_history_user_id ON application_materials_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_application_materials_history_job_id ON application_materials_history(job_id);
+
+-- ======================================
+-- ADD MISSING COLUMNS TO JOBS TABLE
+-- ======================================
+ALTER TABLE jobs
+ADD COLUMN IF NOT EXISTS "applicationDate" DATE,
+ADD COLUMN IF NOT EXISTS "isArchived" BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS resume_id INTEGER REFERENCES resumes(id) ON DELETE SET NULL,
+ADD COLUMN IF NOT EXISTS cover_letter_id INTEGER REFERENCES cover_letters(id) ON DELETE SET NULL;
 
