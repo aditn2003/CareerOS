@@ -18,7 +18,6 @@ import ResetPassword from "./pages/ResetPassword";
 import ProfileLayout from "./pages/Profile/ProfileLayout";
 import Jobs from "./pages/Jobs";
 import StatisticsPage from "./pages/StatisticsPage";
-import ArchivedJobs from "./pages/ArchivedJobs";
 import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
 import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
@@ -35,7 +34,7 @@ import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
 import InterviewTracker from './pages/Interviews/InterviewTracker';
-
+import DocsManagement from "./pages/DocsManagement";
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
@@ -181,15 +180,6 @@ function MainLayout() {
             }
           />
 
-          {/* --- Archived Jobs (Protected) --- */}
-          <Route
-            path="/archived"
-            element={
-              <ProtectedRoute>
-                <ArchivedJobs />
-              </ProtectedRoute>
-            }
-          />
 
           {/* --- Company Research (Redirect to Interviews) --- */}
           <Route
@@ -209,6 +199,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <JobMatch />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Docs Management (Protected) --- */}
+          <Route
+            path="/docs-management"
+            element={
+              <ProtectedRoute>
+                <DocsManagement />
               </ProtectedRoute>
             }
           />

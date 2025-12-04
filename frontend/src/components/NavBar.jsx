@@ -11,7 +11,6 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
   FaEnvelope, // ✅ Icon for Cover Letter
@@ -80,6 +79,10 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Docs Management
+            </NavLink>
+
             {/* ═══════════════════════════════════════════
                 INTERVIEWS - Prepare & Track
             ═══════════════════════════════════════════ */}
@@ -99,10 +102,6 @@ export default function NavBar() {
             ═══════════════════════════════════════════ */}
             <NavLink to="/statistics">
               <FaChartBar /> Statistics
-            </NavLink>
-
-            <NavLink to="/archived">
-              <FaArchive /> Archived
             </NavLink>
 
             {/* ═══════════════════════════════════════════

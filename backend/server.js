@@ -42,7 +42,9 @@ import mockInterviewsRoutes from "./routes/mockInterviews.js";
 import interviewAnalyticsRoutes from './routes/interviewAnalytics.js';
 
 import coverLetterRoutes from "./routes/cover_letter.js";
+import fileUploadRoutes from "./routes/fileUpload.js";
 import jobImportRoutes from "./routes/jobRoutes.js";
+import versionControlRoutes from "./routes/versionControl.js";
 import puppeteer from "puppeteer";
 import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
@@ -419,6 +421,7 @@ app.post("/google", async (req, res) => {
 app.use("/api/calendar", calendarRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", uploadRoutes);
+app.use("/api/upload", fileUploadRoutes);
 app.use("/api", auth, employmentRoutes);
 app.use("/skills", skillsRouter);
 app.use("/api", educationRoutes);
@@ -442,6 +445,7 @@ app.use("/api/cover-letters", coverLetterRoutes); // User cover letters + templa
 app.use("/api/cover-letter", coverLetterTemplatesRouter);
 app.use("/api/cover-letter", coverLetterAIRoutes);
 app.use("/api/cover-letter/export", coverLetterExportRoutes);
+app.use("/api/versions", versionControlRoutes);
 app.use("/api/success-analysis", successAnalysisRoutes);
 app.use("/api/goals", goalsRoutes);
 app.use("/api/interview-analysis", interviewAnalysisRoutes);
@@ -653,13 +657,18 @@ app.post("/test-reminders", async (req, res) => {
 process.on('unhandledRejection', (reason, promise) => {
   // Database connection termination errors are common with Supabase
   if (reason && typeof reason === 'object') {
+    const reasonStr = String(reason);
+    const reasonMessage = reason.message || reasonStr;
+    
     if (reason.code === 'XX000' || 
-        reason.message?.includes('shutdown') || 
-        reason.message?.includes('termination') ||
-        reason.message?.includes('db_termination')) {
-      console.error('⚠️ Database connection terminated. Pool will reconnect on next query.');
-      console.error('   Error code:', reason.code);
-      console.error('   Message:', reason.message);
+        reasonMessage.includes('shutdown') || 
+        reasonMessage.includes('termination') ||
+        reasonMessage.includes('db_termination') ||
+        reasonStr.includes('shutdown') ||
+        reasonStr.includes('db_termination') ||
+        (reason.code && String(reason.code).includes('XX000'))) {
+      // These are expected with Supabase connection limits - log quietly
+      console.warn('⚠️ Database connection terminated (expected). Pool will reconnect on next query.');
       // Don't crash - the pool will handle reconnection
       return;
     }
@@ -672,13 +681,18 @@ process.on('unhandledRejection', (reason, promise) => {
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   // Database connection errors should not crash the server
+  const errorStr = String(error);
+  const errorMessage = error.message || errorStr;
+  
   if (error.code === 'XX000' || 
-      error.message?.includes('shutdown') || 
-      error.message?.includes('termination') ||
-      error.message?.includes('db_termination')) {
-    console.error('⚠️ Uncaught database connection error. Server will continue running.');
-    console.error('   Error code:', error.code);
-    console.error('   Message:', error.message);
+      errorMessage.includes('shutdown') || 
+      errorMessage.includes('termination') ||
+      errorMessage.includes('db_termination') ||
+      errorStr.includes('shutdown') ||
+      errorStr.includes('db_termination') ||
+      (error.code && String(error.code).includes('XX000'))) {
+    // These are expected with Supabase connection limits - log quietly
+    console.warn('⚠️ Database connection error (expected). Server will continue running.');
     // Don't exit - let the server continue
     return;
   }

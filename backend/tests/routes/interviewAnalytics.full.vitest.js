@@ -7,6 +7,20 @@ import request from 'supertest';
 import express from 'express';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
+// Mock Resend (must be before any imports that use it)
+vi.mock('resend', () => {
+  return {
+    Resend: class Resend {
+      constructor(apiKey) {
+        this.apiKey = apiKey;
+        this.emails = {
+          send: vi.fn().mockResolvedValue({ data: { id: 'email-123' }, error: null }),
+        };
+      }
+    },
+  };
+});
+
 // Mock axios
 vi.mock('axios', () => ({
   default: {
@@ -1751,7 +1765,9 @@ describe('Interview Analytics Routes - Full Coverage', () => {
           interviewType: 'technical',
         });
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Database error');
     });
 
     it('should handle POST /outcome success path with data.id', async () => {

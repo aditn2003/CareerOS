@@ -177,6 +177,9 @@ describe('Offers Routes - 90%+ Coverage', () => {
   // ========================================
   describe('POST /api/offers', () => {
     it('should create offer with all fields', async () => {
+      // First query: findCompetingOffers (returns empty - no competing offers)
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Second query: INSERT offer
       mockQueryFn.mockResolvedValueOnce({ rows: [mockOffer], rowCount: 1 });
 
       const res = await request(app)
@@ -212,6 +215,9 @@ describe('Offers Routes - 90%+ Coverage', () => {
     });
 
     it('should create offer with minimal fields', async () => {
+      // First query: findCompetingOffers (returns empty - no competing offers)
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Second query: INSERT offer
       mockQueryFn.mockResolvedValueOnce({
         rows: [{ ...mockOffer, signing_bonus: 0, equity_type: 'none' }],
         rowCount: 1,
@@ -230,6 +236,9 @@ describe('Offers Routes - 90%+ Coverage', () => {
     });
 
     it('should create offer with guaranteed bonus', async () => {
+      // First query: findCompetingOffers (returns empty - no competing offers)
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Second query: INSERT offer
       mockQueryFn.mockResolvedValueOnce({
         rows: [{ ...mockOffer, annual_bonus_guaranteed: true }],
         rowCount: 1,
@@ -266,9 +275,12 @@ describe('Offers Routes - 90%+ Coverage', () => {
   // ========================================
   describe('PUT /api/offers/:id', () => {
     it('should update offer', async () => {
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [mockOffer], rowCount: 1 }) // Get current offer
-        .mockResolvedValueOnce({ rows: [{ ...mockOffer, base_salary: 160000 }], rowCount: 1 }); // Update
+      // First query: Get current offer
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockOffer], rowCount: 1 });
+      // Second query: findCompetingOffers (returns empty - no competing offers)
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Third query: UPDATE offer
+      mockQueryFn.mockResolvedValueOnce({ rows: [{ ...mockOffer, base_salary: 160000 }], rowCount: 1 });
 
       const res = await request(app)
         .put('/api/offers/1')
@@ -381,10 +393,14 @@ describe('Offers Routes - 90%+ Coverage', () => {
   // ========================================
   describe('POST /api/offers/:id/accept', () => {
     it('should accept offer and create compensation history', async () => {
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [mockOffer], rowCount: 1 }) // Get offer
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update offer
-        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }); // Create comp history
+      // First query: Get offer
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockOffer], rowCount: 1 });
+      // Second query: Check for existing accepted offers (returns empty)
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Third query: UPDATE offer status
+      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+      // Fourth query: INSERT compensation history
+      mockQueryFn.mockResolvedValueOnce({ rows: [{ id: 1, offer_id: 1, user_id: 1 }], rowCount: 1 });
 
       const res = await request(app)
         .post('/api/offers/1/accept')

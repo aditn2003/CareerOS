@@ -15,6 +15,7 @@ import SavedResumes from "./SavedResumes";
 import { useAuth } from "../../contexts/AuthContext";
 import MentorTab from "./MentorTab";
 import TeamManagement from "./TeamManagement";
+import ArchivedJobs from "../ArchivedJobs";
 
 export default function ProfileLayout() {
   const { authed } = useAuth();
@@ -42,6 +43,7 @@ export default function ProfileLayout() {
 
         {/* Core Profile Tabs */}
         <Route path="dashboard" element={<DashboardTab />} />
+        <Route path="archived" element={<ArchivedJobs />} />
         <Route path="employment" element={<EmploymentTab />} />
         <Route path="skills" element={<SkillsTab />} />
         <Route path="education" element={<EducationTab />} />

@@ -3,6 +3,7 @@ import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import TaskModal from "../../components/TaskModal";
 import FeedbackModal from "../../components/FeedbackModal";
+import { FaTasks, FaPlus, FaCheckCircle, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./TaskManagementTab.css";
 
 export default function TaskManagementTab() {
@@ -137,65 +138,92 @@ export default function TaskManagementTab() {
 
   if (!teamId) {
     return (
-      <section className="profile-box">
-        <h3>Task Management</h3>
-        <p>No team found. Please join a team to view tasks.</p>
-      </section>
+      <div className="task-management-container">
+        <div className="task-empty-state">
+          <FaTasks className="task-empty-icon" />
+          <h3 className="task-empty-title">No Team Found</h3>
+          <p className="task-empty-text">
+            Please join a team to view and manage tasks.
+          </p>
+        </div>
+      </div>
     );
   }
 
   const canCreateTasks = isMentor || isAdmin;
 
   return (
-    <section className="profile-box task-management-container">
+    <div className="task-management-container">
       <div className="task-management-header">
-        <h3>Task Management</h3>
+        <div className="task-header-content">
+          <h2 className="task-main-title">Task Management</h2>
+          <p className="task-main-subtitle">
+            Organize, track, and guide your team's progress
+          </p>
+        </div>
         {canCreateTasks && (
-          <button className="btn-primary" onClick={handleCreateTask}>
-            + Create Task
+          <button className="task-create-btn" onClick={handleCreateTask}>
+            <FaPlus />
+            <span>Create Task</span>
           </button>
         )}
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="task-error-banner">{error}</div>}
 
       {/* Status Filter */}
       <div className="task-status-filters">
         <button
-          className={`status-filter-btn ${statusFilter === "all" ? "active" : ""}`}
+          className={`task-filter-btn ${statusFilter === "all" ? "active" : ""}`}
           onClick={() => setStatusFilter("all")}
         >
-          All ({tasks.length})
+          <span className="filter-label">All</span>
+          <span className="filter-count">{tasks.length}</span>
         </button>
         <button
-          className={`status-filter-btn ${statusFilter === "pending" ? "active" : ""}`}
+          className={`task-filter-btn pending ${statusFilter === "pending" ? "active" : ""}`}
           onClick={() => setStatusFilter("pending")}
         >
-          Pending ({pendingCount})
+          <FaClock className="filter-icon" />
+          <span className="filter-label">Pending</span>
+          <span className="filter-count">{pendingCount}</span>
         </button>
         <button
-          className={`status-filter-btn ${statusFilter === "in_progress" ? "active" : ""}`}
+          className={`task-filter-btn in-progress ${statusFilter === "in_progress" ? "active" : ""}`}
           onClick={() => setStatusFilter("in_progress")}
         >
-          In Progress ({inProgressCount})
+          <FaExclamationTriangle className="filter-icon" />
+          <span className="filter-label">In Progress</span>
+          <span className="filter-count">{inProgressCount}</span>
         </button>
         <button
-          className={`status-filter-btn ${statusFilter === "completed" ? "active" : ""}`}
+          className={`task-filter-btn completed ${statusFilter === "completed" ? "active" : ""}`}
           onClick={() => setStatusFilter("completed")}
         >
-          Completed ({completedCount})
+          <FaCheckCircle className="filter-icon" />
+          <span className="filter-label">Completed</span>
+          <span className="filter-count">{completedCount}</span>
         </button>
       </div>
 
       {/* Tasks List */}
       {loading ? (
+        <div className="task-loading">
+          <div className="task-loading-spinner"></div>
         <p>Loading tasks...</p>
+        </div>
       ) : filteredTasks.length === 0 ? (
         <div className="task-empty-state">
-          <p>
+          <FaTasks className="task-empty-icon" />
+          <h3 className="task-empty-title">
             {statusFilter === "all"
-              ? "No tasks found."
-              : `No ${statusFilter.replace("_", " ")} tasks found.`}
+              ? "No Tasks Found"
+              : `No ${statusFilter.replace("_", " ")} Tasks`}
+          </h3>
+          <p className="task-empty-text">
+            {statusFilter === "all"
+              ? "Create your first task to get started with task management."
+              : `No tasks with "${statusFilter.replace("_", " ")}" status found.`}
           </p>
         </div>
       ) : (
@@ -385,6 +413,6 @@ export default function TaskManagementTab() {
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
