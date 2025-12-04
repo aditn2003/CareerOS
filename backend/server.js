@@ -56,7 +56,6 @@ import successAnalysisRoutes from "./routes/successAnalysis.js";
 import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
-import networkingRoutes from "./routes/networking.js";
 import offersRoutes from "./routes/offers.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 import compensationHistoryRoutes from "./routes/compensationHistory.js";
@@ -104,13 +103,17 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 pool
   .connect()
-  .then(() => {
+  .then((client) => {
     console.log("✅ Connected to PostgreSQL");
     // Initialize contacts route with the pool
     setContactsPool(pool);
 
     // Release the test connection
-    client.release();
+    if (client && typeof client.release === 'function') {
+      client.release();
+    } else {
+      console.error("⚠️ Client object does not have release method:", typeof client, client);
+    }
   })
   .catch((err) => console.error("❌ DB connection error:", err.message));
 
@@ -175,7 +178,8 @@ app.post("/register", async (req, res) => {
       );
       if (existing.rows.length > 0) {
         await client.query("ROLLBACK");
-      return res.status(409).json({ error: "Email already in use" });
+        client.release();
+        return res.status(409).json({ error: "Email already in use" });
       }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -190,16 +194,22 @@ app.post("/register", async (req, res) => {
 
       await client.query("COMMIT");
       const token = makeToken({ id: userId, email: lower });
-    return res.status(201).json({ message: "Registered", token });
+      client.release();
+      return res.status(201).json({ message: "Registered", token });
     } catch (dbErr) {
       try {
-        await client.query("ROLLBACK");
+        if (client && typeof client.query === 'function') {
+          await client.query("ROLLBACK");
+        }
       } catch (rollbackErr) {
         console.error("Rollback failed:", rollbackErr.message);
       }
+      if (client && typeof client.release === 'function') {
+        client.release();
+      } else if (client) {
+        console.error("⚠️ Client object does not have release method:", typeof client, client);
+      }
       throw dbErr;
-    } finally {
-      client.release();
     }
   } catch (err) {
     console.error(err);

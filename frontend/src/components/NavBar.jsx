@@ -14,8 +14,7 @@ import {
   FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter
-  FaUsers, // ✅ Icon for Professional Network
+  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
   FaHandshake, // ✅ Icon for Referrals
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
@@ -129,15 +128,7 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
-            {/* 💌 Relationship Maintenance (UC-093) */}
-            <NavLink
-              to="/network"
-              onClick={() => {
-                localStorage.setItem("networkLayoutActiveTab", "maintenance");
-              }}
-            >
-              <span style={{ fontSize: "1.1rem" }}>💌</span> Maintenance
-            </NavLink>
+            
 
             {/* 👤 Profile */}
             <NavLink to="/archived">

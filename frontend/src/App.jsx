@@ -24,7 +24,6 @@ import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
 import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
 import Interviews from "./pages/Interviews/Interviews";
-import SalaryResearch from "./pages/Salary/SalaryResearch";
 import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
 import NetworkLayout from "./pages/Network/NetworkLayout"; // ✅ ADDED (Consolidated Network/Referrals/Networking)
 import InterviewsLayout from "./pages/Interviews/InterviewsLayout"; // Layout wrapper
@@ -36,7 +35,6 @@ import TechnicalPrep from "./pages/Interviews/TechnicalPrep"; // ✅ UC-078
 import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
 import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
 import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-083
-import CoverLetter from "./pages/CoverLetter"; // ✅ UC-055
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
 import InterviewTracker from './pages/Interviews/InterviewTracker';
