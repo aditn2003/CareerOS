@@ -4,6 +4,7 @@ export default {
   testMatch: ["**/tests/**/*.test.js"],
   setupFiles: ["<rootDir>/tests/setup.js"],
   verbose: true,
+  collectCoverage: true,
   collectCoverageFrom: [
     "routes/**/*.js",
     "server.js",
@@ -21,6 +22,15 @@ export default {
       statements: 90,
     },
   },
-  coverageReporters: ["text", "lcov", "html", "json", "json-summary"],
+  coverageReporters: [
+    "text",
+    "text-summary",
+    "lcov",
+    "html",
+    "json",
+    "json-summary"
+  ],
   coverageDirectory: "coverage",
+  // Ensure coverage table is shown
+  coverageProvider: "v8",
 };
