@@ -6,9 +6,13 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import pkg from 'pg';
+import { auth } from '../auth.js';
 
 const { Pool } = pkg;
 const router = express.Router();
+
+// Apply main auth middleware to all routes
+router.use(auth);
 
 // Database pool for querying profiles (not in Supabase)
 const pool = new Pool({
@@ -24,7 +28,7 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// Middleware to ensure user is authenticated
+// Middleware to ensure user is authenticated (additional check after main auth)
 const authMiddleware = (req, res, next) => {
   if (!req.user || !req.user.id) {
     return res.status(401).json({ error: 'Unauthorized' });

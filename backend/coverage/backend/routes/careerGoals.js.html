@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">5.26% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>8/152</span>
+                <span class='fraction'>0/152</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">5.36% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/149</span>
+                <span class='fraction'>0/149</span>
             </div>
         
             
@@ -621,16 +621,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -665,7 +665,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -716,9 +716,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -827,7 +827,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -991,10 +991,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1021,7 +1021,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1175,14 +1175,14 @@
 import pool from "../db/pool.js";
 import { auth } from "../auth.js";
 &nbsp;
-const router = express.Router();
-router.use(auth);
+const router = <span class="cstat-no" title="statement not covered" >express.Router();</span>
+<span class="cstat-no" title="statement not covered" >router.use(auth);</span>
 &nbsp;
 /**
  * GET all career goals for the user
  * GET /api/career-goals
  */
-router.get("/", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.get("/", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
     
@@ -1219,7 +1219,7 @@ router.get("/", <span class="fstat-no" title="function not covered" >async </spa
  * GET a single goal with details
  * GET /api/career-goals/:id
  */
-router.get("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.get("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
     const { id } = <span class="cstat-no" title="statement not covered" >req.params;</span>
@@ -1270,7 +1270,7 @@ router.get("/:id", <span class="fstat-no" title="function not covered" >async </
  * POST create a new career goal
  * POST /api/career-goals
  */
-router.post("/", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.post("/", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
     const {
@@ -1381,7 +1381,7 @@ router.post("/", <span class="fstat-no" title="function not covered" >async </sp
  * PUT update a career goal
  * PUT /api/career-goals/:id
  */
-router.put("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.put("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
     const { id } = <span class="cstat-no" title="statement not covered" >req.params;</span>
@@ -1545,7 +1545,7 @@ router.put("/:id", <span class="fstat-no" title="function not covered" >async </
  * DELETE a career goal
  * DELETE /api/career-goals/:id
  */
-router.delete("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.delete("/:id", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
     const { id } = <span class="cstat-no" title="statement not covered" >req.params;</span>
@@ -1575,7 +1575,7 @@ router.delete("/:id", <span class="fstat-no" title="function not covered" >async
  * GET goal analytics and insights
  * GET /api/career-goals/analytics/insights
  */
-router.get("/analytics/insights", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >router.get("/analytics/insights", <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const userId = <span class="cstat-no" title="statement not covered" >req.user.id;</span>
 &nbsp;
@@ -1732,7 +1732,7 @@ export default router;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-04T05:26:23.354Z
+                at 2025-12-04T23:48:10.691Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
