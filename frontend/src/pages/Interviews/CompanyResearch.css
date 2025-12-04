@@ -2,6 +2,33 @@
    COMPANY RESEARCH - PREMIUM PURPLE THEME
    =============================================== */
 
+/* Ensure all text content is black for visibility on white backgrounds */
+.research-wrapper {
+  color: #000000;
+}
+
+/* Ensure cdl-card text is black */
+.research-wrapper .cdl-card,
+.research-wrapper .cdl-card p,
+.research-wrapper .cdl-card li,
+.research-wrapper .cdl-card h2,
+.research-wrapper .cdl-card h3,
+.research-wrapper .cdl-card section,
+.research-wrapper .cdl-card strong,
+.research-wrapper .cdl-card span {
+  color: #000000;
+}
+
+/* Preserve white text on colored backgrounds (buttons, badges) */
+.research-wrapper .refresh-btn,
+.research-wrapper .company-tab.active,
+.research-wrapper .verify-badge,
+.research-wrapper .news-chip.active,
+.research-wrapper .news-badge,
+.research-wrapper .export-btn {
+  color: white;
+}
+
 .research-wrapper {
   max-width: 1200px;
   margin: 0 auto;
