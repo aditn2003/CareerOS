@@ -130,6 +130,15 @@ export default function RelationshipMaintenance() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showEditReminderModal, setShowEditReminderModal] = useState(false);
+  const [editingReminder, setEditingReminder] = useState(null);
+  const [editReminderForm, setEditReminderForm] = useState({
+    contact_name: "",
+    contact_company: "",
+    reminder_type: "check_in",
+    reminder_date: "",
+    custom_message: ""
+  });
   const [showEditOutreachModal, setShowEditOutreachModal] = useState(false);
   const [editingOutreach, setEditingOutreach] = useState(null);
   const [editOutreachForm, setEditOutreachForm] = useState({
@@ -220,6 +229,19 @@ export default function RelationshipMaintenance() {
     load();
   }, []);
 
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = showReminderModal || showEditOutreachModal;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showReminderModal, showEditOutreachModal]);
+
   const handleAddReminder = async (e) => {
     e.preventDefault();
 
@@ -268,6 +290,43 @@ export default function RelationshipMaintenance() {
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       setError(err.response?.data?.error || "Failed to complete reminder");
+    }
+  };
+
+  const handleEditReminder = (reminder) => {
+    setEditingReminder(reminder);
+    setEditReminderForm({
+      contact_name: reminder.contact_name,
+      contact_company: reminder.contact_company,
+      reminder_type: reminder.reminder_type,
+      reminder_date: reminder.reminder_date,
+      custom_message: reminder.custom_message || ""
+    });
+    setShowEditReminderModal(true);
+  };
+
+  const handleSaveEditReminder = async () => {
+    if (!editReminderForm.contact_name.trim() || !editReminderForm.reminder_date) {
+      setError("Contact name and reminder date are required");
+      return;
+    }
+
+    try {
+      const response = await api.put(`/industry-contacts/reminders/${editingReminder.id}`, editReminderForm);
+      
+      // Handle both response formats: { reminder: {...} } or { data: {...} }
+      const updatedReminder = response.data.reminder || response.data.data || response.data;
+      
+      setReminders(
+        reminders.map((r) => (r.id === editingReminder.id ? updatedReminder : r))
+      );
+      setSuccessMessage("Reminder updated successfully!");
+      setShowEditReminderModal(false);
+      setEditingReminder(null);
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error("Error updating reminder:", err);
+      setError(err.response?.data?.error || "Failed to update reminder");
     }
   };
 
@@ -399,6 +458,112 @@ export default function RelationshipMaintenance() {
 
   return (
     <div className="relationship-maintenance">
+      {/* Edit Reminder Modal */}
+      {showEditReminderModal && (
+        <div className="modal-overlay" onClick={() => setShowEditReminderModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Reminder</h2>
+              <button
+                className="btn-close"
+                onClick={() => setShowEditReminderModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Contact Name *</label>
+                <input
+                  type="text"
+                  value={editReminderForm.contact_name}
+                  onChange={(e) =>
+                    setEditReminderForm({
+                      ...editReminderForm,
+                      contact_name: e.target.value
+                    })
+                  }
+                  placeholder="Enter contact name"
+                />
+              </div>
+              <div className="form-group">
+                <label>Contact Company</label>
+                <input
+                  type="text"
+                  value={editReminderForm.contact_company}
+                  onChange={(e) =>
+                    setEditReminderForm({
+                      ...editReminderForm,
+                      contact_company: e.target.value
+                    })
+                  }
+                  placeholder="Enter company name"
+                />
+              </div>
+              <div className="form-group">
+                <label>Reminder Type *</label>
+                <select
+                  value={editReminderForm.reminder_type}
+                  onChange={(e) =>
+                    setEditReminderForm({
+                      ...editReminderForm,
+                      reminder_type: e.target.value
+                    })
+                  }
+                >
+                  <option value="check_in">Check In</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="congratulations">Congratulations</option>
+                  <option value="birthday">Birthday</option>
+                  <option value="industry_update">Industry Update</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Reminder Date *</label>
+                <input
+                  type="date"
+                  value={editReminderForm.reminder_date}
+                  onChange={(e) =>
+                    setEditReminderForm({
+                      ...editReminderForm,
+                      reminder_date: e.target.value
+                    })
+                  }
+                />
+              </div>
+              <div className="form-group">
+                <label>Custom Message</label>
+                <textarea
+                  value={editReminderForm.custom_message}
+                  onChange={(e) =>
+                    setEditReminderForm({
+                      ...editReminderForm,
+                      custom_message: e.target.value
+                    })
+                  }
+                  placeholder="Add a custom message"
+                  rows="3"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowEditReminderModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveEditReminder}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Success/Error Messages */}
       {successMessage && <div className="success-message">{successMessage}</div>}
       {error && <div className="error-message">{error}</div>}
@@ -488,29 +653,33 @@ export default function RelationshipMaintenance() {
                       key={reminder.id}
                       className={`reminder-card ${isOverdue ? "overdue" : ""} ${isUrgent ? "urgent" : ""}`}
                     >
-                      <div className="reminder-header">
-                        <div className="reminder-title">
-                          <h4>{reminder.contact_name}</h4>
+                      <div className="reminder-info">
+                        <h4 className="reminder-name">{reminder.contact_name}</h4>
+                        <div className="reminder-type-badge">
                           <span className="reminder-type">
-                            {reminder.reminder_type.replace(/_/g, " ").toUpperCase()}
+                            {(reminder.reminder_type || "check_in").replace(/_/g, " ").toUpperCase()}
+                          </span>
+                          <span className={`reminder-badge ${
+                            isOverdue ? "overdue-badge" : isDueToday ? "today-badge" : isUrgent ? "urgent-badge" : "normal-badge"
+                          }`}>
+                            {isOverdue ? "⚠️ OVERDUE" : isDueToday ? "📅 TODAY" : isUrgent ? "🔔 DUE SOON" : `📅 ${daysUntil} days`}
                           </span>
                         </div>
-                        <span className={`reminder-badge ${
-                          isOverdue ? "overdue-badge" : isDueToday ? "today-badge" : isUrgent ? "urgent-badge" : "normal-badge"
-                        }`}>
-                          {isOverdue ? "⚠️ OVERDUE" : isDueToday ? "📅 TODAY" : isUrgent ? "🔔 DUE SOON" : `📅 ${daysUntil} days`}
-                        </span>
                       </div>
 
                       <div className="reminder-details">
                         <p><strong>Company:</strong> {reminder.contact_company || "—"}</p>
                         <p><strong>Due:</strong> {reminderDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</p>
-                        {reminder.custom_message && (
-                          <p><strong>Note:</strong> {reminder.custom_message}</p>
-                        )}
                       </div>
 
                       <div className="reminder-actions">
+                        <button
+                          className="btn-edit"
+                          onClick={() => handleEditReminder(reminder)}
+                          title="Edit reminder"
+                        >
+                          ✏️ Edit
+                        </button>
                         <button
                           className="btn-success"
                           onClick={() => handleCompleteReminder(reminder.id)}

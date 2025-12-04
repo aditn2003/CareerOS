@@ -40,6 +40,7 @@ const ReferralRequests = () => {
   const [analytics, setAnalytics] = useState(null);
   const [timingRecommendations, setTimingRecommendations] = useState(null);
   const [suggestedContacts, setSuggestedContacts] = useState([]);
+  const [generatingTemplate, setGeneratingTemplate] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -67,6 +68,21 @@ const ReferralRequests = () => {
     fetchStatistics();
     fetchAnalytics();
   }, []);
+
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    const isAnyModalOpen = showCreateModal || showDetailsModal;
+    
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCreateModal, showDetailsModal]);
 
   // Fetch referral requests
   const fetchReferrals = async () => {
@@ -169,6 +185,36 @@ const ReferralRequests = () => {
     } catch (err) {
       console.error('Error fetching timing recommendations:', err);
     }
+  };
+
+  // Generate personalized referral message template
+  const generateReferralTemplate = () => {
+    if (!formData.contact_id || !formData.job_title || !formData.company) {
+      setError('Please select a contact and fill in job details first');
+      return;
+    }
+
+    setGeneratingTemplate(true);
+    
+    // Find selected contact
+    const selectedContact = contacts.find(c => c.id === parseInt(formData.contact_id));
+    const contactName = selectedContact ? `${selectedContact.first_name}` : 'there';
+    const contactCompany = selectedContact?.company || '';
+    
+    // Generate personalized template
+    const templates = [
+      `Hi ${contactName},\n\nI hope this message finds you well! I wanted to reach out because I'm very interested in the ${formData.job_title} position at ${formData.company}.\n\nGiven your experience${contactCompany ? ` at ${contactCompany}` : ''}, I thought you might have some insights or connections that could help. I believe my background would be a great fit for this role.\n\nWould you be open to a quick chat or potentially referring me for this position? I'd really appreciate any guidance you can offer.\n\nThank you so much for considering this!\n\nBest regards`,
+      
+      `Dear ${contactName},\n\nI hope you're doing well! I recently came across an exciting opportunity for a ${formData.job_title} role at ${formData.company}, and I immediately thought of reaching out to you.\n\n${contactCompany ? `Knowing your experience at ${contactCompany}, ` : ''}I believe you might have valuable insights about this opportunity or know someone who could help me learn more about the role.\n\nWould you be comfortable making an introduction or providing a referral? I'd be happy to share my resume and discuss why I think I'd be a strong candidate.\n\nThank you for your time and support!\n\nWarm regards`,
+      
+      `Hi ${contactName},\n\nI hope all is well with you! I'm reaching out because I'm actively pursuing a ${formData.job_title} position at ${formData.company}.\n\nI value our professional connection and wanted to ask if you'd be willing to refer me or connect me with someone at the company. I'm confident in my qualifications and believe this role aligns perfectly with my career goals.\n\nPlease let me know if you'd like to see my resume or discuss further. I truly appreciate any assistance you can provide!\n\nBest`
+    ];
+    
+    // Pick a random template
+    const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
+    
+    setFormData({ ...formData, referral_message: randomTemplate });
+    setGeneratingTemplate(false);
   };
 
   // Get suggested contacts when job changes
@@ -406,6 +452,24 @@ const ReferralRequests = () => {
               <p className="analytics-value">{analytics.offersFromReferrals}</p>
             </div>
           </div>
+
+          <div 
+            className="analytics-card"
+            style={{ cursor: 'default' }}
+            title="Percentage of referrals that led to interviews or offers"
+          >
+            <div className="analytics-icon" style={{ color: '#4CAF50' }}>
+              <CheckCircle size={12} />
+            </div>
+            <div className="analytics-content">
+              <p className="analytics-label">Success Rate</p>
+              <p className="analytics-value">
+                {analytics.totalRequests > 0 
+                  ? Math.round(((analytics.interviewsFromReferrals + analytics.offersFromReferrals) / analytics.totalRequests) * 100)
+                  : 0}%
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -581,13 +645,38 @@ const ReferralRequests = () => {
                 </div>
 
                 <div className="form-group">
-                  <label>Referral Message</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0 }}>Referral Message</label>
+                    <button
+                      type="button"
+                      onClick={generateReferralTemplate}
+                      disabled={generatingTemplate || !formData.contact_id || !formData.job_title}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: formData.contact_id && formData.job_title ? 'pointer' : 'not-allowed',
+                        opacity: formData.contact_id && formData.job_title ? 1 : 0.6,
+                        transition: 'all 0.2s'
+                      }}
+                      title={!formData.contact_id || !formData.job_title ? 'Select a contact and fill job details first' : 'Generate a personalized message template'}
+                    >
+                      <Zap size={14} />
+                      {generatingTemplate ? 'Generating...' : 'Generate Template'}
+                    </button>
+                  </div>
                   <textarea
                     value={formData.referral_message}
                     onChange={(e) =>
                       setFormData({ ...formData, referral_message: e.target.value })
                     }
-                    placeholder="Write a personalized message to your referral contact"
+                    placeholder="Write a personalized message or click 'Generate Template' to create one automatically"
                     rows={4}
                   />
                 </div>
@@ -738,13 +827,38 @@ const ReferralRequests = () => {
               </div>
 
               <div className="form-group">
-                <label>Referral Message</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <label style={{ margin: 0 }}>Referral Message</label>
+                  <button
+                    type="button"
+                    onClick={generateReferralTemplate}
+                    disabled={generatingTemplate || !formData.contact_id || !formData.job_title}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      backgroundColor: '#7c3aed',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: formData.contact_id && formData.job_title ? 'pointer' : 'not-allowed',
+                      opacity: formData.contact_id && formData.job_title ? 1 : 0.6,
+                      transition: 'all 0.2s'
+                    }}
+                    title={!formData.contact_id || !formData.job_title ? 'Select a contact and fill job details first' : 'Generate a personalized message template'}
+                  >
+                    <Zap size={14} />
+                    {generatingTemplate ? 'Generating...' : 'Generate Template'}
+                  </button>
+                </div>
                 <textarea
                   value={formData.referral_message}
                   onChange={(e) =>
                     setFormData({ ...formData, referral_message: e.target.value })
                   }
-                  placeholder="Write a personalized message to your referral contact"
+                  placeholder="Write a personalized message or click 'Generate Template' to create one automatically"
                   rows={4}
                 />
               </div>
@@ -869,7 +983,7 @@ const ReferralDetailsModal = ({ referral, onClose, onUpdate, onDelete }) => {
           {/* Request Details */}
           <div className="details-section">
             <h3>Request Details</h3>
-            <div className="details-grid">
+            <div className="details-grid three-col">
               <div className="detail-item">
                 <label>Status</label>
                 {isEditing ? (
