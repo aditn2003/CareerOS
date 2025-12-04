@@ -74,7 +74,8 @@ vi.mock('@supabase/supabase-js', () => {
         delete: vi.fn(() => {
           const chainableBuilder = {
             eq: vi.fn(() => chainableBuilder),
-            then: (resolve) => Promise.resolve({ data: [], error: null }).then(resolve),
+            select: vi.fn(() => Promise.resolve({ data: [{ id: 1 }], error: null })),
+            then: (resolve) => Promise.resolve({ data: [{ id: 1 }], error: null }).then(resolve),
             catch: (reject) => Promise.resolve({ data: [], error: null }).catch(reject),
           };
           return chainableBuilder;

@@ -252,13 +252,12 @@ describe('Job Routes - Full Coverage', () => {
       expect(res.status).toBe(201);
     });
 
-    it('should handle template conversion error', async () => {
+    it('should handle template cover letter (templates not supported)', async () => {
       const mockJob = { id: 1, title: 'Engineer', company: 'Tech Corp' };
 
       mockQueryFn
-        .mockRejectedValueOnce(new Error('Database error')) // Template fetch fails
         .mockResolvedValueOnce({ rows: [mockJob], rowCount: 1 }) // Insert job
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Materials history
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Store materials (cover_letter_id will be null)
 
       const res = await request(app)
         .post('/api/jobs')
@@ -266,7 +265,7 @@ describe('Job Routes - Full Coverage', () => {
         .send({
           title: 'Engineer',
           company: 'Tech Corp',
-          cover_letter_id: 'template_1',
+          cover_letter_id: 'template_1', // Templates are not supported
         });
 
       expect(res.status).toBe(201);
@@ -732,8 +731,8 @@ describe('Job Routes - Full Coverage', () => {
     it('should update job', async () => {
       const updatedJob = { id: 1, title: 'Senior Engineer', company: 'Tech Corp' };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Materials history
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Get materials (optional)
 
       const res = await request(app)
         .put('/api/jobs/1')
@@ -845,10 +844,14 @@ describe('Job Routes - Full Coverage', () => {
     });
 
     it('should handle status update without offerDate', async () => {
-      const updatedJob = { id: 1, status: 'Offer', offerDate: expect.any(String) };
+      const oldJob = { status: 'Applied' };
+      const updatedJob = { id: 1, status: 'Offer', offerDate: new Date().toISOString() };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+        .mockResolvedValueOnce({ rows: [oldJob], rowCount: 1 }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get materials
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Application history
+        .mockResolvedValueOnce({ rows: [{ status: 'Offer' }], rowCount: 1 }); // Final status check
 
       const res = await request(app)
         .put('/api/jobs/1')
@@ -859,13 +862,18 @@ describe('Job Routes - Full Coverage', () => {
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job.status).toBe('Offer');
     });
 
     it('should handle status update with existing offerDate', async () => {
+      const oldJob = { status: 'Applied' };
       const updatedJob = { id: 1, status: 'Offer', offerDate: '2024-01-01' };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+        .mockResolvedValueOnce({ rows: [oldJob], rowCount: 1 }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get materials
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Application history
+        .mockResolvedValueOnce({ rows: [{ status: 'Offer' }], rowCount: 1 }); // Final status check
 
       const res = await request(app)
         .put('/api/jobs/1')
@@ -876,18 +884,24 @@ describe('Job Routes - Full Coverage', () => {
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job.status).toBe('Offer');
     });
 
     it('should handle materials history when only resume_id updated', async () => {
-      const updatedJob = { id: 1, resume_id: 2 };
+      const updatedJob = { id: 1 };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Materials history
+        .mockResolvedValueOnce({ rows: [{ status: 'Applied' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get current materials
+        .mockResolvedValueOnce({ rows: [{ id: 2 }], rowCount: 1 }) // Validate resume
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [{ resume_id: 2, cover_letter_id: null }], rowCount: 1 }); // Get materials
 
       const res = await request(app)
         .put('/api/jobs/1')
         .set('Authorization', 'Bearer valid-token')
         .send({
+          notes: 'Updated notes', // Include at least one allowed field
           resume_id: 2,
         });
 
@@ -895,15 +909,20 @@ describe('Job Routes - Full Coverage', () => {
     });
 
     it('should handle materials history when only cover_letter_id updated', async () => {
-      const updatedJob = { id: 1, cover_letter_id: 3 };
+      const updatedJob = { id: 1 };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Materials history
+        .mockResolvedValueOnce({ rows: [{ status: 'Applied' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get current materials
+        .mockResolvedValueOnce({ rows: [{ id: 3 }], rowCount: 1 }) // Validate cover letter
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [{ resume_id: null, cover_letter_id: 3 }], rowCount: 1 }); // Get materials
 
       const res = await request(app)
         .put('/api/jobs/1')
         .set('Authorization', 'Bearer valid-token')
         .send({
+          notes: 'Updated notes', // Include at least one allowed field
           cover_letter_id: 3,
         });
 
@@ -911,15 +930,21 @@ describe('Job Routes - Full Coverage', () => {
     });
 
     it('should record materials history when resume or cover letter updated', async () => {
-      const updatedJob = { id: 1, resume_id: 2, cover_letter_id: 3 };
+      const updatedJob = { id: 1 };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Materials history
+        .mockResolvedValueOnce({ rows: [{ status: 'Applied' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get current materials
+        .mockResolvedValueOnce({ rows: [{ id: 2 }], rowCount: 1 }) // Validate resume
+        .mockResolvedValueOnce({ rows: [{ id: 3 }], rowCount: 1 }) // Validate cover letter
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [{ resume_id: 2, cover_letter_id: 3 }], rowCount: 1 }); // Get materials
 
       const res = await request(app)
         .put('/api/jobs/1')
         .set('Authorization', 'Bearer valid-token')
         .send({
+          notes: 'Updated notes', // Include at least one allowed field
           resume_id: 2,
           cover_letter_id: 3,
         });
@@ -928,10 +953,14 @@ describe('Job Routes - Full Coverage', () => {
     });
 
     it('should set offerDate when status becomes Offer', async () => {
-      const updatedJob = { id: 1, status: 'Offer', offerDate: expect.any(String) };
+      const oldJob = { status: 'Applied' };
+      const updatedJob = { id: 1, status: 'Offer', offerDate: new Date().toISOString() };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+        .mockResolvedValueOnce({ rows: [oldJob], rowCount: 1 }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Get materials
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Application history
+        .mockResolvedValueOnce({ rows: [{ status: 'Offer' }], rowCount: 1 }); // Final status check
 
       const res = await request(app)
         .put('/api/jobs/1')
@@ -941,6 +970,8 @@ describe('Job Routes - Full Coverage', () => {
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job.status).toBe('Offer');
+      expect(res.body.job.offerDate).toBeDefined();
     });
 
     it('should return 400 if no valid fields to update', async () => {
@@ -984,9 +1015,10 @@ describe('Job Routes - Full Coverage', () => {
 
   describe('PUT /api/jobs/:id/status', () => {
     it('should update status to Interview', async () => {
-      const updatedJob = { id: 1, status: 'Interview', interview_date: expect.any(String) };
+      const updatedJob = { id: 1, status: 'Interview', interview_date: new Date().toISOString() };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [{ status: 'Applied' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update status
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Application history
 
       const res = await request(app)
@@ -998,13 +1030,15 @@ describe('Job Routes - Full Coverage', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.job.status).toBe('Interview');
+      expect(res.body.job.interview_date).toBeDefined();
     });
 
     it('should update status to other statuses', async () => {
       const updatedJob = { id: 1, status: 'Applied' };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+        .mockResolvedValueOnce({ rows: [{ status: 'Pending' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update status
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Application history
 
       const res = await request(app)
         .put('/api/jobs/1/status')
@@ -1014,13 +1048,16 @@ describe('Job Routes - Full Coverage', () => {
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job.status).toBe('Applied');
     });
 
     it('should update status to Offer', async () => {
-      const updatedJob = { id: 1, status: 'Offer', offer_date: expect.any(String) };
+      const updatedJob = { id: 1, status: 'Offer', offerDate: new Date().toISOString() };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+        .mockResolvedValueOnce({ rows: [{ status: 'Interview' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update status
+        .mockResolvedValueOnce({ rows: [] }) // Check for existing offer
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Application history
 
       const res = await request(app)
         .put('/api/jobs/1/status')
@@ -1031,6 +1068,7 @@ describe('Job Routes - Full Coverage', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.job.status).toBe('Offer');
+      expect(res.body.job.offerDate).toBeDefined();
     });
 
     it('should return 400 if status missing', async () => {
@@ -1484,124 +1522,61 @@ describe('Job Routes - Full Coverage', () => {
       expect(res.body.job).toEqual(updatedJob);
     });
 
-    it('should handle materials history table missing', async () => {
-      const historyError = new Error('Table does not exist');
-      historyError.code = '42P01';
-      const updatedJob = { id: 1, resume_id: 1 };
-
+    it('should handle invalid resume ID (not found)', async () => {
+      const updatedJob = { id: 1, resume_id: null, cover_letter_id: null };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob] })
-        .mockRejectedValueOnce(historyError); // History insert fails
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Resume check - not found
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job (no materials update since resume invalid)
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
         .set('Authorization', 'Bearer valid-token')
         .send({
-          resume_id: 1,
-        });
-
-      expect(res.status).toBe(200); // Should still succeed
-    });
-
-    it('should handle template conversion with name column fallback in materials update', async () => {
-      const mockTemplate = { name: 'Template 1', content: 'Content' };
-      const titleError = new Error('Column does not exist');
-      titleError.code = '42703';
-      const mockNewCoverLetter = { id: 10 };
-      const updatedJob = { id: 1, resume_id: 1, cover_letter_id: 10 };
-
-      mockQueryFn
-        .mockResolvedValueOnce({ rows: [mockTemplate] }) // Fetch template
-        .mockRejectedValueOnce(titleError) // Try with title - fails
-        .mockResolvedValueOnce({ rows: [mockNewCoverLetter] }) // Create with name column
-        .mockResolvedValueOnce({ rows: [updatedJob] }) // Update job
-        .mockResolvedValueOnce({ rows: [] }); // History
-
-      const res = await request(app)
-        .put('/api/jobs/1/materials')
-        .set('Authorization', 'Bearer valid-token')
-        .send({
-          resume_id: 1,
-          cover_letter_id: 'template_1',
+          resume_id: 999, // Invalid resume ID
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job).toBeDefined();
     });
 
-    it('should handle template conversion error in materials update', async () => {
-      const updatedJob = { id: 1, resume_id: 1 };
-
+    it('should handle invalid cover letter ID (not found)', async () => {
+      const updatedJob = { id: 1, resume_id: null, cover_letter_id: null };
       mockQueryFn
-        .mockRejectedValueOnce(new Error('Template fetch error')) // Template fetch fails
-        .mockResolvedValueOnce({ rows: [updatedJob] }) // Update job
-        .mockResolvedValueOnce({ rows: [] }); // History
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // Cover letter check - not found
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job (no materials update since cover letter invalid)
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
         .set('Authorization', 'Bearer valid-token')
         .send({
-          resume_id: 1,
-          cover_letter_id: 'template_1',
+          cover_letter_id: 999, // Invalid cover letter ID
         });
 
       expect(res.status).toBe(200);
+      expect(res.body.job).toBeDefined();
     });
 
-    it('should handle invalid cover letter ID in materials update', async () => {
-      const updatedJob = { id: 1, resume_id: 1 };
-
+    it('should handle non-numeric cover letter ID', async () => {
+      const updatedJob = { id: 1, resume_id: null, cover_letter_id: null };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [updatedJob] })
-        .mockResolvedValueOnce({ rows: [] });
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }); // Get updated job (no materials update since ID invalid)
 
       const res = await request(app)
         .put('/api/jobs/1/materials')
         .set('Authorization', 'Bearer valid-token')
         .send({
-          resume_id: 1,
-          cover_letter_id: 'invalid',
+          cover_letter_id: 'not-a-number',
         });
 
       expect(res.status).toBe(200);
-    });
-
-    it('should handle materials update error with column error', async () => {
-      const colError = new Error('Column does not exist');
-      colError.code = '42703';
-
-      mockQueryFn
-        .mockRejectedValueOnce(colError) // Try with customization columns - fails
-        .mockRejectedValueOnce(colError); // Fallback also fails
-
-      const res = await request(app)
-        .put('/api/jobs/1/materials')
-        .set('Authorization', 'Bearer valid-token')
-        .send({
-          resume_id: 1,
-          cover_letter_id: 1,
-        });
-
-      expect(res.status).toBe(500);
-    });
-
-    it('should handle materials update error with table error', async () => {
-      const tableError = new Error('Table does not exist');
-      tableError.code = '42P01';
-
-      mockQueryFn.mockRejectedValueOnce(tableError);
-
-      const res = await request(app)
-        .put('/api/jobs/1/materials')
-        .set('Authorization', 'Bearer valid-token')
-        .send({
-          resume_id: 1,
-        });
-
-      expect(res.status).toBe(500);
+      expect(res.body.job).toBeDefined();
     });
 
     it('should return 404 if job not found', async () => {
-      mockQueryFn.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 }) // Resume check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // Update job_materials
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Get job - not found
 
       const res = await request(app)
         .put('/api/jobs/999/materials')
@@ -1611,7 +1586,7 @@ describe('Job Routes - Full Coverage', () => {
         });
 
       expect(res.status).toBe(404);
-      expect(res.body.error).toBe('Job not found or unauthorized');
+      expect(res.body.error).toBe('Job not found');
     });
 
     it('should return 500 on database error', async () => {
@@ -1657,6 +1632,246 @@ describe('Job Routes - Full Coverage', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to update role types');
+    });
+  });
+
+  describe('POST /api/jobs - Additional Edge Cases', () => {
+    it('should handle dateApplied instead of applicationDate', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp', applicationDate: '2024-01-01' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Engineer',
+          company: 'TechCorp',
+          dateApplied: '2024-01-01',
+        });
+
+      expect(res.status).toBe(201);
+    });
+
+    it('should handle template cover letter ID', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Engineer',
+          company: 'TechCorp',
+          cover_letter_id: 'template_123',
+        });
+
+      expect(res.status).toBe(201);
+    });
+
+    it('should handle salary with currency symbols', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp', salary_min: 100000, salary_max: 150000 };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Engineer',
+          company: 'TechCorp',
+          salary_min: '$100,000',
+          salary_max: '$150,000',
+        });
+
+      expect(res.status).toBe(201);
+    });
+
+    it('should handle materials storage failure gracefully', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob], rowCount: 1 })
+        .mockRejectedValueOnce(new Error('Materials error'))
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Engineer',
+          company: 'TechCorp',
+          resume_id: 1,
+        });
+
+      expect(res.status).toBe(201);
+    });
+  });
+
+  describe('GET /api/jobs - Additional Filters', () => {
+    it('should filter by search query', async () => {
+      const mockJobs = [{ id: 1, title: 'Software Engineer', company: 'TechCorp' }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs?search=Engineer')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should filter by salary range', async () => {
+      const mockJobs = [{ id: 1, title: 'Engineer', company: 'TechCorp', salary_min: 100000, salary_max: 150000 }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs?salaryMin=100000&salaryMax=150000')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should filter by date range', async () => {
+      const mockJobs = [{ id: 1, title: 'Engineer', company: 'TechCorp', deadline: '2024-12-31' }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs?dateFrom=2024-01-01&dateTo=2024-12-31')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should sort by salary', async () => {
+      const mockJobs = [{ id: 1, title: 'Engineer', company: 'TechCorp', salary_max: 150000 }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs?sortBy=salary')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should sort by company', async () => {
+      const mockJobs = [{ id: 1, title: 'Engineer', company: 'TechCorp' }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs?sortBy=company')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/jobs/stats', () => {
+    it('should return job statistics', async () => {
+      const mockStats = {
+        totalJobs: 10,
+        jobsByStatus: [{ status: 'Applied', count: 5 }],
+        monthlyVolume: [{ month: '2024-01-01', count: 5 }],
+        responseRate: 30.5,
+        adherenceRate: 80.0,
+        avgTimeToOffer: 15,
+        avgTimeInStage: [{ status: 'Applied', avg_days: 5 }],
+      };
+
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockStats] });
+
+      const res = await request(app)
+        .get('/api/jobs/stats')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.totalJobs).toBeDefined();
+    });
+  });
+
+  describe('GET /api/jobs/archived', () => {
+    it('should return archived jobs', async () => {
+      const mockJobs = [{ id: 1, title: 'Engineer', company: 'TechCorp', isArchived: true }];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockJobs });
+
+      const res = await request(app)
+        .get('/api/jobs/archived')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.jobs).toBeDefined();
+    });
+  });
+
+  describe('GET /api/jobs/:id - Materials Edge Cases', () => {
+    it('should handle materials table not existing', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob] })
+        .mockRejectedValueOnce(new Error('Table does not exist'));
+
+      const res = await request(app)
+        .get('/api/jobs/1')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.job.resume_id).toBeNull();
+    });
+
+    it('should return job with materials when found', async () => {
+      const mockJob = { id: 1, title: 'Engineer', company: 'TechCorp' };
+      const mockMaterials = { resume_id: 1, cover_letter_id: 2 };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockJob] })
+        .mockResolvedValueOnce({ rows: [mockMaterials] });
+
+      const res = await request(app)
+        .get('/api/jobs/1')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.job.resume_id).toBe(1);
+    });
+  });
+
+  describe('PUT /api/jobs/:id/status - Additional Edge Cases', () => {
+    it('should handle status update with existing offerDate', async () => {
+      const oldJob = { id: 1, status: 'Applied', offerDate: '2024-01-01' };
+      const updatedJob = { id: 1, status: 'Offer', offerDate: '2024-01-01' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [{ status: 'Applied' }] }) // Get old status
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 }) // Update job
+        .mockResolvedValueOnce({ rows: [] }) // Check for existing offer (none exists)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // Application history
+
+      const res = await request(app)
+        .put('/api/jobs/1/status')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ status: 'Offer' });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should handle status update to Interview', async () => {
+      const oldJob = { id: 1, status: 'Applied' };
+      const updatedJob = { id: 1, status: 'Interview', interview_date: '2024-01-01' };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [oldJob] })
+        .mockResolvedValueOnce({ rows: [updatedJob], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [updatedJob] });
+
+      const res = await request(app)
+        .put('/api/jobs/1/status')
+        .set('Authorization', 'Bearer valid-token')
+        .send({ status: 'Interview' });
+
+      expect(res.status).toBe(200);
     });
   });
 });

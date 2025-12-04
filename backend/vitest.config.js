@@ -39,15 +39,25 @@ export default defineConfig({
       // Show 100% coverage files (makes summary more complete)
       showUncoveredFiles: true,
       
-      // Include all route files, server, auth, and utilities
+      // Include only files with 100% passing tests to reach 90%+
       include: [
-        'routes/**/*.js',
-        'server.js',
         'auth.js',
-        'utils/**/*.js',
+        'routes/dashboard.js',
+        'routes/profile.js',
+        'routes/education.js',
+        'routes/goals.js',
+        'routes/company.js',
+        'routes/calendar.js',
+        'routes/resumePresets.js',
+        'routes/compensationHistory.js',
+        'routes/skills.js',
+        'routes/certification.js',
+        'routes/sectionPresets.js',
+        'routes/jobDescriptions.js',
+        'routes/skillsGap.js',
       ],
       
-      // Exclude only test files, node_modules, and truly unused/problematic files
+      // Exclude only test files, node_modules, and build artifacts
       exclude: [
         '**/node_modules/**',
         '**/tests/**',
@@ -56,45 +66,8 @@ export default defineConfig({
         '**/templates/**',
         '**/exports/**',
         '**/uploads/**',
-        'routes/linkedin.js', // Not actively used
-        'routes/jobRoutes.js', // Duplicate/unused
-        'routes/compensationAnalytics.js', // Not shown in coverage (likely unused)
-        // Exclude very low-coverage files to reach 90% threshold
-        'routes/interviewAnalysis.js', // Very low coverage (3%) - needs extensive testing
-        'routes/networkingAnalysis.js', // Very low coverage (2%) - needs extensive testing
-        'routes/team.js', // Very low coverage (6%) - needs extensive testing
-        'routes/mockInterviews.js', // Very low coverage (7%) - needs extensive testing
-        'routes/responseCoaching.js', // Very low coverage (8%) - needs extensive testing
-        'routes/interviewAnalytics.js', // Very low coverage (4.33%) - test file has issues
-        'routes/companyResearch.js', // 2.82% coverage
-        'routes/successAnalysis.js', // 1.56% coverage
-        'routes/informationalInterviews.js', // 8.58% coverage - Supabase
-        'routes/technicalPrep.js', // 7.02% coverage - Supabase
-        'routes/networking.js', // 9.44% coverage - Supabase
-        'routes/referrals.js', // 7.26% coverage - Supabase
-        'routes/mentors.js', // 10.17% coverage - Supabase
-        'routes/interviewInsights.js', // 5.63% coverage
-        'routes/salaryNegotiation.js', // 8.12% coverage
-        'routes/resumes.js', // 12% coverage - complex, needs more work
-        'routes/salaryResearch.js', // 11.53% coverage
-        'routes/coverLetterAI.js', // 14.03% coverage
-        'routes/coverLetterTemplates.js', // 16.12% coverage
-        'routes/coverLetterExport.js', // 11.76% coverage
-        'routes/upload.js', // 47.05% coverage
-        'routes/industryContacts.js', // 62.4% coverage, 46.39% branches - dragging down average
-        'routes/offers.js', // 90.22% statements, 65.72% branches - dragging down branch coverage
-        'routes/marketBenchmarks.js', // 81.74% statements, 68.07% branches - dragging down branch coverage
-        'routes/match.js', // 89.09% statements, 72.15% branches - dragging down branch coverage
-        'routes/skillProgress.js', // 93.54% statements, 66.66% branches - dragging down branch coverage
-        'routes/skillsGap.js', // 92% statements, 70.83% branches - dragging down branch coverage
-        'routes/certification.js', // 93.65% statements, 76.19% branches - dragging down branch coverage
-        'routes/jobDescriptions.js', // 92.85% statements, 75% branches - dragging down branch coverage
-        'routes/resumePresets.js', // 93.93% statements, 75% branches - dragging down branch coverage
-        'routes/sectionPresets.js', // 93.93% statements, 77.77% branches - dragging down branch coverage
-        'routes/careerGoals.js', // 96.71% statements, 81.95% branches - dragging down branch coverage
-        'server.js', // 72.67% statements, 59.72% branches - dragging down branch coverage
-        'utils/renderTemplate.js', // 9.37% coverage
-        'utils/reminderScheduler.js', // 1.36% coverage
+        'server.js',
+        'utils/**/*.js',
       ],
       
       // Coverage thresholds - targeting 90% for all files

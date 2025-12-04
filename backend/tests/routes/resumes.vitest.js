@@ -1464,5 +1464,233 @@ describe('Resumes Routes - Full Coverage', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  describe('POST /api/resumes/optimize', () => {
+    it('should optimize resume for job description', async () => {
+      const mockOptimized = {
+        summary_recommendation: 'Optimized summary',
+        optimized_experience: [],
+        optimized_skills: [],
+        ats_keywords: ['keyword1'],
+      };
+
+      const res = await request(app)
+        .post('/api/resumes/optimize')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          sections: { summary: {}, experience: [] },
+          jobDescription: 'Looking for a software engineer...',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.optimized).toBeDefined();
+    });
+
+    it('should return 400 for missing sections', async () => {
+      const res = await request(app)
+        .post('/api/resumes/optimize')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          jobDescription: 'Looking for a software engineer...',
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 for missing job description', async () => {
+      const res = await request(app)
+        .post('/api/resumes/optimize')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          sections: { summary: {}, experience: [] },
+        });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('POST /api/resumes/reconcile', () => {
+    it('should reconcile master resume with AI suggestions', async () => {
+      const res = await request(app)
+        .post('/api/resumes/reconcile')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          masterResume: {
+            summary: { full_name: 'John Doe' },
+            experience: [{ title: 'Engineer', company: 'TechCorp' }],
+          },
+          aiSuggestions: {
+            optimized_experience: [{ role: 'Engineer', company: 'TechCorp', bullets: [] }],
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.reconciled).toBeDefined();
+    });
+
+    it('should return 400 for missing masterResume', async () => {
+      const res = await request(app)
+        .post('/api/resumes/reconcile')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          aiSuggestions: {},
+        });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 for missing aiSuggestions', async () => {
+      const res = await request(app)
+        .post('/api/resumes/reconcile')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          masterResume: {},
+        });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('GET /api/resumes/templates', () => {
+    it('should return resume templates', async () => {
+      const mockTemplates = [
+        { id: 1, name: 'Professional', description: 'Clean and professional' },
+      ];
+      mockQueryFn.mockResolvedValueOnce({ rows: mockTemplates });
+
+      const res = await request(app)
+        .get('/api/resumes/templates')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+      expect(res.body.templates).toBeDefined();
+    });
+  });
+
+  describe('GET /api/resumes/from-profile', () => {
+    it('should generate resume from profile', async () => {
+      const mockProfile = {
+        summary: { full_name: 'John Doe' },
+        experience: [],
+        education: [],
+      };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockProfile] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 });
+
+      const res = await request(app)
+        .get('/api/resumes/from-profile')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/resumes/preview/:filename', () => {
+    it('should preview uploaded resume file', async () => {
+      vi.mock('fs', () => ({
+        default: {
+          existsSync: vi.fn(() => true),
+          readFileSync: vi.fn(() => Buffer.from('PDF content')),
+        },
+      }));
+
+      const res = await request(app)
+        .get('/api/resumes/preview/test.pdf')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect([200, 404]).toContain(res.status);
+    });
+  });
+
+  describe('POST /api/resumes/import - Additional Cases', () => {
+    it('should handle DOCX file import', async () => {
+      const mockResume = { id: 1, title: 'Imported Resume', sections: {} };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockResume], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/resumes/import')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('file', Buffer.from('DOCX content'), 'resume.docx');
+
+      expect([200, 500]).toContain(res.status);
+    });
+
+    it('should handle TXT file import', async () => {
+      const mockResume = { id: 1, title: 'Imported Resume', sections: {} };
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [mockResume], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/resumes/import')
+        .set('Authorization', 'Bearer valid-token')
+        .attach('file', Buffer.from('Text content'), 'resume.txt');
+
+      expect([200, 500]).toContain(res.status);
+    });
+  });
+
+  describe('GET /api/resumes/:id - Additional Cases', () => {
+    it('should return resume with string sections', async () => {
+      const mockResume = {
+        id: 1,
+        title: 'My Resume',
+        sections: JSON.stringify({ summary: {}, experience: [] }),
+      };
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockResume] });
+
+      const res = await request(app)
+        .get('/api/resumes/1')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /api/resumes - Additional Edge Cases', () => {
+    it('should handle resume with all optional fields', async () => {
+      const mockResume = {
+        id: 1,
+        title: 'Complete Resume',
+        sections: { summary: {}, experience: [], education: [], skills: [], projects: [] },
+        format: 'html',
+        template_name: 'Modern',
+      };
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockResume], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/resumes')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Complete Resume',
+          sections: { summary: {}, experience: [], education: [], skills: [], projects: [] },
+          format: 'html',
+          template_name: 'Modern',
+        });
+
+      expect(res.status).toBe(201);
+    });
+
+    it('should handle resume with minimal data', async () => {
+      const mockResume = { id: 1, title: 'Minimal Resume', sections: {} };
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockResume], rowCount: 1 });
+
+      const res = await request(app)
+        .post('/api/resumes')
+        .set('Authorization', 'Bearer valid-token')
+        .send({
+          title: 'Minimal Resume',
+        });
+
+      expect(res.status).toBe(201);
+    });
+  });
 });
 

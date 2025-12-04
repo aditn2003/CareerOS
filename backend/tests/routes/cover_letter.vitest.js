@@ -296,5 +296,83 @@ describe('Cover Letter Routes - Full Coverage', () => {
       expect(res.status).toBe(500);
     });
   });
+
+  describe('GET /api/cover-letters/:id/download', () => {
+    it('should download cover letter as PDF', async () => {
+      const mockCoverLetter = { 
+        id: 1, 
+        title: 'Cover Letter 1', 
+        content: '<p>Content</p>',
+        format: 'pdf',
+        file_url: '/uploads/cover-letters/test.pdf'
+      };
+      
+      vi.mock('fs', () => ({
+        default: {
+          existsSync: vi.fn(() => true),
+          readFileSync: vi.fn(() => Buffer.from('PDF content')),
+        },
+      }));
+
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockCoverLetter] });
+
+      const res = await request(app)
+        .get('/api/cover-letters/1/download')
+        .set('Authorization', 'Bearer valid-token')
+        .query({ format: 'pdf' });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should download cover letter as DOCX', async () => {
+      const mockCoverLetter = { 
+        id: 1, 
+        title: 'Cover Letter 1', 
+        content: '<p>Content</p>',
+        format: 'docx'
+      };
+
+      mockQueryFn.mockResolvedValueOnce({ rows: [mockCoverLetter] });
+
+      const res = await request(app)
+        .get('/api/cover-letters/1/download')
+        .set('Authorization', 'Bearer valid-token')
+        .query({ format: 'docx' });
+
+      expect(res.status).toBe(200);
+    });
+
+    it('should return 404 if cover letter not found', async () => {
+      mockQueryFn.mockResolvedValueOnce({ rows: [] });
+
+      const res = await request(app)
+        .get('/api/cover-letters/999/download')
+        .set('Authorization', 'Bearer valid-token');
+
+      expect(res.status).toBe(404);
+    });
+
+    it('should handle file_url column missing', async () => {
+      const colError = new Error('Column does not exist');
+      colError.code = '42703';
+      const mockCoverLetter = { 
+        id: 1, 
+        title: 'Cover Letter 1', 
+        content: '<p>Content</p>',
+        format: 'pdf'
+      };
+
+      mockQueryFn
+        .mockRejectedValueOnce(colError) // First query with file_url fails
+        .mockResolvedValueOnce({ rows: [mockCoverLetter] }); // Fallback query
+
+      const res = await request(app)
+        .get('/api/cover-letters/1/download')
+        .set('Authorization', 'Bearer valid-token')
+        .query({ format: 'pdf' });
+
+      expect(res.status).toBe(200);
+    });
+  });
 });
 

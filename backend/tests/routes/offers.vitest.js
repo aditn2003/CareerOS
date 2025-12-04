@@ -346,7 +346,9 @@ describe('Offers Routes - 90%+ Coverage', () => {
     });
 
     it('should return 500 on database error', async () => {
-      mockQueryFn.mockRejectedValueOnce(new Error('Database error'));
+      mockQueryFn
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // findCompetingOffers succeeds
+        .mockRejectedValueOnce(new Error('Database error')); // INSERT fails
 
       const res = await request(app)
         .post('/api/offers')
@@ -907,9 +909,8 @@ describe('Offers Routes - 90%+ Coverage', () => {
       const offerWithCompeting = { ...mockOffer, competing_offers_ids: [2, 3], offer_status: 'pending' };
       const updatedOffer = { ...offerWithCompeting, competing_offers_ids: [2, 3, 4] };
       mockQueryFn
-        .mockResolvedValueOnce({ rows: [offerWithCompeting], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // findCompetingOffers
-        .mockResolvedValueOnce({ rows: [updatedOffer], rowCount: 1 }); // Update
+        .mockResolvedValueOnce({ rows: [offerWithCompeting], rowCount: 1 }) // Get current offer
+        .mockResolvedValueOnce({ rows: [updatedOffer], rowCount: 1 }); // Update offer
 
       const res = await request(app)
         .put('/api/offers/1')

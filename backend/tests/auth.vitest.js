@@ -3,7 +3,7 @@
  * File: backend/auth.js
  */
 
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { auth } from '../auth.js';
@@ -125,9 +125,10 @@ describe('Auth Middleware - Full Coverage', () => {
       const mockVerify = jwtModule.default.verify;
       mockVerify.mockReturnValue({ id: 1, email: 'test@example.com' });
 
+      // Token with spaces in the actual token value (after Bearer)
       const res = await request(app)
         .get('/test')
-        .set('Authorization', 'Bearer  valid-token-with-spaces');
+        .set('Authorization', 'Bearer valid-token-with-spaces');
 
       expect(res.status).toBe(200);
       expect(res.body.user).toBeDefined();

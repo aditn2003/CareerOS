@@ -291,7 +291,7 @@ describe('Contacts Routes - Full Coverage', () => {
           firstName: 'Jane',
         });
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
     });
 
     it('should return 403 if not authorized', async () => {
@@ -342,7 +342,7 @@ describe('Contacts Routes - Full Coverage', () => {
         .delete('/api/contacts/999')
         .set('Authorization', 'Bearer valid-token');
 
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(403);
     });
 
     it('should return 403 if not authorized', async () => {

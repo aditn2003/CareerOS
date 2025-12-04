@@ -292,10 +292,12 @@ describe('Employment Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           title: 'Senior Software Engineer',
+          company: 'Tech Corp',
+          start_date: '2020-01-01',
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Employment entry updated successfully');
+      expect(res.body.message).toBe('Employment updated successfully');
     });
 
     it('should return 404 if employment not found', async () => {
@@ -335,6 +337,8 @@ describe('Employment Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           title: 'Senior Software Engineer',
+          company: 'Tech Corp',
+          start_date: '2020-01-01',
         });
 
       expect(res.status).toBe(500);
@@ -362,7 +366,7 @@ describe('Employment Routes - Full Coverage', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(res.status).toBe(404);
-      expect(res.body.error).toBe('Employment entry not found');
+      expect(res.body.error).toBe('Employment not found');
     });
 
     it('should return 500 on database error', async () => {
