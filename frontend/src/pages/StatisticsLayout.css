@@ -1,0 +1,575 @@
+/* ===============================================
+   STATISTICS PAGE - Layout Styles (Based on Interview Layout)
+   =============================================== */
+
+.statistics-layout {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  min-height: 100vh;
+  background: transparent;
+}
+
+/* ===============================================
+   HEADER
+   =============================================== */
+
+.statistics-header {
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.statistics-main-title {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+  letter-spacing: -1px;
+  text-shadow: 0 0 80px rgba(129, 140, 248, 0.5);
+}
+
+.statistics-main-subtitle {
+  font-size: 18px;
+  color: #94a3b8;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ===============================================
+   NAVIGATION CONTAINER
+   =============================================== */
+
+.statistics-nav-container {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  padding: 24px;
+  background: rgba(30, 27, 75, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  box-shadow: 
+    0 4px 24px rgba(91, 33, 182, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ===============================================
+   NAVIGATION GROUPS
+   =============================================== */
+
+.statistics-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statistics-nav-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #64748b;
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.statistics-nav-group-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(15, 10, 31, 0.6);
+  border-radius: 14px;
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+/* ===============================================
+   NAVIGATION TABS - Base Styles
+   =============================================== */
+
+.statistics-nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  text-decoration: none;
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  min-width: 70px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.statistics-nav-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.statistics-nav-tab:hover::before {
+  opacity: 1;
+}
+
+.statistics-tab-icon {
+  font-size: 20px;
+  transition: transform 0.3s ease;
+}
+
+.statistics-tab-text {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  color: inherit;
+}
+
+.statistics-nav-tab:hover {
+  transform: translateY(-2px);
+}
+
+.statistics-nav-tab:hover .statistics-tab-icon {
+  transform: scale(1.15);
+}
+
+/* ===============================================
+   TAB THEMES - Different colors for different categories
+   =============================================== */
+
+/* Analytics Tabs - Teal/Cyan Theme */
+.statistics-nav-tab.analytics {
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  color: #5eead4;
+}
+
+.statistics-nav-tab.analytics:hover {
+  background: rgba(20, 184, 166, 0.2);
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.3);
+}
+
+.statistics-nav-tab.analytics.active {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  border-color: #14b8a6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(20, 184, 166, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Compensation Tabs - Purple/Violet Theme */
+.statistics-nav-tab.compensation {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+
+.statistics-nav-tab.compensation:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+.statistics-nav-tab.compensation.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  border-color: #8b5cf6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(139, 92, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Career Tabs - Blue Theme */
+.statistics-nav-tab.career {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.statistics-nav-tab.career:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.statistics-nav-tab.career.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(59, 130, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* General Tabs - Amber/Gold Theme */
+.statistics-nav-tab.general {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.statistics-nav-tab.general:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+}
+
+.statistics-nav-tab.general.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #f59e0b;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(245, 158, 11, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   CONTENT AREA
+   =============================================== */
+
+.statistics-content {
+  background: transparent;
+  border-radius: 20px;
+  min-height: 500px;
+  overflow: visible;
+}
+
+/* ===============================================
+   INNER TABS (for Compensation Analysis and Career Goals)
+   =============================================== */
+
+.inner-nav-container {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: rgba(30, 27, 75, 0.5);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.inner-nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: none;
+  font-family: inherit;
+  color: inherit;
+}
+
+.inner-nav-tab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.inner-nav-tab:hover::before {
+  opacity: 1;
+}
+
+.inner-nav-tab:hover {
+  transform: translateY(-2px);
+}
+
+/* Inner tab themes */
+.inner-nav-tab.analytics {
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.2);
+  color: #5eead4;
+}
+
+.inner-nav-tab.analytics:hover {
+  background: rgba(20, 184, 166, 0.2);
+  border-color: rgba(20, 184, 166, 0.4);
+  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.3);
+}
+
+.inner-nav-tab.analytics.active {
+  background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+  border-color: #14b8a6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(20, 184, 166, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.inner-nav-tab.compensation {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+}
+
+.inner-nav-tab.compensation:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+.inner-nav-tab.compensation.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  border-color: #8b5cf6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(139, 92, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.inner-nav-tab.career {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.inner-nav-tab.career:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.inner-nav-tab.career.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(59, 130, 246, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.inner-nav-tab.general {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.inner-nav-tab.general:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+}
+
+.inner-nav-tab.general.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border-color: #f59e0b;
+  color: white;
+  box-shadow: 
+    0 4px 20px rgba(245, 158, 11, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* ===============================================
+   ENHANCED CARDS (for content inside tabs)
+   =============================================== */
+
+.statistics-card {
+  background: rgba(30, 27, 75, 0.5);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  box-shadow: 
+    0 4px 24px rgba(91, 33, 182, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.statistics-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 32px rgba(91, 33, 182, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.statistics-card-content {
+  padding: 24px;
+}
+
+.statistics-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 16px;
+  letter-spacing: 0.3px;
+}
+
+/* ===============================================
+   RESPONSIVE - Tablet
+   =============================================== */
+
+@media (max-width: 1024px) {
+  .statistics-nav-container {
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .statistics-nav-group-tabs {
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .statistics-nav-tab {
+    padding: 10px 12px;
+    min-width: 60px;
+  }
+
+  .statistics-tab-icon {
+    font-size: 18px;
+  }
+
+  .statistics-tab-text {
+    font-size: 10px;
+  }
+}
+
+/* ===============================================
+   RESPONSIVE - Mobile
+   =============================================== */
+
+@media (max-width: 768px) {
+  .statistics-layout {
+    padding: 16px;
+  }
+
+  .statistics-main-title {
+    font-size: 32px;
+  }
+
+  .statistics-main-subtitle {
+    font-size: 14px;
+  }
+
+  .statistics-nav-container {
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .statistics-nav-group {
+    width: 100%;
+  }
+
+  .statistics-nav-group-tabs {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .statistics-nav-tab {
+    flex: 1;
+    min-width: 60px;
+    max-width: 80px;
+  }
+
+  .statistics-content {
+    border-radius: 16px;
+  }
+
+  .inner-nav-container {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .inner-nav-tab {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ===============================================
+   RESPONSIVE - Small Mobile
+   =============================================== */
+
+@media (max-width: 480px) {
+  .statistics-main-title {
+    font-size: 28px;
+  }
+
+  .statistics-nav-group-label {
+    font-size: 10px;
+  }
+
+  .statistics-nav-tab {
+    padding: 8px 10px;
+  }
+
+  .statistics-tab-icon {
+    font-size: 16px;
+  }
+
+  .statistics-tab-text {
+    font-size: 9px;
+  }
+}
+
+/* ===============================================
+   ANIMATIONS
+   =============================================== */
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.statistics-header {
+  animation: fadeInDown 0.6s ease-out;
+}
+
+.statistics-nav-container {
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+.statistics-content {
+  animation: fadeInUp 0.6s ease-out 0.4s both;
+}
+
+.inner-nav-container {
+  animation: fadeInUp 0.4s ease-out 0.1s both;
+}
+
