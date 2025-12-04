@@ -162,11 +162,11 @@ router.post("/", auth, async (req, res) => {
     const insertJobQuery = `
       INSERT INTO jobs (
         user_id, title, company, location, salary_min, salary_max,
-        url, deadline, description, industry, type,
+        url, deadline, description, industry, type, role_level,
         "applicationDate", "required_skills",
         status, status_updated_at, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'Interested',NOW(),NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Interested',NOW(),NOW())
       RETURNING *;
     `;
 
@@ -316,7 +316,8 @@ router.get("/", auth, async (req, res) => {
 
     const params = [req.userId];
     // FIX: Added quotes around "isArchived" and qualified user_id with table alias
-    const whereClauses = ["j.user_id = $1", `j."isArchived" = false`];
+    // Include jobs where isArchived is false OR NULL (not explicitly archived)
+    const whereClauses = ["j.user_id = $1", `(j."isArchived" = false OR j."isArchived" IS NULL)`];
     let i = 2;
 
     if (search) {
@@ -792,6 +793,24 @@ router.put("/:id", auth, async (req, res) => {
           // Don't fail the request if history logging fails
         }
       }
+      
+      // 🔒 CRITICAL: Re-verify status after history insert (in case a trigger overwrote it)
+      // The jobs.status field should ONLY contain the final status value (e.g., "Rejected"), NOT the event text
+      const finalCheck = await pool.query(
+        `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+        [id, req.userId]
+      );
+      
+      if (finalCheck.rows.length > 0 && finalCheck.rows[0].status !== updates.status) {
+        console.warn(`⚠️ Status was overwritten! Expected: "${updates.status}", Got: "${finalCheck.rows[0].status}". Fixing...`);
+        // Force the correct status value (just the status, not the event text)
+        await pool.query(
+          `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+          [updates.status, id, req.userId]
+        );
+        job.status = updates.status;
+        console.log(`✅ Fixed: jobs.status is now "${updates.status}"`);
+      }
     }
 
     res.json({ job });
@@ -1005,7 +1024,7 @@ router.put("/:id/status", auth, async (req, res) => {
       params = [status, id, req.userId];
     }
 
-    // Get the old status before updating
+    // Get the old status BEFORE updating (needed for application_history)
     const oldJobResult = await pool.query(
       `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
@@ -1017,6 +1036,7 @@ router.put("/:id/status", auth, async (req, res) => {
     
     const oldStatus = oldJobResult.rows[0].status;
 
+    // ✅ UPDATE jobs.status to the NEW/FINAL status (e.g., if changing from "Offer" to "Rejected", status becomes "Rejected")
     const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
@@ -1024,6 +1044,20 @@ router.put("/:id/status", auth, async (req, res) => {
     }
 
     const updatedJob = result.rows[0];
+    // ✅ updatedJob.status now contains the FINAL/CURRENT status
+    
+    // Verify the status was updated correctly
+    if (updatedJob.status !== status) {
+      console.error(`⚠️ Status mismatch! Expected: ${status}, Got: ${updatedJob.status}`);
+      // Force update if there's a mismatch (shouldn't happen, but defensive)
+      await pool.query(
+        `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+        [status, id, req.userId]
+      );
+      updatedJob.status = status;
+    }
+    
+    console.log(`✅ Job ${id} status updated: "${oldStatus}" → "${status}" (final status in jobs table: "${updatedJob.status}")`);
 
     // If status changed to "Offer", automatically create an offers entry if it doesn't exist
     if (status === "Offer") {
@@ -1070,7 +1104,10 @@ router.put("/:id/status", auth, async (req, res) => {
       }
     }
 
-    // Log into application history with full schema (from_status, to_status, user_id, timestamp)
+    // ✅ Log transition to application_history (records the change, but jobs.status is already the final status)
+    // Example: If changing from "Offer" to "Rejected":
+    //   - jobs.status = "Rejected" (final status)
+    //   - application_history: from_status="Offer", to_status="Rejected", event="Status changed from 'Offer' to 'Rejected'"
     try {
       await pool.query(
         `
@@ -1094,6 +1131,24 @@ router.put("/:id/status", auth, async (req, res) => {
         console.warn("⚠️ Could not insert into application_history at all:", fallbackErr.message);
         // Don't fail the request if history logging fails
       }
+    }
+
+    // 🔒 CRITICAL: Re-verify status after history insert (in case a trigger overwrote it)
+    // The jobs.status field should ONLY contain the final status value (e.g., "Rejected"), NOT the event text
+    const finalCheck = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+    
+    if (finalCheck.rows.length > 0 && finalCheck.rows[0].status !== status) {
+      console.warn(`⚠️ Status was overwritten! Expected: "${status}", Got: "${finalCheck.rows[0].status}". Fixing...`);
+      // Force the correct status value (just the status, not the event text)
+      await pool.query(
+        `UPDATE jobs SET status = $1 WHERE id = $2 AND user_id = $3`,
+        [status, id, req.userId]
+      );
+      updatedJob.status = status;
+      console.log(`✅ Fixed: jobs.status is now "${status}"`);
     }
 
     res.json({ job: updatedJob });

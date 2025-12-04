@@ -595,7 +595,7 @@ router.get("/full", auth, async (req, res) => {
               jm.resume_id,
               r.title AS resume_name,
               jm.cover_letter_id,
-              ucl.name AS cover_letter_name,
+              ucl.title AS cover_letter_name,
               COUNT(DISTINCT j.id)::INTEGER AS total,
               SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
               SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
@@ -611,7 +611,7 @@ router.get("/full", auth, async (req, res) => {
               jm.resume_id,
               r.title,
               jm.cover_letter_id,
-              ucl.name
+              ucl.title
             HAVING COUNT(DISTINCT j.id) > 0
             ORDER BY 
               SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
@@ -648,7 +648,7 @@ router.get("/full", auth, async (req, res) => {
             jm.resume_id,
             r.title AS resume_name,
             jm.cover_letter_id,
-            ucl.name AS cover_letter_name,
+            ucl.title AS cover_letter_name,
             COUNT(DISTINCT j.id)::INTEGER AS total,
             SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
             SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
@@ -664,7 +664,7 @@ router.get("/full", auth, async (req, res) => {
             jm.resume_id,
             r.title,
             jm.cover_letter_id,
-            ucl.name
+            ucl.title
           HAVING COUNT(DISTINCT j.id) > 0
           ORDER BY 
             SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 

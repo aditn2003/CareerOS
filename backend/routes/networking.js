@@ -383,7 +383,7 @@ router.post('/followups', authMiddleware, async (req, res) => {
       actual_connections_made = 0,
       notes,
       industry,
-      description
+      description,
       event_id,
       connection_id,
       followup_type,
