@@ -10,6 +10,9 @@ import {
   Alert,
   Button,
   IconButton,
+  Paper,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import './StatisticsLayout.css';
 import {
@@ -929,13 +932,8 @@ const StatisticsPage = () => {
           <TabPanel value={tabValue} index={10}>
             <PerformancePrediction />
           </TabPanel>
-        </Paper>
-    </Container>
-          {/* Tab 6: Career Goals */}
-          <TabPanel value={tabValue} index={5}>
-            <CareerGoals />
-          </TabPanel>
       </Box>
+        </Paper>
     </Box>
   );
 };

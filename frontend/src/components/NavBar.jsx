@@ -85,20 +85,12 @@ export default function NavBar() {
             </NavLink>
 
             <NavLink to="/docs-management">
-              <FaFileAlt /> Docs Management
+              <FaFileAlt /> Doc Management
             </NavLink>
 
-            {/* ═══════════════════════════════════════════
-                INTERVIEWS - Prepare & Track
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
-            </NavLink>
+           
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
 
             {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
@@ -128,10 +120,7 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
-            {/* 👤 Profile */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
 
             {/* ═══════════════════════════════════════════
                 ACCOUNT

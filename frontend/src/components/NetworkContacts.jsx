@@ -1185,7 +1185,6 @@ const ImportContactsModal = ({ onClose, onImport }) => {
                 </button>
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>
