@@ -3,6 +3,7 @@
  * More granular than before, but still categories (not raw titles)
  */
 export function getRoleTypeFromTitle(title = "") {
+  if (!title || title === null || title === undefined) return "Uncategorized";
   const t = title.toLowerCase().trim();
 
   // Return empty titles as "Uncategorized"

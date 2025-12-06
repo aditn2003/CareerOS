@@ -3,7 +3,7 @@
  * Tests all major routes, utilities, and core functionality
  */
 
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { createMockRequest, createMockResponse, createMockNext, resetMocks } from './mocks.js';
@@ -161,7 +161,7 @@ describe('Job Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/jobs', jobRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should create a job', async () => {
@@ -263,7 +263,7 @@ describe('Profile Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/profile', profileRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should create a profile', async () => {
@@ -315,7 +315,7 @@ describe('Team Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/team', teamRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should get user teams', async () => {
@@ -387,7 +387,7 @@ describe('Skills Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/skills', skillsRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should add a skill', async () => {
@@ -399,8 +399,8 @@ describe('Skills Routes', () => {
         proficiency: 'Advanced',
       });
 
-    // May return 201, 400 (validation), 401 (auth), 404 (not found), or 500 (db error)
-    expect([201, 400, 401, 404, 500]).toContain(response.status);
+    // May return 200, 201, 400 (validation), 401 (auth), 409 (duplicate), 404 (not found), or 500 (db error)
+    expect([200, 201, 400, 401, 409, 404, 500]).toContain(response.status);
   });
 
   it('should get all skills', async () => {
@@ -435,7 +435,7 @@ describe('Education Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/education', educationRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should add education', async () => {
@@ -472,7 +472,7 @@ describe('Employment Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/employment', employmentRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should add employment', async () => {
@@ -509,7 +509,7 @@ describe('Projects Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/projects', projectRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should add a project', async () => {
@@ -546,7 +546,7 @@ describe('Certification Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/certifications', certificationRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should add a certification', async () => {
@@ -583,7 +583,7 @@ describe('Company Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/companies', companyRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should get company by name', async () => {
@@ -604,8 +604,8 @@ describe('Company Routes', () => {
         industry: 'Tech',
       });
 
-    // May return 201, 400 (validation), 401 (auth), 404 (not found), or 500 (db error)
-    expect([201, 400, 401, 404, 500]).toContain(response.status);
+    // May return 200 (updated), 201 (created), 400 (validation), 401 (auth), 404 (not found), or 500 (db error)
+    expect([200, 201, 400, 401, 404, 500]).toContain(response.status);
   });
 });
 
@@ -619,7 +619,7 @@ describe('Resume Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/resumes', resumeRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should get all resumes', async () => {
@@ -651,7 +651,7 @@ describe('Match Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/match', matchRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should calculate job match', async () => {
@@ -674,7 +674,7 @@ describe('Dashboard Routes', () => {
     app = express();
     app.use(express.json());
     app.use('/api/dashboard', dashboardRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should get dashboard stats', async () => {

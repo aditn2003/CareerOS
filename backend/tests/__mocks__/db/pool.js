@@ -1,5 +1,5 @@
 // Mock for db/pool.js - shared pool used by some routes
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 
 // Sample data for mock responses
 const mockJobData = {
@@ -17,7 +17,7 @@ const mockProfileData = {
 
 // Smart query handler
 const createSmartQueryHandler = () => {
-  return jest.fn().mockImplementation((sql, params) => {
+  return vi.fn().mockImplementation((sql, params) => {
     const sqlLower = sql?.toLowerCase() || '';
     
     if (sqlLower.includes('insert into')) {
@@ -58,12 +58,12 @@ const createSmartQueryHandler = () => {
 // Export the smart mock pool as default
 const mockPool = {
   query: createSmartQueryHandler(),
-  connect: jest.fn().mockResolvedValue({
+  connect: vi.fn().mockResolvedValue({
     query: createSmartQueryHandler(),
-    release: jest.fn(),
+    release: vi.fn(),
   }),
-  end: jest.fn().mockResolvedValue(undefined),
-  on: jest.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+  on: vi.fn(),
 };
 
 export default mockPool;

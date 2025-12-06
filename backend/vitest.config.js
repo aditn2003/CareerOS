@@ -20,8 +20,13 @@ export default defineConfig({
     // Setup files run before each test file
     setupFiles: ['./tests/vitest-setup.js'],
     
-    // Test file patterns - use vitest-specific test files
-    include: ['tests/**/*.vitest.js', 'tests/**/*.vitest.test.js', 'tests/routes/**/*.vitest.js'],
+    // Test file patterns - include both .test.js and .vitest.js files
+    include: [
+      'tests/**/*.test.js',
+      'tests/**/*.vitest.js', 
+      'tests/**/*.vitest.test.js',
+      'tests/routes/**/*.vitest.js'
+    ],
     
     // Enable globals (describe, it, expect, etc.)
     globals: true,

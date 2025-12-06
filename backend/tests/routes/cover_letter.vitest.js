@@ -151,7 +151,10 @@ describe('Cover Letter Routes - 90%+ Coverage', () => {
       const tableError = new Error('relation does not exist');
       tableError.code = '42P01';
       
-      mockQuery.mockRejectedValueOnce(tableError);
+      // Mock both queries - first fails (caught internally), second succeeds
+      mockQuery
+        .mockRejectedValueOnce(tableError) // First query (uploaded_cover_letters) - caught internally
+        .mockResolvedValueOnce({ rows: [] }); // Second query (cover_letter_templates)
 
       const res = await request(app)
         .get('/api/cover-letter')
@@ -164,7 +167,10 @@ describe('Cover Letter Routes - 90%+ Coverage', () => {
     it('should handle "does not exist" in error message', async () => {
       const tableError = new Error('table does not exist');
       
-      mockQuery.mockRejectedValueOnce(tableError);
+      // Mock both queries - first fails (caught internally), second succeeds
+      mockQuery
+        .mockRejectedValueOnce(tableError) // First query (uploaded_cover_letters) - caught internally
+        .mockResolvedValueOnce({ rows: [] }); // Second query (cover_letter_templates)
 
       const res = await request(app)
         .get('/api/cover-letter')
@@ -255,7 +261,7 @@ describe('Cover Letter Routes - 90%+ Coverage', () => {
         });
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Title is required');
+      expect(res.body.error).toBe('Name/Title is required');
     });
 
     it('should return 503 if table does not exist (42P01)', async () => {

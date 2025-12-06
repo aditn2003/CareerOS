@@ -1,5 +1,5 @@
 // Test mocks - import this in test files that need mocks
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 
 // Sample data for mock responses
 const mockJobData = {
@@ -176,7 +176,7 @@ const mockDashboardStats = {
 
 // Smart query handler that returns appropriate mock data based on SQL pattern
 const createSmartQueryHandler = () => {
-  return jest.fn().mockImplementation((sql, params) => {
+  return vi.fn().mockImplementation((sql, params) => {
     const sqlLower = sql?.toLowerCase() || '';
     
     // INSERT queries - return the inserted row
@@ -355,12 +355,12 @@ const createSmartQueryHandler = () => {
 // Mock database pool with smart query handler
 export const mockPool = {
   query: createSmartQueryHandler(),
-  connect: jest.fn().mockResolvedValue({
+  connect: vi.fn().mockResolvedValue({
     query: createSmartQueryHandler(),
-    release: jest.fn(),
+    release: vi.fn(),
   }),
-  end: jest.fn().mockResolvedValue(undefined),
-  on: jest.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+  on: vi.fn(),
 };
 
 // Export mock data for use in tests
@@ -387,7 +387,7 @@ export const mockData = {
 
 // Mock JWT
 export const mockJWT = {
-  verify: jest.fn((token, secret) => {
+  verify: vi.fn((token, secret) => {
     // Accept any token that's not explicitly invalid
     if (token && token !== 'invalid-token' && token !== 'expired-token') {
       return { id: 1, email: 'test@example.com' };
@@ -399,7 +399,7 @@ export const mockJWT = {
     }
     throw new Error('Invalid token');
   }),
-  sign: jest.fn((payload, secret) => 'mock-jwt-token'),
+  sign: vi.fn((payload, secret) => 'mock-jwt-token'),
 };
 
 // Helper to create mock request
@@ -418,26 +418,26 @@ export const createMockRequest = (overrides = {}) => ({
 // Helper to create mock response
 export const createMockResponse = () => {
   const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-    send: jest.fn().mockReturnThis(),
-    cookie: jest.fn().mockReturnThis(),
-    clearCookie: jest.fn().mockReturnThis(),
+    status: vi.fn().mockReturnThis(),
+    json: vi.fn().mockReturnThis(),
+    send: vi.fn().mockReturnThis(),
+    cookie: vi.fn().mockReturnThis(),
+    clearCookie: vi.fn().mockReturnThis(),
   };
   return res;
 };
 
 // Helper to create mock next function
-export const createMockNext = () => jest.fn();
+export const createMockNext = () => vi.fn();
 
 // Reset mocks before each test
 export const resetMocks = () => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   // Re-apply smart query handler
   mockPool.query = createSmartQueryHandler();
   mockPool.connect.mockResolvedValue({
     query: createSmartQueryHandler(),
-    release: jest.fn(),
+    release: vi.fn(),
   });
   mockJWT.verify.mockImplementation((token, secret) => {
     // Accept any token that's not explicitly invalid
@@ -457,7 +457,7 @@ export const resetMocks = () => {
 // Helper to set custom mock response for specific query
 export const setMockQueryResponse = (pattern, response) => {
   const originalHandler = mockPool.query;
-  mockPool.query = jest.fn().mockImplementation((sql, params) => {
+  mockPool.query = vi.fn().mockImplementation((sql, params) => {
     if (sql?.toLowerCase().includes(pattern.toLowerCase())) {
       return Promise.resolve(response);
     }

@@ -1,10 +1,10 @@
 // Mock for pg module
-// This file is automatically used when jest.mock('pg') is called
-import { jest } from '@jest/globals';
+// This file is automatically used when vi.mock('pg') is called
+import { vi } from 'vitest';
 
 // Smart query handler that returns appropriate mock data
 const createSmartQueryHandler = () => {
-  return jest.fn().mockImplementation((sql, params) => {
+  return vi.fn().mockImplementation((sql, params) => {
     const sqlLower = sql?.toLowerCase() || '';
     
     if (sqlLower.includes('insert into')) {
@@ -50,12 +50,12 @@ const createSmartQueryHandler = () => {
 // Create shared mock pool
 const sharedMockPool = {
   query: createSmartQueryHandler(),
-  connect: jest.fn().mockResolvedValue({
+  connect: vi.fn().mockResolvedValue({
     query: createSmartQueryHandler(),
-    release: jest.fn(),
+    release: vi.fn(),
   }),
-  end: jest.fn().mockResolvedValue(undefined),
-  on: jest.fn(),
+  end: vi.fn().mockResolvedValue(undefined),
+  on: vi.fn(),
 };
 
 // Create a Pool class that returns the mockPool

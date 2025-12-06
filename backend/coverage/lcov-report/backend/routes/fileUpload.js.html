@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for backend/routes/networking.js</title>
+    <title>Code coverage report for backend/routes/fileUpload.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../prettify.css" />
     <link rel="stylesheet" href="../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../index.html">All files</a> / <a href="index.html">backend/routes</a> networking.js</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">backend/routes</a> fileUpload.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.34% </span>
+                <span class="strong">28.57% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>119/121</span>
+                <span class='fraction'>42/147</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.36% </span>
+                <span class="strong">14.06% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>74/76</span>
+                <span class='fraction'>9/64</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">92.3% </span>
+                <span class="strong">25% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>12/13</span>
+                <span class='fraction'>4/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.34% </span>
+                <span class="strong">29.16% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>119/121</span>
+                <span class='fraction'>42/144</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -394,89 +394,176 @@
 <a name='L329'></a><a href='#L329'>329</a>
 <a name='L330'></a><a href='#L330'>330</a>
 <a name='L331'></a><a href='#L331'>331</a>
-<a name='L332'></a><a href='#L332'>332</a>
-<a name='L333'></a><a href='#L333'>333</a>
-<a name='L334'></a><a href='#L334'>334</a>
-<a name='L335'></a><a href='#L335'>335</a>
-<a name='L336'></a><a href='#L336'>336</a>
-<a name='L337'></a><a href='#L337'>337</a>
-<a name='L338'></a><a href='#L338'>338</a>
-<a name='L339'></a><a href='#L339'>339</a>
-<a name='L340'></a><a href='#L340'>340</a>
-<a name='L341'></a><a href='#L341'>341</a>
-<a name='L342'></a><a href='#L342'>342</a>
-<a name='L343'></a><a href='#L343'>343</a>
-<a name='L344'></a><a href='#L344'>344</a>
-<a name='L345'></a><a href='#L345'>345</a>
-<a name='L346'></a><a href='#L346'>346</a>
-<a name='L347'></a><a href='#L347'>347</a>
-<a name='L348'></a><a href='#L348'>348</a>
-<a name='L349'></a><a href='#L349'>349</a>
-<a name='L350'></a><a href='#L350'>350</a>
-<a name='L351'></a><a href='#L351'>351</a>
-<a name='L352'></a><a href='#L352'>352</a>
-<a name='L353'></a><a href='#L353'>353</a>
-<a name='L354'></a><a href='#L354'>354</a>
-<a name='L355'></a><a href='#L355'>355</a>
-<a name='L356'></a><a href='#L356'>356</a>
-<a name='L357'></a><a href='#L357'>357</a>
-<a name='L358'></a><a href='#L358'>358</a>
-<a name='L359'></a><a href='#L359'>359</a>
-<a name='L360'></a><a href='#L360'>360</a>
-<a name='L361'></a><a href='#L361'>361</a>
-<a name='L362'></a><a href='#L362'>362</a>
-<a name='L363'></a><a href='#L363'>363</a>
-<a name='L364'></a><a href='#L364'>364</a>
-<a name='L365'></a><a href='#L365'>365</a>
-<a name='L366'></a><a href='#L366'>366</a>
-<a name='L367'></a><a href='#L367'>367</a>
-<a name='L368'></a><a href='#L368'>368</a>
-<a name='L369'></a><a href='#L369'>369</a>
-<a name='L370'></a><a href='#L370'>370</a>
-<a name='L371'></a><a href='#L371'>371</a>
-<a name='L372'></a><a href='#L372'>372</a>
-<a name='L373'></a><a href='#L373'>373</a>
-<a name='L374'></a><a href='#L374'>374</a>
-<a name='L375'></a><a href='#L375'>375</a>
-<a name='L376'></a><a href='#L376'>376</a>
-<a name='L377'></a><a href='#L377'>377</a>
-<a name='L378'></a><a href='#L378'>378</a>
-<a name='L379'></a><a href='#L379'>379</a>
-<a name='L380'></a><a href='#L380'>380</a>
-<a name='L381'></a><a href='#L381'>381</a>
-<a name='L382'></a><a href='#L382'>382</a>
-<a name='L383'></a><a href='#L383'>383</a>
-<a name='L384'></a><a href='#L384'>384</a>
-<a name='L385'></a><a href='#L385'>385</a>
-<a name='L386'></a><a href='#L386'>386</a>
-<a name='L387'></a><a href='#L387'>387</a>
-<a name='L388'></a><a href='#L388'>388</a>
-<a name='L389'></a><a href='#L389'>389</a>
-<a name='L390'></a><a href='#L390'>390</a>
-<a name='L391'></a><a href='#L391'>391</a>
-<a name='L392'></a><a href='#L392'>392</a>
-<a name='L393'></a><a href='#L393'>393</a>
-<a name='L394'></a><a href='#L394'>394</a>
-<a name='L395'></a><a href='#L395'>395</a>
-<a name='L396'></a><a href='#L396'>396</a>
-<a name='L397'></a><a href='#L397'>397</a>
-<a name='L398'></a><a href='#L398'>398</a>
-<a name='L399'></a><a href='#L399'>399</a>
-<a name='L400'></a><a href='#L400'>400</a>
-<a name='L401'></a><a href='#L401'>401</a>
-<a name='L402'></a><a href='#L402'>402</a>
-<a name='L403'></a><a href='#L403'>403</a>
-<a name='L404'></a><a href='#L404'>404</a>
-<a name='L405'></a><a href='#L405'>405</a>
-<a name='L406'></a><a href='#L406'>406</a>
-<a name='L407'></a><a href='#L407'>407</a>
-<a name='L408'></a><a href='#L408'>408</a>
-<a name='L409'></a><a href='#L409'>409</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L332'></a><a href='#L332'>332</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -489,239 +576,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -729,559 +609,448 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import express from "express";
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// backend/routes/fileUpload.js
+// File upload routes for resumes and cover letters (PDF, DOC, DOCX, TXT)
+&nbsp;
+import express from "express";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 import pool from "../db/pool.js";
-import { auth } from "../auth.js";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 &nbsp;
+// Load mammoth dynamically (may not be installed)
+let mammoth;
+(async () =&gt; {
+  try {
+    const mammothModule = await import("mammoth");
+    mammoth = mammothModule.default || <span class="branch-1 cbranch-no" title="branch not covered" >mammothModule;</span>
+  } catch {
+<span class="cstat-no" title="statement not covered" >    console.warn("⚠️ mammoth not available - DOCX parsing disabled");</span>
+<span class="cstat-no" title="statement not covered" >    mammoth = null;</span>
+  }
+})();
+&nbsp;
+dotenv.config();
 const router = express.Router();
-router.use(auth);
+const JWT_SECRET = process.env.JWT_SECRET || <span class="branch-1 cbranch-no" title="branch not covered" >"dev_secret_change_me";</span>
 &nbsp;
-// Helper function
-function <span class="fstat-no" title="function not covered" >ensureNumber(</span>val) {
-  const n = <span class="cstat-no" title="statement not covered" >Number(val);</span>
-<span class="cstat-no" title="statement not covered" >  return isNaN(n) ? 0 : n;</span>
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+&nbsp;
+// Create upload directories
+const resumeUploadDir = path.join(__dirname, "../uploads/resumes");
+const coverLetterUploadDir = path.join(__dirname, "../uploads/cover-letters");
+&nbsp;
+[resumeUploadDir, coverLetterUploadDir].forEach((dir) =&gt; {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!fs.existsSync(dir)) {
+<span class="cstat-no" title="statement not covered" >    fs.mkdirSync(dir, { recursive: true });</span>
+  }
+});
+&nbsp;
+// Auth middleware
+function auth(req, res, next) {
+  const header = req.headers.authorization;
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!header) <span class="cstat-no" title="statement not covered" >return res.status(401).json({ error: "No token provided" });</span>
+  try {
+    const token = header.split(" ")[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.id;
+    req.user = { id: decoded.id };
+    next();
+  } catch {
+<span class="cstat-no" title="statement not covered" >    res.status(401).json({ error: "Invalid token" });</span>
+  }
 }
 &nbsp;
-/* ==================================================================
-   CONTACTS CRUD
-================================================================== */
-&nbsp;
-// GET all contacts
-router.get("/contacts", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_contacts 
-       WHERE user_id = $1 
-       ORDER BY relationship_strength DESC, name ASC`,
-      [userId]
-    );
-    res.json({ contacts: rows });
-  } catch (err) {
-    console.error("Error fetching contacts:", err);
-    res.status(500).json({ error: "Failed to fetch contacts" });
-  }
+// Multer configuration for resumes
+const resumeStorage = multer.diskStorage({
+  destination: <span class="fstat-no" title="function not covered" >(r</span>eq, file, cb) =&gt; <span class="cstat-no" title="statement not covered" >cb(null, resumeUploadDir),</span>
+  filename: <span class="fstat-no" title="function not covered" >(r</span>eq, file, cb) =&gt; {
+    const uniqueName = <span class="cstat-no" title="statement not covered" >`${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;</span>
+<span class="cstat-no" title="statement not covered" >    cb(null, uniqueName);</span>
+  },
 });
 &nbsp;
-// GET single contact
-router.get("/contacts/:id", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_contacts 
-       WHERE id = $1 AND user_id = $2`,
-      [id, userId]
-    );
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found" });
+// Multer configuration for cover letters
+const coverLetterStorage = multer.diskStorage({
+  destination: <span class="fstat-no" title="function not covered" >(r</span>eq, file, cb) =&gt; <span class="cstat-no" title="statement not covered" >cb(null, coverLetterUploadDir),</span>
+  filename: <span class="fstat-no" title="function not covered" >(r</span>eq, file, cb) =&gt; {
+    const uniqueName = <span class="cstat-no" title="statement not covered" >`${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;</span>
+<span class="cstat-no" title="statement not covered" >    cb(null, uniqueName);</span>
+  },
+});
+&nbsp;
+const fileFilter = <span class="fstat-no" title="function not covered" >(r</span>eq, file, cb) =&gt; {
+  const allowed = <span class="cstat-no" title="statement not covered" >/pdf|doc|docx|txt/i;</span>
+  const ext = <span class="cstat-no" title="statement not covered" >path.extname(file.originalname).toLowerCase();</span>
+<span class="cstat-no" title="statement not covered" >  if (allowed.test(ext.replace(".", ""))) {</span>
+<span class="cstat-no" title="statement not covered" >    cb(null, true);</span>
+  } else {
+<span class="cstat-no" title="statement not covered" >    cb(new Error("Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed."));</span>
+  }
+};
+&nbsp;
+const resumeUpload = multer({
+  storage: resumeStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter,
+});
+&nbsp;
+const coverLetterUpload = multer({
+  storage: coverLetterStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter,
+});
+&nbsp;
+// Extract text from PDF
+async function <span class="fstat-no" title="function not covered" >extractPdfText(</span>buffer) {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const uint8Array = <span class="cstat-no" title="statement not covered" >new Uint8Array(buffer);</span>
+    const loadingTask = <span class="cstat-no" title="statement not covered" >pdfjsLib.getDocument({ data: uint8Array });</span>
+    const pdfDoc = <span class="cstat-no" title="statement not covered" >await loadingTask.promise;</span>
+    let textContent = <span class="cstat-no" title="statement not covered" >"";</span>
+<span class="cstat-no" title="statement not covered" >    for (let i = <span class="cstat-no" title="statement not covered" >1;</span> i &lt;= pdfDoc.numPages; i++) {</span>
+      const page = <span class="cstat-no" title="statement not covered" >await pdfDoc.getPage(i);</span>
+      const content = <span class="cstat-no" title="statement not covered" >await page.getTextContent();</span>
+<span class="cstat-no" title="statement not covered" >      textContent += content.items.map(<span class="fstat-no" title="function not covered" >(t</span>) =&gt; <span class="cstat-no" title="statement not covered" >t.str)</span>.join(" ") + "\n";</span>
     }
-    res.json({ contact: rows[0] });
+<span class="cstat-no" title="statement not covered" >    return textContent.trim();</span>
   } catch (err) {
-    console.error("Error fetching contact:", err);
-    res.status(500).json({ error: "Failed to fetch contact" });
+<span class="cstat-no" title="statement not covered" >    console.error("PDF extraction error:", err);</span>
+<span class="cstat-no" title="statement not covered" >    return "";</span>
   }
-});
+}
 &nbsp;
-// POST create contact
-router.post("/contacts", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const {
-      name,
-      email,
-      company,
-      title,
-      industry,
-      linkedin_url,
-      relationship_strength = 1,
-      engagement_score = 0,
-      reciprocity_score = 0,
-      notes,
-      tags = []
-    } = req.body;
-&nbsp;
-    if (!name) {
-      return res.status(400).json({ error: "Name is required" });
+// Extract text from DOCX
+async function <span class="fstat-no" title="function not covered" >extractDocxText(</span>filePath) {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    if (!mammoth) {</span>
+<span class="cstat-no" title="statement not covered" >      console.warn("mammoth not available for DOCX parsing");</span>
+<span class="cstat-no" title="statement not covered" >      return "";</span>
     }
-&nbsp;
-    const { rows } = await pool.query(
-      `INSERT INTO networking_contacts (
-        user_id, name, email, company, title, industry, linkedin_url,
-        relationship_strength, engagement_score, reciprocity_score, notes, tags
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING *`,
-      [
-        userId, name, email || null, company || null, title || null,
-        industry || null, linkedin_url || null,
-        relationship_strength, engagement_score, reciprocity_score,
-        notes || null, tags
-      ]
-    );
-&nbsp;
-    res.status(201).json({ contact: rows[0] });
+    const { value } = <span class="cstat-no" title="statement not covered" >await mammoth.extractRawText({ path: filePath });</span>
+<span class="cstat-no" title="statement not covered" >    return value.trim();</span>
   } catch (err) {
-    console.error("Error creating contact:", err);
-    res.status(500).json({ error: "Failed to create contact" });
+<span class="cstat-no" title="statement not covered" >    console.error("DOCX extraction error:", err);</span>
+<span class="cstat-no" title="statement not covered" >    return "";</span>
   }
-});
+}
 &nbsp;
-// PUT update contact
-router.put("/contacts/:id", async (req, res) =&gt; {
+// Extract text from TXT
+function <span class="fstat-no" title="function not covered" >extractTxtText(</span>filePath) {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    return fs.readFileSync(filePath, "utf-8").trim();</span>
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    console.error("TXT extraction error:", err);</span>
+<span class="cstat-no" title="statement not covered" >    return "";</span>
+  }
+}
+&nbsp;
+// ============================================
+// RESUME UPLOAD
+// ============================================
+router.post("/resume", auth, resumeUpload.single("file"), async (req, res) =&gt; {
   try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const {
-      name, email, company, title, industry, linkedin_url,
-      relationship_strength, engagement_score, reciprocity_score,
-      last_contact_date, next_followup_date, notes, tags
-    } = req.body;
-&nbsp;
-    const { rows } = await pool.query(
-      `UPDATE networking_contacts SET
-        name = COALESCE($3, name),
-        email = COALESCE($4, email),
-        company = COALESCE($5, company),
-        title = COALESCE($6, title),
-        industry = COALESCE($7, industry),
-        linkedin_url = COALESCE($8, linkedin_url),
-        relationship_strength = COALESCE($9, relationship_strength),
-        engagement_score = COALESCE($10, engagement_score),
-        reciprocity_score = COALESCE($11, reciprocity_score),
-        last_contact_date = COALESCE($12, last_contact_date),
-        next_followup_date = COALESCE($13, next_followup_date),
-        notes = COALESCE($14, notes),
-        tags = COALESCE($15, tags),
-        updated_at = NOW()
-      WHERE id = $1 AND user_id = $2
-      RETURNING *`,
-      [
-        id, userId, name, email, company, title, industry, linkedin_url,
-        relationship_strength, engagement_score, reciprocity_score,
-        last_contact_date, next_followup_date, notes, tags
-      ]
-    );
-&nbsp;
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Contact not found" });
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!req.file) {
+<span class="cstat-no" title="statement not covered" >      return res.status(400).json({ error: "No file uploaded" });</span>
     }
 &nbsp;
-    res.json({ contact: rows[0] });
-  } catch (err) {
-    console.error("Error updating contact:", err);
-    res.status(500).json({ error: "Failed to update contact" });
-  }
-});
+    const { title } = req.body;
+    const filePath = req.file.path;
+    const fileName = req.file.filename;
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const fileUrl = `/uploads/resumes/${fileName}`;
 &nbsp;
-// DELETE contact
-router.delete("/contacts/:id", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    await pool.query(
-      `DELETE FROM networking_contacts WHERE id = $1 AND user_id = $2`,
-      [id, userId]
-    );
-    res.json({ message: "Contact deleted" });
-  } catch (err) {
-    console.error("Error deleting contact:", err);
-    res.status(500).json({ error: "Failed to delete contact" });
-  }
-});
-&nbsp;
-/* ==================================================================
-   ACTIVITIES CRUD
-================================================================== */
-&nbsp;
-// GET all activities
-router.get("/activities", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { contact_id } = req.query;
-    
-    let query = `SELECT a.*, c.name AS contact_name, c.company AS contact_company
-                  FROM networking_activities a
-                  LEFT JOIN networking_contacts c ON a.contact_id = c.id
-                  WHERE a.user_id = $1`;
-    let params = [userId];
-    
-    if (contact_id) {
-      query += ` AND a.contact_id = $2`;
-      params.push(contact_id);
-    }
-    
-    query += ` ORDER BY a.created_at DESC`;
-    
-    const { rows } = await pool.query(query, params);
-    res.json({ activities: rows });
-  } catch (err) {
-    console.error("Error fetching activities:", err);
-    res.status(500).json({ error: "Failed to fetch activities" });
-  }
-});
-&nbsp;
-// POST create activity
-router.post("/activities", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const {
-      contact_id,
-      activity_type,
-      channel,
-      direction = 'outbound',
-      subject,
-      notes,
-      outcome,
-      relationship_impact = 0,
-      time_spent_minutes = 0
-    } = req.body;
-&nbsp;
-    if (!activity_type) {
-      return res.status(400).json({ error: "Activity type is required" });
+    // Extract text content based on file type
+    let textContent = "";
+    if (ext === ".pdf") {
+      const buffer = <span class="cstat-no" title="statement not covered" >fs.readFileSync(filePath);</span>
+<span class="cstat-no" title="statement not covered" >      textContent = await extractPdfText(buffer);</span>
+    } else <span class="cstat-no" title="statement not covered" >if (ext === ".docx" || ext === ".doc") {</span>
+<span class="cstat-no" title="statement not covered" >      textContent = await extractDocxText(filePath);</span>
+    } else <span class="cstat-no" title="statement not covered" >if (ext === ".txt") {</span>
+<span class="cstat-no" title="statement not covered" >      textContent = extractTxtText(filePath);</span>
     }
 &nbsp;
-    const { rows } = await pool.query(
-      `INSERT INTO networking_activities (
-        user_id, contact_id, activity_type, channel, direction,
-        subject, notes, outcome, relationship_impact, time_spent_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        userId, contact_id || null, activity_type, channel || null, direction,
-        subject || null, notes || null, outcome || null,
-        relationship_impact, time_spent_minutes
-      ]
-    );
+    // Determine format
+    const format = <span class="cstat-no" title="statement not covered" >ext.replace(".", "").toLowerCase();</span>
 &nbsp;
-    // Update contact's last_contact_date if contact_id is provided
-    if (contact_id) {
-      await pool.query(
-        `UPDATE networking_contacts 
-         SET last_contact_date = NOW(), updated_at = NOW()
-         WHERE id = $1 AND user_id = $2`,
-        [contact_id, userId]
+    // Save to database
+    // Try with file_url column first, fallback if it doesn't exist
+    let result;
+<span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >      result = await pool.query(</span>
+        `INSERT INTO resumes (user_id, title, format, file_url, sections)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, title, format, file_url, created_at`,
+        [
+          req.userId,
+          title || req.file.originalname,
+          format,
+          fileUrl,
+          textContent ? { extracted_text: textContent } : {},
+        ]
       );
+    } catch (dbErr) {
+      // If file_url column doesn't exist, try without it
+<span class="cstat-no" title="statement not covered" >      if (dbErr.code === "42703") {</span>
+<span class="cstat-no" title="statement not covered" >        result = await pool.query(</span>
+          `INSERT INTO resumes (user_id, title, format, sections)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, title, format, created_at`,
+          [
+            req.userId,
+            title || req.file.originalname,
+            format,
+            textContent ? { extracted_text: textContent } : {},
+          ]
+        );
+        // Add file_url to result manually
+<span class="cstat-no" title="statement not covered" >        result.rows[0].file_url = fileUrl;</span>
+      } else {
+<span class="cstat-no" title="statement not covered" >        throw dbErr;</span>
+      }
     }
 &nbsp;
-    res.status(201).json({ activity: rows[0] });
+<span class="cstat-no" title="statement not covered" >    res.json({</span>
+      message: "✅ Resume uploaded successfully",
+      resume: result.rows[0],
+    });
   } catch (err) {
-    console.error("Error creating activity:", err);
-    res.status(500).json({ error: "Failed to create activity" });
+    console.error("❌ Resume upload error:", err);
+    // Clean up file if database insert failed
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (req.file &amp;&amp; fs.existsSync(req.file.path)) {
+<span class="cstat-no" title="statement not covered" >      fs.unlinkSync(req.file.path);</span>
+    }
+    res.status(500).json({ error: err.message || <span class="branch-1 cbranch-no" title="branch not covered" >"Failed to upload resume" </span>});
   }
 });
 &nbsp;
-/* ==================================================================
-   EVENTS CRUD
-================================================================== */
-&nbsp;
-// GET all events
-router.get("/events", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT * FROM networking_events 
-       WHERE user_id = $1 
-       ORDER BY event_date DESC`,
-      [userId]
-    );
-    res.json({ events: rows });
-  } catch (err) {
-    console.error("Error fetching events:", err);
-    res.status(500).json({ error: "Failed to fetch events" });
-  }
-});
-&nbsp;
-// POST create event
-router.post("/events", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const {
-      event_name,
-      event_type,
-      organization,
-      location,
-      event_date,
-      duration_hours = 0,
-      cost = 0,
-      contacts_met = 0,
-      opportunities_generated = 0,
-      notes
-    } = req.body;
-&nbsp;
-    if (!event_name || !event_date) {
-      return res.status(400).json({ error: "Event name and date are required" });
+// ============================================
+// COVER LETTER UPLOAD
+// ============================================
+router.post("/cover-letter", auth, coverLetterUpload.single("file"), <span class="fstat-no" title="function not covered" >async </span>(req, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    if (!req.file) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.status(400).json({ error: "No file uploaded" });</span>
     }
 &nbsp;
-    const { rows } = await pool.query(
-      `INSERT INTO networking_events (
-        user_id, event_name, event_type, organization, location,
-        event_date, duration_hours, cost, contacts_met, 
-        opportunities_generated, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *`,
-      [
-        userId, event_name, event_type || null, organization || null,
-        location || null, event_date, duration_hours, cost,
-        contacts_met, opportunities_generated, notes || null
-      ]
-    );
+    const { title } = <span class="cstat-no" title="statement not covered" >req.body;</span>
+    const filePath = <span class="cstat-no" title="statement not covered" >req.file.path;</span>
+    const fileName = <span class="cstat-no" title="statement not covered" >req.file.filename;</span>
+    const ext = <span class="cstat-no" title="statement not covered" >path.extname(req.file.originalname).toLowerCase();</span>
+    const fileUrl = <span class="cstat-no" title="statement not covered" >`/uploads/cover-letters/${fileName}`;</span>
 &nbsp;
-    res.status(201).json({ event: rows[0] });
-  } catch (err) {
-    console.error("Error creating event:", err);
-    res.status(500).json({ error: "Failed to create event" });
-  }
-});
-&nbsp;
-/* ==================================================================
-   REFERRALS CRUD
-================================================================== */
-&nbsp;
-// GET all referrals
-router.get("/referrals", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { rows } = await pool.query(
-      `SELECT r.*, 
-              c.name AS contact_name, c.company AS contact_company,
-              j.title AS job_title, j.company AS job_company
-       FROM networking_referrals r
-       LEFT JOIN networking_contacts c ON r.contact_id = c.id
-       LEFT JOIN jobs j ON r.job_id = j.id
-       WHERE r.user_id = $1 
-       ORDER BY r.created_at DESC`,
-      [userId]
-    );
-    res.json({ referrals: rows });
-  } catch (err) {
-    console.error("Error fetching referrals:", err);
-    res.status(500).json({ error: "Failed to fetch referrals" });
-  }
-});
-&nbsp;
-// POST create referral
-router.post("/referrals", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const {
-      contact_id,
-      job_id,
-      referral_type,
-      referrer_name,
-      referrer_company,
-      company_referred_to,
-      position_referred_for,
-      quality_score = 5
-    } = req.body;
-&nbsp;
-    if (!referral_type) {
-      return res.status(400).json({ error: "Referral type is required" });
+    // Extract text content based on file type
+    let textContent = <span class="cstat-no" title="statement not covered" >"";</span>
+<span class="cstat-no" title="statement not covered" >    if (ext === ".pdf") {</span>
+      const buffer = <span class="cstat-no" title="statement not covered" >fs.readFileSync(filePath);</span>
+<span class="cstat-no" title="statement not covered" >      textContent = await extractPdfText(buffer);</span>
+    } else <span class="cstat-no" title="statement not covered" >if (ext === ".docx" || ext === ".doc") {</span>
+<span class="cstat-no" title="statement not covered" >      textContent = await extractDocxText(filePath);</span>
+    } else <span class="cstat-no" title="statement not covered" >if (ext === ".txt") {</span>
+<span class="cstat-no" title="statement not covered" >      textContent = extractTxtText(filePath);</span>
     }
 &nbsp;
-    const { rows } = await pool.query(
-      `INSERT INTO networking_referrals (
-        user_id, contact_id, job_id, referral_type,
-        referrer_name, referrer_company, company_referred_to,
-        position_referred_for, quality_score
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING *`,
-      [
-        userId, contact_id || null, job_id || null, referral_type,
-        referrer_name || null, referrer_company || null,
-        company_referred_to || null, position_referred_for || null,
-        quality_score
-      ]
+    // Determine format
+    const format = <span class="cstat-no" title="statement not covered" >ext.replace(".", "").toLowerCase();</span>
+&nbsp;
+    // Save to uploaded_cover_letters table (new dedicated table for uploads)
+    const result = <span class="cstat-no" title="statement not covered" >await pool.query(</span>
+      `INSERT INTO uploaded_cover_letters (user_id, title, format, file_url, content)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, title, format, file_url, content, created_at`,
+      [req.userId, title || req.file.originalname, format, fileUrl, textContent]
     );
 &nbsp;
-    res.status(201).json({ referral: rows[0] });
+<span class="cstat-no" title="statement not covered" >    res.json({</span>
+      message: "✅ Cover letter uploaded successfully",
+      cover_letter: result.rows[0],
+    });
   } catch (err) {
-    console.error("Error creating referral:", err);
-    res.status(500).json({ error: "Failed to create referral" });
+<span class="cstat-no" title="statement not covered" >    console.error("❌ Cover letter upload error:", err);</span>
+    // Clean up file if database insert failed
+<span class="cstat-no" title="statement not covered" >    if (req.file &amp;&amp; fs.existsSync(req.file.path)) {</span>
+<span class="cstat-no" title="statement not covered" >      fs.unlinkSync(req.file.path);</span>
+    }
+<span class="cstat-no" title="statement not covered" >    res.status(500).json({ error: err.message || "Failed to upload cover letter" });</span>
   }
 });
 &nbsp;
-// PUT update referral status
-router.put("/referrals/:id", async (req, res) =&gt; {
-  try {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const {
-      status,
-      converted_to_interview,
-      converted_to_offer,
-      quality_score
-    } = req.body;
+// ============================================
+// FILE VIEWING/DOWNLOADING
+// ============================================
+router.get("/resume/:filename", auth, <span class="fstat-no" title="function not covered" >(r</span>eq, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const filename = <span class="cstat-no" title="statement not covered" >req.params.filename;</span>
+    const filePath = <span class="cstat-no" title="statement not covered" >path.join(resumeUploadDir, filename);</span>
 &nbsp;
-    const { rows } = await pool.query(
-      `UPDATE networking_referrals SET
-        status = COALESCE($3, status),
-        converted_to_interview = COALESCE($4, converted_to_interview),
-        converted_to_offer = COALESCE($5, converted_to_offer),
-        quality_score = COALESCE($6, quality_score),
-        updated_at = NOW()
-      WHERE id = $1 AND user_id = $2
-      RETURNING *`,
-      [id, userId, status, converted_to_interview, converted_to_offer, quality_score]
-    );
-&nbsp;
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "Referral not found" });
+<span class="cstat-no" title="statement not covered" >    if (!fs.existsSync(filePath)) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.status(404).json({ error: "File not found" });</span>
     }
 &nbsp;
-    res.json({ referral: rows[0] });
+    // Set appropriate content type
+    const ext = <span class="cstat-no" title="statement not covered" >path.extname(filename).toLowerCase();</span>
+    const contentTypes = <span class="cstat-no" title="statement not covered" >{</span>
+      ".pdf": "application/pdf",
+      ".doc": "application/msword",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".txt": "text/plain",
+    };
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");</span>
+<span class="cstat-no" title="statement not covered" >    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);</span>
+<span class="cstat-no" title="statement not covered" >    res.sendFile(filePath);</span>
   } catch (err) {
-    console.error("Error updating referral:", err);
-    res.status(500).json({ error: "Failed to update referral" });
+<span class="cstat-no" title="statement not covered" >    console.error("❌ Resume file serve error:", err);</span>
+<span class="cstat-no" title="statement not covered" >    res.status(500).json({ error: "Failed to serve file" });</span>
+  }
+});
+&nbsp;
+router.get("/cover-letter/:filename", auth, <span class="fstat-no" title="function not covered" >(r</span>eq, res) =&gt; {
+<span class="cstat-no" title="statement not covered" >  try {</span>
+    const filename = <span class="cstat-no" title="statement not covered" >req.params.filename;</span>
+    const filePath = <span class="cstat-no" title="statement not covered" >path.join(coverLetterUploadDir, filename);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    if (!fs.existsSync(filePath)) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.status(404).json({ error: "File not found" });</span>
+    }
+&nbsp;
+    // Set appropriate content type
+    const ext = <span class="cstat-no" title="statement not covered" >path.extname(filename).toLowerCase();</span>
+    const contentTypes = <span class="cstat-no" title="statement not covered" >{</span>
+      ".pdf": "application/pdf",
+      ".doc": "application/msword",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".txt": "text/plain",
+    };
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");</span>
+<span class="cstat-no" title="statement not covered" >    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);</span>
+<span class="cstat-no" title="statement not covered" >    res.sendFile(filePath);</span>
+  } catch (err) {
+<span class="cstat-no" title="statement not covered" >    console.error("❌ Cover letter file serve error:", err);</span>
+<span class="cstat-no" title="statement not covered" >    res.status(500).json({ error: "Failed to serve file" });</span>
   }
 });
 &nbsp;
@@ -1294,7 +1063,7 @@ export default router;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-06T04:43:40.891Z
+                at 2025-12-06T04:43:40.959Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

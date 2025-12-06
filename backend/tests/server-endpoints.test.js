@@ -3,7 +3,7 @@
  * Tests all authentication and core server endpoints
  */
 
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 import request from 'supertest';
 import { resetMocks } from './mocks.js';
 import bcrypt from 'bcryptjs';
@@ -27,7 +27,7 @@ beforeEach(() => {
 // ============================================
 describe('Registration Endpoint', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should register a new candidate user', async () => {
@@ -182,7 +182,7 @@ describe('Registration Endpoint', () => {
 // ============================================
 describe('Login Endpoint', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should login with valid credentials', async () => {
@@ -252,7 +252,7 @@ describe('Logout Endpoint', () => {
 // ============================================
 describe('Password Reset Endpoints', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should request password reset', async () => {
@@ -337,7 +337,7 @@ describe('Password Reset Endpoints', () => {
 // ============================================
 describe('Profile Access Endpoints', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should get current user profile', async () => {
@@ -379,7 +379,7 @@ describe('Profile Access Endpoints', () => {
 // ============================================
 describe('Account Deletion Endpoint', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should delete account with correct password', async () => {
@@ -419,7 +419,7 @@ describe('Account Deletion Endpoint', () => {
 // ============================================
 describe('Google OAuth Endpoint', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should handle Google OAuth login', async () => {

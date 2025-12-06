@@ -11,6 +11,10 @@ dotenv.config();
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-secret-key';
 
+// Set Supabase environment variables for routes that create clients at import time
+process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://test.supabase.co';
+process.env.SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'test-anon-key';
+
 // ============================================
 // MOCK DATA
 // ============================================
@@ -310,14 +314,29 @@ vi.mock('bcryptjs', () => ({
   compare: vi.fn().mockResolvedValue(true),
 }));
 
-// Mock Resend (email service)
-vi.mock('resend', () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: {
-      send: vi.fn().mockResolvedValue({ data: { id: 'email-123' }, error: null }),
-    },
-  })),
-}));
+// Mock Resend (email service) - must be a class for 'new Resend()'
+// Hoist the mock function so it's available in the factory
+const { mockSendEmail } = vi.hoisted(() => {
+  return {
+    mockSendEmail: vi.fn().mockResolvedValue({ data: { id: 'email-123' }, error: null }),
+  };
+});
+
+vi.mock('resend', () => {
+  class Resend {
+    constructor(apiKey) {
+      this.apiKey = apiKey || 'test-api-key';
+      this.emails = {
+        send: mockSendEmail,
+      };
+    }
+  }
+  
+  return {
+    Resend,
+    default: Resend,
+  };
+});
 
 // Mock nodemailer
 vi.mock('nodemailer', () => ({
@@ -332,17 +351,30 @@ vi.mock('nodemailer', () => ({
 }));
 
 // Mock Google Auth Library
-vi.mock('google-auth-library', () => ({
-  OAuth2Client: vi.fn().mockImplementation(() => ({
-    verifyIdToken: vi.fn().mockResolvedValue({
+// Mock Google Auth Library - OAuth2Client must be a class constructor
+const { mockVerifyIdToken } = vi.hoisted(() => {
+  return {
+    mockVerifyIdToken: vi.fn().mockResolvedValue({
       getPayload: () => ({
         email: 'googleuser@gmail.com',
         given_name: 'Google',
         family_name: 'User',
       }),
     }),
-  })),
-}));
+  };
+});
+
+vi.mock('google-auth-library', () => {
+  class OAuth2Client {
+    constructor() {}
+    verifyIdToken = mockVerifyIdToken;
+  }
+  
+  return {
+    OAuth2Client,
+    default: { OAuth2Client },
+  };
+});
 
 // Mock Puppeteer (for PDF generation)
 vi.mock('puppeteer', () => ({
@@ -357,6 +389,79 @@ vi.mock('puppeteer', () => ({
     }),
   },
 }));
+
+// Mock Supabase Client with proper chaining support
+vi.mock('@supabase/supabase-js', () => {
+  // Create a chainable query builder that supports method chaining
+  const createChainableQuery = () => {
+    const chainable = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      gt: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lt: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      like: vi.fn().mockReturnThis(),
+      ilike: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      contains: vi.fn().mockReturnThis(),
+      containedBy: vi.fn().mockReturnThis(),
+      rangeGt: vi.fn().mockReturnThis(),
+      rangeGte: vi.fn().mockReturnThis(),
+      rangeLt: vi.fn().mockReturnThis(),
+      rangeLte: vi.fn().mockReturnThis(),
+      rangeAdjacent: vi.fn().mockReturnThis(),
+      overlaps: vi.fn().mockReturnThis(),
+      textSearch: vi.fn().mockReturnThis(),
+      match: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      filter: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      abortSignal: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      csv: vi.fn().mockReturnThis(),
+      geojson: vi.fn().mockReturnThis(),
+      explain: vi.fn().mockReturnThis(),
+      rollback: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockReturnThis(),
+      then: vi.fn(function(resolve) {
+        return Promise.resolve({ data: [], error: null }).then(resolve);
+      }),
+    };
+    
+    // Make it thenable (Promise-like)
+    chainable.then = vi.fn(function(resolve, reject) {
+      return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+    });
+    chainable.catch = vi.fn(function(reject) {
+      return Promise.resolve({ data: [], error: null }).catch(reject);
+    });
+    
+    return chainable;
+  };
+
+  const mockClient = {
+    from: vi.fn(() => createChainableQuery()),
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      signInWithPassword: vi.fn().mockResolvedValue({ data: null, error: null }),
+      signUp: vi.fn().mockResolvedValue({ data: null, error: null }),
+    },
+  };
+
+  return {
+    createClient: vi.fn(() => mockClient),
+  };
+});
 
 // Mock Google Generative AI (as a class for proper constructor support)
 vi.mock('@google/generative-ai', () => ({
