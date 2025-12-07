@@ -106,9 +106,7 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-            <NavLink to="/networking">
-              <FaUsers /> Networking
-            </NavLink>
+           
 
             {showMentorButton && (
               <NavLink to="/mentor">
