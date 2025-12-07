@@ -1,5 +1,5 @@
 /* ===============================================
-   NAVBAR - PREMIUM GLASSMORPHISM DESIGN
+   NAVBAR - PREMIUM GLASMORPHISM DESIGN
    =============================================== */
 
 .navbar {
@@ -17,6 +17,7 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
+  z-index: 1;
   
   /* Premium Shadow */
   box-shadow: 

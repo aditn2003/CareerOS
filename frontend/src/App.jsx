@@ -18,7 +18,6 @@ import ResetPassword from "./pages/ResetPassword";
 import ProfileLayout from "./pages/Profile/ProfileLayout";
 import Jobs from "./pages/Jobs";
 import StatisticsPage from "./pages/StatisticsPage";
-import ArchivedJobs from "./pages/ArchivedJobs";
 import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
 import JobMatch from "./pages/Match/JobMatch";
 import MatchCompare from "./pages/Match/MatchCompare.jsx";
@@ -38,7 +37,9 @@ import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-
 import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
 import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
 import InterviewTracker from './pages/Interviews/InterviewTracker';
-
+import LinkedInAuthSuccess from "./pages/LinkedInAuthSuccess"; // LinkedIn OAuth callback handler
+import LinkedInCallback from "./pages/LinkedInCallback"; // LinkedIn OAuth callback (new)
+import DocsManagement from "./pages/DocsManagement";
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 
@@ -95,6 +96,10 @@ function MainLayout() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot" element={<ForgotPassword />} />
           <Route path="/reset" element={<ResetPassword />} />
+          
+          {/* --- LinkedIn OAuth Callback Routes --- */}
+          <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
+          <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route
@@ -184,15 +189,6 @@ function MainLayout() {
             }
           />
 
-          {/* --- Archived Jobs (Protected) --- */}
-          <Route
-            path="/archived"
-            element={
-              <ProtectedRoute>
-                <ArchivedJobs />
-              </ProtectedRoute>
-            }
-          />
 
           {/* --- Company Research (Redirect to Interviews) --- */}
           <Route
@@ -212,6 +208,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <JobMatch />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Docs Management (Protected) --- */}
+          <Route
+            path="/docs-management"
+            element={
+              <ProtectedRoute>
+                <DocsManagement />
               </ProtectedRoute>
             }
           />

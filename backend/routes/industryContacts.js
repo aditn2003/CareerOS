@@ -1152,6 +1152,55 @@ router.delete("/reminders/:id", auth, async (req, res) => {
   }
 });
 
+router.put("/reminders/:id", auth, async (req, res) => {
+  try {
+    const userId = getSupabaseUserId(req);
+    const { id } = req.params;
+    const {
+      contact_name,
+      contact_company,
+      reminder_type,
+      reminder_date,
+      custom_message
+    } = req.body;
+
+    if (!contact_name || !reminder_type || !reminder_date) {
+      return res.status(400).json({
+        error: "Contact name, reminder type, and reminder date are required"
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("relationship_reminders")
+      .update({
+        contact_name,
+        contact_company: contact_company || "",
+        reminder_type,
+        reminder_date,
+        custom_message: custom_message || "",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select();
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: "Reminder not found" });
+    }
+
+    return res.json({
+      success: true,
+      message: "Reminder updated successfully",
+      reminder: data[0]
+    });
+  } catch (err) {
+    console.error("❌ Error updating reminder:", err.message);
+    return res.status(500).json({ error: "Failed to update reminder" });
+  }
+});
+
 /* ============================================================
    UC-093 ENHANCEMENT: Recurring Check-ins
    Generates automatic periodic reminders for important contacts
@@ -1619,9 +1668,9 @@ router.get("/all-outreach", auth, async (req, res) => {
         if (a.outreach_status === "contacted" || a.outreach_message) {
           outreachList.push({
             id: a.id,
-            contact_name: a.alumni_name,
-            contact_company: a.alumni_company,
-            contact_title: a.alumni_title,
+            contact_name: `${a.first_name || ''} ${a.last_name || ''}`.trim(),
+            contact_company: a.company || a.alumni_company,
+            contact_title: a.title || a.alumni_title,
             message: a.outreach_message,
             date: a.outreach_date,
             status: a.outreach_status,

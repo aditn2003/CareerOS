@@ -4,6 +4,7 @@
 
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import pool from '../db/pool.js';
 
 const router = express.Router();
 
@@ -371,6 +372,19 @@ router.delete('/connections/:connectionId', authMiddleware, async (req, res) => 
 router.post('/followups', authMiddleware, async (req, res) => {
   try {
     const {
+      event_name,
+      event_type,
+      location,
+      is_virtual = false,
+      event_date,
+      event_start_time,
+      event_end_time,
+      cost = 0,
+      expected_connections = 0,
+      actual_connections_made = 0,
+      notes,
+      industry,
+      description,
       event_id,
       connection_id,
       followup_type,
@@ -393,6 +407,21 @@ router.post('/followups', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const { rows } = await pool.query(
+      `INSERT INTO networking_events (
+        user_id, event_name, event_type, location, is_virtual,
+        event_date, event_start_time, event_end_time, cost, 
+        expected_connections, actual_connections_made, notes, industry, description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      RETURNING *`,
+      [
+        userId, event_name, event_type || 'networking_mixer', location || null, is_virtual,
+        event_date, event_start_time || null, event_end_time || null, cost,
+        expected_connections, actual_connections_made, notes || null, industry || null, description || null
+      ]
+    );
+
+    res.status(201).json({ event: rows[0] });
     // If attended is true, mark as completed with current date
     const insertData = {
       event_id,
@@ -680,6 +709,277 @@ router.get('/discover/locations', authMiddleware, async (req, res) => {
     res.json(locations);
   } catch (err) {
     console.error('Error fetching locations:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// NETWORKING CONTACTS ENDPOINTS
+// ======================================
+
+// GET all contacts for a user
+router.get('/contacts', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM networking_contacts 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ contacts: result.rows });
+  } catch (err) {
+    console.error('Error fetching contacts:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET single contact
+router.get('/contacts/:id', authMiddleware, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM networking_contacts 
+       WHERE id = $1 AND user_id = $2`,
+      [req.params.id, req.user.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CREATE new contact
+router.post('/contacts', authMiddleware, async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      company,
+      title,
+      industry,
+      linkedin_url,
+      relationship_strength,
+      engagement_score,
+      reciprocity_score,
+      notes,
+      tags
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO networking_contacts 
+       (user_id, name, email, company, title, industry, linkedin_url, 
+        relationship_strength, engagement_score, reciprocity_score, notes, tags)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING *`,
+      [
+        req.user.id,
+        name,
+        email || null,
+        company || null,
+        title || null,
+        industry || null,
+        linkedin_url || null,
+        relationship_strength || 1,
+        engagement_score || 0,
+        reciprocity_score || 0,
+        notes || null,
+        tags || null
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// UPDATE contact
+router.put('/contacts/:id', authMiddleware, async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      company,
+      title,
+      industry,
+      linkedin_url,
+      relationship_strength,
+      engagement_score,
+      reciprocity_score,
+      last_contact_date,
+      next_followup_date,
+      notes,
+      tags
+    } = req.body;
+
+    // Verify ownership
+    const checkResult = await pool.query(
+      'SELECT user_id FROM networking_contacts WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (checkResult.rows.length === 0 || checkResult.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    const result = await pool.query(
+      `UPDATE networking_contacts 
+       SET name = COALESCE($1, name),
+           email = COALESCE($2, email),
+           company = COALESCE($3, company),
+           title = COALESCE($4, title),
+           industry = COALESCE($5, industry),
+           linkedin_url = COALESCE($6, linkedin_url),
+           relationship_strength = COALESCE($7, relationship_strength),
+           engagement_score = COALESCE($8, engagement_score),
+           reciprocity_score = COALESCE($9, reciprocity_score),
+           last_contact_date = COALESCE($10, last_contact_date),
+           next_followup_date = COALESCE($11, next_followup_date),
+           notes = COALESCE($12, notes),
+           tags = COALESCE($13, tags),
+           updated_at = NOW()
+       WHERE id = $14 AND user_id = $15
+       RETURNING *`,
+      [
+        name,
+        email,
+        company,
+        title,
+        industry,
+        linkedin_url,
+        relationship_strength,
+        engagement_score,
+        reciprocity_score,
+        last_contact_date,
+        next_followup_date,
+        notes,
+        tags,
+        req.params.id,
+        req.user.id
+      ]
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE contact
+router.delete('/contacts/:id', authMiddleware, async (req, res) => {
+  try {
+    // Verify ownership
+    const checkResult = await pool.query(
+      'SELECT user_id FROM networking_contacts WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (checkResult.rows.length === 0 || checkResult.rows[0].user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    await pool.query('DELETE FROM networking_contacts WHERE id = $1', [req.params.id]);
+
+    res.json({ message: 'Contact deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================
+// NETWORKING ACTIVITIES ENDPOINTS
+// ======================================
+
+// GET all activities for a user (optionally filtered by contact_id)
+router.get('/activities', authMiddleware, async (req, res) => {
+  try {
+    const { contact_id } = req.query;
+    let query = `
+      SELECT * FROM networking_activities 
+      WHERE user_id = $1
+    `;
+    let params = [req.user.id];
+    
+    if (contact_id) {
+      query += ` AND contact_id = $2`;
+      params.push(contact_id);
+    }
+    
+    query += ` ORDER BY created_at DESC`;
+    
+    const result = await pool.query(query, params);
+    res.json({ activities: result.rows });
+  } catch (err) {
+    console.error('Error fetching activities:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CREATE new activity
+router.post('/activities', authMiddleware, async (req, res) => {
+  try {
+    const {
+      contact_id,
+      activity_type,
+      channel,
+      direction,
+      subject,
+      notes,
+      outcome,
+      relationship_impact,
+      time_spent_minutes
+    } = req.body;
+
+    if (!activity_type) {
+      return res.status(400).json({ error: 'Activity type is required' });
+    }
+
+    // If contact_id is provided, verify ownership
+    if (contact_id) {
+      const contactCheck = await pool.query(
+        'SELECT user_id FROM networking_contacts WHERE id = $1',
+        [contact_id]
+      );
+      if (contactCheck.rows.length === 0 || contactCheck.rows[0].user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to add activity for this contact' });
+      }
+    }
+
+    const result = await pool.query(
+      `INSERT INTO networking_activities 
+       (user_id, contact_id, activity_type, channel, direction, subject, notes, 
+        outcome, relationship_impact, time_spent_minutes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [
+        req.user.id,
+        contact_id || null,
+        activity_type,
+        channel || null,
+        direction || 'outbound',
+        subject || null,
+        notes || null,
+        outcome || null,
+        relationship_impact || 0,
+        time_spent_minutes || 0
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating activity:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -9,7 +9,7 @@ router.use(auth);
 const NETWORKING_BENCHMARKS = {
   avgOutreachResponseRate: 0.15, // 15% response rate
   avgReferralConversionRate: 0.30, // 30% of referrals lead to interviews
-  avgRelationshipStrength: 5.0, // Average relationship strength (1-10)
+  avgRelationshipStrength: 3.0, // Average relationship strength (1-5)
   avgContactsPerMonth: 20,
   avgEventROI: 2.5, // 2.5x return on event investment
   warmOutreachSuccessRate: 0.25, // 25% success for warm outreach
@@ -73,8 +73,9 @@ router.get("/full", async (req, res) => {
         ORDER BY total_activities DESC;
       `;
       activityResult = await pool.query(activityQuery, [userId]);
+      console.log(`✓ Activities: ${activityResult.rows.length} activity groups found`);
     } catch (err) {
-      console.warn("networking_activities table not found:", err.message);
+      console.warn("⚠ networking_activities table not found or query failed:", err.message);
       activityResult = { rows: [] };
     }
 
@@ -166,27 +167,213 @@ router.get("/full", async (req, res) => {
     // --------------------------------------------------------
     let contactsResult = { rows: [] };
     try {
-      const contactsQuery = `
-        SELECT 
-          id,
-          name,
-          company,
-          industry,
-          COALESCE(relationship_strength, 1) AS relationship_strength,
-          COALESCE(engagement_score, 0) AS engagement_score,
-          COALESCE(reciprocity_score, 0) AS reciprocity_score,
-          last_contact_date,
-          created_at,
-          (SELECT COUNT(*) FROM networking_activities WHERE contact_id = networking_contacts.id) AS interaction_count,
-          (SELECT COUNT(*) FROM networking_referrals WHERE contact_id = networking_contacts.id) AS referral_count
-        FROM networking_contacts
-        WHERE user_id = $1
-        ORDER BY relationship_strength DESC, last_contact_date DESC NULLS LAST;
-      `;
-      contactsResult = await pool.query(contactsQuery, [userId]);
+      // First, check if table exists and has data
+      const tableCheck = await pool.query(`
+        SELECT COUNT(*) as count 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'networking_contacts'
+      `);
+      
+      if (tableCheck.rows[0].count === '0') {
+        console.warn("⚠ networking_contacts table does not exist");
+        contactsResult = { rows: [] };
+      } else {
+        // Check total contacts for this user
+        const countCheck = await pool.query(
+          `SELECT COUNT(*) as count FROM networking_contacts WHERE user_id = $1`,
+          [userId]
+        );
+        console.log(`📊 Total contacts in networking_contacts for user ${userId}: ${countCheck.rows[0].count}`);
+        
+        const contactsQuery = `
+          SELECT 
+            id,
+            name,
+            company,
+            industry,
+            COALESCE(relationship_strength, 1) AS relationship_strength,
+            COALESCE(engagement_score, 0) AS engagement_score,
+            COALESCE(reciprocity_score, 0) AS reciprocity_score,
+            last_contact_date,
+            created_at,
+            (SELECT COUNT(*) FROM networking_activities WHERE contact_id = networking_contacts.id) AS interaction_count,
+            (SELECT COUNT(*) FROM networking_referrals WHERE contact_id = networking_contacts.id) AS referral_count
+          FROM networking_contacts
+          WHERE user_id = $1
+          ORDER BY created_at DESC, relationship_strength DESC, last_contact_date DESC NULLS LAST;
+        `;
+        contactsResult = await pool.query(contactsQuery, [userId]);
+        console.log(`✓ Contacts: ${contactsResult.rows.length} contacts found`);
+        if (contactsResult.rows.length > 0) {
+          console.log(`📋 Sample contact (newest first):`, {
+            id: contactsResult.rows[0].id,
+            name: contactsResult.rows[0].name,
+            strength: contactsResult.rows[0].relationship_strength,
+            engagement: contactsResult.rows[0].engagement_score,
+            created_at: contactsResult.rows[0].created_at
+          });
+          // Also log the most recently created contact
+          const newestContact = contactsResult.rows.reduce((newest, contact) => {
+            const newestDate = new Date(newest.created_at || 0);
+            const contactDate = new Date(contact.created_at || 0);
+            return contactDate > newestDate ? contact : newest;
+          }, contactsResult.rows[0]);
+          if (newestContact.id !== contactsResult.rows[0].id) {
+            console.log(`📋 Most recently created contact:`, {
+              id: newestContact.id,
+              name: newestContact.name,
+              created_at: newestContact.created_at
+            });
+          }
+        }
+        
+        // Also check professional_contacts table as fallback
+        let professionalContactsResult = { rows: [] };
+        try {
+          const professionalContactsCheck = await pool.query(
+            `SELECT COUNT(*) as count FROM professional_contacts WHERE user_id = $1`,
+            [userId]
+          );
+          console.log(`📊 Total contacts in professional_contacts for user ${userId}: ${professionalContactsCheck.rows[0].count}`);
+          
+          // If contacts exist in professional_contacts, merge them with networking_contacts
+          if (professionalContactsCheck.rows[0].count > 0) {
+            console.log("🔄 Found contacts in professional_contacts, merging with networking_contacts...");
+            const professionalQuery = `
+              SELECT 
+                id,
+                COALESCE(
+                  NULLIF(TRIM(first_name || ' ' || last_name), ''),
+                  first_name,
+                  last_name,
+                  'Unknown'
+                ) as name,
+                company,
+                industry,
+                COALESCE(relationship_strength, 3) AS relationship_strength,
+                relationship_type,
+                0 AS engagement_score,
+                0 AS reciprocity_score,
+                NULL AS last_contact_date,
+                created_at,
+                0 AS interaction_count,
+                0 AS referral_count,
+                email,
+                phone,
+                title,
+                location,
+                linkedin_profile,
+                notes
+              FROM professional_contacts
+              WHERE user_id = $1
+              ORDER BY created_at DESC, relationship_strength DESC NULLS LAST;
+            `;
+            professionalContactsResult = await pool.query(professionalQuery, [userId]);
+            console.log(`✓ Found ${professionalContactsResult.rows.length} contacts in professional_contacts`);
+            
+            // Merge professional_contacts with networking_contacts (avoid duplicates by email or name)
+            const existingContactEmails = new Set(
+              contactsResult.rows
+                .map(c => c.email?.toLowerCase().trim())
+                .filter(e => e)
+            );
+            const existingContactNames = new Set(
+              contactsResult.rows
+                .map(c => c.name?.toLowerCase().trim())
+                .filter(n => n)
+            );
+            
+            const newContactsFromProfessional = professionalContactsResult.rows.filter(contact => {
+              const contactEmail = contact.email?.toLowerCase().trim();
+              const contactName = contact.name?.toLowerCase().trim();
+              
+              // Skip if email matches (and email exists)
+              if (contactEmail && existingContactEmails.has(contactEmail)) {
+                return false;
+              }
+              
+              // Skip if name matches (and name exists)
+              if (contactName && existingContactNames.has(contactName)) {
+                return false;
+              }
+              
+              return true;
+            });
+            
+            console.log(`📊 Merging ${newContactsFromProfessional.length} new contacts from professional_contacts`);
+            
+            // Add new contacts from professional_contacts to the result
+            contactsResult.rows = [...contactsResult.rows, ...newContactsFromProfessional];
+            
+            // Re-sort by created_at DESC
+            contactsResult.rows.sort((a, b) => {
+              const dateA = new Date(a.created_at || 0);
+              const dateB = new Date(b.created_at || 0);
+              return dateB.getTime() - dateA.getTime();
+            });
+            
+            // Also try to migrate them to networking_contacts for future use
+            try {
+              const migrateQuery = `
+                INSERT INTO networking_contacts 
+                (user_id, name, email, company, title, industry, linkedin_url, 
+                 relationship_strength, notes, created_at, updated_at)
+                SELECT 
+                  user_id,
+                  COALESCE(
+                    NULLIF(TRIM(first_name || ' ' || last_name), ''),
+                    first_name,
+                    last_name,
+                    'Unknown'
+                  ) as name,
+                  email,
+                  company,
+                  title,
+                  industry,
+                  linkedin_profile as linkedin_url,
+                  COALESCE(relationship_strength, 3) as relationship_strength,
+                  notes,
+                  created_at,
+                  updated_at
+                FROM professional_contacts
+                WHERE user_id = $1
+                AND NOT EXISTS (
+                  SELECT 1 FROM networking_contacts nc 
+                  WHERE nc.user_id = professional_contacts.user_id 
+                  AND (
+                    (nc.email IS NOT NULL AND professional_contacts.email IS NOT NULL AND nc.email = professional_contacts.email)
+                    OR
+                    (nc.email IS NULL AND professional_contacts.email IS NULL AND 
+                     nc.name = COALESCE(
+                       NULLIF(TRIM(professional_contacts.first_name || ' ' || professional_contacts.last_name), ''),
+                       professional_contacts.first_name,
+                       professional_contacts.last_name,
+                       'Unknown'
+                     ))
+                  )
+                )
+                RETURNING *;
+              `;
+              const migrated = await pool.query(migrateQuery, [userId]);
+              console.log(`✓ Migrated ${migrated.rows.length} contacts to networking_contacts`);
+            } catch (migrateErr) {
+              console.warn("⚠ Could not migrate contacts (this is okay if they're already migrated):", migrateErr.message);
+            }
+          }
+        } catch (profErr) {
+          console.warn("⚠ Could not check professional_contacts table:", profErr.message);
+        }
+      }
     } catch (err) {
-      console.warn("networking_contacts table not found:", err.message);
+      console.error("⚠ Error querying contacts:", err.message);
+      console.error("Stack trace:", err.stack);
       contactsResult = { rows: [] };
+    }
+
+    console.log(`📊 Final total contacts after merging: ${contactsResult.rows.length}`);
+    if (contactsResult.rows.length > 0) {
+      console.log(`📋 All contact names:`, contactsResult.rows.map(c => c.name).join(', '));
     }
 
     const relationshipMetrics = {
@@ -195,9 +382,9 @@ router.get("/full", async (req, res) => {
       avgEngagementScore: 0,
       avgReciprocityScore: 0,
       byStrengthTier: {
-        strong: 0, // 8-10
-        medium: 0, // 5-7
-        weak: 0    // 1-4
+        strong: 0, // 4-5
+        medium: 0, // 3
+        weak: 0    // 1-2
       },
       warmingUp: [], // Contacts with increasing strength
       coolingDown: [], // Contacts with decay
@@ -207,6 +394,15 @@ router.get("/full", async (req, res) => {
     let totalStrength = 0;
     let totalEngagement = 0;
     let totalReciprocity = 0;
+
+    // Calculate relationship health scores and engagement frequency
+    const relationshipHealthScores = [];
+    const engagementFrequencyData = {
+      frequent: 0, // > 1 interaction per month
+      moderate: 0, // 1 interaction per 1-3 months
+      infrequent: 0, // < 1 interaction per 3 months
+      never: 0 // No interactions
+    };
 
     contactsResult.rows.forEach(contact => {
       const strength = ensureNumber(contact.relationship_strength);
@@ -219,33 +415,81 @@ router.get("/full", async (req, res) => {
       totalEngagement += engagement;
       totalReciprocity += reciprocity;
 
-      // Categorize by strength
-      if (strength >= 8) relationshipMetrics.byStrengthTier.strong++;
-      else if (strength >= 5) relationshipMetrics.byStrengthTier.medium++;
+      // Calculate relationship health score (0-100)
+      // Health = (strength * 0.4) + (engagement * 0.3) + (reciprocity * 0.2) + (interaction frequency * 0.1)
+      const decayFactor = calculateContactDecay(contact.last_contact_date);
+      const daysSinceContact = contact.last_contact_date 
+        ? Math.floor((new Date() - new Date(contact.last_contact_date)) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      // Calculate interaction frequency score (based on interactions per month)
+      const daysSinceCreated = contact.created_at 
+        ? Math.floor((new Date() - new Date(contact.created_at)) / (1000 * 60 * 60 * 24))
+        : 1;
+      const monthsSinceCreated = Math.max(1, daysSinceCreated / 30);
+      const interactionsPerMonth = interactionCount / monthsSinceCreated;
+      
+      let frequencyScore = 0;
+      if (interactionsPerMonth >= 1) {
+        frequencyScore = 1.0;
+        engagementFrequencyData.frequent++;
+      } else if (interactionsPerMonth >= 0.33) {
+        frequencyScore = 0.7;
+        engagementFrequencyData.moderate++;
+      } else if (interactionsPerMonth > 0) {
+        frequencyScore = 0.4;
+        engagementFrequencyData.infrequent++;
+      } else {
+        engagementFrequencyData.never++;
+      }
+
+      const healthScore = Math.round(
+        (strength / 5 * 40) + 
+        (engagement * 30) + 
+        (reciprocity * 20) + 
+        (frequencyScore * 10)
+      );
+
+      relationshipHealthScores.push({
+        name: contact.name,
+        company: contact.company,
+        healthScore: healthScore,
+        strength: strength,
+        engagement: engagement,
+        reciprocity: reciprocity,
+        interactionCount: interactionCount,
+        interactionsPerMonth: interactionsPerMonth.toFixed(2),
+        daysSinceContact: daysSinceContact,
+        lastContactDate: contact.last_contact_date
+      });
+
+      // Categorize by strength (1-5 scale)
+      if (strength >= 4) relationshipMetrics.byStrengthTier.strong++;
+      else if (strength >= 3) relationshipMetrics.byStrengthTier.medium++;
       else relationshipMetrics.byStrengthTier.weak++;
 
       // Check for decay
-      const decayFactor = calculateContactDecay(contact.last_contact_date);
-      if (decayFactor < 0.7 && strength > 5) {
+      if (decayFactor < 0.7 && strength > 3) {
         relationshipMetrics.coolingDown.push({
           name: contact.name,
           company: contact.company,
           strength: strength,
-          daysSinceContact: contact.last_contact_date 
-            ? Math.floor((new Date() - new Date(contact.last_contact_date)) / (1000 * 60 * 60 * 24))
-            : null
+          healthScore: healthScore,
+          daysSinceContact: daysSinceContact
         });
       }
 
-      // High value contacts
-      if (referralCount > 0 || engagement > 0.7 || reciprocity > 0.6) {
+      // High value contacts (based on health score, engagement, or reciprocity)
+      if (healthScore >= 70 || engagement > 0.7 || reciprocity > 0.6 || interactionCount >= 5) {
         relationshipMetrics.highValueContacts.push({
           name: contact.name,
           company: contact.company,
           strength: strength,
-          referrals: referralCount,
+          healthScore: healthScore,
           engagement: engagement,
-          reciprocity: reciprocity
+          reciprocity: reciprocity,
+          interactionCount: interactionCount,
+          interactionsPerMonth: interactionsPerMonth.toFixed(2)
         });
       }
     });
@@ -255,6 +499,13 @@ router.get("/full", async (req, res) => {
       relationshipMetrics.avgEngagementScore = totalEngagement / contactsResult.rows.length;
       relationshipMetrics.avgReciprocityScore = totalReciprocity / contactsResult.rows.length;
     }
+
+    // Add relationship health and engagement frequency data
+    relationshipMetrics.relationshipHealthScores = relationshipHealthScores.sort((a, b) => b.healthScore - a.healthScore);
+    relationshipMetrics.avgHealthScore = relationshipHealthScores.length > 0
+      ? relationshipHealthScores.reduce((sum, c) => sum + c.healthScore, 0) / relationshipHealthScores.length
+      : 0;
+    relationshipMetrics.engagementFrequency = engagementFrequencyData;
 
     // --------------------------------------------------------
     // 3. OPPORTUNITY & REFERRAL ANALYTICS
@@ -276,8 +527,9 @@ router.get("/full", async (req, res) => {
         ORDER BY r.created_at DESC;
       `;
       referralsResult = await pool.query(referralsQuery, [userId]);
+      console.log(`✓ Referrals: ${referralsResult.rows.length} referrals found`);
     } catch (err) {
-      console.warn("networking_referrals table not found:", err.message);
+      console.warn("⚠ networking_referrals table not found or query failed:", err.message);
       referralsResult = { rows: [] };
     }
 
@@ -374,25 +626,90 @@ router.get("/full", async (req, res) => {
     // Check if networking_events table exists and has the expected columns
     let eventsResult = { rows: [] };
     try {
-      const eventsQuery = `
+      // First check which columns exist in the table
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'networking_events' 
+        AND column_name IN ('event_start_time', 'event_end_time', 'actual_connections_made', 'expected_connections', 'networking_roi_score', 'contacts_met', 'roi_score', 'duration_hours')
+        AND table_schema = 'public'
+      `);
+      
+      const availableColumns = new Set(columnCheck.rows.map(r => r.column_name));
+      
+      // Build query based on available columns
+      let eventsQuery = `
         SELECT 
           id,
           event_name,
           event_type,
           event_date,
-          COALESCE(duration_hours, 0) AS duration_hours,
-          COALESCE(cost, 0) AS cost,
-          COALESCE(contacts_met, 0) AS contacts_met,
-          COALESCE(opportunities_generated, 0) AS opportunities_generated,
-          roi_score
+          COALESCE(cost, 0) AS cost
+      `;
+      
+      // Add time columns if they exist
+      if (availableColumns.has('event_start_time')) {
+        eventsQuery += `, event_start_time`;
+      } else {
+        eventsQuery += `, NULL AS event_start_time`;
+      }
+      
+      if (availableColumns.has('event_end_time')) {
+        eventsQuery += `, event_end_time`;
+      } else {
+        eventsQuery += `, NULL AS event_end_time`;
+      }
+      
+      // Add connections columns - prefer actual_connections_made, fallback to contacts_met
+      if (availableColumns.has('actual_connections_made')) {
+        eventsQuery += `, COALESCE(actual_connections_made, 0) AS contacts_met`;
+      } else if (availableColumns.has('contacts_met')) {
+        eventsQuery += `, COALESCE(contacts_met, 0) AS contacts_met`;
+      } else {
+        eventsQuery += `, 0 AS contacts_met`;
+      }
+      
+      if (availableColumns.has('expected_connections')) {
+        eventsQuery += `, COALESCE(expected_connections, 0) AS expected_connections`;
+      } else {
+        eventsQuery += `, 0 AS expected_connections`;
+      }
+      
+      // Add ROI score - prefer networking_roi_score, fallback to roi_score
+      if (availableColumns.has('networking_roi_score')) {
+        eventsQuery += `, networking_roi_score AS roi_score`;
+      } else if (availableColumns.has('roi_score')) {
+        eventsQuery += `, roi_score`;
+      } else {
+        eventsQuery += `, NULL AS roi_score`;
+      }
+      
+      // Add duration_hours if available
+      if (availableColumns.has('duration_hours')) {
+        eventsQuery += `, duration_hours`;
+      } else {
+        eventsQuery += `, NULL AS duration_hours`;
+      }
+      
+      eventsQuery += `
         FROM networking_events
         WHERE user_id = $1
-        ORDER BY event_date DESC;
+        ORDER BY created_at DESC, event_date DESC;
       `;
+      
       eventsResult = await pool.query(eventsQuery, [userId]);
+      console.log(`✓ Events: ${eventsResult.rows.length} events found`);
+      if (eventsResult.rows.length > 0) {
+        console.log(`📅 Sample event:`, {
+          id: eventsResult.rows[0].id,
+          name: eventsResult.rows[0].event_name,
+          date: eventsResult.rows[0].event_date,
+          created: eventsResult.rows[0].created_at || 'N/A'
+        });
+      }
     } catch (tableError) {
       // Table might not exist yet - return empty results
-      console.warn("networking_events table not found or missing columns:", tableError.message);
+      console.warn("⚠ networking_events table not found or query failed:", tableError.message);
       eventsResult = { rows: [] };
     }
 
@@ -416,8 +733,23 @@ router.get("/full", async (req, res) => {
 
     eventsResult.rows.forEach(event => {
       const cost = ensureNumber(event.cost);
-      const opportunities = ensureNumber(event.opportunities_generated);
-      const duration = ensureNumber(event.duration_hours);
+      const opportunities = ensureNumber(event.contacts_met); // Use actual_connections_made or contacts_met
+      // Calculate duration from start/end time, or use duration_hours if available
+      let duration = 2; // default 2 hours
+      if (event.duration_hours) {
+        duration = ensureNumber(event.duration_hours);
+      } else if (event.event_start_time && event.event_end_time) {
+        try {
+          const start = event.event_start_time.split(':').map(Number);
+          const end = event.event_end_time.split(':').map(Number);
+          const startMinutes = start[0] * 60 + (start[1] || 0);
+          const endMinutes = end[0] * 60 + (end[1] || 0);
+          duration = Math.max(0, (endMinutes - startMinutes) / 60);
+        } catch (timeErr) {
+          // If time parsing fails, use default
+          duration = 2;
+        }
+      }
       const type = event.event_type || 'other';
 
       totalCost += cost;
@@ -444,17 +776,16 @@ router.get("/full", async (req, res) => {
       roiMetrics.byEventType[type].totalCost += cost;
       roiMetrics.byEventType[type].totalOpportunities += opportunities;
 
-      // Top ROI events
-      if (eventROI > 0) {
-        roiMetrics.topROIEvents.push({
-          name: event.event_name,
-          type: type,
-          date: event.event_date,
-          cost: cost,
-          opportunities: opportunities,
-          roi: eventROI
-        });
-      }
+      // All events (for display) - include all events, not just those with ROI > 0
+      roiMetrics.topROIEvents.push({
+        name: event.event_name,
+        type: type,
+        date: event.event_date,
+        cost: cost,
+        opportunities: opportunities,
+        roi: eventROI || 0,
+        created_at: event.created_at || null
+      });
     });
 
     roiMetrics.totalInvestment = totalCost;
@@ -467,16 +798,52 @@ router.get("/full", async (req, res) => {
       data.avgROI = data.totalCost > 0 ? data.totalOpportunities / data.totalCost : 0;
     });
 
-    // Sort top ROI events
-    roiMetrics.topROIEvents.sort((a, b) => b.roi - a.roi).slice(0, 10);
+    // Sort events by creation date (newest first), then by ROI
+    roiMetrics.topROIEvents.sort((a, b) => {
+      // First sort by created_at if available (newest first)
+      if (a.created_at && b.created_at) {
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        if (dateB.getTime() !== dateA.getTime()) {
+          return dateB.getTime() - dateA.getTime();
+        }
+      }
+      // Then by ROI (highest first)
+      return b.roi - a.roi;
+    });
 
-    // Outreach ROI (time-based)
-    const outreachOpportunities = referralsResult.rows.length + 
-      activityResult.rows.filter(r => r.outcome === 'opportunity').reduce((sum, r) => sum + ensureNumber(r.total_activities), 0);
+    // Outreach ROI (time-based) - Calculate based on activities and contacts
+    const outreachOpportunities = activityResult.rows
+      .filter(r => {
+        const outcome = r.outcome || '';
+        return outcome === 'opportunity' || outcome === 'positive' || outcome === 'referral';
+      })
+      .reduce((sum, r) => sum + ensureNumber(r.total_activities), 0);
+    
+    // Calculate networking ROI: opportunities generated per hour invested
     roiMetrics.outreachROI.opportunities = outreachOpportunities;
     if (roiMetrics.outreachROI.timeInvested > 0) {
       roiMetrics.outreachROI.roi = outreachOpportunities / roiMetrics.outreachROI.timeInvested;
+    } else if (activityMetrics.totalActivities > 0) {
+      // If no time tracked, estimate based on activities (assume 30 min per activity)
+      const estimatedHours = activityMetrics.totalActivities * 0.5;
+      roiMetrics.outreachROI.roi = estimatedHours > 0 ? outreachOpportunities / estimatedHours : 0;
     }
+
+    // Calculate contact-based ROI (value of relationships)
+    const contactROI = {
+      totalContacts: relationshipMetrics.totalContacts,
+      highValueContacts: relationshipMetrics.highValueContacts.length,
+      avgHealthScore: relationshipMetrics.avgHealthScore || 0,
+      totalInteractions: relationshipMetrics.relationshipHealthScores?.reduce((sum, c) => sum + (c.interactionCount || 0), 0) || 0,
+      roiScore: 0 // Opportunities per contact
+    };
+    
+    if (contactROI.totalContacts > 0) {
+      contactROI.roiScore = outreachOpportunities / contactROI.totalContacts;
+    }
+    
+    roiMetrics.contactROI = contactROI;
 
     // Relationship tier ROI
     const relationshipTierROI = {
@@ -489,8 +856,8 @@ router.get("/full", async (req, res) => {
       const strength = ensureNumber(contact.relationship_strength);
       const referrals = ensureNumber(contact.referral_count);
       let tier = 'weak';
-      if (strength >= 8) tier = 'strong';
-      else if (strength >= 5) tier = 'medium';
+      if (strength >= 4) tier = 'strong';
+      else if (strength >= 3) tier = 'medium';
 
       relationshipTierROI[tier].contacts++;
       relationshipTierROI[tier].referrals += referrals;
@@ -646,6 +1013,23 @@ router.get("/full", async (req, res) => {
     // --------------------------------------------------------
     // FINAL RESPONSE
     // --------------------------------------------------------
+    const dataQuality = {
+      hasContacts: relationshipMetrics.totalContacts > 0,
+      hasActivities: activityMetrics.totalActivities > 0,
+      hasReferrals: referralAnalytics.totalReferrals > 0,
+      hasEvents: roiMetrics.totalEvents > 0,
+      sufficientData: relationshipMetrics.totalContacts >= 10 || activityMetrics.totalActivities >= 20
+    };
+    
+    console.log("========================================");
+    console.log("Networking Analysis Summary:");
+    console.log(`  Contacts: ${relationshipMetrics.totalContacts}`);
+    console.log(`  Activities: ${activityMetrics.totalActivities}`);
+    console.log(`  Referrals: ${referralAnalytics.totalReferrals}`);
+    console.log(`  Events: ${roiMetrics.totalEvents}`);
+    console.log(`  Data Quality: ${dataQuality.sufficientData ? 'Sufficient' : 'Limited'}`);
+    console.log("========================================");
+    
     res.json({
       activityMetrics,
       monthlyActivity,
@@ -660,21 +1044,26 @@ router.get("/full", async (req, res) => {
         totalReferrals: referralAnalytics.totalReferrals,
         avgResponseRate: activityMetrics.responseRate,
         avgRelationshipStrength: relationshipMetrics.avgRelationshipStrength,
+        avgHealthScore: relationshipMetrics.avgHealthScore || 0,
+        avgEngagementScore: relationshipMetrics.avgEngagementScore,
         totalEventInvestment: roiMetrics.totalInvestment,
-        totalEventOpportunities: roiMetrics.totalOpportunities
+        totalEventOpportunities: roiMetrics.totalOpportunities,
+        networkingROI: roiMetrics.outreachROI.roi || 0,
+        contactROI: roiMetrics.contactROI?.roiScore || 0
       },
-      dataQuality: {
-        hasContacts: relationshipMetrics.totalContacts > 0,
-        hasActivities: activityMetrics.totalActivities > 0,
-        hasReferrals: referralAnalytics.totalReferrals > 0,
-        hasEvents: roiMetrics.totalEvents > 0,
-        sufficientData: relationshipMetrics.totalContacts >= 10 || activityMetrics.totalActivities >= 20
-      }
+      dataQuality
     });
 
   } catch (err) {
+    console.error("========================================");
     console.error("Networking analysis error:", err);
-    res.status(500).json({ error: "Failed to compute networking analysis", details: err.message });
+    console.error("Stack trace:", err.stack);
+    console.error("========================================");
+    res.status(500).json({ 
+      error: "Failed to compute networking analysis", 
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 

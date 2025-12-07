@@ -58,26 +58,33 @@ export default function MentorLayout() {
   }
 
   return (
-    <section className="profile-section">
-      <h2>Mentor Space</h2>
+    <div className="mentor-layout">
+      {/* Header with gradient title */}
+      <div className="mentor-header">
+        <h1 className="mentor-main-title">Mentor Command Center</h1>
+        <p className="mentor-main-subtitle">Your complete toolkit for team management and mentorship</p>
+      </div>
 
       {/* 🧭 Top navigation bar for tabs */}
       <MentorNavBar />
 
-      {/* Nested tab routes */}
-      <Routes>
-        {/* Default → Feedback tab */}
-        <Route index element={<Navigate to="/mentor/feedback" replace />} />
-        <Route path="feedback" element={<FeedbackTab />} />
-        <Route path="tasks" element={<TaskManagementTab />} />
-        <Route path="shared-jobs" element={<SharedJobsTab />} />
-        <Route path="analytics" element={<TeamAnalyticsTab />} />
-        <Route path="activity" element={<ActivityFeedTab />} />
-        
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/mentor/feedback" replace />} />
-      </Routes>
-    </section>
+      {/* Content area */}
+      <div className="mentor-content">
+        {/* Nested tab routes */}
+        <Routes>
+          {/* Default → Feedback tab */}
+          <Route index element={<Navigate to="/mentor/feedback" replace />} />
+          <Route path="feedback" element={<FeedbackTab />} />
+          <Route path="tasks" element={<TaskManagementTab />} />
+          <Route path="shared-jobs" element={<SharedJobsTab />} />
+          <Route path="analytics" element={<TeamAnalyticsTab />} />
+          <Route path="activity" element={<ActivityFeedTab />} />
+          
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/mentor/feedback" replace />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
 
