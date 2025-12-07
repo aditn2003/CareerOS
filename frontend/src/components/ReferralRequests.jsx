@@ -784,7 +784,73 @@ const ReferralRequests = () => {
                   )}
                 </div>
 
-                <div className="form-group">
+                {suggestedContacts.length > 0 && (
+                  <div className="form-section" style={{ gridColumn: '1 / -1' }}>
+                    <h4>Suggested Referral Contacts</h4>
+                    <p className="section-hint">
+                      These contacts have connections to this company/industry
+                    </p>
+                    {suggestedContacts.map((contact) => (
+                      <button
+                        key={contact.id}
+                        type="button"
+                        className="suggested-contact"
+                        onClick={() => handleContactChange(contact.id)}
+                      >
+                        {contact.first_name} {contact.last_name}
+                        {contact.company && <span> • {contact.company}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {timingRecommendations && (
+                  <div className="timing-recommendation" style={{
+                    gridColumn: '1 / -1',
+                    backgroundColor: 
+                      timingRecommendations.recommendedTiming === 'wait' ? '#FFE0E0' :
+                      timingRecommendations.recommendedTiming === 'multiple' ? '#FFF3CD' :
+                      '#E0F0FF',
+                    borderLeft: `4px solid ${
+                      timingRecommendations.recommendedTiming === 'wait' ? '#F44336' :
+                      timingRecommendations.recommendedTiming === 'multiple' ? '#FF9800' :
+                      '#2196F3'
+                    }`,
+                    padding: '12px',
+                    borderRadius: '6px',
+                    marginBottom: '12px'
+                  }}>
+                    <Info size={16} />
+                    <div>
+                      <strong>
+                        {timingRecommendations.recommendedTiming === 'multiple' 
+                          ? '⚠️ Multiple Referrals' 
+                          : 'Timing Recommendation:'}
+                      </strong>
+                      <p>{timingRecommendations.reason}</p>
+                      {timingRecommendations.daysToWait > 0 && (
+                        <p>Wait {timingRecommendations.daysToWait} more days</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                  <label>Industry Keywords</label>
+                  <input
+                    type="text"
+                    value={formData.industry_keywords}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        industry_keywords: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., Machine Learning, Cloud Architecture"
+                  />
+                </div>
+
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <label style={{ margin: 0 }}>Referral Message</label>
                     <button
@@ -821,7 +887,43 @@ const ReferralRequests = () => {
                   />
                 </div>
 
-                <div className="form-actions">
+                <div className="form-group-row" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label>Request Timing Score (1-10)</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={formData.request_timing_score}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          request_timing_score: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                    <span>{formData.request_timing_score}/10</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Personalization Score (1-10)</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      value={formData.personalization_score}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          personalization_score: parseInt(e.target.value),
+                        })
+                      }
+                    />
+                    <span>{formData.personalization_score}/10</span>
+                  </div>
+                </div>
+
+                <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
                   <button
                     type="button"
                     className="btn-secondary"
@@ -830,216 +932,13 @@ const ReferralRequests = () => {
                     Cancel
                   </button>
                   <button 
-                    type="button" 
+                    type="submit" 
                     className="btn-primary" 
-                    disabled={contacts.length === 0}
-                    onClick={() => {
-                      if (formData.job_title && formData.company && formData.contact_id) {
-                        handleCreateReferral({ preventDefault: () => {} });
-                      }
-                    }}
+                    disabled={contacts.length === 0 || loading}
                   >
-                    {contacts.length === 0 ? 'Loading contacts...' : 'Create Referral Request'}
+                    {loading ? 'Creating...' : contacts.length === 0 ? 'Loading contacts...' : 'Create Referral Request'}
                   </button>
                 </div>
-              </div>
-            </form>
-            ) : (
-            <form onSubmit={handleCreateReferral} className="referral-form">
-              <div className="form-group">
-                <label>Job Title *</label>
-                <input
-                  type="text"
-                  value={formData.job_title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, job_title: e.target.value })
-                  }
-                  placeholder="e.g., Senior Software Engineer"
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Company *</label>
-                <input
-                  type="text"
-                  value={formData.company}
-                  onChange={(e) =>
-                    setFormData({ ...formData, company: e.target.value })
-                  }
-                  placeholder="e.g., Google"
-                  required
-                />
-              </div>
-
-              {suggestedContacts.length > 0 && (
-                <div className="form-section">
-                  <h4>Suggested Referral Contacts</h4>
-                  <p className="section-hint">
-                    These contacts have connections to this company/industry
-                  </p>
-                  {suggestedContacts.map((contact) => (
-                    <button
-                      key={contact.id}
-                      type="button"
-                      className="suggested-contact"
-                      onClick={() => handleContactChange(contact.id)}
-                    >
-                      {contact.first_name} {contact.last_name}
-                      {contact.company && <span> • {contact.company}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="form-group">
-                <label>Select a Contact *</label>
-                {contacts.length === 0 ? (
-                  <p style={{ color: '#999' }}>Loading your contacts...</p>
-                ) : (
-                  <select
-                    value={formData.contact_id}
-                    onChange={(e) => handleContactChange(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Select a contact --</option>
-                    {contacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.first_name} {contact.last_name}
-                        {contact.company ? ` (${contact.company})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {timingRecommendations && (
-                <div className="timing-recommendation" style={{
-                  backgroundColor: 
-                    timingRecommendations.recommendedTiming === 'wait' ? '#FFE0E0' :
-                    timingRecommendations.recommendedTiming === 'multiple' ? '#FFF3CD' :
-                    '#E0F0FF',
-                  borderLeft: `4px solid ${
-                    timingRecommendations.recommendedTiming === 'wait' ? '#F44336' :
-                    timingRecommendations.recommendedTiming === 'multiple' ? '#FF9800' :
-                    '#2196F3'
-                  }`
-                }}>
-                  <Info size={16} />
-                  <div>
-                    <strong>
-                      {timingRecommendations.recommendedTiming === 'multiple' 
-                        ? '⚠️ Multiple Referrals' 
-                        : 'Timing Recommendation:'}
-                    </strong>
-                    <p>{timingRecommendations.reason}</p>
-                    {timingRecommendations.daysToWait > 0 && (
-                      <p>Wait {timingRecommendations.daysToWait} more days</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-
-              <div className="form-group">
-                <label>Industry Keywords</label>
-                <input
-                  type="text"
-                  value={formData.industry_keywords}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      industry_keywords: e.target.value,
-                    })
-                  }
-                  placeholder="e.g., Machine Learning, Cloud Architecture"
-                />
-              </div>
-
-              <div className="form-group">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ margin: 0 }}>Referral Message</label>
-                  <button
-                    type="button"
-                    onClick={generateReferralTemplate}
-                    disabled={generatingTemplate || !formData.contact_id || !formData.job_title}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      backgroundColor: '#7c3aed',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: formData.contact_id && formData.job_title ? 'pointer' : 'not-allowed',
-                      opacity: formData.contact_id && formData.job_title ? 1 : 0.6,
-                      transition: 'all 0.2s'
-                    }}
-                    title={!formData.contact_id || !formData.job_title ? 'Select a contact and fill job details first' : 'Generate a personalized message template'}
-                  >
-                    <Zap size={14} />
-                    {generatingTemplate ? 'Generating...' : 'Generate Template'}
-                  </button>
-                </div>
-                <textarea
-                  value={formData.referral_message}
-                  onChange={(e) =>
-                    setFormData({ ...formData, referral_message: e.target.value })
-                  }
-                  placeholder="Write a personalized message or click 'Generate Template' to create one automatically"
-                  rows={4}
-                />
-              </div>
-
-              <div className="form-group-row">
-                <div className="form-group">
-                  <label>Request Timing Score (1-10)</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={formData.request_timing_score}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        request_timing_score: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                  <span>{formData.request_timing_score}/10</span>
-                </div>
-
-                <div className="form-group">
-                  <label>Personalization Score (1-10)</label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={formData.personalization_score}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        personalization_score: parseInt(e.target.value),
-                      })
-                    }
-                  />
-                  <span>{formData.personalization_score}/10</span>
-                </div>
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => { resetForm(); setShowCreateModal(false); }}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Referral Request'}
-                </button>
               </div>
             </form>
           </div>

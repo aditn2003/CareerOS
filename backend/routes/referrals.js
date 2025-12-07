@@ -6,6 +6,10 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import pkg from 'pg';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const { Pool } = pkg;
 const router = express.Router();
@@ -26,10 +30,25 @@ const supabase = createClient(
 
 // Middleware to ensure user is authenticated
 const authMiddleware = (req, res, next) => {
-  if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  const header = req.headers.authorization;
+  if (!header) {
+    return res.status(401).json({ error: 'Unauthorized - No token provided' });
   }
-  next();
+  
+  try {
+    const token = header.split(' ')[1]; // Extract token from "Bearer <token>"
+    const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Set req.user so routes can use it
+    req.user = { id: decoded.id, email: decoded.email };
+    next();
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Unauthorized - Token expired' });
+    }
+    return res.status(401).json({ error: 'Unauthorized - Invalid token' });
+  }
 };
 
 // ======================================
