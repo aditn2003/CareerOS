@@ -134,15 +134,85 @@ router.get("/full", auth, async (req, res) => {
         SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
       FROM jobs j
       WHERE j.user_id = $1 
-        AND (j."isarchived" IS NULL OR j."isarchived" = false)
+        AND (j."isArchived" = false OR j."isArchived" IS NULL)
       GROUP BY j.industry, j.company, j.title;
     `;
     const industryDataRaw = (await pool.query(industryQuery, [userId])).rows;
     
+    // Helper to normalize industry names (case-insensitive, standardize variations)
+    const normalizeIndustry = (industryName) => {
+      if (!industryName || !industryName.trim()) return null;
+      
+      const normalized = industryName.trim().toLowerCase();
+      
+      // Map common variations to standard names
+      const industryMap = {
+        'tech': 'Technology',
+        'technology': 'Technology',
+        'it': 'Technology',
+        'information technology': 'Technology',
+        'software': 'Technology',
+        'fintech': 'Finance',
+        'financial': 'Finance',
+        'finance': 'Finance',
+        'banking': 'Finance',
+        'healthcare': 'Healthcare',
+        'health care': 'Healthcare',
+        'medical': 'Healthcare',
+        'pharma': 'Healthcare',
+        'pharmaceutical': 'Healthcare',
+        'biotech': 'Healthcare',
+        'consulting': 'Consulting',
+        'retail': 'Retail',
+        'e-commerce': 'Retail',
+        'ecommerce': 'Retail',
+        'education': 'Education',
+        'edtech': 'Education',
+        'manufacturing': 'Manufacturing',
+        'energy': 'Energy',
+        'real estate': 'Real Estate',
+        'realestate': 'Real Estate',
+        'media': 'Media',
+        'entertainment': 'Media',
+        'telecommunications': 'Telecommunications',
+        'telecom': 'Telecommunications',
+        'transportation': 'Transportation',
+        'logistics': 'Transportation',
+        'aerospace': 'Aerospace',
+        'defense': 'Defense',
+        'government': 'Government',
+        'non-profit': 'Non-Profit',
+        'nonprofit': 'Non-Profit',
+        'legal': 'Legal',
+        'law': 'Legal'
+      };
+      
+      // Check if normalized name matches a known variation
+      if (industryMap[normalized]) {
+        return industryMap[normalized];
+      }
+      
+      // If it contains key terms, map to standard
+      if (normalized.includes('tech') || normalized.includes('software') || normalized.includes('developer')) {
+        return 'Technology';
+      }
+      if (normalized.includes('finance') || normalized.includes('bank') || normalized.includes('fintech')) {
+        return 'Finance';
+      }
+      if (normalized.includes('health') || normalized.includes('medical') || normalized.includes('pharma')) {
+        return 'Healthcare';
+      }
+      
+      // Return capitalized version if no mapping found
+      return industryName.trim().charAt(0).toUpperCase() + industryName.trim().slice(1).toLowerCase();
+    };
+    
     // Helper to infer industry from company name or job title
     const inferIndustry = (industry, company, title) => {
+      // First, try to normalize the existing industry value
       if (industry && industry.trim() && industry.toLowerCase() !== 'unknown') {
-        return industry.trim();
+        const normalized = normalizeIndustry(industry);
+        if (normalized) return normalized;
       }
       const combined = `${company || ''} ${title || ''}`.toLowerCase();
       
@@ -218,7 +288,7 @@ router.get("/full", auth, async (req, res) => {
       SELECT DISTINCT status, COUNT(*) as count
       FROM jobs
       WHERE user_id = $1 
-        AND ("isarchived" IS NULL OR "isarchived" = false)
+        AND ("isArchived" IS NULL OR "isArchived" = false)
       GROUP BY status
       ORDER BY count DESC;
     `;
@@ -235,7 +305,7 @@ router.get("/full", auth, async (req, res) => {
         SUM(CASE WHEN LOWER(status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
   FROM jobs
   WHERE user_id = $1
-        AND ("isarchived" IS NULL OR "isarchived" = false)
+        AND ("isArchived" IS NULL OR "isArchived" = false)
       GROUP BY title, company;
     `;
     const roleTypeDataRaw = (await pool.query(roleTypeQuery, [userId])).rows;
@@ -339,7 +409,7 @@ router.get("/full", auth, async (req, res) => {
       FROM jobs j
       LEFT JOIN companies c ON LOWER(TRIM(c.name)) = LOWER(TRIM(j.company))
       WHERE j.user_id = $1 
-        AND (j."isarchived" IS NULL OR j."isarchived" = false)
+        AND (j."isArchived" IS NULL OR j."isArchived" = false)
       GROUP BY j.company, c.size;
     `;
     const companySizeDataRaw = (await pool.query(companySizeQuery, [userId])).rows;
@@ -401,7 +471,7 @@ router.get("/full", auth, async (req, res) => {
       FROM jobs
       WHERE user_id = $1
             AND application_source IS NOT NULL
-            AND ("isarchived" IS NULL OR "isarchived" = false)
+            AND ("isArchived" IS NULL OR "isArchived" = false)
       GROUP BY application_source;
     `;
         const sourceDataRaw = (await pool.query(sourceQuery, [userId])).rows;
@@ -468,7 +538,7 @@ router.get("/full", auth, async (req, res) => {
           FROM jobs
           WHERE user_id = $1 
             AND application_method IS NOT NULL
-            AND ("isarchived" IS NULL OR "isarchived" = false)
+            AND ("isArchived" IS NULL OR "isArchived" = false)
           GROUP BY application_method;
         `;
         const methodDataRaw = (await pool.query(methodQuery, [userId])).rows;
@@ -531,22 +601,22 @@ router.get("/full", auth, async (req, res) => {
     
     try {
       // First, let's check how many jobs have resume_id set (using application_materials_history)
-      const resumeCheckQuery = `
+    const resumeCheckQuery = `
         SELECT 
           COUNT(DISTINCT amh.job_id) as with_resume, 
-          (SELECT COUNT(*) FROM jobs WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false)) as total_jobs
+          (SELECT COUNT(*) FROM jobs WHERE user_id = $1 AND ("isArchived" IS NULL OR "isArchived" = false)) as total_jobs
         FROM application_materials_history amh
         INNER JOIN jobs j ON amh.job_id = j.id
         WHERE j.user_id = $1 
           AND amh.resume_id IS NOT NULL 
-          AND (j."isarchived" IS NULL OR j."isarchived" = false);
+          AND (j."isArchived" IS NULL OR j."isArchived" = false);
       `;
       resumeCheck = (await pool.query(resumeCheckQuery, [userId])).rows[0];
-      console.log("Resume check:", resumeCheck);
+    console.log("Resume check:", resumeCheck);
 
       // Use application_materials_history to get resume and cover letter associations
       // Get the most recent entry per job to avoid duplicates
-      const materialsQuery = `
+    const materialsQuery = `
         WITH latest_materials AS (
           SELECT DISTINCT ON (job_id)
             job_id,
@@ -554,36 +624,36 @@ router.get("/full", auth, async (req, res) => {
             cover_letter_id
           FROM application_materials_history
           WHERE job_id IN (
-            SELECT id FROM jobs WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false)
+            SELECT id FROM jobs WHERE user_id = $1 AND ("isArchived" IS NULL OR "isArchived" = false)
           )
           ORDER BY job_id, changed_at DESC
         )
-        SELECT 
+      SELECT 
           lm.resume_id,
-          r.title AS resume_name,
+        r.title AS resume_name,
           lm.cover_letter_id,
-          cl.name AS cover_letter_name,
+        cl.name AS cover_letter_name,
           COUNT(DISTINCT j.id)::INTEGER AS total,
-          SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
-          SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
-          SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
-        FROM jobs j
+        SUM(CASE WHEN LOWER(j.status) = 'offer' THEN 1 ELSE 0 END)::INTEGER AS offers,
+        SUM(CASE WHEN LOWER(j.status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews,
+        SUM(CASE WHEN LOWER(j.status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
+      FROM jobs j
         INNER JOIN latest_materials lm ON j.id = lm.job_id
         LEFT JOIN resumes r ON lm.resume_id = r.id
         LEFT JOIN cover_letters cl ON lm.cover_letter_id = cl.id
-        WHERE j.user_id = $1 
+      WHERE j.user_id = $1 
           AND lm.resume_id IS NOT NULL
-          AND (j."isarchived" IS NULL OR j."isarchived" = false)
-        GROUP BY 
+          AND (j."isArchived" IS NULL OR j."isArchived" = false)
+      GROUP BY 
           lm.resume_id,
-          r.title,
+        r.title,
           lm.cover_letter_id,
-          cl.name
+        cl.name
         HAVING COUNT(DISTINCT j.id) > 0
-        ORDER BY 
-          SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
-          SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
-      `;
+      ORDER BY 
+        SUM(CASE WHEN LOWER(j.status)='offer' THEN 1 ELSE 0 END)::INTEGER DESC, 
+        SUM(CASE WHEN LOWER(j.status)='interview' THEN 1 ELSE 0 END)::INTEGER DESC;
+    `;
       materialsDataRaw = (await pool.query(materialsQuery, [userId])).rows;
       
       // If no data from history table, try job_materials table as fallback
@@ -606,7 +676,7 @@ router.get("/full", auth, async (req, res) => {
             LEFT JOIN uploaded_cover_letters ucl ON jm.cover_letter_id = ucl.id
             WHERE jm.user_id = $1 
               AND jm.resume_id IS NOT NULL
-              AND (j."isarchived" IS NULL OR j."isarchived" = false)
+              AND (j."isArchived" IS NULL OR j."isArchived" = false)
             GROUP BY 
               jm.resume_id,
               r.title,
@@ -624,7 +694,7 @@ router.get("/full", auth, async (req, res) => {
             const totalJobsQuery = `
               SELECT COUNT(*) as total_jobs
               FROM jobs 
-              WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+              WHERE user_id = $1 AND ("isArchived" IS NULL OR "isArchived" = false);
             `;
             const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
             resumeCheck = {
@@ -659,7 +729,7 @@ router.get("/full", auth, async (req, res) => {
           LEFT JOIN uploaded_cover_letters ucl ON jm.cover_letter_id = ucl.id
           WHERE jm.user_id = $1 
             AND jm.resume_id IS NOT NULL
-            AND (j."isarchived" IS NULL OR j."isarchived" = false)
+            AND (j."isArchived" IS NULL OR j."isArchived" = false)
           GROUP BY 
             jm.resume_id,
             r.title,
@@ -676,7 +746,7 @@ router.get("/full", auth, async (req, res) => {
         const totalJobsQuery = `
           SELECT COUNT(*) as total_jobs
           FROM jobs 
-          WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+          WHERE user_id = $1 AND ("isArchived" IS NULL OR "isArchived" = false);
         `;
         const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
         resumeCheck = {
@@ -690,7 +760,7 @@ router.get("/full", auth, async (req, res) => {
         const totalJobsQuery = `
           SELECT COUNT(*) as total_jobs
           FROM jobs 
-          WHERE user_id = $1 AND ("isarchived" IS NULL OR "isarchived" = false);
+          WHERE user_id = $1 AND ("isArchived" IS NULL OR "isArchived" = false);
         `;
         const totalJobsResult = (await pool.query(totalJobsQuery, [userId])).rows[0];
         resumeCheck = {
@@ -748,7 +818,7 @@ router.get("/full", auth, async (req, res) => {
             SUM(CASE WHEN LOWER(status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
           FROM jobs
           WHERE user_id = $1 
-            AND ("isarchived" IS NULL OR "isarchived" = false)
+            AND ("isArchived" IS NULL OR "isArchived" = false)
           GROUP BY COALESCE(resume_customization, 'none')
           ORDER BY 
             CASE COALESCE(resume_customization, 'none')
@@ -786,7 +856,7 @@ router.get("/full", auth, async (req, res) => {
             SUM(CASE WHEN LOWER(status) IN ('rejected', 'rejection') THEN 1 ELSE 0 END)::INTEGER AS rejections
           FROM jobs
           WHERE user_id = $1 
-            AND ("isarchived" IS NULL OR "isarchived" = false)
+            AND ("isArchived" IS NULL OR "isArchived" = false)
           GROUP BY COALESCE(cover_letter_customization, 'none')
           ORDER BY 
             CASE COALESCE(cover_letter_customization, 'none')
@@ -824,7 +894,7 @@ router.get("/full", auth, async (req, res) => {
             SUM(CASE WHEN LOWER(status) = 'interview' THEN 1 ELSE 0 END)::INTEGER AS interviews
           FROM jobs
           WHERE user_id = $1 
-            AND ("isarchived" IS NULL OR "isarchived" = false)
+            AND ("isArchived" IS NULL OR "isArchived" = false)
           GROUP BY 
             COALESCE(resume_customization, 'none'),
             COALESCE(cover_letter_customization, 'none')
@@ -872,7 +942,7 @@ router.get("/full", auth, async (req, res) => {
       FROM jobs
       WHERE user_id = $1 
         AND "applicationDate" IS NOT NULL
-        AND ("isarchived" IS NULL OR "isarchived" = false);
+        AND ("isArchived" IS NULL OR "isArchived" = false);
     `;
     const hourCheckResult = (await pool.query(hourCheckQuery, [userId])).rows;
     const allHoursZero = hourCheckResult.length > 0 && hourCheckResult.every(row => ensureNumber(row.hour) === 0);
@@ -891,7 +961,7 @@ router.get("/full", auth, async (req, res) => {
         FROM jobs
         WHERE user_id = $1 
           AND "applicationDate" IS NOT NULL
-          AND ("isarchived" IS NULL OR "isarchived" = false)
+          AND ("isArchived" IS NULL OR "isArchived" = false)
         GROUP BY weekday
         ORDER BY weekday;
       `;
@@ -923,7 +993,7 @@ router.get("/full", auth, async (req, res) => {
       FROM jobs
       WHERE user_id = $1 
         AND "applicationDate" IS NOT NULL
-        AND ("isarchived" IS NULL OR "isarchived" = false)
+        AND ("isArchived" IS NULL OR "isArchived" = false)
       GROUP BY weekday, hour
       ORDER BY weekday, hour;
     `;

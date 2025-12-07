@@ -76,15 +76,21 @@ function RecommendationCard({ recommendation }) {
     error: '#ef4444'
   };
   
-  // Get background color based on type
+  // Get background color based on type - darker for better contrast
   const getBackgroundColor = (type) => {
     switch(type) {
-      case 'warning': return 'rgba(245, 158, 11, 0.25)';
-      case 'info': return 'rgba(139, 92, 246, 0.25)';
-      case 'success': return 'rgba(16, 185, 129, 0.25)';
-      case 'error': return 'rgba(239, 68, 68, 0.25)';
-      default: return 'rgba(139, 92, 246, 0.25)';
+      case 'warning': return 'linear-gradient(135deg, rgba(245, 158, 11, 0.85) 0%, rgba(217, 119, 6, 0.9) 100%)';
+      case 'info': return 'linear-gradient(135deg, rgba(139, 92, 246, 0.85) 0%, rgba(124, 58, 237, 0.9) 100%)';
+      case 'success': return 'linear-gradient(135deg, rgba(16, 185, 129, 0.85) 0%, rgba(5, 150, 105, 0.9) 100%)';
+      case 'error': return 'linear-gradient(135deg, rgba(239, 68, 68, 0.85) 0%, rgba(220, 38, 38, 0.9) 100%)';
+      default: return 'linear-gradient(135deg, rgba(139, 92, 246, 0.85) 0%, rgba(124, 58, 237, 0.9) 100%)';
     }
+  };
+  
+  // Get text color - ensure high contrast
+  const getTextColor = (type) => {
+    // White text for all types since backgrounds are now darker
+    return '#ffffff';
   };
   
   return (
@@ -93,29 +99,31 @@ function RecommendationCard({ recommendation }) {
       borderLeft: `4px solid ${colorMap[recommendation.type] || '#8b5cf6'}`,
       background: getBackgroundColor(recommendation.type),
       backdropFilter: 'blur(8px)',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
     }}>
       <Box className="statistics-card-content">
         <Box display="flex" justifyContent="space-between" alignItems="start" mb={1.5}>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: '#ffffff', fontSize: '1.1rem' }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, color: getTextColor(recommendation.type), fontSize: '1.1rem', textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}>
             {recommendation.title}
           </Typography>
           <Chip 
             label={recommendation.priority} 
             size="small" 
             sx={{
-              bgcolor: recommendation.priority === 'high' ? 'rgba(239, 68, 68, 0.4)' : recommendation.priority === 'medium' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(139, 92, 246, 0.4)',
-              color: recommendation.priority === 'high' ? '#ffffff' : recommendation.priority === 'medium' ? '#ffffff' : '#ffffff',
+              bgcolor: recommendation.priority === 'high' ? 'rgba(239, 68, 68, 0.6)' : recommendation.priority === 'medium' ? 'rgba(245, 158, 11, 0.6)' : 'rgba(139, 92, 246, 0.6)',
+              color: '#ffffff',
               fontWeight: 700,
               fontSize: '0.7rem',
               height: '22px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
             }}
           />
         </Box>
-        <Typography variant="body2" sx={{ color: '#ffffff', mb: 1.5, lineHeight: 1.7, fontSize: '0.95rem', fontWeight: 400 }}>
+        <Typography variant="body2" sx={{ color: getTextColor(recommendation.type), mb: 1.5, lineHeight: 1.7, fontSize: '0.95rem', fontWeight: 400, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}>
           {recommendation.message}
         </Typography>
-        <Typography variant="caption" sx={{ color: '#e2e8f0', fontStyle: 'italic', fontSize: '0.8rem', fontWeight: 500, display: 'block', mt: 1 }}>
+        <Typography variant="caption" sx={{ color: '#ffffff', fontStyle: 'italic', fontSize: '0.85rem', fontWeight: 500, display: 'block', mt: 1, opacity: 0.95, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}>
           {recommendation.action}
         </Typography>
       </Box>

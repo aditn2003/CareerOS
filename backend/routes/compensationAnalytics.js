@@ -800,13 +800,61 @@ router.get("/comprehensive", async (req, res) => {
             return sum + midpoint;
           }, 0) / jobsWithSalary.length
         : 0,
-      jobsWithOffers: jobs.filter(j => {
-        // Check if this job has a corresponding offer
-        return offers.some(o => o.job_id === j.id);
-      }).length,
-      jobsWithoutOffers: jobs.filter(j => {
-        return !offers.some(o => o.job_id === j.id);
-      }).length
+      jobsWithOffers: (() => {
+        // Count jobs that have offers - use the same logic as determining which jobs need offers
+        // This includes:
+        // 1. Jobs that have entries in the offers table
+        // 2. Jobs with status='Offer' from jobs table
+        // 3. Jobs that changed to 'Offer' according to application_history
+        const jobIdsWithOffersSet = new Set(
+          offers
+            .filter(o => o.job_id !== null && o.job_id !== undefined)
+            .map(o => Number(o.job_id))
+        );
+        
+        // Also include jobs with status='Offer' (even if they don't have offers table entries yet)
+        const jobsWithOfferStatus = jobs.filter(j => 
+          j.status && j.status.toLowerCase().trim() === 'offer'
+        ).map(j => Number(j.id));
+        
+        // Also include jobs from application_history that changed to 'Offer'
+        const jobsWithOfferFromHistory = Array.from(offerStatusChanges.keys());
+        
+        // Combine all sources
+        const allJobIdsWithOffers = new Set([
+          ...Array.from(jobIdsWithOffersSet),
+          ...jobsWithOfferStatus,
+          ...jobsWithOfferFromHistory
+        ]);
+        
+        return allJobIdsWithOffers.size;
+      })(),
+      jobsWithoutOffers: (() => {
+        // Count jobs that don't have offers
+        const jobIdsWithOffersSet = new Set(
+          offers
+            .filter(o => o.job_id !== null && o.job_id !== undefined)
+            .map(o => Number(o.job_id))
+        );
+        
+        const jobsWithOfferStatus = new Set(
+          jobs
+            .filter(j => j.status && j.status.toLowerCase().trim() === 'offer')
+            .map(j => Number(j.id))
+        );
+        
+        const jobsWithOfferFromHistory = new Set(Array.from(offerStatusChanges.keys()));
+        
+        // Combine all sources
+        const allJobIdsWithOffers = new Set([
+          ...Array.from(jobIdsWithOffersSet),
+          ...Array.from(jobsWithOfferStatus),
+          ...Array.from(jobsWithOfferFromHistory)
+        ]);
+        
+        // Jobs without offers = total jobs - jobs with offers
+        return jobs.length - allJobIdsWithOffers.size;
+      })()
     };
     
     // Compare job salary ranges to actual offers

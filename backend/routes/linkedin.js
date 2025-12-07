@@ -1,12 +1,12 @@
 // routes/linkedin.js
 import express from "express";
 import axios from "axios";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { authMiddleware } from "../auth.js";
 
-dotenv.config();
 const router = express.Router();
+
+console.log("✅ LinkedIn routes module loaded");
 
 // Initialize Supabase client lazily
 let supabase = null;
@@ -20,64 +20,312 @@ const getSupabase = () => {
   return supabase;
 };
 
-// STEP 1: Redirect user to LinkedIn for OAuth
-router.get("/auth", (req, res) => {
-  const redirectUri = encodeURIComponent(
-    "http://localhost:4000/api/linkedin/callback"
-  );
-  const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const scope = encodeURIComponent("r_liteprofile r_emailaddress");
-  const state = "xyz" + Date.now();
+// Debug middleware for ALL linkedin routes
+router.use((req, res, next) => {
+  console.log(`📍 LinkedIn route hit: ${req.method} ${req.path}`);
+  next();
+});
 
-  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
-    process.env.LINKEDIN_CLIENT_ID
-  }&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&scope=r_liteprofile%20r_emailaddress`;
+// STEP 1: Redirect user to LinkedIn for OAuth (using OpenID Connect scopes)
+// NO authentication required - this is the OAuth entry point
+router.get("/auth", (req, res) => {
+  console.log("\n✅ /auth route called!");
+  
+  const clientId = process.env.LINKEDIN_CLIENT_ID;
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+  
+  console.log("CLIENT_ID value:", clientId);
+  console.log("CLIENT_SECRET exists:", !!clientSecret);
+  
+  if (!clientId || !clientSecret) {
+    console.log("❌ Credentials missing!");
+    return res.status(500).json({ 
+      error: "LINKEDIN_CREDENTIALS_MISSING",
+      message: "LinkedIn credentials not configured in .env",
+      debug: { 
+        clientIdExists: !!clientId, 
+        clientSecretExists: !!clientSecret
+      }
+    });
+  }
+
+  const redirectUri = process.env.LINKEDIN_CALLBACK_URL || "http://localhost:4000/api/linkedin/callback";
+  // Use OpenID Connect scopes (profile and email are now standard OIDC scopes)
+  const scope = "openid profile email";
+  const state = Math.random().toString(36).substring(7); // CSRF protection
+  
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}`;
+  
+  console.log("📍 Redirecting to LinkedIn OAuth...");
+  console.log("📍 Auth URL:", authUrl);
   res.redirect(authUrl);
 });
 
-// STEP 2: Handle LinkedIn callback → exchange for access token
+// STEP 2: Handle LinkedIn callback → exchange for access token and fetch profile
 router.get("/callback", async (req, res) => {
-  const { code, state } = req.query;
-  const userId = req.query.user_id; // Pass user_id from frontend
+  const { code, state, error, error_description } = req.query;
 
-  if (!code) return res.status(400).json({ error: "Missing code" });
+  console.log("📍 LinkedIn callback received");
+  console.log("Code:", code ? "present" : "missing");
+  console.log("Error:", error || "none");
+  
+  if (error) {
+    console.error("LinkedIn OAuth error:", error, error_description);
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <p>LinkedIn error: ${error_description || error}</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: "linkedin_error", 
+              error: "${error}",
+              description: "${error_description || 'Authentication failed'}"
+            }, "*");
+            setTimeout(() => window.close(), 1000);
+          } else {
+            window.location.href = "http://localhost:5173/login?error=" + encodeURIComponent("${error_description || error}");
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  }
+
+  if (!code) {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <p>Missing authorization code</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: "linkedin_error", 
+              error: "missing_code",
+              description: "No authorization code received"
+            }, "*");
+            setTimeout(() => window.close(), 1000);
+          } else {
+            window.location.href = "http://localhost:5173/login?error=missing_code";
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  }
 
   try {
+    const redirectUri = process.env.LINKEDIN_CALLBACK_URL || "http://localhost:4000/api/linkedin/callback";
+    
+    // Exchange code for access token
     const tokenRes = await axios.post(
       "https://www.linkedin.com/oauth/v2/accessToken",
-      null,
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: process.env.LINKEDIN_CLIENT_ID,
+        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+      }),
       {
-        params: {
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: "http://localhost:4000/api/linkedin/callback",
-          client_id: process.env.LINKEDIN_CLIENT_ID,
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-        },
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }
     );
 
     const accessToken = tokenRes.data.access_token;
-    const expiresIn = tokenRes.data.expires_in || 5184000; // Default 60 days
-    const tokenExpiry = new Date(Date.now() + expiresIn * 1000);
+    const expiresIn = tokenRes.data.expires_in || 5184000;
+    
+    console.log("✅ Got access token");
 
-    // ✅ Send token back to frontend popup via postMessage
+    // Fetch user profile using OpenID Connect userinfo endpoint
+    const profileRes = await axios.get(
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const profile = profileRes.data;
+    console.log("✅ Got LinkedIn profile:", profile.name);
+    console.log("📍 Full LinkedIn userinfo response:", JSON.stringify(profile, null, 2));
+
+    // Capture ALL fields LinkedIn returns (in case they provide extras)
+    const profileData = {
+      linkedin_id: profile.sub,
+      first_name: profile.given_name,
+      last_name: profile.family_name,
+      email: profile.email,
+      email_verified: profile.email_verified,
+      profile_pic_url: profile.picture,
+      name: profile.name,
+      locale: profile.locale,
+      // These might be available in some cases:
+      headline: profile.headline || profile.tagline || null,
+      vanity_name: profile.vanity_name || null,
+      // Store raw response for debugging
+      _raw: profile
+    };
+
+    console.log("📍 Creating/logging in user and redirecting to frontend");
+    
+    // Import jwt and create user directly here
+    const jwt = (await import('jsonwebtoken')).default;
+    const { createClient } = await import('@supabase/supabase-js');
+    
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Check if user exists or create new one
+    let userId;
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('linkedin_id', profileData.linkedin_id)
+      .single();
+    
+    if (existingUser) {
+      userId = existingUser.id;
+      console.log("📍 Existing user found:", userId);
+    } else {
+      // Check by email
+      const { data: userByEmail } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', profileData.email)
+        .single();
+      
+      if (userByEmail) {
+        userId = userByEmail.id;
+        // Update LinkedIn ID
+        await supabase
+          .from('users')
+          .update({ linkedin_id: profileData.linkedin_id })
+          .eq('id', userId);
+        console.log("📍 Updated existing user with LinkedIn ID:", userId);
+      } else {
+        // Create new user with a random password hash (required by DB schema)
+        const bcrypt = (await import('bcryptjs')).default;
+        const randomPassword = Math.random().toString(36) + Math.random().toString(36);
+        const passwordHash = await bcrypt.hash(randomPassword, 10);
+        
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert({
+            email: profileData.email,
+            password_hash: passwordHash,
+            first_name: profileData.first_name,
+            last_name: profileData.last_name,
+            linkedin_id: profileData.linkedin_id,
+            provider: 'linkedin'
+          })
+          .select('id')
+          .single();
+        
+        if (createError) {
+          console.error("Error creating user:", createError);
+          throw createError;
+        }
+        userId = newUser.id;
+        console.log("📍 Created new user:", userId);
+      }
+    }
+    
+    // Check if profile exists
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+    
+    const profileUpdateData = {
+      full_name: `${profileData.first_name} ${profileData.last_name}`,
+      email: profileData.email,
+      picture_url: profileData.profile_pic_url,
+      linkedin_picture_url: profileData.profile_pic_url,
+      linkedin_imported_at: new Date().toISOString()
+    };
+    
+    if (existingProfile) {
+      // Update existing profile
+      await supabase
+        .from('profiles')
+        .update(profileUpdateData)
+        .eq('user_id', userId);
+      console.log("📍 Updated existing profile with LinkedIn data");
+    } else {
+      // Create new profile
+      await supabase
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          ...profileUpdateData
+        });
+      console.log("📍 Created new profile with LinkedIn data");
+    }
+    
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: userId, email: profileData.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    // Encode profile for URL (minimal data)
+    const miniProfile = encodeURIComponent(JSON.stringify({
+      linkedin_id: profileData.linkedin_id,
+      first_name: profileData.first_name,
+      last_name: profileData.last_name,
+      email: profileData.email,
+      profile_pic_url: profileData.profile_pic_url
+    }));
+    
+    // Redirect to login page with token (simpler approach)
+    const frontendPort = process.env.FRONTEND_PORT || '5173';
+    const redirectUrl = `http://localhost:${frontendPort}/login?linkedin_token=${token}&linkedin_profile=${miniProfile}`;
+    console.log("📍 Redirecting to:", redirectUrl.substring(0, 100) + "...");
+    
     res.send(`
-      <script>
-        window.opener.postMessage({ 
-          type: "linkedin_token", 
-          accessToken: "${accessToken}",
-          expiresIn: ${expiresIn}
-        }, "*");
-        window.close();
-      </script>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0;url=${redirectUrl}">
+  <title>Redirecting...</title>
+</head>
+<body>
+  <p>Redirecting to app...</p>
+  <script>window.location.href = "${redirectUrl}";</script>
+</body>
+</html>
     `);
   } catch (err) {
     console.error("LinkedIn OAuth failed:", err.response?.data || err.message);
-    res.status(500).send("OAuth Error. Check backend logs.");
+    const errorMsg = (err.response?.data?.error_description || err.message || 'OAuth exchange failed').replace(/"/g, '\\"');
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <p>LinkedIn OAuth Error</p>
+        <p>${errorMsg}</p>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: "linkedin_error", 
+              error: "oauth_failed",
+              description: "${errorMsg}"
+            }, "*");
+            setTimeout(() => window.close(), 2000);
+          } else {
+            window.location.href = "http://localhost:5173/login?error=" + encodeURIComponent("${errorMsg}");
+          }
+        </script>
+      </body>
+      </html>
+    `);
   }
 });
 
@@ -119,7 +367,7 @@ router.post("/store-token", authMiddleware, async (req, res) => {
 
 /**
  * GET /linkedin/fetch-profile
- * Fetch LinkedIn profile data using stored access token
+ * Fetch LinkedIn profile data using stored access token (OpenID Connect userinfo endpoint)
  */
 router.get("/fetch-profile", authMiddleware, async (req, res) => {
   try {
@@ -150,40 +398,28 @@ router.get("/fetch-profile", authMiddleware, async (req, res) => {
 
     const accessToken = userData.linkedin_access_token;
 
-    // Fetch profile from LinkedIn API v2
+    // Fetch profile using OpenID Connect userinfo endpoint
     const profileRes = await axios.get(
-      "https://api.linkedin.com/v2/me",
+      "https://api.linkedin.com/v2/userinfo",
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "LinkedIn-Version": "202401",
         },
       }
     );
 
-    // Fetch email
-    const emailRes = await axios.get(
-      "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "LinkedIn-Version": "202401",
-        },
-      }
-    );
+    const profile = profileRes.data;
 
-    const profileData = profileRes.data;
-    const email = emailRes.data?.elements?.[0]?.["handle~"]?.emailAddress;
-
-    // Extract data
+    // Extract data from userinfo response
     const linkedInData = {
-      linkedin_id: profileData.id,
-      first_name:
-        profileData.localizedFirstName || profileData.firstName?.localized?.en_US,
-      last_name:
-        profileData.localizedLastName || profileData.lastName?.localized?.en_US,
-      email: email,
-      profile_pic_url: profileData.profilePicture?.displayImage,
+      linkedin_id: profile.sub,
+      first_name: profile.given_name,
+      last_name: profile.family_name,
+      email: profile.email,
+      email_verified: profile.email_verified,
+      profile_pic_url: profile.picture,
+      name: profile.name,
+      locale: profile.locale
     };
 
     res.json({

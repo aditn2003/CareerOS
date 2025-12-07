@@ -155,6 +155,26 @@ const NetworkingEvents = () => {
     fetchEvents();
   }, [filterStatus]);
 
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    const isAnyModalOpen = 
+      showCreateModal || 
+      showEventDetailsModal || 
+      showConnectionModal || 
+      showFollowupModal ||
+      showEventDiscovery;
+    
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showCreateModal, showEventDetailsModal, showConnectionModal, showFollowupModal, showEventDiscovery]);
+
   // Fetch all networking events
   const fetchEvents = async () => {
     try {

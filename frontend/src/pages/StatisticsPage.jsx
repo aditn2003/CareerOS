@@ -1,6 +1,6 @@
 // frontend/src/pages/StatisticsPage.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -11,8 +11,6 @@ import {
   Button,
   IconButton,
   Paper,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import './StatisticsLayout.css';
 import {
@@ -224,9 +222,6 @@ const StatisticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
-  const [showLeftScroll, setShowLeftScroll] = useState(false);
-  const [showRightScroll, setShowRightScroll] = useState(true);
-  const tabsRef = useRef(null);
 
   useEffect(() => {
     const load = async () => {
@@ -251,51 +246,6 @@ const StatisticsPage = () => {
     setTabValue(newValue);
   };
 
-  // Check scroll position and show/hide scroll buttons
-  const checkScrollButtons = () => {
-    if (tabsRef.current) {
-      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
-      setShowLeftScroll(scrollLeft > 10);
-      setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 10);
-    }
-  };
-
-  // Scroll handlers
-  const scrollLeft = () => {
-    if (tabsRef.current) {
-      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
-      scrollContainer.scrollBy({ left: -200, behavior: 'smooth' });
-      setTimeout(checkScrollButtons, 300);
-    }
-  };
-
-  const scrollRight = () => {
-    if (tabsRef.current) {
-      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
-      scrollContainer.scrollBy({ left: 200, behavior: 'smooth' });
-      setTimeout(checkScrollButtons, 300);
-    }
-  };
-
-  // Check scroll buttons on mount, resize, and tab change
-  useEffect(() => {
-    const timer = setTimeout(checkScrollButtons, 100);
-    window.addEventListener('resize', checkScrollButtons);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', checkScrollButtons);
-    };
-  }, [tabValue]);
-
-  // Also check when tabs container is scrolled
-  useEffect(() => {
-    if (tabsRef.current) {
-      const scrollContainer = tabsRef.current.querySelector('.MuiTabs-scrollableX') || tabsRef.current;
-      scrollContainer.addEventListener('scroll', checkScrollButtons);
-      return () => scrollContainer.removeEventListener('scroll', checkScrollButtons);
-    }
-  }, []);
 
   // Format data
   const formattedMonthlyData = stats?.monthlyVolume?.map((item) => ({
@@ -467,14 +417,56 @@ const StatisticsPage = () => {
               <span className="statistics-tab-icon">💰</span>
               <span className="statistics-tab-text">Compensation</span>
             </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 5 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 5)}
+            >
+              <span className="statistics-tab-icon">📈</span>
+              <span className="statistics-tab-text">Market Intelligence</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 6 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 6)}
+            >
+              <span className="statistics-tab-icon">⏱️</span>
+              <span className="statistics-tab-text">Time Investment</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 7 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 7)}
+            >
+              <span className="statistics-tab-icon">⚔️</span>
+              <span className="statistics-tab-text">Competitive Analysis</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 8 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 8)}
+            >
+              <span className="statistics-tab-icon">📊</span>
+              <span className="statistics-tab-text">Success Patterns</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 9 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 9)}
+            >
+              <span className="statistics-tab-icon">📄</span>
+              <span className="statistics-tab-text">Custom Reports</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 10 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 10)}
+            >
+              <span className="statistics-tab-icon">🔮</span>
+              <span className="statistics-tab-text">Performance Prediction</span>
+            </button>
           </Box>
         </Box>
         <Box className="statistics-nav-group">
           <span className="statistics-nav-group-label">Career</span>
           <Box className="statistics-nav-group-tabs">
             <button
-              className={`statistics-nav-tab career ${tabValue === 5 ? 'active' : ''}`}
-              onClick={() => handleTabChange(null, 5)}
+              className={`statistics-nav-tab career ${tabValue === 11 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 11)}
             >
               <span className="statistics-tab-icon">🎯</span>
               <span className="statistics-tab-text">Goals</span>
@@ -483,74 +475,6 @@ const StatisticsPage = () => {
         </Box>
       </Box>
 
-        {/* Tabs Container */}
-        <Paper sx={styles.tabsContainer}>
-          <Box sx={styles.tabsWrapper}>
-            {showLeftScroll && (
-              <IconButton
-                onClick={scrollLeft}
-                sx={{
-                  ...styles.scrollButton,
-                  ...styles.scrollButtonLeft,
-                }}
-                size="small"
-              >
-                <Typography sx={{ fontSize: '20px', fontWeight: 700 }}>‹</Typography>
-              </IconButton>
-            )}
-            <Box
-              ref={tabsRef}
-              sx={{
-                flex: 1,
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <Tabs
-                value={tabValue}
-                onChange={handleTabChange}
-                variant="scrollable"
-                scrollButtons={false}
-                sx={{
-                  background: '#fff',
-                  borderBottom: '1px solid #e5e7eb',
-                  '& .MuiTabs-scrollableX': {
-                    scrollbarWidth: 'none',
-                    '&::-webkit-scrollbar': {
-                      display: 'none',
-                    },
-                  },
-                  '& .MuiTab-root': styles.tab,
-                  '& .Mui-selected': { color: '#3b82f6' },
-                  '& .MuiTabs-indicator': { backgroundColor: '#3b82f6', height: 2 },
-                }}
-              >
-              <Tab label="Job Statistics" />
-              <Tab label="Success Analysis" />
-              <Tab label="Interview Analysis" />
-              <Tab label="Networking Analysis" />
-              <Tab label="Compensation Analysis" />
-              <Tab label="Market Intelligence" />
-            <Tab label="Time Investment" />
-            <Tab label="Competitive Analysis" />
-            <Tab label="Success Patterns" />
-            <Tab label="Custom Reports" />
-            <Tab label="Performance Prediction" />
-              </Tabs>
-            </Box>
-            {showRightScroll && (
-              <IconButton
-                onClick={scrollRight}
-                sx={{
-                  ...styles.scrollButton,
-                  ...styles.scrollButtonRight,
-                }}
-                size="small"
-              >
-                <Typography sx={{ fontSize: '20px', fontWeight: 700 }}>›</Typography>
-              </IconButton>
-            )}
-          </Box>
       {/* Content Area */}
       <Box className="statistics-content">
 
@@ -932,8 +856,12 @@ const StatisticsPage = () => {
           <TabPanel value={tabValue} index={10}>
             <PerformancePrediction />
           </TabPanel>
+
+          {/* Tab 12: Career Goals */}
+          <TabPanel value={tabValue} index={11}>
+            <CareerGoals />
+          </TabPanel>
       </Box>
-        </Paper>
     </Box>
   );
 };

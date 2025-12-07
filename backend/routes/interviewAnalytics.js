@@ -762,14 +762,49 @@ Return ONLY valid JSON, no markdown formatting.`;
       'strengths', 'weaknesses', 'notes', 'lessons_learned',
       'interview_time', 'duration_minutes', 'interview_round',
       'interviewer_name', 'interviewer_email', 'video_link', 'location_address',
-      'dial_in_number', 'meeting_id', 'meeting_password'
+      'dial_in_number', 'meeting_id', 'meeting_password',
+      'interview_format', 'interview_type', // ✅ Added missing fields
+      'interview_date', 'company', 'role', 'job_id', // ✅ Added other important fields
+      'areas_covered' // ✅ Added areas_covered for analytics
     ];
 
+    // Handle both camelCase (from frontend) and snake_case (database) field names
+    const fieldMapping = {
+      'interviewFormat': 'interview_format',
+      'interviewType': 'interview_type',
+      'interviewDate': 'interview_date',
+      'interviewTime': 'interview_time',
+      'durationMinutes': 'duration_minutes',
+      'interviewRound': 'interview_round',
+      'selfRating': 'self_rating',
+      'confidenceLevel': 'confidence_level',
+      'difficultyRating': 'difficulty_rating',
+      'areasCovered': 'areas_covered',
+      'offerAmount': 'offer_amount',
+      'mockInterviewsCompleted': 'mock_interviews_completed',
+      'interviewerName': 'interviewer_name',
+      'interviewerEmail': 'interviewer_email',
+      'videoLink': 'video_link',
+      'locationAddress': 'location_address',
+      'dialInNumber': 'dial_in_number',
+      'meetingId': 'meeting_id',
+      'meetingPassword': 'meeting_password',
+      'jobId': 'job_id'
+    };
+
     Object.keys(bodyWithoutSync).forEach(key => {
-      if (allowedFields.includes(key) && bodyWithoutSync[key] !== undefined) {
-        updates[key] = bodyWithoutSync[key];
+      // Map camelCase to snake_case if needed
+      const dbFieldName = fieldMapping[key] || key;
+      
+      if (allowedFields.includes(dbFieldName) && bodyWithoutSync[key] !== undefined) {
+        updates[dbFieldName] = bodyWithoutSync[key];
+        console.log(`✅ Including field in update: ${key} → ${dbFieldName} = ${bodyWithoutSync[key]}`);
+      } else if (bodyWithoutSync[key] !== undefined) {
+        console.warn(`⚠️ Field not allowed or not mapped: ${key} (would map to ${dbFieldName})`);
       }
     });
+
+    console.log(`📝 Update payload for interview ${outcomeId}:`, updates);
 
     if (Object.keys(updates).length === 0 && !syncToCalendar) {
       return res.status(400).json({

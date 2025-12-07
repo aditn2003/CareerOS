@@ -194,6 +194,144 @@ function getFallbackScenario(company, role, interviewType) {
 }
 
 /* -------------------------
+   Helper: Evaluate Response Quality
+   Actually analyzes the response content, not just word count
+------------------------- */
+async function evaluateResponseQuality(questionText, responseText, questionType, wordCount) {
+  // Basic validation: reject obviously bad responses
+  const trimmedResponse = responseText.trim();
+  
+  // Check for minimum viable response
+  if (wordCount < 10) {
+    return 20; // Very short responses get low scores
+  }
+  
+  // Check for obvious gibberish patterns
+  const gibberishPatterns = [
+    /^[^a-zA-Z]*$/, // Only non-letters
+    /(.)\1{10,}/, // Repeated characters (like "aaaaaaaaaa")
+    /[a-z]{1}\s[a-z]{1}\s[a-z]{1}\s[a-z]{1}/, // Single letter words repeated
+    /\b\w{1}\s+\w{1}\s+\w{1}\s+\w{1}\b/ // Very short words only
+  ];
+  
+  for (const pattern of gibberishPatterns) {
+    if (pattern.test(trimmedResponse)) {
+      return 15; // Gibberish gets very low score
+    }
+  }
+  
+  // Check for repeated words/phrases (sign of copy-paste or gibberish)
+  const words = trimmedResponse.toLowerCase().split(/\s+/);
+  const uniqueWords = new Set(words);
+  const repetitionRatio = uniqueWords.size / words.length;
+  
+  if (repetitionRatio < 0.3 && words.length > 20) {
+    // Too much repetition suggests low quality
+    return Math.max(25, 30 + (repetitionRatio * 20));
+  }
+  
+  // If OpenAI is available, use AI to evaluate quality
+  if (OPENAI_KEY) {
+    try {
+      const prompt = `Evaluate this interview response for quality. Be strict - gibberish, nonsense, or irrelevant responses should score very low (0-30). Good responses should score 60-90. Excellent responses score 90-100.
+
+Question: "${questionText}"
+Question Type: ${questionType}
+Response: "${responseText}"
+
+Evaluate based on:
+1. Relevance to the question (0-25 points)
+2. Coherence and grammar (0-25 points)
+3. Depth and substance (0-25 points)
+4. Structure and organization (0-25 points)
+
+Return ONLY a JSON object with this exact format:
+{
+  "score": <number 0-100>,
+  "reasoning": "<brief explanation>",
+  "issues": ["issue1", "issue2"] or []
+}`;
+
+      const { data } = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a strict interview evaluator. Give honest, critical scores. Gibberish or nonsense should score 0-30. Good responses score 60-90."
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 200
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${OPENAI_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      const content = data.choices[0].message.content.trim();
+      // Try to extract JSON from response
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const evaluation = JSON.parse(jsonMatch[0]);
+        const aiScore = Math.max(0, Math.min(100, evaluation.score || 50));
+        console.log(`✅ AI evaluated response: ${aiScore}/100 - ${evaluation.reasoning}`);
+        return Math.round(aiScore);
+      }
+    } catch (err) {
+      console.warn("⚠️ AI evaluation failed, using fallback:", err.message);
+    }
+  }
+  
+  // Fallback: Heuristic-based scoring (better than just word count)
+  let score = 40; // Base score
+  
+  // Length check (but not the only factor)
+  if (wordCount < 30) {
+    score -= 20; // Too short
+  } else if (wordCount >= 100 && wordCount <= 300) {
+    score += 10; // Good length
+  } else if (wordCount > 500) {
+    score -= 5; // Might be too verbose
+  }
+  
+  // Check for complete sentences
+  const sentenceCount = (trimmedResponse.match(/[.!?]+/g) || []).length;
+  if (sentenceCount < 2 && wordCount > 20) {
+    score -= 15; // Poor sentence structure
+  } else if (sentenceCount >= 3) {
+    score += 10; // Good structure
+  }
+  
+  // Check for question-specific keywords (basic relevance check)
+  const questionWords = questionText.toLowerCase().split(/\s+/).filter(w => w.length > 4);
+  const responseLower = trimmedResponse.toLowerCase();
+  const relevantWords = questionWords.filter(qw => responseLower.includes(qw)).length;
+  
+  if (relevantWords === 0 && questionWords.length > 0) {
+    score -= 20; // No relevance to question
+  } else if (relevantWords >= questionWords.length * 0.3) {
+    score += 15; // Shows some relevance
+  }
+  
+  // Penalize obvious patterns that suggest low effort
+  if (trimmedResponse.toLowerCase().includes("i don't know") || 
+      trimmedResponse.toLowerCase().includes("i'm not sure")) {
+    score -= 10; // Uncertainty is okay but reduces score
+  }
+  
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/* -------------------------
    Helper: Generate Follow-up Question
 ------------------------- */
 async function generateFollowUpQuestion(originalQuestion, userResponse, questionType) {
@@ -263,6 +401,11 @@ async function generatePerformanceSummary(sessionData, responses) {
     score: r.response_score
   }));
 
+  // Check if responses are low quality
+  const avgResponseScore = responsesSummary.length > 0
+    ? responsesSummary.reduce((sum, r) => sum + (r.score || 0), 0) / responsesSummary.length
+    : 0;
+  
   const prompt = `
 Analyze this complete mock interview session and generate a comprehensive performance summary:
 
@@ -272,6 +415,10 @@ Interview Type: ${sessionData.interview_type}
 
 RESPONSES:
 ${JSON.stringify(responsesSummary, null, 2)}
+
+IMPORTANT: The average response score is ${Math.round(avgResponseScore)}/100. 
+${avgResponseScore < 40 ? '⚠️ WARNING: These responses appear to be low quality, gibberish, or nonsensical. Be honest and critical in your evaluation. Scores should reflect actual performance, not just completion.' : ''}
+${avgResponseScore < 60 ? 'These responses need significant improvement. Provide constructive but honest feedback.' : ''}
 
 Generate JSON:
 {
@@ -346,9 +493,11 @@ Be encouraging but honest. Provide specific, actionable feedback.
    Helper: Fallback Summary
 ------------------------- */
 function getFallbackSummary(responses) {
-  const avgScore = responses.length > 0
-    ? Math.round(responses.reduce((sum, r) => sum + (r.response_score || 70), 0) / responses.length)
-    : 70;
+  // Use actual response scores, or penalize if no scores available
+  const validScores = responses.filter(r => r.response_score && r.response_score > 0);
+  const avgScore = validScores.length > 0
+    ? Math.round(validScores.reduce((sum, r) => sum + r.response_score, 0) / validScores.length)
+    : 30; // Default to low score if no valid scores (suggests poor responses)
 
   return {
     performance_summary: "You completed the mock interview session. Your responses showed good effort.",
@@ -498,7 +647,14 @@ router.post("/respond", async (req, res) => {
     // Calculate metrics
     const wordCount = responseText.trim().split(/\s+/).length;
     const estimatedTime = Math.round((wordCount / 150) * 60);
-    const responseScore = Math.min(100, Math.max(50, 60 + (wordCount / 10))); // Simple scoring
+    
+    // ✅ Evaluate response quality (not just word count!)
+    const responseScore = await evaluateResponseQuality(
+      question.question_text,
+      responseText,
+      question.question_type,
+      wordCount
+    );
 
     // Update response in database
     const { error: updateError } = await supabase
@@ -734,6 +890,44 @@ router.post("/:sessionId/complete", async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to complete session"
+    });
+  }
+});
+
+/* -------------------------
+   GET /api/mock-interviews/:sessionId/responses
+   Get all responses for a specific session
+------------------------- */
+router.get("/:sessionId/responses", async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const { data: responses, error } = await supabase
+      .from("mock_interview_responses")
+      .select("*")
+      .eq("session_id", sessionId)
+      .not("response_text", "is", null)
+      .order("question_number", { ascending: true });
+
+    if (error) {
+      console.error("❌ Error fetching responses:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch responses"
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        responses: responses || []
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch responses"
     });
   }
 });
