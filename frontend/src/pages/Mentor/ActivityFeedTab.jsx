@@ -16,6 +16,9 @@ import {
   FaComments,
   FaTasks,
   FaArrowRight,
+  FaRss,
+  FaAngleLeft,
+  FaAngleRight,
 } from "react-icons/fa";
 import "./ActivityFeedTab.css";
 
@@ -38,6 +41,8 @@ export default function ActivityFeedTab() {
   const [candidatesNeedingAttention, setCandidatesNeedingAttention] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const loadActivityFeed = useCallback(async () => {
     if (!teamId) {
@@ -75,22 +80,52 @@ export default function ActivityFeedTab() {
     return () => clearInterval(interval);
   }, [loadActivityFeed]);
 
+  // Reset to page 1 when activities change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activities.length]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(activities.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentActivities = activities.slice(startIndex, endIndex);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of activity list
+    const activityMain = document.querySelector('.activity-feed-main');
+    if (activityMain) {
+      activityMain.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   // Only show for mentors and admins
   if (!isMentor && !isAdmin) {
     return (
-      <section className="profile-box">
-        <h3>Activity Feed</h3>
-        <p>You don't have permission to view the activity feed.</p>
-      </section>
+      <div className="activity-feed-container">
+        <div className="activity-feed-empty">
+          <FaRss className="activity-feed-empty-icon" />
+          <h3 className="activity-feed-empty-title">Access Restricted</h3>
+          <p className="activity-feed-empty-text">
+            You don't have permission to view the activity feed.
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (!teamId) {
     return (
-      <section className="profile-box">
-        <h3>Activity Feed</h3>
-        <p>No team found. Please join a team to view activity.</p>
-      </section>
+      <div className="activity-feed-container">
+        <div className="activity-feed-empty">
+          <FaRss className="activity-feed-empty-icon" />
+          <h3 className="activity-feed-empty-title">No Team Found</h3>
+          <p className="activity-feed-empty-text">
+            Please join a team to view activity feed.
+          </p>
+        </div>
+      </div>
     );
   }
 
@@ -158,25 +193,33 @@ export default function ActivityFeedTab() {
 
   if (loading) {
     return (
-      <section className="profile-box">
-        <h3>Activity Feed</h3>
+      <div className="activity-feed-container">
+        <div className="activity-feed-loading">
+          <div className="activity-feed-loading-spinner"></div>
         <p>Loading activity feed...</p>
-      </section>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section className="profile-box activity-feed-container">
+    <div className="activity-feed-container">
       <div className="activity-feed-header">
-        <h3>Activity Feed</h3>
-        {teamName && (
-          <p className="activity-team-name">
-            <strong>Team:</strong> {teamName}
+        <div className="activity-feed-header-content">
+          <h2 className="activity-feed-main-title">Activity Feed</h2>
+          <p className="activity-feed-main-subtitle">
+            Real-time updates and insights from your team
           </p>
+        </div>
+        {teamName && (
+          <div className="activity-team-badge">
+            <FaUsers />
+            <span>{teamName}</span>
+          </div>
         )}
       </div>
 
-      {error && <div className="error-banner">{error}</div>}
+      {error && <div className="activity-feed-error-banner">{error}</div>}
 
       {/* Summary Widgets */}
       <div className="activity-summary-widgets">
@@ -222,37 +265,96 @@ export default function ActivityFeedTab() {
               <p>No recent activity to display.</p>
             </div>
           ) : (
-            <div className="activity-list">
-              {activities.map((activity) => (
-                <div key={activity.id} className="activity-item">
-                  <div className="activity-icon">{getActivityIcon(activity.type)}</div>
-                  <div className="activity-content">
-                    <div className="activity-title">{activity.title}</div>
-                    <div className="activity-meta">
-                      <span className="activity-candidate">{activity.candidateName}</span>
-                      <span className="activity-time">{formatDate(activity.timestamp)}</span>
-                      <span className="activity-full-time" title={formatFullDate(activity.timestamp)}>
-                        {formatFullDate(activity.timestamp)}
-                      </span>
-                    </div>
-                    {activity.details && (
-                      <div className="activity-details">
-                        {activity.details.jobTitle && (
-                          <span className="activity-detail-badge">
-                            {activity.details.company}
-                          </span>
-                        )}
-                        {activity.details.status && (
-                          <span className="activity-detail-badge status">
-                            {activity.details.status}
-                          </span>
-                        )}
+            <>
+              <div className="activity-list">
+                {currentActivities.map((activity) => (
+                  <div key={activity.id} className="activity-item">
+                    <div className="activity-icon">{getActivityIcon(activity.type)}</div>
+                    <div className="activity-content">
+                      <div className="activity-title">{activity.title}</div>
+                      <div className="activity-meta">
+                        <span className="activity-candidate">{activity.candidateName}</span>
+                        <span className="activity-time">{formatDate(activity.timestamp)}</span>
+                        <span className="activity-full-time" title={formatFullDate(activity.timestamp)}>
+                          {formatFullDate(activity.timestamp)}
+                        </span>
                       </div>
-                    )}
+                      {activity.details && (
+                        <div className="activity-details">
+                          {activity.details.jobTitle && (
+                            <span className="activity-detail-badge">
+                              {activity.details.company}
+                            </span>
+                          )}
+                          {activity.details.status && (
+                            <span className="activity-detail-badge status">
+                              {activity.details.status}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+              
+              {/* Pagination Controls */}
+              {activities.length > 0 && (
+                <div className="activity-pagination">
+                  <div className="pagination-info">
+                    Showing {startIndex + 1}-{Math.min(endIndex, activities.length)} of {activities.length} activities
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="pagination-controls">
+                      <button
+                        className="pagination-btn"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        aria-label="Previous page"
+                        type="button"
+                      >
+                        <FaAngleLeft className="pagination-icon" />
+                      </button>
+                      
+                      <div className="pagination-pages">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                          // Show first page, last page, current page, and pages around current
+                          if (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          ) {
+                            return (
+                              <button
+                                key={page}
+                                className={`pagination-page-btn ${currentPage === page ? 'active' : ''}`}
+                                onClick={() => handlePageChange(page)}
+                                aria-label={`Go to page ${page}`}
+                              >
+                                {page}
+                              </button>
+                            );
+                          } else if (page === currentPage - 2 || page === currentPage + 2) {
+                            return <span key={page} className="pagination-ellipsis">...</span>;
+                          }
+                          return null;
+                        })}
+                      </div>
+                      
+                      <button
+                        className="pagination-btn"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        aria-label="Next page"
+                        type="button"
+                      >
+                        <FaAngleRight className="pagination-icon" />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 
@@ -269,12 +371,26 @@ export default function ActivityFeedTab() {
                   today.setHours(0, 0, 0, 0);
                   const daysUntil = Math.ceil((deadlineDate - today) / (1000 * 60 * 60 * 24));
                   const isOverdue = deadlineDate < today;
-                  const isUrgent = !isOverdue && daysUntil <= 3;
+                  
+                  // Determine urgency level
+                  let urgencyClass = "";
+                  if (isOverdue) {
+                    urgencyClass = "overdue";
+                  } else if (daysUntil === 0) {
+                    urgencyClass = "due-today"; // Red for due today
+                  } else if (daysUntil === 1) {
+                    urgencyClass = "critical"; // Light red for 1 day left
+                  } else if (daysUntil === 2) {
+                    urgencyClass = "very-urgent"; // Red-orange for 2 days left
+                  } else if (daysUntil === 3) {
+                    urgencyClass = "urgent"; // Yellow for 3 days left
+                  }
+                  // No class for 4+ days = normal purple theme
 
                   return (
                     <div
                       key={deadline.jobId}
-                      className={`deadline-item ${isOverdue ? "overdue" : ""} ${isUrgent ? "urgent" : ""}`}
+                      className={`deadline-item ${urgencyClass}`}
                     >
                       <div className="deadline-content">
                         <div className="deadline-title">{deadline.title}</div>
@@ -286,8 +402,23 @@ export default function ActivityFeedTab() {
                             day: "numeric",
                             year: deadlineDate.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
                           })}
-                          {isOverdue && <><FaExclamationTriangle /> Overdue</>}
-                          {isUrgent && !isOverdue && ` (${daysUntil} day${daysUntil > 1 ? "s" : ""} left)`}
+                          {isOverdue && (
+                            <span className="deadline-urgency-badge overdue-badge">
+                              <FaExclamationTriangle /> Past Due
+                            </span>
+                          )}
+                          {!isOverdue && daysUntil === 0 && (
+                            <span className="deadline-urgency-badge due-today-badge">Due Today</span>
+                          )}
+                          {!isOverdue && daysUntil === 1 && (
+                            <span className="deadline-urgency-badge critical-badge">1 day left</span>
+                          )}
+                          {!isOverdue && daysUntil === 2 && (
+                            <span className="deadline-urgency-badge very-urgent-badge">2 days left</span>
+                          )}
+                          {!isOverdue && daysUntil === 3 && (
+                            <span className="deadline-urgency-badge urgent-badge">3 days left</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -298,8 +429,8 @@ export default function ActivityFeedTab() {
           )}
 
           {/* Candidates Needing Attention */}
-          <div className="activity-sidebar-section">
-            <h4><FaExclamationTriangle /> Need Attention</h4>
+            <div className="activity-sidebar-section">
+              <h4><FaExclamationTriangle /> Need Attention</h4>
             {candidatesNeedingAttention.length > 0 ? (
               <div className="attention-list">
                 {candidatesNeedingAttention.map((candidate) => {
@@ -319,7 +450,7 @@ export default function ActivityFeedTab() {
                   };
 
                   return (
-                    <div key={candidate.candidateId} className="attention-item">
+                  <div key={candidate.candidateId} className="attention-item">
                       <div className="attention-content">
                         <div className="attention-candidate-name">{candidate.candidateName}</div>
                         <div className="attention-reasons">
@@ -332,9 +463,9 @@ export default function ActivityFeedTab() {
                           ) : (
                             <span className="attention-no-reason">Needs attention</span>
                           )}
-                        </div>
-                      </div>
-                    </div>
+                  </div>
+              </div>
+            </div>
                   );
                 })}
               </div>
@@ -342,7 +473,7 @@ export default function ActivityFeedTab() {
               <p style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic', marginTop: '0.5rem' }}>
                 No candidates need attention at this time.
               </p>
-            )}
+          )}
           </div>
 
           {/* Quick Action Buttons */}
@@ -371,7 +502,7 @@ export default function ActivityFeedTab() {
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

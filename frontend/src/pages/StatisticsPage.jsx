@@ -9,6 +9,8 @@ import {
   Chip,
   Alert,
   Button,
+  IconButton,
+  Paper,
 } from '@mui/material';
 import './StatisticsLayout.css';
 import {
@@ -32,6 +34,12 @@ import InterviewAnalysis from '../components/InterviewAnalysis';
 import NetworkingAnalysis from '../components/NetworkingAnalysis';
 import CompensationAnalysis from '../components/CompensationAnalysis';
 import ComprehensiveCompensationAnalysis from '../components/ComprehensiveCompensationAnalysis';
+import MarketIntel from '../components/MarketIntel';
+import TimeInvestmentAnalysis from '../components/TimeInvestmentAnalysis';
+import CompetitiveAnalysis from '../components/CompetitiveAnalysis';
+import SuccessPatternAnalysis from '../components/SuccessPatternAnalysis';
+import CustomReportGenerator from '../components/CustomReportGenerator';
+import PerformancePrediction from '../components/PerformancePrediction';
 import CareerGoals from '../components/CareerGoals';
 
 // Custom styles
@@ -54,6 +62,27 @@ const styles = {
     borderRadius: '16px',
     overflow: 'hidden',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+    position: 'relative',
+  },
+  tabsWrapper: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  scrollButton: {
+    position: 'absolute',
+    zIndex: 2,
+    background: '#fff',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    '&:hover': {
+      background: '#f3f4f6',
+    },
+  },
+  scrollButtonLeft: {
+    left: 0,
+  },
+  scrollButtonRight: {
+    right: 0,
     width: '100%',
   },
   tab: {
@@ -216,6 +245,7 @@ const StatisticsPage = () => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
+
 
   // Format data
   const formattedMonthlyData = stats?.monthlyVolume?.map((item) => ({
@@ -387,14 +417,56 @@ const StatisticsPage = () => {
               <span className="statistics-tab-icon">💰</span>
               <span className="statistics-tab-text">Compensation</span>
             </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 5 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 5)}
+            >
+              <span className="statistics-tab-icon">📈</span>
+              <span className="statistics-tab-text">Market Intelligence</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 6 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 6)}
+            >
+              <span className="statistics-tab-icon">⏱️</span>
+              <span className="statistics-tab-text">Time Investment</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 7 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 7)}
+            >
+              <span className="statistics-tab-icon">⚔️</span>
+              <span className="statistics-tab-text">Competitive Analysis</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 8 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 8)}
+            >
+              <span className="statistics-tab-icon">📊</span>
+              <span className="statistics-tab-text">Success Patterns</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 9 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 9)}
+            >
+              <span className="statistics-tab-icon">📄</span>
+              <span className="statistics-tab-text">Custom Reports</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${tabValue === 10 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 10)}
+            >
+              <span className="statistics-tab-icon">🔮</span>
+              <span className="statistics-tab-text">Performance Prediction</span>
+            </button>
           </Box>
         </Box>
         <Box className="statistics-nav-group">
           <span className="statistics-nav-group-label">Career</span>
           <Box className="statistics-nav-group-tabs">
             <button
-              className={`statistics-nav-tab career ${tabValue === 5 ? 'active' : ''}`}
-              onClick={() => handleTabChange(null, 5)}
+              className={`statistics-nav-tab career ${tabValue === 11 ? 'active' : ''}`}
+              onClick={() => handleTabChange(null, 11)}
             >
               <span className="statistics-tab-icon">🎯</span>
               <span className="statistics-tab-text">Goals</span>
@@ -755,8 +827,38 @@ const StatisticsPage = () => {
             <ComprehensiveCompensationAnalysis />
           </TabPanel>
 
-          {/* Tab 6: Career Goals */}
+          {/* Tab 6: Market Intelligence */}
           <TabPanel value={tabValue} index={5}>
+            <MarketIntel />
+          </TabPanel>
+
+          {/* Tab 7: Time Investment (UC-103) */}
+          <TabPanel value={tabValue} index={6}>
+            <TimeInvestmentAnalysis />
+          </TabPanel>
+
+          {/* Tab 8: Competitive Analysis (UC-104) */}
+          <TabPanel value={tabValue} index={7}>
+            <CompetitiveAnalysis />
+          </TabPanel>
+
+          {/* Tab 9: Success Patterns (UC-105) */}
+          <TabPanel value={tabValue} index={8}>
+            <SuccessPatternAnalysis />
+          </TabPanel>
+
+          {/* Tab 10: Custom Reports (UC-106) */}
+          <TabPanel value={tabValue} index={9}>
+            <CustomReportGenerator />
+          </TabPanel>
+
+          {/* Tab 11: Performance Prediction (UC-107) */}
+          <TabPanel value={tabValue} index={10}>
+            <PerformancePrediction />
+          </TabPanel>
+
+          {/* Tab 12: Career Goals */}
+          <TabPanel value={tabValue} index={11}>
             <CareerGoals />
           </TabPanel>
       </Box>

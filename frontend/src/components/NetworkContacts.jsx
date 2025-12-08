@@ -117,6 +117,21 @@ const NetworkContacts = () => {
     fetchGroups();
   }, []);
 
+  // Prevent background scroll when modals are open
+  useEffect(() => {
+    const isAnyModalOpen = showForm || showImportModal || selectedContact;
+    
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showForm, showImportModal, selectedContact]);
+
   // Handle form input
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -1185,7 +1200,6 @@ const ImportContactsModal = ({ onClose, onImport }) => {
                 </button>
               </div>
             </div>
-          )}
         </div>
       </div>
     </div>

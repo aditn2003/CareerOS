@@ -11,14 +11,14 @@ import {
   FaFileAlt,
   FaBriefcase,
   FaChartBar,
-  FaArchive,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
+  FaEnvelope, // ✅ Icon for Cover Letter
   FaHandshake, // ✅ Icon for Referrals
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
-  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
+  FaUsers, // ✅ Icon for Network
+  FaArchive, // ✅ Icon for Archived
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -85,17 +85,13 @@ export default function NavBar() {
               <FaStar /> Job Match
             </NavLink>
 
-            {/* ═══════════════════════════════════════════
-                INTERVIEWS - Prepare & Track
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
+            <NavLink to="/docs-management">
+              <FaFileAlt /> Doc Management
             </NavLink>
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
+
+           
 
             {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
@@ -106,7 +102,6 @@ export default function NavBar() {
             {/* ═══════════════════════════════════════════
                 GROWTH - Network & Learn
             ═══════════════════════════════════════════ */}
-           
 
             {showMentorButton && (
               <NavLink to="/mentor">
@@ -126,12 +121,11 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
-            
-
             {/* 👤 Profile */}
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>
+           
 
             {/* ═══════════════════════════════════════════
                 ACCOUNT
