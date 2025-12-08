@@ -158,18 +158,18 @@ export default function ProjectForm({ token, onSaved, onCancel, project }) {
       <input type="file" name="media" onChange={handleChange} />
 
       {/* ACTION BUTTONS */}
-<div className="form-actions left">
-  <button type="submit" className="form-btn purple-btn">
-     Save
-  </button>
-  <button
-    type="button"
-    className="form-btn purple-btn"
-    onClick={onCancel}
-  >
-     Cancel
-  </button>
-</div>
+      <div className="form-actions left">
+        <button type="submit" className="form-btn purple-btn">
+          Save
+        </button>
+        <button
+          type="button"
+          className="form-btn purple-btn"
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

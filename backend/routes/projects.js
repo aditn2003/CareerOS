@@ -116,6 +116,29 @@ router.get("/projects", auth, async (req, res) => {
 });
 
 // ============================================================
+// ✅ UC-032: GET SINGLE PROJECT (FOR SHARING)
+// ============================================================
+router.get("/projects/:id", auth, async (req, res) => {
+  try {
+    const query = `
+      SELECT *
+      FROM projects
+      WHERE id = $1 AND user_id = $2;
+    `;
+    const result = await pool.query(query, [req.params.id, req.userId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json({ project: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Project fetch error:", err);
+    res.status(500).json({ error: "Database error while fetching project" });
+  }
+});
+
+// ============================================================
 // ✅ UC-032 (CONT.): EDIT / UPDATE PROJECT ENTRY
 // ============================================================
 router.put("/projects/:id", auth, async (req, res) => {

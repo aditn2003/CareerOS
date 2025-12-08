@@ -229,6 +229,12 @@ button:disabled {
   padding-bottom: 0.5rem;
 }
 
+.profile-box p {
+  color: #4b5563;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
 /* ===============================================
    PROFILE PICTURE
    =============================================== */
