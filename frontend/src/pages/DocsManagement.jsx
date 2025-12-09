@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { api } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
-import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaHistory, FaClock } from "react-icons/fa";
+import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown } from "react-icons/fa";
 import "./DocsManagement.css";
 
 // Certificate Upload Form Component
@@ -155,6 +155,7 @@ export default function DocsManagement() {
   const [showCertificateUpload, setShowCertificateUpload] = useState(false);
   const [viewerModal, setViewerModal] = useState({ open: false, url: null, title: null, type: null, contentType: null });
   const [versionHistoryModal, setVersionHistoryModal] = useState({ open: false, docId: null, docType: null, versions: [], loading: false });
+  const [downloadDropdown, setDownloadDropdown] = useState({ open: false, resumeId: null });
 
   // Fetch all data
   useEffect(() => {
@@ -523,6 +524,66 @@ export default function DocsManagement() {
     }
   };
 
+  const handleDownload = async (resumeId, format) => {
+    try {
+      const downloadUrl = `http://localhost:4000/api/resumes/${resumeId}/download?format=${format}`;
+      
+      // Fetch the file with authentication
+      const response = await fetch(downloadUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to download resume");
+      }
+
+      // Get the blob
+      const blob = await response.blob();
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = response.headers.get("Content-Disposition");
+      let filename = `resume_${resumeId}.${format}`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Close dropdown
+      setDownloadDropdown({ open: false, resumeId: null });
+    } catch (err) {
+      console.error("Failed to download resume:", err);
+      alert("Failed to download resume. Please try again.");
+    }
+  };
+
+  // Close download dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (downloadDropdown.open && !event.target.closest('.download-dropdown-container')) {
+        setDownloadDropdown({ open: false, resumeId: null });
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [downloadDropdown.open]);
+
   if (loading) {
     return (
       <div className="docs-management-container">
@@ -638,13 +699,40 @@ export default function DocsManagement() {
                         >
                           <FaEye /> View
                         </button>
-                        <button
-                          className="btn-history"
-                          onClick={() => handleViewVersionHistory(resume.id, "resume")}
-                          title="Version History"
-                        >
-                          <FaHistory /> Versions
-                        </button>
+                        <div className="download-dropdown-container" style={{ position: "relative" }}>
+                          <button
+                            className={`btn-download ${downloadDropdown.open && downloadDropdown.resumeId === resume.id ? 'dropdown-open' : ''}`}
+                            onClick={() => setDownloadDropdown({ 
+                              open: downloadDropdown.resumeId === resume.id ? !downloadDropdown.open : true, 
+                              resumeId: resume.id 
+                            })}
+                            title="Download Resume"
+                          >
+                            <FaDownload /> Download <FaChevronDown className="download-chevron" />
+                          </button>
+                          {downloadDropdown.open && downloadDropdown.resumeId === resume.id && (
+                            <div className="download-dropdown-menu">
+                              <button
+                                className="download-option"
+                                onClick={() => handleDownload(resume.id, "pdf")}
+                              >
+                                <FaFilePdf /> Download as PDF
+                              </button>
+                              <button
+                                className="download-option"
+                                onClick={() => handleDownload(resume.id, "docx")}
+                              >
+                                <FaFileWord /> Download as Word (DOCX)
+                              </button>
+                              <button
+                                className="download-option"
+                                onClick={() => handleDownload(resume.id, "txt")}
+                              >
+                                <FaFileAlt /> Download as TXT
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <button
                           className="btn-delete"
                           onClick={() => handleDelete(resume.id, "resume")}
@@ -736,13 +824,6 @@ export default function DocsManagement() {
                           title="View Cover Letter"
                         >
                           <FaEye /> View
-                        </button>
-                        <button
-                          className="btn-history"
-                          onClick={() => handleViewVersionHistory(coverLetter.id, "coverLetter")}
-                          title="Version History"
-                        >
-                          <FaHistory /> Versions
                         </button>
                         <button
                           className="btn-delete"

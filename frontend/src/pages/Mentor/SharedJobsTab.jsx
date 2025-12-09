@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import { useAuth } from "../../contexts/AuthContext";
+import TeamDropdown from "../../components/TeamDropdown";
 import {
   FaBriefcase,
   FaUser,
@@ -22,13 +23,13 @@ import FeedbackModal from "../../components/FeedbackModal";
 import "./SharedJobsTab.css";
 
 export default function SharedJobsTab() {
-  const { teamState } = useTeam() || {};
-  const { token } = useAuth();
-  const teamId = teamState?.primaryTeam?.id;
-  const isMentor = teamState?.isMentor;
-  const isAdmin = teamState?.isAdmin;
-  const isCandidate = teamState?.isCandidate;
-  const currentUserId = teamState?.userId;
+  const { teamState } = useTeam() || {};
+  const { token } = useAuth();
+  const teamId = teamState?.activeTeam?.id;
+  const isMentor = teamState?.isMentor;
+  const isAdmin = teamState?.isAdmin;
+  const isCandidate = teamState?.isCandidate;
+  const currentUserId = teamState?.userId;
 
   const [sharedJobs, setSharedJobs] = useState([]);
   const [myJobs, setMyJobs] = useState([]); // For mentors to select jobs to share
@@ -210,12 +211,15 @@ export default function SharedJobsTab() {
 
   return (
     <div className="shared-jobs-container">
-      <div className="shared-jobs-header">
+      <div className="shared-jobs-header">
         <div className="shared-jobs-header-content">
           <h2 className="shared-jobs-main-title">Job Posts</h2>
           <p className="shared-jobs-main-subtitle">
             Discover opportunities and track team progress
           </p>
+          <div style={{ marginTop: "12px", display: "flex", justifyContent: "center", width: "100%" }}>
+            <TeamDropdown />
+          </div>
         </div>
         <div className="shared-jobs-actions">
           {canShare && (
@@ -598,7 +602,7 @@ function ProgressDashboard({ progress }) {
 // Application Materials Component
 function ApplicationMaterials({ materials, loading, onRefresh, isCandidate = false }) {
   const { teamState } = useTeam() || {};
-  const teamId = teamState?.primaryTeam?.id;
+  const teamId = teamState?.activeTeam?.id;
   const [feedbackModal, setFeedbackModal] = useState(null); // { candidateId, candidateName, jobId, jobTitle, materialType }
   const [expandedCandidates, setExpandedCandidates] = useState(new Set()); // Track which candidates are expanded
 
