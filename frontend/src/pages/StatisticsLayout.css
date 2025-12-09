@@ -185,12 +185,70 @@
 }
 
 .statistics-nav-tab.compensation.active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  border-color: #8b5cf6;
-  color: white;
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #7c3aed 100%) !important;
+  border: 2px solid #c4b5fd !important;
+  border-color: #c4b5fd !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
   box-shadow: 
-    0 4px 20px rgba(139, 92, 246, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 20px rgba(139, 92, 246, 0.8),
+    0 8px 32px rgba(139, 92, 246, 0.6),
+    0 4px 16px rgba(139, 92, 246, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(139, 92, 246, 0.3) !important;
+  transform: translateY(-4px) scale(1.05);
+  position: relative;
+  z-index: 10;
+  animation: compensationPulse 2s ease-in-out infinite;
+}
+
+.statistics-nav-tab.compensation.active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa, #8b5cf6);
+  opacity: 0.5;
+  z-index: -1;
+  filter: blur(8px);
+  animation: compensationGlow 2s ease-in-out infinite;
+}
+
+.statistics-nav-tab.compensation.active .statistics-tab-icon,
+.statistics-nav-tab.compensation.active .statistics-tab-text {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes compensationPulse {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(139, 92, 246, 0.8),
+      0 8px 32px rgba(139, 92, 246, 0.6),
+      0 4px 16px rgba(139, 92, 246, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0 rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 
+      0 0 30px rgba(139, 92, 246, 1),
+      0 8px 40px rgba(139, 92, 246, 0.8),
+      0 4px 20px rgba(139, 92, 246, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(139, 92, 246, 0.4);
+  }
+}
+
+@keyframes compensationGlow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 /* Career Tabs - Blue Theme */
@@ -336,12 +394,51 @@
 }
 
 .inner-nav-tab.compensation.active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  border-color: #8b5cf6;
-  color: white;
+  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 50%, #7c3aed 100%) !important;
+  border: 2px solid #c4b5fd !important;
+  border-color: #c4b5fd !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
   box-shadow: 
-    0 4px 20px rgba(139, 92, 246, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 15px rgba(139, 92, 246, 0.7),
+    0 6px 24px rgba(139, 92, 246, 0.5),
+    0 3px 12px rgba(139, 92, 246, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(139, 92, 246, 0.3) !important;
+  transform: translateY(-3px) scale(1.03);
+  position: relative;
+  z-index: 10;
+  animation: compensationPulseInner 2s ease-in-out infinite;
+}
+
+.inner-nav-tab.compensation.active::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa, #8b5cf6);
+  opacity: 0.4;
+  z-index: -1;
+  filter: blur(6px);
+}
+
+@keyframes compensationPulseInner {
+  0%, 100% {
+    box-shadow: 
+      0 0 15px rgba(139, 92, 246, 0.7),
+      0 6px 24px rgba(139, 92, 246, 0.5),
+      0 3px 12px rgba(139, 92, 246, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      inset 0 -1px 0 rgba(139, 92, 246, 0.3);
+  }
+  50% {
+    box-shadow: 
+      0 0 25px rgba(139, 92, 246, 0.9),
+      0 6px 30px rgba(139, 92, 246, 0.7),
+      0 3px 16px rgba(139, 92, 246, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      inset 0 -1px 0 rgba(139, 92, 246, 0.4);
+  }
 }
 
 .inner-nav-tab.career {

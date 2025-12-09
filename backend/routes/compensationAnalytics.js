@@ -492,7 +492,7 @@ router.get("/comprehensive", async (req, res) => {
     const userId = req.user.id;
     
     // Get all data - handle cases where tables might not exist
-    let offersResult, compHistoryResult, negotiationResult, jobsResult;
+    let offersResult, compHistoryResult, negotiationResult, jobsResult, appHistoryResult;
     let archivedJobIds = new Set(); // Initialize empty set
     
     try {
@@ -509,11 +509,29 @@ router.get("/comprehensive", async (req, res) => {
           ORDER BY nh.negotiation_date DESC
         `, [userId]),
         pool.query(`
-          SELECT id, title, company, location, salary_min, salary_max, status, industry, role_level, created_at
+          SELECT id, title, company, location, salary_min, salary_max, status, industry, role_level, created_at, 
+                 "offerDate", status_updated_at
           FROM jobs 
           WHERE user_id = $1 
             AND ("isArchived" = false OR "isArchived" IS NULL)
           ORDER BY created_at DESC
+        `, [userId]),
+        // Query application_history to find real-time status changes to 'Offer'
+        pool.query(`
+          SELECT DISTINCT ON (job_id)
+            job_id,
+            to_status,
+            from_status,
+            timestamp,
+            event,
+            meta
+          FROM application_history
+          WHERE user_id = $1
+            AND (
+              (to_status IS NOT NULL AND LOWER(TRIM(to_status)) = 'offer')
+              OR (to_status IS NULL AND event ILIKE '%offer%' AND event ILIKE '%status changed%')
+            )
+          ORDER BY job_id, timestamp DESC
         `, [userId])
       ]);
       
@@ -522,6 +540,7 @@ router.get("/comprehensive", async (req, res) => {
       const archivedJobsResult = queries[2].status === 'fulfilled' ? queries[2].value : { rows: [] };
       negotiationResult = queries[3].status === 'fulfilled' ? queries[3].value : { rows: [] };
       jobsResult = queries[4].status === 'fulfilled' ? queries[4].value : { rows: [] };
+      appHistoryResult = queries[5].status === 'fulfilled' ? queries[5].value : { rows: [] };
       
       // Get set of archived job IDs to exclude offers linked to them
       archivedJobIds = new Set(archivedJobsResult.rows.map(j => Number(j.id)));
@@ -539,6 +558,7 @@ router.get("/comprehensive", async (req, res) => {
       compHistoryResult = { rows: [] };
       negotiationResult = { rows: [] };
       jobsResult = { rows: [] };
+      appHistoryResult = { rows: [] };
       archivedJobIds = new Set(); // Keep empty set
     }
     
@@ -560,6 +580,146 @@ router.get("/comprehensive", async (req, res) => {
     const compHistory = compHistoryResult.rows;
     const negotiations = negotiationResult.rows;
     const jobs = jobsResult.rows;
+    const appHistory = appHistoryResult.rows;
+    
+    // Create a map of job_id -> most recent offer status change from application_history
+    const offerStatusChanges = new Map();
+    appHistory.forEach(history => {
+      if (history.job_id) {
+        const jobId = Number(history.job_id);
+        // Use the most recent entry for each job
+        if (!offerStatusChanges.has(jobId) || 
+            new Date(history.timestamp) > new Date(offerStatusChanges.get(jobId).timestamp)) {
+          offerStatusChanges.set(jobId, {
+            timestamp: history.timestamp,
+            to_status: history.to_status,
+            from_status: history.from_status,
+            event: history.event,
+            meta: history.meta
+          });
+        }
+      }
+    });
+    
+    console.log("📊 Application History Status Changes to Offer:", {
+      totalHistoryEntries: appHistory.length,
+      uniqueJobsWithOfferStatus: offerStatusChanges.size,
+      jobIds: Array.from(offerStatusChanges.keys())
+    });
+    
+    // Sync jobs with status='Offer' to offers table if they don't have offers entries
+    // Check both: jobs table status AND application_history
+    const jobIdsWithOffers = new Set(
+      offers
+        .filter(o => o.job_id !== null && o.job_id !== undefined)
+        .map(o => Number(o.job_id))
+    );
+    
+    // Find jobs that should have offers based on:
+    // 1. jobs.status = 'Offer' (from jobs table)
+    // 2. application_history shows status changed to 'Offer' (real-time tracking)
+    const jobsWithOfferStatusFromTable = jobs.filter(j => 
+      j.status && j.status.toLowerCase().trim() === 'offer' && 
+      !jobIdsWithOffers.has(Number(j.id))
+    );
+    
+    // Find jobs from application_history that changed to 'Offer' but don't have offers
+    const jobsWithOfferStatusFromHistory = jobs.filter(j => {
+      const jobId = Number(j.id);
+      const hasHistoryOffer = offerStatusChanges.has(jobId);
+      const alreadyHasOffer = jobIdsWithOffers.has(jobId);
+      return hasHistoryOffer && !alreadyHasOffer;
+    });
+    
+    // Combine both sources, removing duplicates
+    const allJobIdsNeedingOffers = new Set([
+      ...jobsWithOfferStatusFromTable.map(j => Number(j.id)),
+      ...jobsWithOfferStatusFromHistory.map(j => Number(j.id))
+    ]);
+    
+    const jobsWithOfferStatus = jobs.filter(j => 
+      allJobIdsNeedingOffers.has(Number(j.id))
+    );
+    
+    if (jobsWithOfferStatus.length > 0) {
+      console.log(`📊 Found ${jobsWithOfferStatus.length} job(s) with status='Offer' but no offers entry. Creating virtual offers...`);
+      
+      // Create virtual offer objects from jobs with status='Offer'
+      const virtualOffers = jobsWithOfferStatus.map(job => {
+        const jobId = Number(job.id);
+        const historyEntry = offerStatusChanges.get(jobId);
+        
+        // Determine offer date - prefer application_history timestamp (real-time), 
+        // then offerDate, then status_updated_at, then created_at
+        let offerDate = null;
+        if (historyEntry && historyEntry.timestamp) {
+          // Use the timestamp from application_history (most accurate, real-time)
+          offerDate = new Date(historyEntry.timestamp).toISOString().split('T')[0];
+          console.log(`📅 Using application_history timestamp for job ${jobId}: ${offerDate}`);
+        } else {
+          offerDate = job.offerDate || job.status_updated_at || job.created_at;
+          if (offerDate) {
+            offerDate = new Date(offerDate).toISOString().split('T')[0];
+          } else {
+            offerDate = new Date().toISOString().split('T')[0];
+          }
+        }
+        
+        // If job has offerDate set and status is 'Offer', treat as potentially accepted
+        // But default to 'pending' unless we have more evidence
+        const offerStatus = job.offerDate ? 'pending' : 'pending';
+        
+        return {
+          id: `job_${job.id}`, // Virtual ID to distinguish from real offers
+          job_id: job.id,
+          user_id: userId,
+          company: job.company || 'Unknown',
+          role_title: job.title || 'Unknown',
+          role_level: job.role_level || null,
+          location: job.location || null,
+          location_type: null,
+          industry: job.industry || null,
+          company_size: null,
+          base_salary: job.salary_max || job.salary_min || null,
+          signing_bonus: 0,
+          annual_bonus_percent: 0,
+          annual_bonus_guaranteed: false,
+          equity_type: 'none',
+          equity_value: 0,
+          total_comp_year1: job.salary_max || job.salary_min || null,
+          total_comp_year4: null,
+          offer_status: offerStatus,
+          offer_date: offerDate,
+          expiration_date: null,
+          decision_date: job.offerDate ? new Date(job.offerDate).toISOString().split('T')[0] : null,
+          initial_base_salary: job.salary_max || job.salary_min || null,
+          negotiated_base_salary: null,
+          negotiation_attempted: false,
+          negotiation_successful: false,
+          negotiation_improvement_percent: null,
+          pto_days: 0,
+          health_insurance_value: 0,
+          retirement_match_percent: 0,
+          retirement_match_cap: 0,
+          other_benefits_value: 0,
+          years_of_experience: null,
+          created_at: job.created_at,
+          updated_at: job.status_updated_at || job.created_at,
+          is_virtual: true // Flag to indicate this is a virtual offer from jobs table
+        };
+      });
+      
+      // Add virtual offers to the offers array
+      offers = [...offers, ...virtualOffers];
+      console.log(`✅ Added ${virtualOffers.length} virtual offer(s) from jobs table`);
+      
+      // Update jobIdsWithOffers set to include virtual offers
+      virtualOffers.forEach(vo => {
+        if (vo.job_id !== null && vo.job_id !== undefined) {
+          jobIdsWithOffers.add(Number(vo.job_id));
+        }
+      });
+    }
     
     // Debug: Log all offers fetched
     console.log("📊 Offers Fetched from Database:", {
@@ -640,13 +800,61 @@ router.get("/comprehensive", async (req, res) => {
             return sum + midpoint;
           }, 0) / jobsWithSalary.length
         : 0,
-      jobsWithOffers: jobs.filter(j => {
-        // Check if this job has a corresponding offer
-        return offers.some(o => o.job_id === j.id);
-      }).length,
-      jobsWithoutOffers: jobs.filter(j => {
-        return !offers.some(o => o.job_id === j.id);
-      }).length
+      jobsWithOffers: (() => {
+        // Count jobs that have offers - use the same logic as determining which jobs need offers
+        // This includes:
+        // 1. Jobs that have entries in the offers table
+        // 2. Jobs with status='Offer' from jobs table
+        // 3. Jobs that changed to 'Offer' according to application_history
+        const jobIdsWithOffersSet = new Set(
+          offers
+            .filter(o => o.job_id !== null && o.job_id !== undefined)
+            .map(o => Number(o.job_id))
+        );
+        
+        // Also include jobs with status='Offer' (even if they don't have offers table entries yet)
+        const jobsWithOfferStatus = jobs.filter(j => 
+          j.status && j.status.toLowerCase().trim() === 'offer'
+        ).map(j => Number(j.id));
+        
+        // Also include jobs from application_history that changed to 'Offer'
+        const jobsWithOfferFromHistory = Array.from(offerStatusChanges.keys());
+        
+        // Combine all sources
+        const allJobIdsWithOffers = new Set([
+          ...Array.from(jobIdsWithOffersSet),
+          ...jobsWithOfferStatus,
+          ...jobsWithOfferFromHistory
+        ]);
+        
+        return allJobIdsWithOffers.size;
+      })(),
+      jobsWithoutOffers: (() => {
+        // Count jobs that don't have offers
+        const jobIdsWithOffersSet = new Set(
+          offers
+            .filter(o => o.job_id !== null && o.job_id !== undefined)
+            .map(o => Number(o.job_id))
+        );
+        
+        const jobsWithOfferStatus = new Set(
+          jobs
+            .filter(j => j.status && j.status.toLowerCase().trim() === 'offer')
+            .map(j => Number(j.id))
+        );
+        
+        const jobsWithOfferFromHistory = new Set(Array.from(offerStatusChanges.keys()));
+        
+        // Combine all sources
+        const allJobIdsWithOffers = new Set([
+          ...Array.from(jobIdsWithOffersSet),
+          ...Array.from(jobsWithOfferStatus),
+          ...Array.from(jobsWithOfferFromHistory)
+        ]);
+        
+        // Jobs without offers = total jobs - jobs with offers
+        return jobs.length - allJobIdsWithOffers.size;
+      })()
     };
     
     // Compare job salary ranges to actual offers
@@ -782,13 +990,7 @@ router.get("/comprehensive", async (req, res) => {
       }))
     });
     
-    // Get all job IDs that have offers (including those with null job_id that might have been removed)
-    const jobIdsWithOffers = new Set(
-      offers
-        .filter(o => o.job_id !== null && o.job_id !== undefined)
-        .map(o => Number(o.job_id))
-    );
-    
+    // Use the jobIdsWithOffers set that was already created (includes virtual offers now)
     jobs.forEach(job => {
       const jobLevel = job.role_level;
       if (jobLevel && jobLevel.trim() !== '') {
@@ -1058,7 +1260,7 @@ router.get("/comprehensive", async (req, res) => {
       return {
         ...role,
         increasePercent: increase,
-        roleProgression: `${prevRole?.role_level || 'N/A'} → ${role.role_level}`
+        roleProgression: `${prevRole?.role_level || 'N/A'} → ${role?.role_level || 'N/A'}`
       };
     });
     
@@ -1217,8 +1419,12 @@ router.get("/comprehensive", async (req, res) => {
             console.warn(`⚠️ Negative growth rate detected (${avgGrowthRate.toFixed(2)}%). This may indicate data quality issues or salary decreases. Using estimated growth rate instead.`);
           }
           
-          const role = validCompHistory[validCompHistory.length - 1]; // Get most recent role (validCompHistory is sorted ASC, oldest first)
-      const level = role.role_level || 'mid';
+          // Get most recent role (validCompHistory is sorted ASC, oldest first)
+          // Also check if validCompHistory has elements and if role exists
+          const role = validCompHistory && validCompHistory.length > 0 
+            ? validCompHistory[validCompHistory.length - 1] 
+            : null;
+          const level = (role && role.role_level) ? role.role_level : 'mid';
       
       // Estimated annual growth rates by level (conservative estimates)
       // Based on typical career progression patterns and industry reports

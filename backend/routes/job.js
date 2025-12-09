@@ -162,11 +162,11 @@ router.post("/", auth, async (req, res) => {
     const insertJobQuery = `
       INSERT INTO jobs (
         user_id, title, company, location, salary_min, salary_max,
-        url, deadline, description, industry, type,
+        url, deadline, description, industry, type, role_level,
         "applicationDate", "required_skills",
         status, status_updated_at, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'Interested',NOW(),NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Interested',NOW(),NOW())
       RETURNING *;
     `;
 
@@ -316,7 +316,8 @@ router.get("/", auth, async (req, res) => {
 
     const params = [req.userId];
     // FIX: Added quotes around "isArchived" and qualified user_id with table alias
-    const whereClauses = ["j.user_id = $1", `j."isArchived" = false`];
+    // Include jobs where isArchived is false OR NULL (not explicitly archived)
+    const whereClauses = ["j.user_id = $1", `(j."isArchived" = false OR j."isArchived" IS NULL)`];
     let i = 2;
 
     if (search) {
@@ -391,7 +392,41 @@ router.get("/", auth, async (req, res) => {
       params
     );
 
-    res.json({ jobs: result.rows });
+    // 🔧 Normalize status values to match standard stages
+    // If a job has a non-standard status (like event text), try to extract the actual status
+    const normalizedJobs = result.rows.map(job => {
+      let normalizedStatus = (job.status || '').trim();
+      
+      // If status looks like event text (contains "Status changed from"), try to extract the final status
+      if (normalizedStatus.includes('Status changed from') || normalizedStatus.includes('to')) {
+        // Try to extract the final status from patterns like "Status changed from 'X' to 'Y'"
+        const match = normalizedStatus.match(/to\s+['"]([^'"]+)['"]/i);
+        if (match && match[1]) {
+          normalizedStatus = match[1].trim();
+          console.log(`🔧 Normalized status for job ${job.id}: "${job.status}" → "${normalizedStatus}"`);
+        }
+      }
+      
+      // If status still doesn't match a standard stage, keep it as-is (will show in "Other" column)
+      // But try to match case-insensitively to standard stages
+      const standardStatuses = STAGES.map(s => s.toLowerCase());
+      const statusLower = normalizedStatus.toLowerCase();
+      if (standardStatuses.includes(statusLower)) {
+        // Map to the correct case from STAGES array
+        const matchedStage = STAGES.find(s => s.toLowerCase() === statusLower);
+        if (matchedStage) {
+          normalizedStatus = matchedStage;
+        }
+      }
+      
+      return {
+        ...job,
+        status: normalizedStatus
+      };
+    });
+
+    console.log(`📊 Returning ${normalizedJobs.length} jobs (${result.rows.length} from DB)`);
+    res.json({ jobs: normalizedJobs });
   } catch (err) {
     console.error("❌ Fetch jobs error:", err.message);
     res.status(500).json({ error: "Database error" });
@@ -408,7 +443,7 @@ router.get("/stats", auth, async (req, res) => {
     const query = `
       WITH user_jobs AS (
         -- FIX: Added quotes around "isArchived"
-        SELECT * FROM jobs WHERE user_id = $1 AND "isArchived" = false 
+        SELECT * FROM jobs WHERE user_id = $1 AND ("isArchived" = false OR "isArchived" IS NULL) 
       ),
       
       jobs_by_status AS (
@@ -946,7 +981,7 @@ router.put("/:id/status", auth, async (req, res) => {
         UPDATE jobs
         SET status = $1,
             status_updated_at = NOW(),
-            offer_date = COALESCE(offer_date, NOW())
+            "offerDate" = COALESCE("offerDate", NOW())
         WHERE id = $2 AND user_id = $3
         RETURNING *;
       `;
@@ -971,6 +1006,8 @@ router.put("/:id/status", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found or unauthorized" });
     }
 
+    const updatedJob = result.rows[0];
+
     // Log into application history
     await pool.query(
       `
@@ -980,7 +1017,7 @@ router.put("/:id/status", auth, async (req, res) => {
       [id, `Status changed to "${status}"`]
     );
 
-    res.json({ job: result.rows[0] });
+    res.json({ job: updatedJob });
   } catch (err) {
     console.error("❌ Failed to update job stage:", err.message);
     res.status(500).json({ error: "Database error" });

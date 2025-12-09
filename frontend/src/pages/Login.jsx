@@ -11,69 +11,77 @@ export default function Login() {
   const [linkedInLoading, setLinkedInLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Handle LinkedIn OAuth callback
+  // Handle LinkedIn OAuth - check URL params on mount
   useEffect(() => {
-    const handleLinkedInMessage = async (event) => {
-      // Verify origin
-      if (event.origin !== window.location.origin) return;
-
-      if (event.data.type === "linkedin_token") {
-        const { accessToken, expiresIn } = event.data;
-        
-        try {
-          setLinkedInLoading(true);
-
-          // Step 1: Store the token on backend
-          await api.post("/linkedin/store-token", {
-            accessToken,
-            expiresIn,
-          });
-
-          // Step 2: Fetch LinkedIn profile data
-          const profileRes = await api.get("/linkedin/fetch-profile");
-          const linkedInProfile = profileRes.data.profile;
-
-          // Step 3: Create or login user with LinkedIn data
-          const loginRes = await api.post("/linkedin-login", {
-            linkedin_id: linkedInProfile.linkedin_id,
-            email: linkedInProfile.email,
-            first_name: linkedInProfile.first_name,
-            last_name: linkedInProfile.last_name,
-            profile_pic_url: linkedInProfile.profile_pic_url,
-          });
-
-          // Step 4: Sync profile data
-          if (loginRes.data.token) {
-            setToken(loginRes.data.token);
-            const payload = JSON.parse(
-              atob(loginRes.data.token.split(".")[1])
-            );
-            localStorage.setItem("userId", payload.id);
-
-            // Sync profile
-            await api.post("/linkedin/sync-profile", {
-              linkedin_id: linkedInProfile.linkedin_id,
-              first_name: linkedInProfile.first_name,
-              last_name: linkedInProfile.last_name,
-              email: linkedInProfile.email,
-              profile_pic_url: linkedInProfile.profile_pic_url,
-            });
-
-            alert("✅ LinkedIn login successful!");
-            navigate("/profile/info");
-          }
-        } catch (err) {
-          console.error("LinkedIn login error:", err);
-          alert(err?.response?.data?.error || "LinkedIn login failed");
-        } finally {
-          setLinkedInLoading(false);
-        }
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('linkedin_token');
+    const profileStr = params.get('linkedin_profile');
+    
+    if (!token) return; // No LinkedIn token, normal login page
+    
+    console.log("LinkedIn token found in URL!");
+    
+    // Parse profile
+    let profile = null;
+    if (profileStr) {
+      try {
+        profile = JSON.parse(decodeURIComponent(profileStr));
+        localStorage.setItem("linkedinProfile", JSON.stringify(profile));
+      } catch (e) {
+        console.error("Error parsing profile:", e);
       }
+    }
+    
+    // Save the token to localStorage (accessible by all windows on same origin)
+    localStorage.setItem("token", token);
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    localStorage.setItem("userId", payload.id);
+    
+    // Check if we're in a popup
+    if (window.opener && !window.opener.closed) {
+      // Send message to opener window
+      window.opener.postMessage({ 
+        type: 'linkedin_login_success', 
+        token, 
+        profile,
+        userId: payload.id 
+      }, window.location.origin);
+      
+      // Close the popup
+      window.close();
+      return;
+    }
+    
+    // Not in a popup - process directly
+    setToken(token);
+    console.log("LinkedIn login successful, user ID:", payload.id);
+    alert("✅ LinkedIn login successful!");
+    navigate("/profile/info");
+  }, [navigate, setToken]);
+  
+  // Listen for messages from popup
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'linkedin_login_success') return;
+      
+      console.log("Received LinkedIn login from popup!");
+      const { token, profile, userId } = event.data;
+      
+      // Token is already in localStorage, just update React state
+      setToken(token);
+      
+      if (profile) {
+        localStorage.setItem("linkedinProfile", JSON.stringify(profile));
+      }
+      
+      alert("✅ LinkedIn login successful!");
+      navigate("/profile/info");
     };
-
-    window.addEventListener("message", handleLinkedInMessage);
-    return () => window.removeEventListener("message", handleLinkedInMessage);
-  }, [setToken, navigate]);
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [navigate, setToken]);
 
   async function handleLogin() {
     try {

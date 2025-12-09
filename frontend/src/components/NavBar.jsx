@@ -13,11 +13,12 @@ import {
   FaChartBar,
   FaStar,
   FaComments,
-  FaEnvelope, // ✅ Icon for Cover Letter// ✅ Icon for Professional Network
+  FaEnvelope, // ✅ Icon for Cover Letter
   FaHandshake, // ✅ Icon for Referrals
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
-  FaUsers, // ✅ Icon for Networking (alternative to FaNetworkWired)
+  FaUsers, // ✅ Icon for Network
+  FaArchive, // ✅ Icon for Archived
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -85,20 +86,12 @@ export default function NavBar() {
             </NavLink>
 
             <NavLink to="/docs-management">
-              <FaFileAlt /> Docs Management
+              <FaFileAlt /> Doc Management
             </NavLink>
 
-            {/* ═══════════════════════════════════════════
-                INTERVIEWS - Prepare & Track
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
-            </NavLink>
+           
 
-            {/* 🗄️ Archived */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+           
 
             {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
             <NavLink to="/interviews">
@@ -132,6 +125,7 @@ export default function NavBar() {
             <NavLink to="/archived">
               <FaArchive /> Archived
             </NavLink>
+           
 
             {/* ═══════════════════════════════════════════
                 ACCOUNT
