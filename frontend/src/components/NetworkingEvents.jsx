@@ -63,12 +63,13 @@ const displayDateEST = (dateString) => {
   });
 };
 
-// Helper function to handle 401 errors and redirect to login
+// Helper function to handle 401 errors (DOES NOT LOGOUT - let api interceptor handle it)
 const handleAuthError = (err) => {
-  if (err.response?.status === 401 || err.response?.data?.error === 'TOKEN_EXPIRED') {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-    return true;
+  // Just check if it's an auth error, but don't logout
+  // The api interceptor will handle real auth failures
+  if (err.response?.status === 401) {
+    console.warn('401 error in NetworkingEvents:', err.response?.data);
+    return true; // Indicate it's an auth error, but don't logout
   }
   return false;
 };
