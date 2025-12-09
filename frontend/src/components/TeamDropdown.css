@@ -1,0 +1,329 @@
+/* TeamDropdown.css - Transparent purple badge styling - Enhanced */
+.team-dropdown-container {
+  position: relative;
+  display: inline-block;
+}
+
+.team-dropdown-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9998 !important;
+  background: transparent !important;
+}
+
+/* Centered variant for tabs that need it */
+.team-dropdown-container.centered {
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+.team-dropdown-static {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 20px !important;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(124, 58, 237, 0.08)) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1.5px solid rgba(139, 92, 246, 0.35) !important;
+  border-radius: 14px !important;
+  font-size: 15px !important;
+  color: #7c3aed !important;
+  font-weight: 700 !important;
+  box-shadow: 
+    0 4px 16px rgba(139, 92, 246, 0.2),
+    0 2px 8px rgba(139, 92, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  letter-spacing: 0.2px !important;
+}
+
+.team-dropdown-static svg {
+  color: #8b5cf6 !important;
+  font-size: 18px !important;
+  filter: drop-shadow(0 1px 2px rgba(139, 92, 246, 0.3)) !important;
+}
+
+.team-dropdown-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 12px 20px !important;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(124, 58, 237, 0.08)) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1.5px solid rgba(139, 92, 246, 0.35) !important;
+  border-radius: 14px !important;
+  font-size: 15px !important;
+  color: #7c3aed !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  box-shadow: 
+    0 4px 16px rgba(139, 92, 246, 0.2),
+    0 2px 8px rgba(139, 92, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  letter-spacing: 0.2px !important;
+  overflow: hidden !important;
+}
+
+.team-dropdown-button::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent) !important;
+  transition: left 0.5s ease !important;
+}
+
+.team-dropdown-button:hover:not(:disabled)::before {
+  left: 100% !important;
+}
+
+.team-dropdown-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(124, 58, 237, 0.12)) !important;
+  border-color: rgba(139, 92, 246, 0.45) !important;
+  box-shadow: 
+    0 6px 24px rgba(139, 92, 246, 0.3),
+    0 4px 12px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+.team-dropdown-button:active:not(:disabled) {
+  transform: translateY(0) scale(1) !important;
+  box-shadow: 
+    0 2px 8px rgba(139, 92, 246, 0.25),
+    inset 0 1px 2px rgba(139, 92, 246, 0.2) !important;
+}
+
+.team-dropdown-button svg {
+  color: #8b5cf6 !important;
+  font-size: 18px !important;
+  filter: drop-shadow(0 1px 2px rgba(139, 92, 246, 0.3)) !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.team-dropdown-button:hover:not(:disabled) svg:first-child {
+  transform: scale(1.1) !important;
+}
+
+.team-dropdown-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.team-dropdown-chevron {
+  font-size: 11px !important;
+  margin-left: 8px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  color: #7c3aed !important;
+  opacity: 0.85 !important;
+  filter: drop-shadow(0 1px 1px rgba(139, 92, 246, 0.3)) !important;
+}
+
+.team-dropdown-chevron.open {
+  transform: rotate(180deg) scale(1.1) !important;
+  opacity: 1 !important;
+  color: #8b5cf6 !important;
+}
+
+.team-dropdown-menu {
+  position: absolute !important;
+  top: calc(100% + 12px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 9999 !important;
+  background: white !important;
+  border-radius: 18px !important;
+  box-shadow: 
+    0 20px 60px rgba(139, 92, 246, 0.3),
+    0 8px 32px rgba(139, 92, 246, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  overflow: visible !important;
+  min-width: 300px !important;
+  max-width: 380px !important;
+  max-height: 420px !important;
+  overflow-y: auto !important;
+  overflow-x: visible !important;
+  animation: slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  border: 2px solid rgba(139, 92, 246, 0.2) !important;
+  padding: 10px !important;
+  margin: 0 !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+
+.team-dropdown-menu::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.team-dropdown-menu::-webkit-scrollbar-track {
+  background: rgba(139, 92, 246, 0.05) !important;
+  border-radius: 10px !important;
+}
+
+.team-dropdown-menu::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3) !important;
+  border-radius: 10px !important;
+}
+
+.team-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5) !important;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0 !important;
+    transform: translateX(-50%) translateY(-12px) scale(0.95) !important;
+    filter: blur(4px) !important;
+  }
+  to {
+    opacity: 1 !important;
+    transform: translateX(-50%) translateY(0) scale(1) !important;
+    filter: blur(0) !important;
+  }
+}
+
+.team-dropdown-option {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 14px 18px !important;
+  background: white !important;
+  border: none !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 14px !important;
+  margin-bottom: 6px !important;
+  font-size: 15px !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.team-dropdown-option::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 3px !important;
+  height: 100% !important;
+  background: linear-gradient(180deg, #8b5cf6, #7c3aed) !important;
+  transform: scaleY(0) !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  border-radius: 0 3px 3px 0 !important;
+}
+
+.team-dropdown-option:hover::before {
+  transform: scaleY(1) !important;
+}
+
+.team-dropdown-option:last-child {
+  margin-bottom: 0 !important;
+}
+
+.team-dropdown-option:hover {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.08), rgba(139, 92, 246, 0.04)) !important;
+  transform: translateX(4px) !important;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15) !important;
+}
+
+.team-dropdown-option.selected {
+  background: white !important;
+  color: #7c3aed !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.2) !important;
+}
+
+.team-dropdown-option.selected::before {
+  transform: scaleY(1) !important;
+}
+
+.team-dropdown-option-name {
+  flex: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: inherit !important;
+  font-weight: inherit !important;
+  margin-right: 10px !important;
+  transition: color 0.2s ease !important;
+  letter-spacing: 0.1px !important;
+}
+
+.team-dropdown-option:hover .team-dropdown-option-name {
+  color: #7c3aed !important;
+}
+
+.team-dropdown-option-count {
+  font-size: 12px !important;
+  color: white !important;
+  margin-left: 10px !important;
+  font-weight: 700 !important;
+  padding: 5px 12px !important;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+  border-radius: 14px !important;
+  white-space: nowrap !important;
+  min-width: fit-content !important;
+  box-shadow: 
+    0 2px 6px rgba(139, 92, 246, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  letter-spacing: 0.3px !important;
+}
+
+.team-dropdown-option:hover .team-dropdown-option-count {
+  transform: scale(1.05) !important;
+  box-shadow: 
+    0 3px 8px rgba(139, 92, 246, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.team-dropdown-option.selected .team-dropdown-option-count {
+  color: white !important;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  font-weight: 700 !important;
+  box-shadow: 
+    0 3px 10px rgba(124, 58, 237, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.team-dropdown-checkmark {
+  margin-left: 12px !important;
+  color: #7c3aed !important;
+  font-weight: bold !important;
+  font-size: 20px !important;
+  opacity: 1 !important;
+  flex-shrink: 0 !important;
+  filter: drop-shadow(0 1px 2px rgba(124, 58, 237, 0.3)) !important;
+  animation: checkmarkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transition: all 0.2s ease !important;
+}
+
+.team-dropdown-option:hover .team-dropdown-checkmark {
+  transform: scale(1.15) !important;
+}
+
+@keyframes checkmarkPop {
+  from {
+    transform: scale(0) rotate(-180deg) !important;
+    opacity: 0 !important;
+  }
+  to {
+    transform: scale(1) rotate(0deg) !important;
+    opacity: 1 !important;
+  }
+}
+

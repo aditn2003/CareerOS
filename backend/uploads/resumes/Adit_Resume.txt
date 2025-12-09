@@ -1,0 +1,37 @@
+Adit Nuwal
+an238@njit.edu | (929) 788-9500 | http://www.aditnuwal.com| http://www.linkedin.com/in/aditnuwal18/| Jersey City, NJ
+ EDUCATION	
+New Jersey Institute of Technology, Newark, NJ	Expected Graduation: May 2026 BS Computer Science		Current GPA : 3.8
+Scholarship and Awards: NJIT Academic Merit Scholarship, Dean’s List: Fall ‘22, Spring ‘23, Fall ‘23, Spring ’24, Spring ‘25
+Relevant Coursework: Python, Java, Data Structures and Algorithms, Programming in Linux, Database Design (schema design, normalization, relational/dimensional databases), Computer Networks, Data Science, Data Mining, Machine Learning, Big Data
+ SUMMARY	
+1+ year of hands-on experience analyzing and managing 10M+ record datasets using Python, SQL and big data tools for quantitative analysis and database querying. Skilled in designing ETL pipelines that improve integrity, automation and efficiency. Passionate about building scalable data transformation workflows and optimizing SQL queries for complex datasets by leveraging AI/ML, schema design and cloud platforms (AWS, Hadoop, Spark) to turn complex information into actionable insights for better decision-making.
+ TECHNICAL SKILLS	
+Programming Languages: Python, Java, Kotlin, TypeScript, Bash, SQL
+Libraries & Frameworks: Pandas, NumPy, Scikit-learn, TensorFlow, Keras, Matplotlib, Seaborn, Dash, Flask, React
+Data Tools & Platforms: Tableau, Power BI, Hadoop, Spark, MongoDB (NoSQL), PostgreSQL, AWS, Git, REST APIs
+Certifications: Oracle Cloud Infrastructure AI Foundations Associate, Microsoft: Power BI Data Analyst Associate (In Progress)
+ WORK EXPERIENCE	
+Office of Institutional Effectiveness, NJIT | Undergraduate Survey Research Data Analyst	September 2025 – Present
+•	Developed ETL pipeline to improve data integrity and accuracy for 10000+ survey records using ApacheSpark and Hadoop
+•	Designed interactive dashboards using Power BI to track 10+ critical metrics and deliver strategic insights for NJIT offices
+•	Wrote and optimized SQL queries across large scale relational datasets to improve processing efficiency by 33% Department of Chemicals and Material Engineering, NJIT | Research Assistant | Github	June 2025 – September 2025
+•	Developed ETL pipelines with Pandas and RDKit to clean, standardize and merge 100K+ chemical compounds, resolving
+100% of missing and inconsistent entries and ensuring high-integrity datasets for PBPK model simulations
+•	Engineered a Flask backend with 8 REST APIs returning JSON objects to retrieve and analyze 1M+ compounds
+•	Deployed a full-stack chemical analysis web app with React, TypeScript, Node.js and Plotly for interactive visualizations
+Ying Wu College of Computing, NJIT | Teaching Assistant (Python/Operating Systems)	September 2024 – May 2025
+•	Resolved and debugged 99% of coding issues for 70+ students in Python and Operating Systems courses within 24 hours
+•	Graded 140+ assignments weekly and provided constructive feedback to improve programming and problem solving skills
+Bonzai Digital | Backend Development Intern	June 2024 – July 2024
+•	Implemented REST APIs with Kotlin and Spring Boot for direct file uploads to AWS S3 using presigned URLs to create scalable data ingestion pipelines, improving backend throughput and reducing response times by 25%
+•	Debugged Kotlin code by analyzing API response calls and network traffic using Postman and browser developer tools to resolve a critical backend issue, achieving a 100% reduction in error rate in collaboration with the products team
+•	Optimized AWS Lambda functions using Serverless to extract S3 object metadata and replicate data from S3 to PostgreSQL strengthening data availability for downstream analytics under Agile and CI/CD practices
+ PROJECTS	
+Data Analysis and Prediction App | Python, Dash, Plotly, Pandas, NumPy, Scikit-learn, Tableau | Github
+•	Built multiple predictive models (Linear Regression, KNN, Random Forest) to boost accuracy by 16% and increase in R² of 0.758 to 0.8792 for reliable insurance cost predictions
+•	Engineered an end-to-end data pipeline using Python, Pandas, Scikit-learn and Dash to clean, preprocess and model records and deployed an interactive app to enable prediction of insurance charges that reduced manual analysis time by 50%
+Data Breach Analysis Machine Learning Tool – Cybersecurity | MongoDB, Express.js, React, Node.js, Python, Pandas, NumPy, Scikit-learn, TensorFlow, Keras, Matplotlib, Seaborn, REST API | Github
+•	Created a full stack data breach analysis tool with MERN stack and Python, analyzing 13M+ records from 300+ breaches
+via secure REST APIs and a frontend dashboard that reveal trends, distributions and top impacted organizations
+•	Trained and deployed Deep Neural Network and Random Forest Regressor machine learning models to predict breach severity using Scikit-learn, TensorFlow, Keras with 85% accuracy and results visualized with Matplotlib and Seaborn
