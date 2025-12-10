@@ -52,7 +52,32 @@ router.get("/", auth, async (req, res) => {
       );
     } catch (err) {
       console.warn("uploaded_cover_letters table query failed:", err.message);
-          userLettersQuery = { rows: [] };
+      userLettersQuery = { rows: [] };
+    }
+
+    // Get cover letters from cover_letters table (older table)
+    let coverLettersQuery = { rows: [] };
+    try {
+      coverLettersQuery = await pool.query(
+        `
+        SELECT 
+          id,
+          name AS title,
+          'pdf' AS format,
+          NULL AS file_url,
+          content,
+          created_at,
+          COALESCE(updated_at, created_at) AS updated_at,
+          'cover_letters' AS source
+        FROM cover_letters
+        WHERE user_id = $1
+        ORDER BY COALESCE(updated_at, created_at) DESC;
+        `,
+        [userId]
+      );
+    } catch (err) {
+      console.warn("cover_letters table query failed:", err.message);
+      coverLettersQuery = { rows: [] };
     }
 
     // Get global templates (cover_letter_templates)
@@ -79,18 +104,26 @@ router.get("/", auth, async (req, res) => {
       console.error("Template query error details:", templateErr);
     }
     
-    console.log(`✅ Found ${userLettersQuery.rows.length} user cover letters`);
-    console.log(`✅ Found ${templatesQuery.rows.length} global templates`);
+    console.log(`✅ Found ${userLettersQuery.rows.length} uploaded cover letters, ${coverLettersQuery.rows.length} cover_letters, ${templatesQuery.rows.length} templates`);
 
-    // Only return uploaded cover letters (user doesn't care about templates)
-    const allCoverLetters = userLettersQuery.rows.map(row => ({
+    // Combine both uploaded_cover_letters and cover_letters
+    const allCoverLetters = [
+      ...userLettersQuery.rows.map(row => ({
         ...row,
-        isTemplate: false
-    }));
+        isTemplate: false,
+        source: 'uploaded'
+      })),
+      ...coverLettersQuery.rows.map(row => ({
+        ...row,
+        isTemplate: false,
+        source: 'cover_letters'
+      }))
+    ];
 
     res.json({ 
       cover_letters: allCoverLetters,
       user_letters: userLettersQuery.rows,
+      cover_letters_legacy: coverLettersQuery.rows,
       templates: templatesQuery.rows
     });
   } catch (err) {

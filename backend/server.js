@@ -70,6 +70,7 @@ import compensationHistoryRoutes from "./routes/compensationHistory.js";
 import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 import careerGoalsRoutes from "./routes/careerGoals.js";
 import calendarRoutes from "./routes/calendar.js";
+import qualityScoringRoutes from "./routes/qualityScoring.js";
 
 import referencesRoutes from "./routes/references.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
@@ -575,6 +576,7 @@ app.use("/api/performance-prediction", performancePredictionRoutes);
 app.use("/api/compensation-history", compensationHistoryRoutes);
 app.use("/api/market-benchmarks", marketBenchmarksRoutes);
 app.use("/api/career-goals", careerGoalsRoutes);
+app.use("/api/quality-scoring", qualityScoringRoutes);
 
 app.use("/api/team", teamRoutes);
 app.use("/api", jobImportRoutes);
