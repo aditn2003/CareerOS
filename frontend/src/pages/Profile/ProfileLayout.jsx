@@ -8,10 +8,10 @@ import SkillsTab from "./SkillsTab";
 import EducationTab from "./EducationTab";
 import CertificationsTab from "./CertificationsTab";
 import ProjectsTab from "./ProjectsTab";
+import GitHubTab from "./GitHubTab";
 import JobsTab from "./JobsTab";
 import DashboardTab from "./DashboardTab";
 import DangerTab from "./DangerTab";
-import SavedResumes from "./SavedResumes";
 import { useAuth } from "../../contexts/AuthContext";
 import MentorTab from "./MentorTab";
 import TeamManagement from "./TeamManagement";
@@ -49,10 +49,9 @@ export default function ProfileLayout() {
         <Route path="education" element={<EducationTab />} />
         <Route path="certifications" element={<CertificationsTab />} />
         <Route path="projects" element={<ProjectsTab />} />
+        <Route path="github" element={<GitHubTab />} />
         <Route path="jobs" element={<JobsTab />} />
 
-        {/* ✅ Saved Resumes lives under profile */}
-        <Route path="saved-resumes" element={<SavedResumes />} />
         <Route path="team" element={<TeamManagement />} />
 
         <Route path="danger" element={<DangerTab />} />
