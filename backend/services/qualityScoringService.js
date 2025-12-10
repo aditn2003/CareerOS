@@ -406,9 +406,46 @@ export function createQualityScoringService(openaiClient = null, dbPool = null) 
     
     const coverLetterText = coverLetter?.content || coverLetter?.text || "Cover letter not provided";
     
-    const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyst and career coach specializing in application package quality assessment. You provide comprehensive, actionable feedback to help candidates improve their job applications.`;
+    // Count skills and experiences from resume sections
+    let skillCount = 0;
+    let experienceCount = 0;
+    let totalBullets = 0;
+    
+    if (resume?.sections) {
+      // Count skills
+      if (resume.sections.skills) {
+        if (Array.isArray(resume.sections.skills)) {
+          skillCount = resume.sections.skills.length;
+        } else if (typeof resume.sections.skills === 'string') {
+          skillCount = resume.sections.skills.split(',').length;
+        }
+      }
+      
+      // Count work experiences
+      if (resume.sections.experience && Array.isArray(resume.sections.experience)) {
+        experienceCount = resume.sections.experience.length;
+        resume.sections.experience.forEach(exp => {
+          if (exp.description) {
+            const bullets = typeof exp.description === 'string' 
+              ? exp.description.split('\n').filter(b => b.trim())
+              : Array.isArray(exp.description) ? exp.description : [];
+            totalBullets += bullets.length;
+          }
+        });
+      }
+    }
+    
+    const systemPrompt = `You are an expert ATS (Applicant Tracking System) analyst and career coach specializing in application package quality assessment. You provide comprehensive, actionable feedback to help candidates improve their job applications. You MUST be very strict and differentiate clearly between sparse and comprehensive resumes.`;
 
     const userPrompt = `Analyze the following job application package and provide a comprehensive quality score with detailed feedback.
+
+**CRITICAL ANALYSIS REQUIREMENTS:**
+1. COUNT the actual number of skills in the resume (found: ${skillCount} skills)
+2. COUNT the actual number of work experiences (found: ${experienceCount} experiences)
+3. COUNT the total bullet points across all jobs (found: ${totalBullets} total bullets)
+4. Base ALL scoring on how well the resume matches THIS SPECIFIC JOB DESCRIPTION
+5. A resume with only ${skillCount} skills should score 40-60, NEVER above 65
+6. A resume with ${experienceCount} experience(s) and ${totalBullets} bullet points is ${experienceCount === 1 && totalBullets < 5 ? 'SPARSE' : experienceCount >= 3 && totalBullets >= 15 ? 'COMPREHENSIVE' : 'MODERATE'}
 
 JOB INFORMATION:
 Title: ${job.title}
@@ -446,8 +483,8 @@ Analyze the application package and provide a JSON response with the following e
     "cover_letter_customization": 70,
     "professional_tone": 85
   },
-  "missing_keywords": ["React", "TypeScript", "Agile"],
-  "missing_skills": ["AWS", "Docker"],
+  "missing_keywords": ["React development", "TypeScript programming", "Agile methodology", "RESTful API design"],
+  "missing_skills": ["AWS", "Docker", "Kubernetes", "PostgreSQL"],
   "formatting_issues": [
     {
       "type": "typo",
@@ -502,27 +539,38 @@ Analyze the application package and provide a JSON response with the following e
   ]
 }
 
-SCORING CRITERIA (BE STRICT - Most resumes should score 50-70, only excellent ones score 80+):
-1. **Keyword Match (0-100)**: Percentage of job description keywords found in application materials
-   - 90-100: 90%+ keywords present, excellent match
-   - 70-89: 70-89% keywords present, good match
-   - 50-69: 50-69% keywords present, moderate match
-   - 30-49: 30-49% keywords present, weak match
-   - 0-29: Less than 30% keywords present, poor match
+SCORING CRITERIA (BE VERY STRICT - Score must be based on JOB DESCRIPTION requirements and resume comprehensiveness):
+1. **Keyword Match (0-100)**: Percentage of job description KEYWORD PHRASES (2-5 words) found in application materials
+   - Keywords are PHRASES like "machine learning", "data pipeline", "cloud infrastructure", "agile development", "RESTful API design"
+   - Keywords are NOT single words - those are skills
+   - Extract 2-5 word phrases from job description that represent concepts, methodologies, or domain knowledge
+   - 90-100: 90%+ keyword phrases present, excellent match
+   - 70-89: 70-89% keyword phrases present, good match
+   - 50-69: 50-69% keyword phrases present, moderate match
+   - 30-49: 30-49% keyword phrases present, weak match
+   - 0-29: Less than 30% keyword phrases present, poor match
 
-2. **Skills Alignment (0-100)**: How well applicant's skills match required skills
-   - 90-100: All or nearly all required skills present
-   - 70-89: Most required skills present (80%+)
-   - 50-69: Some required skills present (50-79%)
-   - 30-49: Few required skills present (30-49%)
-   - 0-29: Very few or no required skills present
+2. **Skills Alignment (0-100)**: How well applicant's TECHNICAL SKILLS (single words/tools) match required skills FROM THE JOB DESCRIPTION
+   - Skills are SINGLE WORDS or TOOL NAMES like "Python", "React", "AWS", "Docker", "SQL", "JavaScript"
+   - Skills are NOT phrases - those are keywords
+   - Extract specific technical tools, languages, frameworks, and technologies from job description
+   - 90-100: All or nearly all required skills present, plus additional relevant skills (15+ total skills)
+   - 70-89: Most required skills present (80%+), 10-14 total skills
+   - 50-69: Some required skills present (50-79%), 6-9 total skills
+   - 30-49: Few required skills present (30-49%), 3-5 total skills
+   - 0-29: Very few or no required skills present, <3 total skills
+   - **CRITICAL PENALTY**: Resume with only 5 skills should score MAX 40 for this category, regardless of keyword match
+   - **CRITICAL**: If job requires 10+ skills but resume only has 5, score should be 30-40, not 50+
+   - **MANDATORY**: Calculate percentage of required skills present: (matched_skills / required_skills) × 100
 
 3. **Experience Relevance (0-100)**: How relevant past experience is to the job
-   - 90-100: Highly relevant, direct experience in same role/industry
-   - 70-89: Relevant, transferable experience
-   - 50-69: Somewhat relevant, some transferable skills
-   - 30-49: Limited relevance, minimal transferable skills
-   - 0-29: Not relevant, unrelated experience
+   - 90-100: Highly relevant, direct experience in same role/industry, 3+ detailed work experiences (5+ bullets each)
+   - 70-89: Relevant, transferable experience, 2-3 work experiences with good detail (3-4 bullets each)
+   - 50-69: Somewhat relevant, some transferable skills, 1-2 work experiences with basic detail (2-3 bullets each)
+   - 30-49: Limited relevance, minimal transferable skills, 1 work experience with sparse detail (<2 bullets)
+   - 0-29: Not relevant, unrelated experience, or extremely sparse
+   - **CRITICAL PENALTY**: Resume with only 1 work experience should score MAX 60 for this category
+   - **CRITICAL PENALTY**: Resume with fewer than 3 bullet points per job should score MAX 70 for this category
 
 4. **Formatting Quality (0-100)**: Professional formatting, no typos, consistent style
    - 90-100: Perfect formatting, no errors, professional appearance
@@ -559,19 +607,48 @@ SCORING CRITERIA (BE STRICT - Most resumes should score 50-70, only excellent on
    - 30-49: Unprofessional tone, multiple issues
    - 0-29: Very unprofessional tone, inappropriate language
 
-SCORING PENALTIES (Apply these to reduce scores):
+SCORING PENALTIES (Apply these STRICTLY to reduce scores - These are MANDATORY):
+- **CRITICAL**: Resume with only 5 or fewer skills: -40 to -50 points from overall score (MAX overall score 55)
+- **CRITICAL**: Resume with fewer than 8 skills: -30 to -40 points from overall score (MAX overall score 65)
+- **CRITICAL**: Resume with only 1 work experience: -25 to -35 points from overall score
+- **CRITICAL**: Resume with fewer than 3 bullet points per job: -15 to -20 points
+- **CRITICAL**: If job requires many skills but resume has few: -20 to -30 additional points
+- **CRITICAL**: If resume skills don't match job requirements: -15 to -25 points
 - Each formatting issue (typo, inconsistency): -5 to -10 points
 - Each missing critical keyword: -3 to -5 points
 - Each missing required skill: -5 to -10 points
 - Generic cover letter (no customization): -15 to -20 points
 - Poor formatting quality: -10 to -20 points
 - Lack of quantification: -10 to -15 points
+- Missing education section: -5 to -10 points
+- Missing projects/certifications when relevant: -5 to -10 points
 
-IMPORTANT:
-- BE STRICT: Most average resumes should score 50-65, good resumes 65-75, excellent resumes 75-85, exceptional resumes 85-95
+SCORING REWARDS (Apply these to increase scores):
+- Resume with 15+ skills: +10 to +15 points
+- Resume with 3+ detailed work experiences (5+ bullets each): +10 to +15 points
+- Resume with 5+ quantified achievements: +10 to +15 points
+- Comprehensive resume (all sections filled, detailed content): +10 to +20 points
+
+IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
+- **CRITICAL**: A sparse resume (5 skills, 1 job, minimal detail) should score 40-55, NEVER above 60
+- **CRITICAL**: A comprehensive resume (15+ skills, 3+ jobs, detailed bullets) should score 75-90, significantly higher than sparse resumes
+- **DIFFERENTIATION**: There MUST be a clear 30-40 point difference between sparse and comprehensive resumes
+- **JOB-SPECIFIC**: Score must be based on how well resume matches THIS SPECIFIC job description and required skills
+- **MANDATORY CALCULATION**: 
+  * Count required skills from job description: ${job.required_skills ? job.required_skills.length : 'unknown'}
+  * Count skills in resume: ${skillCount}
+  * If resume has fewer than 50% of required skills, overall score cannot exceed 60
+  * If resume has fewer than 30% of required skills, overall score cannot exceed 50
+- BE VERY STRICT: Most average resumes should score 50-65, good resumes 65-75, excellent resumes 75-85, exceptional resumes 85-95
+- Sparse/incomplete resumes should score 40-55
+- If resume doesn't match job requirements well, score should be 50-65 even if formatting is good
 - All scores must be integers between 0 and 100
 - Overall score should be a weighted average (resume 60%, cover letter 30%, LinkedIn 10% if available)
 - Apply penalties for formatting issues, missing keywords, and poor customization
+- **CRITICAL**: Missing keywords must be 2-5 word PHRASES representing concepts/methodologies (e.g., "machine learning", "data pipeline", "cloud infrastructure", "agile development", "RESTful API design")
+- **CRITICAL**: Missing skills must be SINGLE WORDS or TOOL NAMES (e.g., "Python", "AWS", "Docker", "SQL", "React", "JavaScript")
+- **CRITICAL**: Keywords and skills must NOT overlap - if "Python" is a missing skill, do NOT also include "Python programming" as a missing keyword
+- **CRITICAL**: Extract keywords as phrases from job description (2-5 words), extract skills as single technical terms
 - Missing keywords and skills should be specific and actionable
 - Formatting issues should include exact location and fix
 - Improvement suggestions must be prioritized (high/medium/low) and include estimated impact
@@ -581,6 +658,76 @@ IMPORTANT:
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt }
     ];
+  }
+
+  /**
+   * 2.3.5 Clean Missing Keywords and Skills
+   * Ensures keywords are 2-5 word phrases and skills are single terms, with no overlap
+   */
+  function cleanMissingKeywordsAndSkills(keywords, skills) {
+    // Normalize arrays
+    const keywordsArray = Array.isArray(keywords) ? keywords : [];
+    const skillsArray = Array.isArray(skills) ? skills : [];
+
+    // Helper to count words
+    const wordCount = (str) => (str || '').trim().split(/\s+/).filter(w => w.length > 0).length;
+    
+    // Helper to normalize for comparison (lowercase, trim)
+    const normalize = (str) => (str || '').toLowerCase().trim();
+    
+    // Clean keywords: must be 2-5 words, remove single words
+    const cleanedKeywords = keywordsArray
+      .map(k => (k || '').trim())
+      .filter(k => {
+        const words = wordCount(k);
+        return words >= 2 && words <= 5;
+      })
+      .filter((k, idx, arr) => arr.indexOf(k) === idx); // Remove duplicates
+
+    // Clean skills: should be single words or short tool names (1-2 words max for tool names like "React.js")
+    const cleanedSkills = skillsArray
+      .map(s => (s || '').trim())
+      .filter(s => {
+        const words = wordCount(s);
+        // Allow single words, or 2-word tool names (e.g., "React.js", "Node.js")
+        if (words === 1) return true;
+        if (words === 2) {
+          // Allow 2-word skills only if they're common tech stack items (e.g., "React.js", "Node.js", "ASP.NET")
+          const twoWordTechPattern = /^[a-z]+\.(js|net|py|ts|jsx|tsx)$/i;
+          return twoWordTechPattern.test(s);
+        }
+        return false; // 3+ words should be keywords, not skills
+      })
+      .filter((s, idx, arr) => arr.indexOf(s) === idx); // Remove duplicates
+
+    // Remove overlap: if a skill appears in a keyword (or vice versa), remove it from skills
+    const normalizedKeywords = cleanedKeywords.map(normalize);
+    const finalSkills = cleanedSkills.filter(skill => {
+      const normalizedSkill = normalize(skill);
+      // Check if this skill is contained in any keyword
+      const isInKeyword = normalizedKeywords.some(kw => 
+        kw.includes(normalizedSkill) || normalizedSkill.includes(kw)
+      );
+      return !isInKeyword;
+    });
+
+    // Remove overlap: if a keyword is a single word that's also a skill, remove it from keywords
+    const normalizedSkills = finalSkills.map(normalize);
+    const finalKeywords = cleanedKeywords.filter(keyword => {
+      const normalizedKeyword = normalize(keyword);
+      const words = wordCount(keyword);
+      // If keyword is only 1 word and it's in skills, remove it
+      if (words === 1 && normalizedSkills.includes(normalizedKeyword)) {
+        return false;
+      }
+      // If keyword contains a skill word, keep it (it's a phrase)
+      return true;
+    });
+
+    return {
+      keywords: finalKeywords,
+      skills: finalSkills
+    };
   }
 
   /**
@@ -681,6 +828,17 @@ IMPORTANT:
       console.log(`✅ [QUALITY SCORING] OpenAI response received`);
       console.log(`📊 [QUALITY SCORING] Raw AI scores - Resume: ${scoreData.resume_score}, Cover Letter: ${scoreData.cover_letter_score}, LinkedIn: ${scoreData.linkedin_score}`);
 
+      // Post-process missing keywords and skills to ensure proper distinction
+      if (scoreData.missing_keywords || scoreData.missing_skills) {
+        const processed = cleanMissingKeywordsAndSkills(
+          scoreData.missing_keywords || [],
+          scoreData.missing_skills || []
+        );
+        scoreData.missing_keywords = processed.keywords;
+        scoreData.missing_skills = processed.skills;
+        console.log(`✅ [QUALITY SCORING] Cleaned missing items - Keywords: ${processed.keywords.length}, Skills: ${processed.skills.length}`);
+      }
+
       // 5. Calculate overall score as weighted average (Resume 60%, Cover Letter 30%, LinkedIn 10%)
       // IGNORE the AI's overall_score - we calculate it ourselves from component scores
       let overallScore = 0;
@@ -721,10 +879,100 @@ IMPORTANT:
       // Ensure score is between 0-100
       overallScore = Math.max(0, Math.min(100, overallScore));
       
-      // OVERRIDE the AI's overall_score with our calculated one
-      scoreData.overall_score = overallScore;
+      // Count skills and experiences from resume for post-processing validation
+      let skillCount = 0;
+      let experienceCount = 0;
+      let totalBullets = 0;
       
-      console.log(`✅ [QUALITY SCORING] Final overall score: ${overallScore} (calculated from component scores, ignoring AI's overall_score)`);
+      if (materials.resume?.sections) {
+        // Count skills
+        if (materials.resume.sections.skills) {
+          if (Array.isArray(materials.resume.sections.skills)) {
+            skillCount = materials.resume.sections.skills.length;
+          } else if (typeof materials.resume.sections.skills === 'string') {
+            skillCount = materials.resume.sections.skills.split(',').filter(s => s.trim()).length;
+          }
+        }
+        
+        // Count work experiences
+        if (materials.resume.sections.experience && Array.isArray(materials.resume.sections.experience)) {
+          experienceCount = materials.resume.sections.experience.length;
+          materials.resume.sections.experience.forEach(exp => {
+            if (exp.description) {
+              const bullets = typeof exp.description === 'string' 
+                ? exp.description.split('\n').filter(b => b.trim())
+                : Array.isArray(exp.description) ? exp.description : [];
+              totalBullets += bullets.length;
+            }
+          });
+        }
+      }
+      
+      // Count required skills from job
+      const requiredSkillsCount = Array.isArray(materials.job.required_skills) 
+        ? materials.job.required_skills.length 
+        : 0;
+      
+      console.log(`📊 [QUALITY SCORING] Resume analysis: ${skillCount} skills, ${experienceCount} experiences, ${totalBullets} bullets`);
+      console.log(`📊 [QUALITY SCORING] Job requires: ${requiredSkillsCount} skills`);
+      
+      // POST-PROCESSING: Apply strict penalties based on resume comprehensiveness
+      let adjustedScore = overallScore;
+      
+      // Penalty for sparse skills
+      if (skillCount <= 5) {
+        adjustedScore = Math.min(adjustedScore, 55);
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 55`);
+      } else if (skillCount < 8) {
+        adjustedScore = Math.min(adjustedScore, 65);
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 65`);
+      }
+      
+      // Penalty for sparse experience
+      if (experienceCount === 1) {
+        adjustedScore = Math.max(0, adjustedScore - 20);
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 1 experience, reducing score by 20`);
+      } else if (experienceCount === 2) {
+        adjustedScore = Math.max(0, adjustedScore - 10);
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 2 experiences, reducing score by 10`);
+      }
+      
+      // Penalty for sparse bullet points
+      if (experienceCount > 0 && totalBullets < experienceCount * 3) {
+        const penalty = Math.max(0, (experienceCount * 3 - totalBullets) * 3);
+        adjustedScore = Math.max(0, adjustedScore - penalty);
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${totalBullets} bullets for ${experienceCount} jobs, reducing score by ${penalty}`);
+      }
+      
+      // Penalty for not matching job requirements
+      if (requiredSkillsCount > 0 && skillCount > 0) {
+        const matchPercentage = (skillCount / requiredSkillsCount) * 100;
+        if (matchPercentage < 50) {
+          adjustedScore = Math.min(adjustedScore, 60);
+          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 60`);
+        } else if (matchPercentage < 70) {
+          adjustedScore = Math.min(adjustedScore, 70);
+          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 70`);
+        }
+      }
+      
+      // Reward for comprehensive resume
+      if (skillCount >= 15 && experienceCount >= 3 && totalBullets >= 15) {
+        adjustedScore = Math.min(100, adjustedScore + 15);
+        console.log(`✅ [QUALITY SCORING] Applying reward: Comprehensive resume (${skillCount} skills, ${experienceCount} jobs, ${totalBullets} bullets), adding 15 points`);
+      } else if (skillCount >= 10 && experienceCount >= 2 && totalBullets >= 10) {
+        adjustedScore = Math.min(100, adjustedScore + 10);
+        console.log(`✅ [QUALITY SCORING] Applying reward: Good resume (${skillCount} skills, ${experienceCount} jobs, ${totalBullets} bullets), adding 10 points`);
+      }
+      
+      // Ensure score is between 0-100
+      adjustedScore = Math.max(0, Math.min(100, Math.round(adjustedScore)));
+      
+      // OVERRIDE the AI's overall_score with our calculated and adjusted one
+      scoreData.overall_score = adjustedScore;
+      overallScore = adjustedScore;
+      
+      console.log(`✅ [QUALITY SCORING] Final overall score: ${overallScore} (calculated from component scores with post-processing adjustments)`);
 
       // 6. Check if meets threshold
       const meetsThreshold = overallScore >= minimumThreshold;

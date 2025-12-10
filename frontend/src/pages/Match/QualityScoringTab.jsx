@@ -1,14 +1,16 @@
 // src/pages/Match/QualityScoringTab.jsx
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../api";
 import QualityScoreCard from "../../components/QualityScoreCard";
 import ScoreBreakdown from "../../components/ScoreBreakdown";
 import ImprovementSuggestions from "../../components/ImprovementSuggestions";
 import MissingItemsList from "../../components/MissingItemsList";
 
-export default function QualityScoringTab() {
+export default function QualityScoringTab({ jobId: jobIdProp }) {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState(jobIdProp || "");
   const [qualityScore, setQualityScore] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -66,12 +68,18 @@ export default function QualityScoringTab() {
         // Also include legacy cover_letters if separate
         if (coverData.cover_letters_legacy && coverData.cover_letters_legacy.length > 0) {
           // Merge if not already included
-          const existingIds = new Set(allCovers.map(c => c.id));
-          const additional = coverData.cover_letters_legacy.filter(c => !existingIds.has(c.id));
+          const existingIds = new Set(allCovers.map(c => String(c.id)));
+          const additional = coverData.cover_letters_legacy.filter(c => !existingIds.has(String(c.id)));
           allCovers.push(...additional);
         }
         
-        setCoverLetters(allCovers);
+        // Ensure unique keys by adding a unique identifier to each cover letter
+        const uniqueCovers = allCovers.map((cover, index) => ({
+          ...cover,
+          uniqueKey: cover.isTemplate ? `template-${cover.id}` : `user-${cover.id}-${index}`
+        }));
+        
+        setCoverLetters(uniqueCovers);
         console.log(`📋 [QUALITY SCORING] Loaded ${allCovers.length} cover letters (from both tables)`);
       } catch (err) {
         console.error("❌ Error loading materials:", err);
@@ -80,6 +88,13 @@ export default function QualityScoringTab() {
     
     fetchMaterials();
   }, []);
+
+  // Set jobId from prop when component mounts or prop changes
+  useEffect(() => {
+    if (jobIdProp && jobIdProp !== selectedJobId) {
+      setSelectedJobId(jobIdProp);
+    }
+  }, [jobIdProp]);
 
   // Load job materials and quality score when job is selected
   useEffect(() => {
@@ -292,8 +307,8 @@ export default function QualityScoringTab() {
                 className="quality-material-select"
               >
                 <option value="">No Cover Letter Selected</option>
-                {coverLetters.map((cover) => (
-                  <option key={cover.id} value={String(cover.id)}>
+                {coverLetters.map((cover, index) => (
+                  <option key={cover.uniqueKey || `cover-${cover.id}-${index}`} value={String(cover.id)}>
                     {cover.title || cover.name || `Cover Letter ${cover.id}`}
                   </option>
                 ))}
@@ -338,6 +353,21 @@ export default function QualityScoringTab() {
               >
                 {loading ? "Re-analyzing…" : "Re-analyze Quality"}
               </button>
+              <button
+                className={`match-run-btn timing-recommendation-btn ${qualityScore.overall_score >= 70 ? 'enabled' : 'disabled'}`}
+                onClick={() => {
+                  if (qualityScore.overall_score >= 70) {
+                    navigate(`/job-match?jobId=${selectedJobId}&tab=timing`);
+                  }
+                }}
+                disabled={loading || qualityScore.overall_score < 70}
+                title={qualityScore.overall_score < 70 ? `Timing recommendations are available when your quality score is 70 or higher. Your current score is ${qualityScore.overall_score}.` : "View timing recommendations for this application"}
+              >
+                ⏰ Timing Recommendation
+                {qualityScore.overall_score < 70 && (
+                  <span className="timing-btn-hint"> (Score 70+ required)</span>
+                )}
+              </button>
             </div>
           </div>
           
@@ -363,25 +393,6 @@ export default function QualityScoringTab() {
           </div>
         )
       )}
-
-      {/* Info Box */}
-      <div className="quality-info-box">
-        <h3>📊 What gets analyzed?</h3>
-        <ul>
-          <li><strong>Resume:</strong> Keyword alignment, skills match, experience relevance, formatting quality</li>
-          <li><strong>Cover Letter:</strong> Job-specific customization, keyword integration, professional tone</li>
-          <li><strong>LinkedIn Profile:</strong> Profile completeness and alignment (if available)</li>
-        </ul>
-        <h3>🎯 Features</h3>
-        <ul>
-          <li>0-100 quality score with detailed breakdown</li>
-          <li>Missing keywords and skills identification</li>
-          <li>Formatting issues and typo detection</li>
-          <li>Prioritized improvement suggestions</li>
-          <li>Comparison to your average and top-performing applications</li>
-          <li>Minimum threshold enforcement (default: 70)</li>
-        </ul>
-      </div>
     </div>
   );
 }

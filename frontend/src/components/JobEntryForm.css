@@ -1,63 +1,165 @@
 .job-form {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  padding: 1.2rem;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  width: clamp(350px, 60%, 700px);
+  gap: 1.25rem;
+  padding: 2rem 2.5rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1),
+              0 2px 8px rgba(0, 0, 0, 0.05);
+  width: clamp(350px, 95%, 1000px);
   margin: 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  position: relative;
+  overflow: hidden;
+}
+
+.job-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
 }
 
 .job-form h3 {
   text-align: center;
-  color: #333;
+  color: #1a202c;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+}
+
+.job-form label {
+  font-weight: 600;
+  color: #4a5568;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+  display: block;
+  letter-spacing: 0.2px;
 }
 
 .job-form input,
 .job-form select,
 .job-form textarea {
-  padding: 0.6rem 0.8rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  padding: 0.875rem 1.25rem;
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
   font-size: 1rem;
+  background: #ffffff;
+  color: #2d3748;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+  box-sizing: border-box;
+  font-weight: 500;
+}
+
+.job-form input:focus,
+.job-form select:focus,
+.job-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15),
+              0 4px 12px rgba(102, 126, 234, 0.1);
+  background: #ffffff;
+}
+
+.job-form input:hover,
+.job-form select:hover,
+.job-form textarea:hover {
+  border-color: #cbd5e0;
 }
 
 .job-form textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px;
+  font-family: inherit;
+  line-height: 1.6;
 }
 
 .salary-group {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
+}
+
+.salary-group > div {
+  flex: 1;
 }
 
 .button-group {
   display: flex;
-  justify-content: space-between;
-  margin-top: 1rem;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid rgba(226, 232, 240, 0.8);
 }
 
 .btn-secondary {
-  background: #eee;
-  color: #333;
-}
-
-button {
-  padding: 0.6rem 1.4rem;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  background: #2575fc;
-  color: white;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+  color: #2d3748;
+  border: 2px solid #cbd5e0;
   font-weight: 600;
-  transition: background 0.3s ease;
 }
 
-button:hover {
-  background: #1a5edb;
+.btn-secondary:hover {
+  background: linear-gradient(135deg, #cbd5e0 0%, #a0aec0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.job-form button {
+  padding: 0.875rem 2rem;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.job-form button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.job-form button:hover::before {
+  left: 100%;
+}
+
+.job-form button:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.job-form button:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.job-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 /* =========================================================
    🌈 Job Opportunities Section Styling
@@ -181,25 +283,51 @@ button:hover {
 }
 .import-row {
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.import-row input {
+  flex: 1;
 }
 
 .import-btn {
-  padding: 0.5rem 1rem;
-  background: #6a5acd;
+  padding: 0.875rem 1.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 12px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+  white-space: nowrap;
 }
 
 .import-btn:hover {
-  background: #5a4abc;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+.import-btn:active {
+  transform: translateY(0);
+}
+
+.import-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .import-status {
   font-size: 0.9rem;
-  margin-top: 0.25rem;
-  color: #666;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0369a1;
 }
