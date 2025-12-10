@@ -194,11 +194,25 @@ export default function DocsManagement() {
       const { data } = await api.get("/api/cover-letter", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Filter to only uploaded cover letters
-      const uploaded = (data.cover_letters || data.user_letters || []).filter(
-        (cl) => cl.source === "uploaded" || cl.file_url
+      // Combine cover letters from both tables (uploaded_cover_letters and cover_letters)
+      // The API returns cover_letters array with both types, and cover_letters_legacy for reference
+      const allCoverLetters = data.cover_letters || [];
+      
+      // Also include legacy cover_letters if they're separate and not already included
+      if (data.cover_letters_legacy && data.cover_letters_legacy.length > 0) {
+        const existingIds = new Set(allCoverLetters.map(cl => cl.id));
+        const additional = data.cover_letters_legacy.filter(cl => !existingIds.has(cl.id));
+        allCoverLetters.push(...additional);
+      }
+      
+      // Include all cover letters (both uploaded and from cover_letters table)
+      // Filter out templates if any
+      const userCoverLetters = allCoverLetters.filter(
+        (cl) => cl.source !== "template" && (cl.source === "uploaded" || cl.source === "cover_letters" || !cl.source)
       );
-      setCoverLetters(uploaded);
+      
+      setCoverLetters(userCoverLetters);
+      console.log(`📋 [DOCS MANAGEMENT] Loaded ${userCoverLetters.length} cover letters (from both tables)`);
     } catch (err) {
       console.error("Failed to fetch cover letters:", err);
     }
@@ -753,7 +767,7 @@ export default function DocsManagement() {
         {activeTab === "coverLetters" && (
           <div className="docs-section">
             <div className="docs-section-header">
-              <h2>Uploaded Cover Letters</h2>
+              <h2>Cover Letters</h2>
               <button
                 className="btn-primary"
                 onClick={() => setShowCoverLetterUpload(!showCoverLetterUpload)}
@@ -776,7 +790,7 @@ export default function DocsManagement() {
 
             {coverLetters.length === 0 ? (
               <div className="docs-empty">
-                <p>No cover letters uploaded yet. Upload your first cover letter to get started!</p>
+                <p>No cover letters found. Upload your first cover letter to get started!</p>
               </div>
             ) : (
               <div className="docs-grid">

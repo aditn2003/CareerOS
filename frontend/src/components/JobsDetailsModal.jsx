@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import "./JobDetails.css";
 import { api, createOffer, getOffers, updateOffer } from "../api";
 import FileUpload from "./FileUpload";
+import QualityScoreCard from "./QualityScoreCard";
+import ScoreBreakdown from "./ScoreBreakdown";
+import ImprovementSuggestions from "./ImprovementSuggestions";
 
 const STAGES = [
   "Interested",
@@ -34,6 +37,12 @@ export default function JobDetailsModal({
   const [showResumeUpload, setShowResumeUpload] = useState(false);
   const [showCoverLetterUpload, setShowCoverLetterUpload] = useState(false);
   
+  // Quality Scoring
+  const [qualityScore, setQualityScore] = useState(null);
+  const [analyzingQuality, setAnalyzingQuality] = useState(false);
+  const [qualityError, setQualityError] = useState(null);
+  const [userStats, setUserStats] = useState(null);
+  
   // Offer management
   const [existingOffer, setExistingOffer] = useState(null);
   const [showOfferForm, setShowOfferForm] = useState(false);
@@ -48,6 +57,88 @@ export default function JobDetailsModal({
   });
 
   // 🟢 Load job details
+
+  // Load quality score
+  async function loadQualityScore() {
+    if (!jobId) return;
+    
+    try {
+      const res = await api.get(`/api/quality-scoring/${jobId}`);
+      const score = res.data.score;
+      
+      // Parse JSONB fields if they're strings
+      if (typeof score.score_breakdown === 'string') {
+        score.score_breakdown = JSON.parse(score.score_breakdown);
+      }
+      if (typeof score.formatting_issues === 'string') {
+        score.formatting_issues = JSON.parse(score.formatting_issues);
+      }
+      if (typeof score.inconsistencies === 'string') {
+        score.inconsistencies = JSON.parse(score.inconsistencies);
+      }
+      if (typeof score.improvement_suggestions === 'string') {
+        score.improvement_suggestions = JSON.parse(score.improvement_suggestions);
+      }
+      
+      setQualityScore(score);
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        console.error("❌ Error loading quality score:", err);
+      }
+      // 404 is okay - no score exists yet
+      setQualityScore(null);
+    }
+  }
+
+  // Load user stats
+  async function loadUserStats() {
+    try {
+      const res = await api.get("/api/quality-scoring/user/stats");
+      setUserStats(res.data.stats);
+    } catch (err) {
+      console.error("❌ Error loading user stats:", err);
+    }
+  }
+
+  // Analyze quality score
+  async function analyzeQuality() {
+    if (!jobId) return;
+
+    try {
+      setAnalyzingQuality(true);
+      setQualityError(null);
+      
+      const res = await api.post(`/api/quality-scoring/${jobId}/analyze`, {
+        forceRefresh: true,
+      });
+      
+      const score = res.data.score;
+      
+      // Parse JSONB fields if they're strings
+      if (typeof score.score_breakdown === 'string') {
+        score.score_breakdown = JSON.parse(score.score_breakdown);
+      }
+      if (typeof score.formatting_issues === 'string') {
+        score.formatting_issues = JSON.parse(score.formatting_issues);
+      }
+      if (typeof score.inconsistencies === 'string') {
+        score.inconsistencies = JSON.parse(score.inconsistencies);
+      }
+      if (typeof score.improvement_suggestions === 'string') {
+        score.improvement_suggestions = JSON.parse(score.improvement_suggestions);
+      }
+      
+      setQualityScore(score);
+      
+      // Refresh user stats
+      await loadUserStats();
+    } catch (err) {
+      console.error("❌ Error analyzing quality:", err);
+      setQualityError(err.response?.data?.message || "Failed to analyze application quality");
+    } finally {
+      setAnalyzingQuality(false);
+    }
+  }
 
   async function loadHistory() {
     try {
@@ -77,6 +168,8 @@ export default function JobDetailsModal({
       loadJob();
       loadHistory(); // 🔥 now this works
       loadExistingOffer(); // Load offer if it exists
+      loadQualityScore(); // Load quality score
+      loadUserStats(); // Load user stats
     }
   }, [jobId, token]);
 
@@ -245,6 +338,11 @@ export default function JobDetailsModal({
       setJob(res.data.job);
 
       await loadHistory();
+      
+      // Re-analyze quality score if materials changed
+      if (jobId) {
+        await analyzeQuality();
+      }
     } catch (err) {
       console.error("Failed to update materials:", err);
       const errorMessage = err.response?.data?.error || err.message || "Unknown error";
@@ -800,6 +898,63 @@ export default function JobDetailsModal({
           >
             Save Changes
           </button>
+        </div>
+
+        {/* ---------------------------------------- */}
+        {/* QUALITY SCORE SECTION                   */}
+        {/* ---------------------------------------- */}
+        <div className="quality-score-section" style={{
+          marginTop: "24px",
+          padding: "20px",
+          backgroundColor: "#f9fafb",
+          borderRadius: "8px",
+          border: "1px solid #e5e7eb"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 600 }}>⭐ Application Quality Score</h3>
+            <button
+              type="button"
+              onClick={analyzeQuality}
+              disabled={analyzingQuality}
+              style={{
+                padding: "8px 16px",
+                background: analyzingQuality ? "#94a3b8" : "#10b981",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: analyzingQuality ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+              }}
+            >
+              {analyzingQuality ? "Analyzing..." : qualityScore ? "Re-analyze" : "Analyze Quality"}
+            </button>
+          </div>
+
+          {qualityError && (
+            <div style={{ 
+              padding: "12px", 
+              background: "#fee2e2", 
+              borderRadius: "6px", 
+              marginBottom: "16px",
+              color: "#991b1b",
+              fontSize: "0.875rem"
+            }}>
+              ❌ {qualityError}
+            </div>
+          )}
+
+          {qualityScore ? (
+            <div>
+              <QualityScoreCard score={qualityScore} userStats={userStats} />
+              <ScoreBreakdown scoreBreakdown={qualityScore.score_breakdown} />
+              <ImprovementSuggestions suggestions={qualityScore.improvement_suggestions || []} />
+            </div>
+          ) : (
+            <p style={{ color: "#6b7280", fontSize: "0.9rem", margin: 0 }}>
+              Click "Analyze Quality" to get an AI-powered quality score for this application.
+            </p>
+          )}
         </div>
 
         {/* ---------------------------------------- */}
