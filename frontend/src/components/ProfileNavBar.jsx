@@ -13,6 +13,7 @@ export default function ProfileNavBar() {
     { key: "education", label: "Education" },
     { key: "certifications", label: "Certifications" },
     { key: "projects", label: "Projects" },
+    { key: "github", label: "GitHub" },
     { key: "dashboard", label: "Dashboard" },
     { key: "archived", label: "Archived" },
     { key: "danger", label: "Danger Zone" },
@@ -39,13 +40,6 @@ export default function ProfileNavBar() {
         </NavLink>
       ))}
 
-      {/* 🟣 Add Saved Resumes Button */}
-      <NavLink
-        to="/profile/saved-resumes"
-        className={({ isActive }) => `profile-tab ${isActive ? "active" : ""}`}
-      >
-        Saved Resumes
-      </NavLink>
     </nav>
   );
 }

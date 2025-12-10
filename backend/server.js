@@ -71,6 +71,8 @@ import marketBenchmarksRoutes from "./routes/marketBenchmarks.js";
 import careerGoalsRoutes from "./routes/careerGoals.js";
 import calendarRoutes from "./routes/calendar.js";
 import qualityScoringRoutes from "./routes/qualityScoring.js";
+import githubRoutes from "./routes/github.js";
+import { syncAllUsers } from "./services/githubSyncService.js";
 
 import referencesRoutes from "./routes/references.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
@@ -577,6 +579,7 @@ app.use("/api/compensation-history", compensationHistoryRoutes);
 app.use("/api/market-benchmarks", marketBenchmarksRoutes);
 app.use("/api/career-goals", careerGoalsRoutes);
 app.use("/api/quality-scoring", qualityScoringRoutes);
+app.use("/api/github", githubRoutes);
 
 app.use("/api/team", teamRoutes);
 app.use("/api", jobImportRoutes);
@@ -589,6 +592,24 @@ app.use((err, req, res, next) => {
 
 // ===== Health Check =====
 app.get("/", (_req, res) => res.json({ ok: true }));
+
+// ====== 🔄 GITHUB REPOSITORY SYNC CRON JOB ======
+// Run GitHub sync every hour
+crons.schedule("0 * * * *", async () => {
+  console.log("🔄 Running GitHub repository sync...");
+  try {
+    const result = await syncAllUsers();
+    if (result.success) {
+      console.log(
+        `✅ GitHub sync completed: ${result.users_synced} users synced, ${result.users_skipped} skipped`
+      );
+    } else {
+      console.error(`❌ GitHub sync failed: ${result.error}`);
+    }
+  } catch (err) {
+    console.error("❌ GitHub sync cron job error:", err.message);
+  }
+});
 
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB ======
 

@@ -1,9 +1,10 @@
 // frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
-import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown } from "react-icons/fa";
+import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown, FaMagic } from "react-icons/fa";
 import "./DocsManagement.css";
 
 // Certificate Upload Form Component
@@ -143,6 +144,7 @@ function CertificateUploadForm({ onSuccess, onCancel }) {
 
 export default function DocsManagement() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const [resumes, setResumes] = useState([]);
   const [coverLetters, setCoverLetters] = useState([]);
   const [certificates, setCertificates] = useState([]);
@@ -156,6 +158,7 @@ export default function DocsManagement() {
   const [viewerModal, setViewerModal] = useState({ open: false, url: null, title: null, type: null, contentType: null });
   const [versionHistoryModal, setVersionHistoryModal] = useState({ open: false, docId: null, docType: null, versions: [], loading: false });
   const [downloadDropdown, setDownloadDropdown] = useState({ open: false, resumeId: null });
+  const [optimizingResume, setOptimizingResume] = useState(null);
 
   // Fetch all data
   useEffect(() => {
@@ -382,6 +385,47 @@ export default function DocsManagement() {
       };
     }
   }, [viewerModal.open]);
+
+  const handleAIOptimize = async (resumeId) => {
+    try {
+      setOptimizingResume(resumeId);
+      
+      // Fetch the resume with sections
+      const { data } = await api.get(`/api/resumes/${resumeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      const resume = data.resume;
+      
+      // Check if resume has sections (parsed resume)
+      if (!resume.sections || Object.keys(resume.sections || {}).length === 0) {
+        // If no sections, try to import/parse the resume first
+        if (resume.file_url) {
+          alert("This resume needs to be parsed first. Please use 'View in Editor' to parse it, then try AI Optimize again.");
+          setOptimizingResume(null);
+          return;
+        } else {
+          alert("This resume doesn't have sections data. Please use 'View in Editor' to set it up first.");
+          setOptimizingResume(null);
+          return;
+        }
+      }
+      
+      // Navigate to optimize page with resume data
+      navigate("/resume/optimize", {
+        state: {
+          sections: resume.sections || {},
+          resumeTitle: resume.title || "Untitled Resume",
+          selectedTemplate: resume.template_id ? { id: resume.template_id } : {},
+        },
+      });
+    } catch (err) {
+      console.error("❌ Error loading resume for AI optimization:", err);
+      alert("Failed to load resume for optimization. Please try again.");
+    } finally {
+      setOptimizingResume(null);
+    }
+  };
 
   const handleDelete = async (id, type) => {
     if (!window.confirm(`Are you sure you want to delete this ${type}?`)) return;
@@ -712,6 +756,14 @@ export default function DocsManagement() {
                           title="View Resume"
                         >
                           <FaEye /> View
+                        </button>
+                        <button
+                          className="btn-optimize"
+                          onClick={() => handleAIOptimize(resume.id)}
+                          disabled={optimizingResume === resume.id}
+                          title="AI Optimize Resume"
+                        >
+                          <FaMagic /> {optimizingResume === resume.id ? "Loading..." : "Optimize"}
                         </button>
                         <div className="download-dropdown-container" style={{ position: "relative" }}>
                           <button
