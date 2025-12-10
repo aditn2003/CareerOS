@@ -18,7 +18,6 @@ import {
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
   FaUsers, // ✅ Icon for Network
-  FaArchive, // ✅ Icon for Archived
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -121,10 +120,7 @@ export default function NavBar() {
               <FaUsers /> Network
             </NavLink>
 
-            {/* 👤 Profile */}
-            <NavLink to="/archived">
-              <FaArchive /> Archived
-            </NavLink>
+         
            
 
             {/* ═══════════════════════════════════════════

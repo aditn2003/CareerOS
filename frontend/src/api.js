@@ -22,20 +22,27 @@ api.interceptors.request.use((config) => {
 
 /* -------------------------------------------------------
    ⬇️ RESPONSE INTERCEPTOR — auto logout on 401
+   TEMPORARILY DISABLED - too many false positives
 ------------------------------------------------------- */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn(
-        "🔐 401 detected — token invalid or expired. Logging out..."
-      );
-
-      // Remove token immediately
-      localStorage.removeItem("token");
-
-      // Force redirect to login AND prevent Back button returning
-      window.location.replace("/login");
+      const errorMessage = error.response?.data?.error || '';
+      const errorPath = error.config?.url || '';
+      const currentPath = window.location.pathname;
+      
+      console.warn("🔐 401 Error (NOT logging out):", {
+        path: errorPath,
+        message: errorMessage,
+        currentPage: currentPath,
+        fullError: error.response?.data
+      });
+      
+      // TEMPORARILY DISABLED AUTO-LOGOUT
+      // Just log the error, don't logout
+      // Components can handle their own errors
+      return Promise.reject(error);
     }
 
     return Promise.reject(error);
