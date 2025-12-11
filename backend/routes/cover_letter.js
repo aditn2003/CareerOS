@@ -194,12 +194,41 @@ router.post("/", auth, async (req, res) => {
   }
 });
 
+// ✅ GET templates - MUST come before /:id route (no auth to match original behavior)
+router.get("/templates", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, industry, category, content,
+              COALESCE(is_custom, false) AS is_custom,
+              COALESCE(view_count, 0) AS view_count,
+              COALESCE(use_count, 0) AS use_count,
+              updated_at
+       FROM cover_letter_templates
+       ORDER BY updated_at DESC, id DESC`
+    );
+
+    res.json({ templates: result.rows });
+  } catch (err) {
+    console.error("❌ Error fetching cover letter templates:", err);
+    res.status(500).json({
+      message: "Failed to fetch cover letter templates from the database",
+    });
+  }
+});
+
 // ✅ GET single cover letter by ID
 router.get("/:id", auth, async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
     
+    // Validate that id is a number (not a string like "templates")
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) {
+      return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
+    }
+    
+   
     // First try uploaded_cover_letters table (matches job_materials table)
     let result = { rows: [] };
     try {
@@ -290,6 +319,12 @@ router.get("/:id/download", auth, async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
     
+    // Validate that id is a number
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) {
+      return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
+    }
+    
     // First check uploaded_cover_letters table
     let coverLetterResult = { rows: [] };
     try {
@@ -297,7 +332,7 @@ router.get("/:id/download", auth, async (req, res) => {
         `SELECT id, title, format, file_url, content, user_id
          FROM uploaded_cover_letters
          WHERE id = $1 AND user_id = $2`,
-        [id, userId]
+        [idNum, userId]
       );
     } catch (err) {
       console.error("❌ Error fetching uploaded cover letter:", err);
@@ -358,9 +393,17 @@ router.get("/:id/download", auth, async (req, res) => {
 router.delete("/:id", auth, async (req, res) => {
   try {
     const userId = req.user.id;
+    const { id } = req.params;
+    
+    // Validate that id is a number
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) {
+      return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
+    }
+    
     await pool.query(
       "DELETE FROM cover_letters WHERE id = $1 AND user_id = $2",
-      [req.params.id, userId]
+      [idNum, userId]
     );
     res.json({ message: "🗑️ Cover letter deleted" });
   } catch (err) {

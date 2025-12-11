@@ -55,6 +55,11 @@ export default function JobDetailsModal({
     offer_status: "pending"
   });
 
+  // Salary benchmark data
+  const [salaryBenchmark, setSalaryBenchmark] = useState(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+  const [benchmarkError, setBenchmarkError] = useState(null);
+
   // 🟢 Load job details
 
   // Load quality score
@@ -139,6 +144,25 @@ export default function JobDetailsModal({
     }
   }
 
+  // Load salary benchmark data
+  async function loadSalaryBenchmark() {
+    if (!jobId) return;
+    
+    try {
+      setLoadingBenchmark(true);
+      setBenchmarkError(null);
+      const res = await api.get(`/api/salary-research/benchmark/${jobId}`);
+      setSalaryBenchmark(res.data);
+    } catch (err) {
+      console.error("❌ Error loading salary benchmark:", err);
+      // Graceful error handling - don't show error, just don't display benchmark
+      setBenchmarkError(err.response?.data?.message || "Unable to load salary data");
+      setSalaryBenchmark(null);
+    } finally {
+      setLoadingBenchmark(false);
+    }
+  }
+
   useEffect(() => {
     async function loadJob() {
       try {
@@ -162,6 +186,13 @@ export default function JobDetailsModal({
       loadUserStats(); // Load user stats
     }
   }, [jobId, token]);
+
+  // Load salary benchmark when job data is available
+  useEffect(() => {
+    if (job && job.title && job.location && jobId) {
+      loadSalaryBenchmark();
+    }
+  }, [job, jobId]);
 
   // Load existing offer for this job
   async function loadExistingOffer() {
@@ -621,6 +652,163 @@ export default function JobDetailsModal({
           />
         </div>
 
+        {/* SALARY BENCHMARK SECTION */}
+        {job && (job.title || job.location) && (
+          <div style={{
+            marginTop: "20px",
+            padding: "16px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "8px",
+            border: "1px solid #e5e7eb"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>💰 Market Salary Benchmarks</h3>
+              {!loadingBenchmark && (
+                <button
+                  type="button"
+                  onClick={() => loadSalaryBenchmark()}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px"
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+              )}
+            </div>
+
+            {loadingBenchmark && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Loading salary benchmarks...
+              </p>
+            )}
+
+            {benchmarkError && !salaryBenchmark && !loadingBenchmark && (
+              <p style={{ color: "#dc2626", fontSize: "0.875rem", margin: 0 }}>
+                ⚠️ {benchmarkError}
+              </p>
+            )}
+
+            {!loadingBenchmark && !salaryBenchmark && !benchmarkError && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Click "Refresh" to load salary benchmark data.
+              </p>
+            )}
+
+            {salaryBenchmark && salaryBenchmark.available && salaryBenchmark.range && (
+              <div>
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>Low</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600 }}>
+                        ${salaryBenchmark.range.low?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>Average</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600, color: "#2563eb" }}>
+                        ${salaryBenchmark.range.avg?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>High</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600 }}>
+                        ${salaryBenchmark.range.high?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Percentiles */}
+                  {salaryBenchmark.range.percentile25 && salaryBenchmark.range.percentile50 && salaryBenchmark.range.percentile75 && (
+                    <div style={{
+                      padding: "12px",
+                      backgroundColor: "white",
+                      borderRadius: "6px",
+                      border: "1px solid #e5e7eb",
+                      marginTop: "12px"
+                    }}>
+                      <strong style={{ fontSize: "0.875rem", color: "#374151", marginBottom: "8px", display: "block" }}>
+                        Percentile Breakdown
+                      </strong>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>25th (Lower)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#dc2626" }}>
+                            ${salaryBenchmark.range.percentile25.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>50th (Median)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#2563eb" }}>
+                            ${salaryBenchmark.range.percentile50.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>75th (Upper)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#059669" }}>
+                            ${salaryBenchmark.range.percentile75.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {salaryBenchmark.dataSource && (
+                  <div style={{
+                    padding: "8px 12px",
+                    backgroundColor: "#eff6ff",
+                    borderRadius: "4px",
+                    fontSize: "0.75rem",
+                    color: "#1e40af"
+                  }}>
+                    <strong>Data Source:</strong> {salaryBenchmark.dataSource}
+                  </div>
+                )}
+
+                <div style={{
+                  marginTop: "12px",
+                  padding: "8px 12px",
+                  backgroundColor: "#fef3c7",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  color: "#92400e"
+                }}>
+                  <strong>Note:</strong> Salary benchmarks are estimates based on job title and location. 
+                  For detailed analysis, visit the <strong>Salary Data</strong> tab under Interviews.
+                </div>
+              </div>
+            )}
+
+            {salaryBenchmark && !salaryBenchmark.available && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Salary benchmark data is not available for this position. 
+                Try refreshing or check back later.
+              </p>
+            )}
+          </div>
+        )}
+
+        {job && (!job.title && !job.location) && (
+          <div style={{
+            marginTop: "20px",
+            padding: "12px",
+            backgroundColor: "#fef3c7",
+            borderRadius: "6px",
+            border: "1px solid #f59e0b",
+            fontSize: "0.875rem",
+            color: "#92400e"
+          }}>
+            💡 <strong>Tip:</strong> Add a job title and location to see salary benchmarks.
+          </div>
+        )}
+
         {/* DEADLINE */}
         <label>Application Deadline</label>
         <input
@@ -710,7 +898,6 @@ export default function JobDetailsModal({
           <option value="director">Director</option>
           <option value="vp">VP</option>
         </select>
-
         {/* NOTES */}
         <label>Personal Notes</label>
         <textarea
