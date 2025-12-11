@@ -1,11 +1,28 @@
 // src/pages/Match/JobMatch.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import MatchAnalysisTab from "./MatchAnalysisTab";
 import QualityScoringTab from "./QualityScoringTab";
+import TimingTab from "./TimingTab";
 import "./JobMatch.css";
 
 export default function JobMatch() {
-  const [activeTab, setActiveTab] = useState("match"); // "match" or "quality"
+  const [searchParams] = useSearchParams();
+  const jobIdFromUrl = searchParams.get("jobId");
+  const tabFromUrl = searchParams.get("tab");
+  
+  const [activeTab, setActiveTab] = useState(
+    tabFromUrl === "quality" ? "quality" : tabFromUrl === "timing" ? "timing" : "match"
+  );
+
+  // Set active tab if tab param is in URL
+  useEffect(() => {
+    if (tabFromUrl === "quality") {
+      setActiveTab("quality");
+    } else if (tabFromUrl === "timing") {
+      setActiveTab("timing");
+    }
+  }, [tabFromUrl]);
 
   return (
     <div className="match-wrapper">
@@ -33,6 +50,13 @@ export default function JobMatch() {
               <span className="tab-icon">⭐</span>
               <span className="tab-text">Quality</span>
             </button>
+            <button
+              className={`nav-tab timing-tab ${activeTab === "timing" ? "active" : ""}`}
+              onClick={() => setActiveTab("timing")}
+            >
+              <span className="tab-icon">⏰</span>
+              <span className="tab-text">Timing</span>
+            </button>
           </div>
         </div>
       </nav>
@@ -40,7 +64,8 @@ export default function JobMatch() {
       {/* Tab Content */}
       <div className="job-match-content">
         {activeTab === "match" && <MatchAnalysisTab />}
-        {activeTab === "quality" && <QualityScoringTab />}
+        {activeTab === "quality" && <QualityScoringTab jobId={jobIdFromUrl} />}
+        {activeTab === "timing" && <TimingTab jobId={jobIdFromUrl} />}
       </div>
     </div>
   );

@@ -4,12 +4,14 @@
   flex-direction: row;
   justify-content: center;
   align-items: flex-start;
-  gap: 2rem;
-  padding: 2rem 3rem;
-  max-width: 1400px;
+  gap: 2.5rem;
+  padding: 2rem 4rem;
+  max-width: 1920px;
   margin: 0 auto;
-  overflow-x: hidden; /* 🔹 Prevent horizontal scroll */
+  overflow-x: hidden;
   box-sizing: border-box;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
 }
 
 /* ===== Main Column ===== */
@@ -18,14 +20,14 @@
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  min-width: 0; /* 🔹 Prevent overflow of child flex items */
+  min-width: 0;
 }
 
 /* ===== Sidebar ===== */
 .sidebar-widget {
   flex: 1;
-  min-width: 280px;
-  max-width: 350px;
+  min-width: 300px;
+  max-width: 400px;
   position: sticky;
   top: 100px;
   align-self: flex-start;
@@ -33,35 +35,104 @@
 
 /* ===== Profile Box (each section) ===== */
 .profile-box {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 1.75rem 2rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 20px;
+  padding: 2rem 2.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08),
+              0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-box::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  opacity: 0.8;
+}
+
+.profile-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.12),
+              0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .profile-box h2,
 .profile-box h3 {
-  margin-bottom: 1rem;
-  font-weight: 600;
-  color: #111827;
+  margin-bottom: 1.5rem;
+  font-weight: 700;
+  color: #1a202c;
+  font-size: 1.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
+}
+
+.profile-box h3 {
+  font-size: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 /* ===== Buttons ===== */
 .btn-success {
-  background: linear-gradient(90deg, #4ade80, #22c55e);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
   border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  padding: 0.875rem 2rem;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  font-size: 1rem;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-success::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.btn-success:hover::before {
+  left: 100%;
 }
 
 .btn-success:hover {
-  background: linear-gradient(90deg, #22c55e, #16a34a);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.btn-success:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+/* ===== Loading Animation ===== */
+.loading-text {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+  color: #667eea;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 /* ===== Responsive Adjustments ===== */
@@ -69,6 +140,7 @@
   .jobs-layout {
     flex-direction: column;
     padding: 1.5rem;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   }
 
   .sidebar-widget {
@@ -85,6 +157,20 @@
   }
 
   .profile-box {
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
+    border-radius: 16px;
+  }
+
+  .profile-box h2 {
+    font-size: 1.5rem;
+  }
+
+  .profile-box h3 {
+    font-size: 1.25rem;
+  }
+
+  .btn-success {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
   }
 }

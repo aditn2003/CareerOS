@@ -414,6 +414,31 @@
   }
 
   /* ================================
+     Timing Tab - Orange/Amber Theme
+  ================================== */
+
+  .nav-tab.timing-tab {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+  }
+
+  .nav-tab.timing-tab:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+  }
+
+  .nav-tab.timing-tab.active {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-color: #f59e0b;
+    color: white;
+    box-shadow: 
+      0 4px 20px rgba(245, 158, 11, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  /* ================================
      Content Area
   ================================== */
 
@@ -552,12 +577,55 @@
 
   .quality-reanalyze-top {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
     padding-top: 30px;
   }
 
   .quality-reanalyze-top .match-run-btn {
     white-space: nowrap;
+  }
+
+  .quality-reanalyze-top .timing-recommendation-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    position: relative;
+  }
+
+  .quality-reanalyze-top .timing-recommendation-btn.enabled:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  }
+
+  .quality-reanalyze-top .timing-recommendation-btn.disabled {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+    opacity: 0.7;
+    cursor: not-allowed;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .quality-reanalyze-top .timing-recommendation-btn.disabled:hover {
+    background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+    transform: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .timing-btn-hint {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.9;
+    margin-left: 4px;
+    font-style: italic;
   }
 
   @media (max-width: 768px) {
@@ -796,4 +864,924 @@
   .job-match-content {
     animation: fadeInUp 0.6s ease-out 0.4s both;
   }
-    
+
+  /* ================================
+     Timing Tab Content Styles
+  ================================== */
+
+  .timing-tab-content {
+    padding: 20px 0;
+  }
+
+  .timing-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+
+  .timing-header h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #d97706;
+    margin-bottom: 10px;
+  }
+
+  .timing-subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    max-width: 700px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .timing-job-selector {
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.07);
+    margin-bottom: 30px;
+    margin-top: 20px;
+  }
+
+  .timing-job-selector label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+  }
+
+  .timing-job-select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: white;
+    color: #374151;
+    transition: all 0.2s ease;
+  }
+
+  .timing-job-select:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+  }
+
+  .timing-loading {
+    text-align: center;
+    margin: 25px 0;
+    font-size: 1.1rem;
+    color: #6b7280;
+  }
+
+  .timing-error {
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin: 20px 0;
+    color: #dc2626;
+    text-align: center;
+  }
+
+  .timing-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    background: #f9fafb;
+    border-radius: 12px;
+    margin: 30px 0;
+  }
+
+  .timing-placeholder p {
+    font-size: 1.1rem;
+    color: #6b7280;
+    margin: 10px 0;
+  }
+
+  .timing-placeholder-note {
+    font-size: 0.95rem;
+    color: #9ca3af;
+    font-style: italic;
+  }
+
+  .timing-results {
+    background: white;
+    padding: 25px;
+    border-radius: 18px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.07);
+    margin-top: 30px;
+  }
+
+  .timing-job-info {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f3f4f6;
+  }
+
+  .timing-job-info h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 8px;
+  }
+
+  .timing-job-info p {
+    font-size: 1.1rem;
+    color: #6b7280;
+  }
+
+  .timing-recommendations {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .timing-recommendation-card {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border: 2px solid #fed7aa;
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+  }
+
+  .timing-recommendation-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+  }
+
+  .timing-rec-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .timing-rec-icon {
+    font-size: 24px;
+  }
+
+  .timing-rec-header h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #d97706;
+    margin: 0;
+  }
+
+  .timing-rec-description {
+    font-size: 0.95rem;
+    color: #6b7280;
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+
+  .timing-rec-date {
+    font-size: 1rem;
+    color: #374151;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: white;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;
+  }
+
+  .timing-rec-date strong {
+    color: #d97706;
+    margin-right: 8px;
+  }
+
+  .timing-rec-reason {
+    font-size: 0.9rem;
+    color: #9ca3af;
+    font-style: italic;
+    margin-top: 12px;
+  }
+
+  .timing-job-industry {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-top: 4px;
+  }
+
+  /* Real-time Status Card */
+  .timing-status-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 3px solid;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .timing-status-submit_now {
+    border-color: #10b981;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  }
+
+  .timing-status-wait {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  }
+
+  .timing-status-acceptable {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  }
+
+  .timing-status-expired {
+    border-color: #ef4444;
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  }
+
+  .timing-status-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .timing-status-icon {
+    font-size: 32px;
+  }
+
+  .timing-status-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: #374151;
+  }
+
+  .timing-status-message {
+    font-size: 1.1rem;
+    color: #4b5563;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .timing-hours-until {
+    font-size: 0.95rem;
+    color: #6b7280;
+    font-style: italic;
+  }
+
+  /* Alternatives Section */
+  .timing-alternatives-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 2px solid #e5e7eb;
+  }
+
+  .timing-alternatives-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 16px;
+  }
+
+  .timing-alternatives-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .timing-alternative-card {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 16px;
+    border: 2px solid #e5e7eb;
+    transition: all 0.2s ease;
+  }
+
+  .timing-alternative-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+  }
+
+  .timing-alternative-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .timing-alternative-day {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #374151;
+  }
+
+  .timing-alternative-time {
+    font-size: 0.95rem;
+    color: #6b7280;
+  }
+
+  .timing-alternative-badge {
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  .timing-alternative-date {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+
+  .timing-alternative-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
+
+  .timing-alternative-stats span {
+    color: #4b5563;
+  }
+
+  .timing-alternative-reasoning {
+    font-style: italic;
+    color: #6b7280;
+  }
+
+  .timing-alternative-schedule-btn {
+    width: 100%;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .timing-alternative-schedule-btn:hover {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    transform: translateY(-1px);
+  }
+  }
+
+  /* Recommendation Details */
+  .timing-rec-details {
+    margin: 20px 0;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 12px;
+  }
+
+  .timing-rec-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.95rem;
+    color: #1f2937; /* Dark gray for text */
+  }
+
+  .timing-rec-detail-row:last-child {
+    border-bottom: none;
+  }
+
+  .timing-rec-detail-row strong {
+    color: #374151;
+    font-weight: 600;
+  }
+
+  .timing-rec-reason-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: #fff7ed;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+  }
+
+  .timing-rec-reason-box strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #d97706;
+    font-size: 0.95rem;
+  }
+
+  .timing-rec-reason-box p {
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+    font-size: 0.9rem;
+  }
+
+  /* Company-Specific Analysis */
+  .timing-company-analysis {
+    margin-top: 20px;
+    padding: 16px;
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+  }
+
+  .timing-company-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .timing-company-icon {
+    font-size: 20px;
+  }
+
+  .timing-company-header h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e40af;
+  }
+
+  .timing-company-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .timing-company-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 0.9rem;
+    color: #1f2937;
+  }
+
+  .timing-company-detail-row strong {
+    color: #374151;
+    font-weight: 600;
+  }
+
+  .timing-company-confidence {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-left: 8px;
+  }
+
+  .timing-company-confidence-high {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .timing-company-confidence-medium {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .timing-company-confidence-low {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .timing-rec-actions {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #e5e7eb;
+  }
+
+  .timing-record-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+
+  .timing-record-btn:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+  }
+
+  .timing-schedule-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    margin-top: 12px;
+  }
+
+  .timing-schedule-btn:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  }
+
+  .timing-schedule-manual-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    margin-top: 12px;
+  }
+
+  .timing-schedule-manual-btn:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+  }
+
+  /* Schedule Form */
+  .timing-schedule-form {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    margin-top: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 2px solid #e5e7eb;
+  }
+
+  .timing-schedule-form h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 20px;
+  }
+
+  .schedule-form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .schedule-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .schedule-form-field label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.95rem;
+  }
+
+  .schedule-form-field input,
+  .schedule-form-field textarea {
+    padding: 10px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .schedule-form-field input:focus,
+  .schedule-form-field textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .schedule-form-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .schedule-submit-btn {
+    flex: 1;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+
+  .schedule-submit-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  }
+
+  .schedule-submit-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .schedule-cancel-btn {
+    padding: 12px 24px;
+    background: #f3f4f6;
+    color: #374151;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .schedule-cancel-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+
+  /* Scheduled Submissions List */
+  .timing-scheduled-list {
+    margin-top: 30px;
+    padding-top: 30px;
+    border-top: 2px solid #e5e7eb;
+  }
+
+  .timing-scheduled-list h4 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 20px;
+  }
+
+  .scheduled-item {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #3b82f6;
+  }
+
+  .scheduled-item-pending {
+    border-left-color: #f59e0b;
+  }
+
+  .scheduled-item-completed {
+    border-left-color: #10b981;
+  }
+
+  .scheduled-item-cancelled {
+    border-left-color: #9ca3af;
+    opacity: 0.7;
+  }
+
+  .scheduled-item-missed {
+    border-left-color: #ef4444;
+  }
+
+  .scheduled-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .scheduled-item-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .scheduled-item-info strong {
+    font-size: 1.1rem;
+    color: #374151;
+  }
+
+  .scheduled-status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .scheduled-status-pending {
+    background: #fef3c7;
+    color: #d97706;
+  }
+
+  .scheduled-status-completed {
+    background: #d1fae5;
+    color: #059669;
+  }
+
+  .scheduled-status-cancelled {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  .scheduled-status-missed {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .scheduled-item-details {
+    margin-bottom: 16px;
+  }
+
+  .scheduled-item-details p {
+    margin: 6px 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  .scheduled-item-details strong {
+    color: #374151;
+  }
+
+  .scheduled-missed {
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  .scheduled-item-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .scheduled-complete-btn,
+  .scheduled-cancel-btn,
+  .scheduled-delete-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .scheduled-complete-btn {
+    background: #10b981;
+    color: white;
+  }
+
+  .scheduled-complete-btn:hover {
+    background: #059669;
+    transform: translateY(-1px);
+  }
+
+  .scheduled-cancel-btn {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .scheduled-cancel-btn:hover {
+    background: #fecaca;
+    transform: translateY(-1px);
+  }
+
+  .scheduled-delete-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+  }
+
+  .scheduled-delete-btn:hover {
+    background: #fee2e2;
+    color: #dc2626;
+    border-color: #fecaca;
+    transform: translateY(-1px);
+  }
+
+  /* Warnings Section */
+  .timing-warnings-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #e5e7eb;
+  }
+
+  .timing-warnings-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 16px;
+  }
+
+  .timing-warning {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .timing-warning-medium {
+    background: #fffbeb;
+    border-left-color: #f59e0b;
+  }
+
+  .timing-warning-low {
+    background: #f0fdf4;
+    border-left-color: #10b981;
+  }
+
+  .timing-warning-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .timing-warning-icon {
+    font-size: 20px;
+  }
+
+  .timing-warning-type {
+    color: #374151;
+    font-size: 0.95rem;
+  }
+
+  .timing-warning-message {
+    color: #6b7280;
+    margin: 8px 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .timing-warning-recommendation {
+    color: #4b5563;
+    font-size: 0.85rem;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .timing-warning-recommendation strong {
+    color: #374151;
+  }
+
+  /* Analytics Toggle Button */
+  .timing-header-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .timing-analytics-toggle-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+
+  .timing-analytics-toggle-btn:hover {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  }
+
+  .timing-analytics-container {
+    margin-top: 30px;
+    margin-bottom: 30px;
+  }
+
+  @media (max-width: 768px) {
+    .timing-recommendations {
+      grid-template-columns: 1fr;
+    }
+
+    .timing-status-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .timing-rec-detail-row {
+      flex-direction: column;
+      gap: 4px;
+    }
+  }
+     

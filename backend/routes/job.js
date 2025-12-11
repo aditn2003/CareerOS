@@ -1017,6 +1017,53 @@ router.put("/:id/status", auth, async (req, res) => {
       [id, `Status changed to "${status}"`]
     );
 
+    // Update application_submissions table to track responses/interviews/offers
+    try {
+      if (status === "Interview" || status === "Offer" || status === "Rejected" || status === "Applied") {
+        // Find the most recent submission for this job
+        const submissionResult = await pool.query(
+          `SELECT id FROM application_submissions 
+           WHERE job_id = $1 AND user_id = $2 
+           ORDER BY submitted_at DESC 
+           LIMIT 1`,
+          [id, req.userId]
+        );
+
+        if (submissionResult.rows.length > 0) {
+          const submissionId = submissionResult.rows[0].id;
+          let responseReceived = false;
+          let responseType = null;
+
+          if (status === "Interview") {
+            responseReceived = true;
+            responseType = 'interview';
+          } else if (status === "Offer") {
+            responseReceived = true;
+            responseType = 'offer';
+          } else if (status === "Rejected") {
+            responseReceived = true;
+            responseType = 'rejection';
+          } else if (status === "Applied") {
+            // Just mark that we got a response (acknowledgment)
+            responseReceived = true;
+            responseType = 'acknowledgment';
+          }
+
+          await pool.query(
+            `UPDATE application_submissions 
+             SET response_received = $1, 
+                 response_type = $2,
+                 response_date = CASE WHEN $1 THEN NOW() ELSE response_date END
+             WHERE id = $3`,
+            [responseReceived, responseType, submissionId]
+          );
+        }
+      }
+    } catch (timingError) {
+      console.error("⚠️ Error updating timing submission:", timingError);
+      // Don't fail the whole request if timing update fails
+    }
+
     res.json({ job: updatedJob });
   } catch (err) {
     console.error("❌ Failed to update job stage:", err.message);

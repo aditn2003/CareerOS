@@ -1,11 +1,12 @@
 // src/pages/Jobs.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaBriefcase, FaChartLine, FaPlus } from "react-icons/fa";
 import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
-import StatisticsDashboard from "../components/stats";   // <-- ADD THIS
+import StatisticsDashboard from "../components/stats";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 
@@ -16,9 +17,9 @@ export default function Jobs() {
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
 
-  const handleAnalyzeSkills = (jobId) => {
+  const handleApply = (jobId) => {
     if (!jobId) return;
-    navigate(`/skills-gap/${jobId}`);
+    navigate(`/job-match?jobId=${jobId}&tab=quality`);
   };
 
   const handleSaved = () => {
@@ -32,11 +33,15 @@ export default function Jobs() {
       <div className="jobs-main">
         {/* 💼 Job Tracker */}
         <div className="profile-box">
-          <h2>💼 Job Tracker</h2>
+          <h2>
+            <FaBriefcase style={{ marginRight: "0.5rem", display: "inline-block" }} />
+            Job Tracker
+          </h2>
 
           {!showForm ? (
             <button className="btn-success" onClick={() => setShowForm(true)}>
-              ➕ Add New Job
+              <FaPlus style={{ marginRight: "0.5rem", display: "inline-block" }} />
+              Add New Job
             </button>
           ) : (
             <JobEntryForm
@@ -49,19 +54,24 @@ export default function Jobs() {
 
         {/* 📊 Job Pipeline */}
         <div className="profile-box">
-          <h3>📊 Job Pipeline</h3>
+          <h3>
+            <span style={{ marginRight: "0.5rem" }}>📊</span>
+            Job Pipeline
+          </h3>
           <JobPipeline
             key={refreshKey}
             token={token}
-            onAnalyzeSkills={handleAnalyzeSkills}
+            onApply={handleApply}
           />
         </div>
 
-
-        {/* 📈 PERFORMANCE STATS DASHBOARD — ADDED HERE */}
+        {/* 📈 PERFORMANCE STATS DASHBOARD */}
         <div className="profile-box">
-          <h3>Performance Dashboard</h3>
-          <StatisticsDashboard  token={token}/>   {/* <-- YOUR ENTIRE STATS COMPONENT */}
+          <h3>
+            <FaChartLine style={{ marginRight: "0.5rem", display: "inline-block" }} />
+            Performance Dashboard
+          </h3>
+          <StatisticsDashboard token={token} />
         </div>
       </div>
 
