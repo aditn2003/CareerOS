@@ -56,6 +56,10 @@ export default function JobDetailsModal({
     offer_status: "pending"
   });
 
+  // Cover letter generation
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState(null);
+
   // 🟢 Load job details
 
   // Load quality score
@@ -216,12 +220,23 @@ export default function JobDetailsModal({
       if (!job?.cover_letter_id) return;
 
       try {
-        const res = await fetch(
-          `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
+        // Try uploaded_cover_letters first (new table)
+        let res = await fetch(
+          `http://localhost:4000/api/cover-letter/${job.cover_letter_id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
+        
+        // If 404, try the cover-letters endpoint (legacy)
+        if (!res.ok && res.status === 404) {
+          res = await fetch(
+            `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+        }
         
         if (!res.ok) {
           if (res.status === 404) {
@@ -349,6 +364,68 @@ export default function JobDetailsModal({
       const errorHint = err.response?.data?.hint || "";
       const errorDetails = err.response?.data?.details || "";
       alert(`Failed to update materials.\n\nError: ${errorMessage}${errorHint ? `\n\nHint: ${errorHint}` : ''}${errorDetails ? `\n\nDetails: ${errorDetails}` : ''}`);
+    }
+  }
+
+  // Generate cover letter for this job
+  async function handleGenerateCoverLetter() {
+    if (!jobId) return;
+
+    try {
+      setGeneratingCoverLetter(true);
+      setCoverLetterError(null);
+
+      const res = await api.post(`/api/jobs/${jobId}/generate-cover-letter`);
+
+      if (res.data.success) {
+        alert("✅ Cover letter generated and linked successfully!");
+        
+        // Reload job to get updated cover_letter_id
+        const jobRes = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (jobRes.ok) {
+          const jobData = await jobRes.json();
+          setJob(jobData.job);
+          
+          // Reload cover letter if it exists
+          if (jobData.job.cover_letter_id) {
+            try {
+              const clRes = await fetch(
+                `http://localhost:4000/api/cover-letter/${jobData.job.cover_letter_id}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+              if (clRes.ok) {
+                const clData = await clRes.json();
+                if (clData.cover_letter) setCoverLetter(clData.cover_letter);
+              }
+            } catch (err) {
+              console.error("Failed to reload cover letter:", err);
+            }
+          }
+        }
+
+        // Refresh cover letters list
+        try {
+          const c = await api.get("/api/cover-letters");
+          setCoverLetters(c.data.cover_letters || []);
+          if (res.data.cover_letter?.id) {
+            setSelectedCover(res.data.cover_letter.id.toString());
+          }
+        } catch (err) {
+          console.error("Failed to reload cover letters:", err);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to generate cover letter:", err);
+      setCoverLetterError(
+        err.response?.data?.error || "Failed to generate cover letter. Please try again."
+      );
+      alert(`Failed to generate cover letter: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setGeneratingCoverLetter(false);
     }
   }
 
@@ -751,7 +828,7 @@ export default function JobDetailsModal({
                 <p>{coverLetter?.title || "Cover Letter"}</p>
 
                 <a
-                  href={`http://localhost:4000/api/cover-letters/${job.cover_letter_id}/download`}
+                  href={`http://localhost:4000/api/cover-letter/${job.cover_letter_id}/download`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -763,13 +840,37 @@ export default function JobDetailsModal({
                     borderRadius: "6px",
                     marginTop: "8px",
                     fontWeight: 500,
+                    marginRight: "8px",
                   }}
                 >
                   Download Cover Letter
                 </a>
               </>
             ) : (
-              <p>No cover letter linked.</p>
+              <>
+                <p>No cover letter linked.</p>
+                <button
+                  onClick={handleGenerateCoverLetter}
+                  disabled={generatingCoverLetter}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: generatingCoverLetter ? "#94a3b8" : "#10b981",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    marginTop: "8px",
+                    fontWeight: 500,
+                    cursor: generatingCoverLetter ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {generatingCoverLetter ? "Generating..." : "✨ Generate Cover Letter for This Job"}
+                </button>
+                {coverLetterError && (
+                  <p style={{ color: "#dc2626", fontSize: "0.875rem", marginTop: "8px" }}>
+                    {coverLetterError}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

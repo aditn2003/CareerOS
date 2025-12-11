@@ -276,6 +276,20 @@ router.get("/:id/download", auth, async (req, res) => {
       console.error("❌ Error fetching uploaded cover letter:", err);
     }
     
+    // If not found in uploaded_cover_letters, check cover_letters table
+    if (coverLetterResult.rows.length === 0) {
+      try {
+        coverLetterResult = await pool.query(
+          `SELECT id, name AS title, 'pdf' AS format, NULL AS file_url, content, user_id
+           FROM cover_letters
+           WHERE id = $1 AND user_id = $2`,
+          [idNum, userId]
+        );
+      } catch (err) {
+        console.error("❌ Error fetching cover letter:", err);
+      }
+    }
+    
     if (coverLetterResult.rows.length === 0) {
       return res.status(404).json({ error: "Cover letter not found" });
     }
@@ -417,6 +431,141 @@ router.get("/:id/download", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Cover letter download error:", err);
     res.status(500).json({ error: "Failed to download cover letter" });
+  }
+});
+
+// ✅ Get jobs linked to a cover letter
+router.get("/:id/jobs", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) {
+      return res.status(400).json({ error: "Invalid cover letter ID" });
+    }
+
+    // Check if cover letter belongs to user (check both tables for viewing, but only uploaded_cover_letters can be linked)
+    const uploadedCheck = await pool.query(
+      `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [idNum, userId]
+    );
+    const coverLetterCheck = await pool.query(
+      `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+      [idNum, userId]
+    );
+
+    if (uploadedCheck.rows.length === 0 && coverLetterCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+
+    // Get jobs linked to this cover letter from job_materials table
+    // Need to check both uploaded_cover_letters and cover_letters IDs
+    const result = await pool.query(
+      `SELECT j.id, j.title, j.company, j.status, jm.cover_letter_id
+       FROM jobs j
+       INNER JOIN job_materials jm ON j.id = jm.job_id
+       WHERE jm.user_id = $1 
+         AND jm.cover_letter_id = $2
+       ORDER BY j.created_at DESC`,
+      [userId, idNum]
+    );
+
+    res.json({ jobs: result.rows });
+  } catch (err) {
+    console.error("❌ Error fetching linked jobs:", err);
+    res.status(500).json({ error: "Failed to fetch linked jobs" });
+  }
+});
+
+// ✅ Link cover letter to a job
+router.post("/:id/link-job", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { job_id } = req.body;
+    
+    const coverLetterId = parseInt(id, 10);
+    const jobId = parseInt(job_id, 10);
+    
+    if (isNaN(coverLetterId) || isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid cover letter ID or job ID" });
+    }
+
+    // Verify cover letter belongs to user (only uploaded_cover_letters can be linked)
+    const uploadedCheck = await pool.query(
+      `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [coverLetterId, userId]
+    );
+
+    if (uploadedCheck.rows.length === 0) {
+      // Check if it exists in cover_letters table to give a helpful error
+      const coverLetterCheck = await pool.query(
+        `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+        [coverLetterId, userId]
+      );
+      if (coverLetterCheck.rows.length > 0) {
+        return res.status(400).json({ 
+          error: "Only uploaded cover letters can be linked to jobs. Please upload this cover letter as a file first." 
+        });
+      }
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+
+    // Verify job belongs to user
+    const jobCheck = await pool.query(
+      `SELECT id FROM jobs WHERE id = $1 AND user_id = $2`,
+      [jobId, userId]
+    );
+
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Update job_materials table
+    await pool.query(
+      `INSERT INTO job_materials (job_id, user_id, cover_letter_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (job_id) 
+       DO UPDATE SET 
+         cover_letter_id = EXCLUDED.cover_letter_id,
+         updated_at = NOW()`,
+      [jobId, userId, coverLetterId]
+    );
+
+    res.json({ success: true, message: "Cover letter linked to job successfully" });
+  } catch (err) {
+    console.error("❌ Error linking cover letter to job:", err);
+    res.status(500).json({ error: "Failed to link cover letter to job" });
+  }
+});
+
+// ✅ Unlink cover letter from a job
+router.post("/:id/unlink-job", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { job_id } = req.body;
+    
+    const coverLetterId = parseInt(id, 10);
+    const jobId = parseInt(job_id, 10);
+    
+    if (isNaN(coverLetterId) || isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid cover letter ID or job ID" });
+    }
+
+    // Update job_materials table to set cover_letter_id to NULL
+    await pool.query(
+      `UPDATE job_materials 
+       SET cover_letter_id = NULL, updated_at = NOW()
+       WHERE job_id = $1 AND user_id = $2 AND cover_letter_id = $3`,
+      [jobId, userId, coverLetterId]
+    );
+
+    res.json({ success: true, message: "Cover letter unlinked from job successfully" });
+  } catch (err) {
+    console.error("❌ Error unlinking cover letter from job:", err);
+    res.status(500).json({ error: "Failed to unlink cover letter from job" });
   }
 });
 
