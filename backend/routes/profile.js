@@ -138,25 +138,50 @@ router.post("/profile/picture", auth, async (req, res) => {
 // ---------- PROFILE SUMMARY (for Dashboard) ----------
 router.get("/profile/summary", auth, async (req, res) => {
   try {
+    // Support both req.userId (local auth) and req.user.id (global auth)
+    const userId = req.userId || req.user?.id;
+    
+    if (!userId) {
+      console.error("❌ No userId found in request:", { userId: req.userId, user: req.user });
+      return res.status(401).json({ error: "User ID not found" });
+    }
+
+    console.log("📊 Fetching profile summary for userId:", userId);
+    
     // TODO: adjust table names/columns if yours differ
     const q = (text, params) => pool.query(text, params);
 
-    const [employment, skills, education, certifications, projects, info] =
+    // Debug: Check userId type and verify user exists
+    console.log("🔍 userId type:", typeof userId, "value:", userId);
+    const userCheck = await pool.query("SELECT id FROM users WHERE id=$1", [userId]);
+    console.log("🔍 User exists:", userCheck.rows.length > 0);
+    
+    // Check if data exists with this userId (try both string and number)
+    const testEmployment = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM employment GROUP BY user_id LIMIT 5");
+    const testSkills = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM skills GROUP BY user_id LIMIT 5");
+    console.log("🔍 Sample user_ids in employment:", testEmployment.rows);
+    console.log("🔍 Sample user_ids in skills:", testSkills.rows);
+    
+    // Try querying with explicit type casting
+    const testQuery = await pool.query("SELECT COUNT(*)::int AS c FROM employment WHERE user_id::text = $1::text", [String(userId)]);
+    console.log("🔍 Test query with string cast:", testQuery.rows[0]?.c);
+
+    const [employment, skills, education, certifications, projects, info, skillsDist] =
       await Promise.all([
         q("SELECT COUNT(*)::int AS c FROM employment WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM skills WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM education WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM certifications WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM projects WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q(
           `SELECT 
@@ -168,7 +193,15 @@ router.get("/profile/summary", auth, async (req, res) => {
            (bio IS NOT NULL AND bio <> '')             AS has_bio,
            (picture_url IS NOT NULL AND picture_url <> '') AS has_picture
          FROM profiles WHERE user_id=$1`,
-          [req.userId]
+          [userId]
+        ),
+        q(
+          `SELECT category, COUNT(*)::int AS count 
+           FROM skills 
+           WHERE user_id=$1 
+           GROUP BY category 
+           ORDER BY count DESC`,
+          [userId]
         ),
       ]);
 
@@ -179,6 +212,8 @@ router.get("/profile/summary", auth, async (req, res) => {
       certifications_count: certifications.rows[0]?.c || 0,
       projects_count: projects.rows[0]?.c || 0,
     };
+
+    console.log("📊 Profile summary counts:", counts);
 
     const infoRow = info.rows[0] || {};
     const info_complete =
@@ -220,8 +255,10 @@ router.get("/profile/summary", auth, async (req, res) => {
       suggestions.push("List 5+ skills to strengthen your profile.");
     if (counts.education_count === 0)
       suggestions.push("Add an education record.");
+    if (counts.certifications_count === 0)
+      suggestions.push("Add certifications to showcase your professional credentials.");
     if (counts.projects_count === 0)
-      suggestions.push("Showcase a project you’re proud of.");
+      suggestions.push("Showcase a project you're proud of.");
     if (!infoRow.has_picture)
       suggestions.push("Upload a professional profile picture.");
     if (!infoRow.has_title)
@@ -229,12 +266,23 @@ router.get("/profile/summary", auth, async (req, res) => {
         "Add a headline (e.g., 'Software Engineer | ML Enthusiast')."
       );
 
+    // Format skills distribution
+    const skills_distribution = skillsDist.rows.map(row => ({
+      category: row.category || 'Other',
+      count: row.count || 0
+    }));
+
     // respond
-    return res.json({
+    const response = {
       info_complete,
       ...counts,
       completeness: { score: Math.max(0, Math.min(100, score)), suggestions },
-    });
+      skills_distribution,
+    };
+    
+    console.log("📊 Sending response:", JSON.stringify(response, null, 2));
+    
+    return res.json(response);
   } catch (err) {
     console.error("❌ Profile summary error:", err);
     return res.status(500).json({ error: "Database error" });
