@@ -671,11 +671,48 @@ ${textContent}
   router.get("/", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, template_name, preview_url, file_url, created_at, format
-       FROM resumes WHERE user_id=$1 ORDER BY created_at DESC`,
+      `SELECT 
+        id, title, template_name, preview_url, file_url, created_at, format,
+        original_resume_id, version_number, is_version, is_default
+       FROM resumes 
+       WHERE user_id=$1 
+       ORDER BY 
+         CASE WHEN is_version = TRUE THEN 1 ELSE 0 END,
+         original_resume_id NULLS LAST,
+         version_number NULLS LAST,
+         created_at DESC`,
       [req.user.id]
     );
-    res.json({ resumes: rows });
+    
+    // Filter out original resumes if they have a default version
+    // Show the default version resume instead of the original
+    const filteredResumes = [];
+    const originalResumeIds = new Set();
+    
+    // First, collect all original resume IDs that have default versions
+    rows.forEach(resume => {
+      if (resume.is_version && resume.is_default && resume.original_resume_id) {
+        originalResumeIds.add(resume.original_resume_id);
+      }
+    });
+    
+    // Then, add resumes (excluding originals that have default versions, but include the default versions themselves)
+    rows.forEach(resume => {
+      if (resume.is_version && resume.is_default) {
+        // This is a default version - include it
+        filteredResumes.push(resume);
+      } else if (!resume.is_version) {
+        // This is an original resume - only include if it doesn't have a default version
+        if (!originalResumeIds.has(resume.id)) {
+          filteredResumes.push(resume);
+        }
+      } else if (resume.is_version && !resume.is_default) {
+        // This is a non-default version - include it (for version control)
+        filteredResumes.push(resume);
+      }
+    });
+    
+    res.json({ resumes: filteredResumes });
   } catch (err) {
     console.error("❌ Fetch resumes error:", err);
     res
@@ -1003,7 +1040,9 @@ ${textContent}
 
     if (format === "pdf") {
       const pdfPath = `${base}.pdf`;
-      const baseName = toTemplateFileBase(resume.template_name);
+      // Use default template if template_name is null or empty
+      const templateName = resume.template_name || "ats-optimized";
+      const baseName = toTemplateFileBase(templateName);
       await renderTemplate(baseName, flattenForTemplate(sections), pdfPath);
       return res.download(pdfPath);
     }
