@@ -614,12 +614,27 @@ router.get("/:id", auth, async (req, res) => {
 
     const job = result.rows[0];
 
-    // Get materials from clean table
+    // Get materials from clean table with cover letter details (like mentor tab)
     try {
       const materialsResult = await pool.query(
-        `SELECT resume_id, cover_letter_id
-         FROM job_materials
-         WHERE job_id = $1`,
+        `SELECT 
+          jm.resume_id, 
+          jm.cover_letter_id,
+          r.title AS resume_title,
+          r.format AS resume_format,
+          COALESCE(cl.title, clt.name) AS cover_letter_title,
+          cl.format AS cover_letter_format,
+          cl.file_url AS cover_letter_file_url,
+          CASE 
+            WHEN cl.id IS NOT NULL THEN 'uploaded_cover_letters'
+            WHEN clt.id IS NOT NULL THEN 'cover_letter_templates'
+            ELSE NULL
+          END AS cover_letter_source
+         FROM job_materials jm
+         LEFT JOIN resumes r ON jm.resume_id = r.id AND r.user_id = jm.user_id
+         LEFT JOIN uploaded_cover_letters cl ON jm.cover_letter_id = cl.id AND cl.user_id = jm.user_id
+         LEFT JOIN cover_letter_templates clt ON jm.cover_letter_id = clt.id
+         WHERE jm.job_id = $1`,
         [id]
       );
 
@@ -628,8 +643,36 @@ router.get("/:id", auth, async (req, res) => {
         // Set job's resume_id and cover_letter_id from materials table
         job.resume_id = materials.resume_id;
         job.cover_letter_id = materials.cover_letter_id;
+        
+        // Include cover letter details if available
+        if (materials.cover_letter_id) {
+          job.cover_letter = {
+            id: materials.cover_letter_id,
+            title: materials.cover_letter_title || `Cover Letter #${materials.cover_letter_id}`,
+            format: materials.cover_letter_format || "pdf", // Use actual format from database
+            file_url: materials.cover_letter_file_url,
+            source: materials.cover_letter_source
+          };
+          console.log(
+            `✅ [GET JOB ${id}] Cover letter found: id=${materials.cover_letter_id}, title="${materials.cover_letter_title}", format="${materials.cover_letter_format}", source="${materials.cover_letter_source}"`
+          );
+        } else {
+          console.log(
+            `⚠️ [GET JOB ${id}] No cover letter ID found in materials`
+          );
+        }
+        
+        // Include resume details if available
+        if (materials.resume_id) {
+          job.resume = {
+            id: materials.resume_id,
+            title: materials.resume_title || `Resume #${materials.resume_id}`,
+            format: materials.resume_format || 'pdf'
+          };
+        }
+        
         console.log(
-          `✅ [GET JOB ${id}] Materials found: resume_id=${materials.resume_id}, cover_letter_id=${materials.cover_letter_id}`
+          `✅ [GET JOB ${id}] Materials found: resume_id=${materials.resume_id}, cover_letter_id=${materials.cover_letter_id}, cover_letter_title="${materials.cover_letter_title}"`
         );
       } else {
         // No materials found in job_materials table
@@ -851,9 +894,44 @@ router.put("/:id", auth, async (req, res) => {
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 router.get("/:id/materials-history", auth, async (req, res) => {
   try {
-    // History tracking removed - we now use job_materials table only
-    // Current materials are in job_materials table, no history is tracked
-    res.json({ history: [] });
+    const { id } = req.params;
+
+    // Check if application_materials_history table exists
+    const tableCheck = await pool.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'application_materials_history'
+      )`
+    );
+
+    if (!tableCheck.rows[0].exists) {
+      console.warn("⚠️ application_materials_history table does not exist");
+      return res.json({ history: [] });
+    }
+
+    // Query materials history with resume and cover letter titles
+    const result = await pool.query(
+      `
+      SELECT 
+        h.id,
+        h.changed_at,
+        h.action,
+        h.resume_id,
+        h.cover_letter_id,
+        h.details,
+        r.title AS resume_title,
+        ucl.name AS cover_title
+      FROM application_materials_history h
+      LEFT JOIN resumes r ON r.id = h.resume_id
+      LEFT JOIN uploaded_cover_letters ucl ON ucl.id = h.cover_letter_id
+      WHERE h.job_id = $1 AND h.user_id = $2
+      ORDER BY h.changed_at DESC
+      `,
+      [id, req.userId]
+    );
+
+    res.json({ history: result.rows });
   } catch (err) {
     console.error("❌ History fetch error:", err);
     res.json({ history: [] });
@@ -927,7 +1005,7 @@ router.put("/:id/materials", auth, async (req, res) => {
       );
     }
 
-    // Get updated job
+    // Get updated job with materials
     const result = await pool.query(
       `SELECT * FROM jobs WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
@@ -937,7 +1015,32 @@ router.put("/:id/materials", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    res.json({ job: result.rows[0] });
+    const job = result.rows[0];
+
+    // Get materials from job_materials table
+    try {
+      const materialsResult = await pool.query(
+        `SELECT resume_id, cover_letter_id
+         FROM job_materials
+         WHERE job_id = $1`,
+        [id]
+      );
+
+      if (materialsResult.rows.length > 0) {
+        const materials = materialsResult.rows[0];
+        job.resume_id = materials.resume_id;
+        job.cover_letter_id = materials.cover_letter_id;
+      } else {
+        job.resume_id = null;
+        job.cover_letter_id = null;
+      }
+    } catch (materialsErr) {
+      console.warn(`⚠️ Error fetching materials:`, materialsErr.message);
+      job.resume_id = null;
+      job.cover_letter_id = null;
+    }
+
+    res.json({ job });
   } catch (err) {
     console.error("❌ Update materials error:", err);
     res.status(500).json({ error: "Failed to update materials" });

@@ -228,23 +228,85 @@ router.get("/:id", auth, async (req, res) => {
       return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
     }
     
-    // Try with 'title' first, fall back to 'name' if that column doesn't exist
-    let result;
+   
+    // First try uploaded_cover_letters table (matches job_materials table)
+    let result = { rows: [] };
     try {
       result = await pool.query(
-        `SELECT * FROM cover_letters WHERE id = $1 AND user_id = $2`,
-        [idNum, userId]
+        `SELECT 
+          id, 
+          title, 
+          name,
+          format, 
+          file_url, 
+          content,
+          created_at,
+          updated_at,
+          'uploaded' AS source
+         FROM uploaded_cover_letters 
+         WHERE id = $1 AND user_id = $2`,
+        [id, userId]
       );
     } catch (err) {
-      console.error("❌ Fetch cover letter error:", err);
-      throw err;
+      // Table might not exist, try next table
+      console.warn("uploaded_cover_letters query failed:", err.message);
+    }
+    
+    // If not found, try cover_letter_templates table
+    if (result.rows.length === 0) {
+      try {
+        result = await pool.query(
+          `SELECT 
+            id, 
+            name AS title,
+            format, 
+            file_url, 
+            content,
+            created_at,
+            updated_at,
+            'template' AS source
+           FROM cover_letter_templates 
+           WHERE id = $1`,
+          [id]
+        );
+      } catch (err) {
+        console.warn("cover_letter_templates query failed:", err.message);
+      }
+    }
+    
+    // If still not found, try legacy cover_letters table
+    if (result.rows.length === 0) {
+      try {
+        result = await pool.query(
+          `SELECT 
+            id,
+            name AS title,
+            'pdf' AS format,
+            NULL AS file_url,
+            content,
+            created_at,
+            updated_at,
+            'legacy' AS source
+           FROM cover_letters 
+           WHERE id = $1 AND user_id = $2`,
+          [id, userId]
+        );
+      } catch (err) {
+        console.warn("cover_letters query failed:", err.message);
+      }
     }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Cover letter not found" });
     }
     
-    res.json({ cover_letter: result.rows[0] });
+    const coverLetter = result.rows[0];
+    // Ensure title field exists (use name if title doesn't exist)
+    if (!coverLetter.title && coverLetter.name) {
+      coverLetter.title = coverLetter.name;
+    }
+    
+    res.json({ cover_letter: coverLetter });
   } catch (err) {
     console.error("❌ Fetch cover letter error:", err);
     res.status(500).json({ error: "Failed to load cover letter" });
@@ -299,110 +361,17 @@ router.get("/:id/download", auth, async (req, res) => {
       if (fs.existsSync(filePath)) {
         const ext = path.extname(coverLetter.file_url).toLowerCase();
         
-        // ✅ Convert DOC/DOCX to PDF for inline viewing
-        if ((ext === ".doc" || ext === ".docx") && mammoth) {
-          try {
-            console.log(`🔄 [COVER LETTER DOWNLOAD] Converting ${ext} to PDF for viewing`);
-            
-            // Read the DOCX file
-            const fileBuffer = fs.readFileSync(filePath);
-            
-            // Convert DOCX to HTML using mammoth
-            const result = await mammoth.convertToHtml({ buffer: fileBuffer });
-            const html = result.value;
-            
-            // Create a temporary HTML file
-            const tempDir = path.join(__dirname, "..", "temp");
-            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-            
-            const tempHtmlPath = path.join(tempDir, `cover-letter-${coverLetter.id}-${Date.now()}.html`);
-            const tempPdfPath = path.join(tempDir, `cover-letter-${coverLetter.id}-${Date.now()}.pdf`);
-            
-            // Create HTML with proper styling
-            const fullHtml = `
-              <!DOCTYPE html>
-              <html>
-                <head>
-                  <meta charset="UTF-8">
-                  <style>
-                    body {
-                      font-family: Arial, sans-serif;
-                      max-width: 8.5in;
-                      margin: 0 auto;
-                      padding: 1in;
-                      line-height: 1.6;
-                    }
-                    p { margin: 0.5em 0; }
-                  </style>
-                </head>
-                <body>
-                  ${html}
-                </body>
-              </html>
-            `;
-            
-            fs.writeFileSync(tempHtmlPath, fullHtml);
-            
-            // Convert HTML to PDF using Puppeteer
-            const browser = await puppeteer.launch({
-              headless: true,
-              args: ["--no-sandbox", "--disable-setuid-sandbox"],
-            });
-            
-            const page = await browser.newPage();
-            await page.setContent(fullHtml, { waitUntil: "networkidle0" });
-            
-            await page.pdf({
-              path: tempPdfPath,
-              format: "A4",
-              printBackground: true,
-              margin: { top: "1in", right: "1in", bottom: "1in", left: "1in" },
-            });
-            
-            await browser.close();
-            
-            // Clean up temp HTML file
-            if (fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
-            
-            // Serve the PDF
-            res.setHeader("Content-Type", "application/pdf");
-            res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}.pdf"`);
-            res.sendFile(tempPdfPath, (err) => {
-              // Clean up temp PDF file after sending
-              if (fs.existsSync(tempPdfPath)) {
-                setTimeout(() => fs.unlinkSync(tempPdfPath), 1000);
-              }
-              if (err) console.error("Error sending PDF:", err);
-            });
-            
-            console.log(`✅ [COVER LETTER DOWNLOAD] Converted and served PDF: ${tempPdfPath}`);
-            return;
-          } catch (convErr) {
-            console.error("❌ [COVER LETTER DOWNLOAD] Conversion error:", convErr);
-            // Fall through to serve original file
-          }
-        }
-        
-        // ✅ Serve PDF and TXT files directly
-        if (ext === ".pdf" || ext === ".txt") {
-          console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
-          const contentTypes = {
-            ".pdf": "application/pdf",
-            ".txt": "text/plain",
-          };
-          res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-          res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
-          return res.sendFile(path.resolve(filePath));
-        }
-        
-        // For DOC/DOCX without mammoth, serve as-is (will show download message in frontend)
-        console.log(`⚠️ [COVER LETTER DOWNLOAD] Serving ${ext} file directly (conversion not available)`);
+        // ✅ Serve all files directly with proper Content-Type headers
+        console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
         const contentTypes = {
+          ".pdf": "application/pdf",
           ".doc": "application/msword",
           ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".txt": "text/plain",
         };
+        
         res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-        res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
+        res.setHeader("Content-Disposition", `attachment; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
         return res.sendFile(path.resolve(filePath));
       } else {
         console.warn(`⚠️ [COVER LETTER DOWNLOAD] Uploaded file not found: ${filePath}`);
