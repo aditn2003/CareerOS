@@ -27,15 +27,10 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  LineChart,
-  Line,
 } from "recharts";
 
 export default function GitHubSection({ token }) {
@@ -56,6 +51,11 @@ export default function GitHubSection({ token }) {
   const [contributions, setContributions] = useState([]);
   const [contributionPeriod, setContributionPeriod] = useState("30"); // days
   const [loadingContributions, setLoadingContributions] = useState(false);
+  const [showTokenInput, setShowTokenInput] = useState(false);
+  const [githubToken, setGithubToken] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [updatingPrivateSetting, setUpdatingPrivateSetting] = useState(false);
 
   // Load settings and repositories on mount
   useEffect(() => {
@@ -201,9 +201,6 @@ export default function GitHubSection({ token }) {
         date: new Date(c.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         fullDate: c.date,
         commits: parseInt(c.total_commits || 0),
-        additions: parseInt(c.total_additions || 0),
-        deletions: parseInt(c.total_deletions || 0),
-        netChange: parseInt(c.total_additions || 0) - parseInt(c.total_deletions || 0),
       }))
       .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
   }
@@ -213,8 +210,6 @@ export default function GitHubSection({ token }) {
     if (!contributions || contributions.length === 0) {
       return {
         totalCommits: 0,
-        totalAdditions: 0,
-        totalDeletions: 0,
         averageCommits: 0,
         activeDays: 0,
         longestStreak: 0,
@@ -222,8 +217,6 @@ export default function GitHubSection({ token }) {
     }
 
     const totalCommits = contributions.reduce((sum, c) => sum + parseInt(c.total_commits || 0), 0);
-    const totalAdditions = contributions.reduce((sum, c) => sum + parseInt(c.total_additions || 0), 0);
-    const totalDeletions = contributions.reduce((sum, c) => sum + parseInt(c.total_deletions || 0), 0);
     const activeDays = contributions.filter((c) => parseInt(c.total_commits || 0) > 0).length;
     const averageCommits = activeDays > 0 ? Math.round(totalCommits / activeDays) : 0;
 
@@ -243,8 +236,6 @@ export default function GitHubSection({ token }) {
 
     return {
       totalCommits,
-      totalAdditions,
-      totalDeletions,
       averageCommits,
       activeDays,
       longestStreak,
@@ -260,14 +251,26 @@ export default function GitHubSection({ token }) {
     try {
       setLoading(true);
       setError(null);
-      await api.post(
+      const { data } = await api.post(
         "/api/github/connect",
         { github_username: githubUsername.trim() },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+      
       await loadSettings();
+      
+      // If reconnecting same account and repos exist, load them automatically
+      if (data.is_reconnect && data.existing_repos > 0 && !data.sync_needed) {
+        console.log(`✅ Reconnected same account with ${data.existing_repos} existing repositories`);
+        await loadRepositories();
+        await loadStats();
+        alert(`✅ GitHub account reconnected! Found ${data.existing_repos} existing repositories. No sync needed.`);
+      } else if (data.sync_needed) {
+        alert("✅ GitHub account connected! Click 'Sync Repositories' to import your repositories.");
+      }
+      
       setShowConnectForm(false);
     } catch (err) {
       console.error("❌ Error connecting GitHub:", err);
@@ -290,12 +293,74 @@ export default function GitHubSection({ token }) {
       );
       await loadRepositories();
       await loadStats();
-      alert(`Sync completed! Added: ${data.summary.added}, Updated: ${data.summary.updated}`);
+      // Small delay to allow backend to finish storing contributions
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await loadContributions(); // Reload contribution data after sync
+      alert(`Sync completed! Added: ${data.summary.added}, Updated: ${data.summary.updated}. Contribution data has been updated.`);
     } catch (err) {
       console.error("❌ Error syncing repositories:", err);
       setError(err.response?.data?.error || err.response?.data?.message || "Failed to sync repositories");
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleSaveToken() {
+    if (!githubToken.trim()) {
+      setError("Please enter a GitHub personal access token");
+      return;
+    }
+
+    try {
+      setSavingToken(true);
+      setError(null);
+      const { data } = await api.put(
+        "/api/github/token",
+        { github_token: githubToken.trim() },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setShowTokenInput(false);
+      setGithubToken("");
+      // Update settings with the returned data (includes has_token flag)
+      if (data.settings) {
+        setSettings(data.settings);
+      } else {
+        // Fallback: reload settings if not returned
+        await loadSettings();
+      }
+      alert("✅ GitHub token saved successfully!");
+    } catch (err) {
+      console.error("❌ Error saving token:", err);
+      setError(err.response?.data?.error || "Failed to save GitHub token");
+    } finally {
+      setSavingToken(false);
+    }
+  }
+
+  async function handleDisconnect() {
+    if (!window.confirm("Are you sure you want to disconnect your GitHub account? This will remove your GitHub connection settings.")) {
+      return;
+    }
+
+    try {
+      setDisconnecting(true);
+      setError(null);
+      await api.delete("/api/github/disconnect", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Reload settings (will be null after disconnect)
+      await loadSettings();
+      setRepositories([]);
+      setStats(null);
+      setContributions([]); // Clear contribution data
+      alert("✅ GitHub account disconnected successfully");
+    } catch (err) {
+      console.error("❌ Error disconnecting GitHub:", err);
+      setError(err.response?.data?.error || "Failed to disconnect GitHub account");
+    } finally {
+      setDisconnecting(false);
     }
   }
 
@@ -400,43 +465,33 @@ export default function GitHubSection({ token }) {
           </div>
         </div>
         <div className="github-header-actions">
-          {/* Private Repo Settings */}
-          <div className="private-repo-settings">
-            <label className="private-repo-toggle">
-              <input
-                type="checkbox"
-                checked={settings.include_private_repos || false}
-                onChange={async (e) => {
-                  const newValue = e.target.checked;
-                  if (newValue && !settings.github_token) {
-                    setError("A GitHub personal access token is required to sync private repositories. Please add a token in your settings first.");
-                    return;
-                  }
-                  try {
-                    await api.put(
-                      "/api/github/settings",
-                      { include_private_repos: newValue },
-                      { headers: { Authorization: `Bearer ${token}` } }
-                    );
-                    await loadSettings();
-                    if (newValue) {
-                      // Reload repositories to include private ones
-                      await loadRepositories();
-                    }
-                  } catch (err) {
-                    console.error("❌ Error updating private repo setting:", err);
-                    setError(err.response?.data?.error || "Failed to update private repository setting");
-                  }
-                }}
-              />
-              <span>Include Private Repositories</span>
-            </label>
-            {settings.include_private_repos && !settings.github_token && (
-              <div className="private-repo-warning">
-                <FaExclamationTriangle /> Token required for private repos
-              </div>
+          <button
+            onClick={handleDisconnect}
+            disabled={disconnecting}
+            className="btn-disconnect"
+            title="Disconnect GitHub account"
+            style={{
+              background: "transparent",
+              color: "#dc3545",
+              border: "1px solid #dc3545",
+              padding: "8px 16px",
+              borderRadius: "6px",
+              cursor: disconnecting ? "not-allowed" : "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              marginRight: "10px",
+            }}
+          >
+            {disconnecting ? (
+              <>
+                <FaSpinner className="spinner" /> Disconnecting...
+              </>
+            ) : (
+              <>
+                <FaTimesCircle /> Disconnect GitHub
+              </>
             )}
-          </div>
+          </button>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -454,6 +509,187 @@ export default function GitHubSection({ token }) {
             )}
           </button>
         </div>
+      </div>
+
+      {/* GitHub Token Settings */}
+      <div className="github-token-settings" style={{
+        background: "#f6f8fa",
+        border: "1px solid #e1e4e8",
+        borderRadius: "6px",
+        padding: "16px",
+        marginBottom: "20px",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <div>
+            <h4 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: "600" }}>
+              Personal Access Token (for Private Repos)
+            </h4>
+            <p style={{ margin: 0, fontSize: "13px", color: "#586069" }}>
+              Add a GitHub personal access token to sync private repositories and increase API rate limits.
+            </p>
+          </div>
+          {!showTokenInput && (
+            <button
+              onClick={() => setShowTokenInput(true)}
+              className="btn-connect-primary"
+              style={{ padding: "8px 16px", fontSize: "14px" }}
+            >
+              {settings.has_token ? "Update Token" : "Add Token"}
+            </button>
+          )}
+        </div>
+        
+        {showTokenInput && (
+          <div style={{ marginTop: "12px" }}>
+            <div style={{ marginBottom: "12px" }}>
+              <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", fontWeight: "500" }}>
+                GitHub Personal Access Token
+              </label>
+              <input
+                type="password"
+                value={githubToken}
+                onChange={(e) => setGithubToken(e.target.value)}
+                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #d1d5da",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  fontFamily: "monospace",
+                }}
+              />
+              <p style={{ margin: "6px 0 0 0", fontSize: "12px", color: "#586069" }}>
+                Create a token at{" "}
+                <a
+                  href="https://github.com/settings/tokens"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#0366d6" }}
+                >
+                  github.com/settings/tokens
+                </a>
+                . Required scopes: <code>repo</code> (for private repos)
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={handleSaveToken}
+                disabled={savingToken}
+                className="btn-connect-primary"
+                style={{ padding: "8px 16px", fontSize: "14px" }}
+              >
+                {savingToken ? (
+                  <>
+                    <FaSpinner className="spinner" /> Saving...
+                  </>
+                ) : (
+                  "Save Token"
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTokenInput(false);
+                  setGithubToken("");
+                }}
+                className="btn-cancel"
+                style={{ padding: "8px 16px", fontSize: "14px" }}
+                disabled={savingToken}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {settings.has_token && !showTokenInput && (
+          <div style={{
+            marginTop: "12px",
+            padding: "8px 12px",
+            background: "#d1f2eb",
+            border: "1px solid #a3e4d7",
+            borderRadius: "4px",
+            fontSize: "13px",
+            color: "#0c5460",
+          }}>
+            <FaCheckCircle style={{ marginRight: "6px" }} />
+            Token is configured
+          </div>
+        )}
+      </div>
+
+      {/* Private Repo Settings */}
+      <div className="private-repo-settings" style={{
+        background: "#f6f8fa",
+        border: "1px solid #e1e4e8",
+        borderRadius: "6px",
+        padding: "16px",
+        marginBottom: "20px",
+      }}>
+        <label className="private-repo-toggle" style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={settings?.include_private_repos || false}
+            disabled={updatingPrivateSetting || !settings}
+            onChange={async (e) => {
+              const newValue = e.target.checked;
+              
+              if (newValue && !settings?.has_token) {
+                setError("A GitHub personal access token is required to sync private repositories. Please add a token above first.");
+                e.preventDefault();
+                return;
+              }
+              
+              setUpdatingPrivateSetting(true);
+              
+              // Optimistically update the UI immediately
+              setSettings(prev => prev ? { ...prev, include_private_repos: newValue } : null);
+              
+              try {
+                await api.put(
+                  "/api/github/settings",
+                  { include_private_repos: newValue },
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                // Reload settings to ensure we have the latest from server
+                await loadSettings();
+                // Always reload repositories after changing the setting
+                // If disabled, private repos will be removed from DB and filtered out
+                // If enabled, private repos will be included
+                await loadRepositories();
+              } catch (err) {
+                console.error("❌ Error updating private repo setting:", err);
+                // Revert the optimistic update on error
+                setSettings(prev => prev ? { ...prev, include_private_repos: !newValue } : null);
+                setError(err.response?.data?.error || "Failed to update private repository setting");
+              } finally {
+                setUpdatingPrivateSetting(false);
+              }
+            }}
+            style={{ 
+              marginRight: "8px", 
+              cursor: updatingPrivateSetting || !settings ? "not-allowed" : "pointer",
+              opacity: updatingPrivateSetting ? 0.6 : 1
+            }}
+          />
+          <span style={{ fontSize: "14px", fontWeight: "500" }}>Include Private Repositories</span>
+        </label>
+            {settings.include_private_repos && !settings.has_token && (
+              <div className="private-repo-warning" style={{
+                marginTop: "8px",
+                padding: "8px 12px",
+                background: "#fff3cd",
+                border: "1px solid #ffc107",
+                borderRadius: "4px",
+                fontSize: "13px",
+                color: "#856404",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}>
+                <FaExclamationTriangle /> Token required for private repos
+              </div>
+            )}
       </div>
 
       {error && (
@@ -536,14 +772,6 @@ export default function GitHubSection({ token }) {
                       <div className="contribution-stat-value">{stats.longestStreak}</div>
                       <div className="contribution-stat-label">Longest Streak</div>
                     </div>
-                    <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">+{stats.totalAdditions.toLocaleString()}</div>
-                      <div className="contribution-stat-label">Lines Added</div>
-                    </div>
-                    <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">-{stats.totalDeletions.toLocaleString()}</div>
-                      <div className="contribution-stat-label">Lines Deleted</div>
-                    </div>
                   </div>
                 );
               })()}
@@ -587,62 +815,6 @@ export default function GitHubSection({ token }) {
                   </ResponsiveContainer>
                 </div>
 
-                <div className="contribution-chart-card">
-                  <h4>Code Changes (Additions vs Deletions)</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={formatContributionData()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e1e4e8" />
-                      <XAxis
-                        dataKey="date"
-                        stroke="#586069"
-                        fontSize={12}
-                        tick={{ fill: "#586069" }}
-                      />
-                      <YAxis stroke="#586069" fontSize={12} tick={{ fill: "#586069" }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#fff",
-                          border: "1px solid #e1e4e8",
-                          borderRadius: "6px",
-                        }}
-                      />
-                      <Legend />
-                      <Bar dataKey="additions" fill="#28a745" name="Additions" />
-                      <Bar dataKey="deletions" fill="#dc3545" name="Deletions" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="contribution-chart-card">
-                  <h4>Net Code Changes</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={formatContributionData()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e1e4e8" />
-                      <XAxis
-                        dataKey="date"
-                        stroke="#586069"
-                        fontSize={12}
-                        tick={{ fill: "#586069" }}
-                      />
-                      <YAxis stroke="#586069" fontSize={12} tick={{ fill: "#586069" }} />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "#fff",
-                          border: "1px solid #e1e4e8",
-                          borderRadius: "6px",
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="netChange"
-                        stroke="#6f42c1"
-                        strokeWidth={2}
-                        dot={{ fill: "#6f42c1", r: 4 }}
-                        name="Net Change"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
               </div>
             </>
           )}
