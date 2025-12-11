@@ -7,6 +7,7 @@ import JobPipeline from "../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
 import StatisticsDashboard from "../components/stats";
+import JobTimeline from "../components/JobTimeline";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 
@@ -72,6 +73,11 @@ export default function Jobs() {
             Performance Dashboard
           </h3>
           <StatisticsDashboard token={token} />
+        </div>
+
+        {/* 📅 Job Timeline - Added at the bottom */}
+        <div className="profile-box">
+          <JobTimeline key={refreshKey} token={token} />
         </div>
       </div>
 

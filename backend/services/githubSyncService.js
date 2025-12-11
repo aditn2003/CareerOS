@@ -2,6 +2,7 @@
 // GitHub Repository Synchronization Service
 import pool from "../db/pool.js";
 import { createGitHubService } from "./githubService.js";
+import { decryptToken } from "../utils/tokenEncryption.js";
 
 const githubService = createGitHubService();
 
@@ -21,8 +22,11 @@ async function syncUserRepositories(userId, settings) {
     };
   }
 
+  // Decrypt token if it exists
+  const decryptedToken = github_token ? decryptToken(github_token) : null;
+
   // Validate private repo access
-  if (include_private_repos && !github_token) {
+  if (include_private_repos && !decryptedToken) {
     return {
       success: false,
       error: "GitHub personal access token is required to sync private repositories. Please add a token in your GitHub settings.",
@@ -41,7 +45,7 @@ async function syncUserRepositories(userId, settings) {
     // Fetch repositories from GitHub
     const repositories = await githubService.fetchUserRepositories(
       github_username,
-      github_token || null
+      decryptedToken || null
     );
 
     // Filter private repositories based on user preference
@@ -71,7 +75,7 @@ async function syncUserRepositories(userId, settings) {
           repoDetails = await githubService.fetchRepositoryDetails(
             github_username,
             repo.name,
-            github_token || null
+            decryptedToken || null
           );
         } catch (detailError) {
           // If we can't get details (403, 404, etc.), use basic repo info
@@ -185,7 +189,7 @@ async function syncUserRepositories(userId, settings) {
             const contributions = await githubService.fetchRepositoryContributions(
               github_username,
               repo.name,
-              github_token || null,
+              decryptedToken || null,
               365 // Last 365 days
             );
             
@@ -322,14 +326,20 @@ async function syncAllUsers() {
     // Get all users with auto-sync enabled
     const result = await pool.query(
       `SELECT user_id, github_username, github_token, auto_sync_enabled, 
-              sync_frequency, last_sync_at
+              sync_frequency, last_sync_at, include_private_repos
        FROM github_user_settings
        WHERE auto_sync_enabled = true 
          AND github_username IS NOT NULL
          AND github_username != ''`
     );
 
-    if (result.rows.length === 0) {
+    // Decrypt tokens for all users
+    const usersWithDecryptedTokens = result.rows.map(row => ({
+      ...row,
+      github_token: row.github_token ? decryptToken(row.github_token) : null,
+    }));
+
+    if (usersWithDecryptedTokens.length === 0) {
       console.log("✅ No users with auto-sync enabled");
       return {
         success: true,
@@ -339,13 +349,13 @@ async function syncAllUsers() {
       };
     }
 
-    console.log(`📋 Found ${result.rows.length} users with auto-sync enabled`);
+    console.log(`📋 Found ${usersWithDecryptedTokens.length} users with auto-sync enabled`);
 
     let usersSynced = 0;
     let usersSkipped = 0;
     const errors = [];
 
-    for (const settings of result.rows) {
+    for (const settings of usersWithDecryptedTokens) {
       const userId = settings.user_id;
 
       // Check if sync is needed based on frequency
@@ -383,7 +393,7 @@ async function syncAllUsers() {
 
     return {
       success: true,
-      users_processed: result.rows.length,
+      users_processed: usersWithDecryptedTokens.length,
       users_synced: usersSynced,
       users_skipped: usersSkipped,
       errors: errors.length > 0 ? errors : undefined,
