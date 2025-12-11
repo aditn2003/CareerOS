@@ -25,8 +25,8 @@ const STAGES = [
   { name: "Rejected", color: "#f87171" },
 ];
 
-// ⭐ ONLY ADDITION #1 — add onAnalyzeSkills support
-export default function JobPipeline({ token, onAnalyzeSkills }) {
+// ⭐ Apply button support - navigates to quality tab
+export default function JobPipeline({ token, onApply }) {
   const [jobs, setJobs] = useState([]);
   const [dragged, setDragged] = useState(null);
   const [filter, setFilter] = useState("All");
@@ -421,15 +421,15 @@ async function loadJobs(currentFilters = filters) {
         ACTION BAR BELOW CARD
     ============================ */}
     <div className="job-card-actions-bar">
-      {onAnalyzeSkills && (
+      {onApply && (
         <button
-          className="job-card-btn-analyze"
+          className="job-card-btn-apply"
           onClick={(e) => {
             e.stopPropagation();
-            onAnalyzeSkills(job.id);
+            onApply(job.id);
           }}
         >
-          🔍 Analyze Skills
+          ✍️ Apply
         </button>
       )}
 
@@ -576,15 +576,15 @@ async function loadJobs(currentFilters = filters) {
                         </div>
                       </div>
                       <div className="job-card-actions-bar">
-                        {onAnalyzeSkills && (
+                        {onApply && (
                           <button
-                            className="job-card-btn-analyze"
+                            className="job-card-btn-apply"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onAnalyzeSkills(job.id);
+                              onApply(job.id);
                             }}
                           >
-                            🔍 Analyze Skills
+                            ✍️ Apply
                           </button>
                         )}
                         <button

@@ -7,6 +7,7 @@ import fs, { readFileSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import PDFDocument from "pdfkit";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
@@ -158,11 +159,57 @@ function createResumesRoutes(
   }
   
   const genAI = genAIClient || new GoogleGenerativeAI(apiKey);
+  
+  // Initialize OpenAI client if API key is available
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  let openai = null;
+  if (openaiApiKey) {
+    openai = new OpenAI({ apiKey: openaiApiKey });
+    console.log("✅ [RESUMES] OPENAI_API_KEY loaded (fallback enabled)");
+  } else {
+    console.warn("⚠️ [RESUMES] OPENAI_API_KEY not found - OpenAI fallback will not be available");
+  }
 
-  // Helper function for retry logic with exponential backoff
+  // Helper function to call OpenAI with the same prompt
+  async function callOpenAI(prompt, temperature = 0.2) {
+    if (!openai) {
+      throw new Error("OpenAI client not available - OPENAI_API_KEY not set");
+    }
+    
+    console.log("🔄 [OPENAI FALLBACK] Using OpenAI as fallback for Gemini rate limit...");
+    
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that returns valid JSON responses. Always return only valid JSON without markdown formatting.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: temperature,
+        response_format: { type: "json_object" },
+        max_tokens: 4000,
+      });
+      
+      const text = completion.choices[0]?.message?.content || "";
+      console.log("✅ [OPENAI FALLBACK] Successfully got response from OpenAI");
+      return text;
+    } catch (openaiError) {
+      console.error("❌ [OPENAI FALLBACK] OpenAI API error:", openaiError.message);
+      throw openaiError;
+    }
+  }
+
+  // Helper function for retry logic with exponential backoff and OpenAI fallback
   async function callGeminiWithRetry(prompt, modelConfig, maxRetries = 3) {
     let retryCount = 0;
     let lastError = null;
+    let usedFallback = false;
     
     while (retryCount < maxRetries) {
       try {
@@ -182,16 +229,52 @@ function createResumesRoutes(
                            apiError.message?.includes("rate limit") ||
                            apiError.message?.includes("RESOURCE_EXHAUSTED");
         
-        if (isRateLimit && retryCount < maxRetries) {
-          // Exponential backoff: wait 2^retryCount seconds (2s, 4s, 8s)
-          const waitTime = Math.pow(2, retryCount) * 1000;
-          console.warn(`⚠️ [GEMINI] Rate limit hit (429). Waiting ${waitTime/1000}s before retry ${retryCount + 1}/${maxRetries}...`);
-          console.warn(`   Error details:`, apiError.message?.substring(0, 200));
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        } else {
-          // Not a rate limit error, or max retries reached
-          throw apiError;
+        if (isRateLimit) {
+          // If we've exhausted retries or this is the first rate limit error, try OpenAI fallback
+          if (openai && !usedFallback) {
+            console.warn(`⚠️ [GEMINI] Rate limit hit (429). Attempting OpenAI fallback...`);
+            try {
+              const temperature = modelConfig.generationConfig?.temperature || 0.2;
+              const text = await callOpenAI(prompt, temperature);
+              usedFallback = true;
+              return text;
+            } catch (fallbackError) {
+              console.error("❌ [OPENAI FALLBACK] Fallback also failed:", fallbackError.message);
+              // Continue with retry logic if fallback fails
+            }
+          }
+          
+          // If fallback not available or failed, use exponential backoff
+          if (retryCount < maxRetries) {
+            const waitTime = Math.pow(2, retryCount) * 1000;
+            console.warn(`⚠️ [GEMINI] Rate limit hit (429). Waiting ${waitTime/1000}s before retry ${retryCount + 1}/${maxRetries}...`);
+            console.warn(`   Error details:`, apiError.message?.substring(0, 200));
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+        }
+        
+        // Not a rate limit error, or max retries reached
+        throw apiError;
+      }
+    }
+    
+    // If all retries failed and we haven't tried OpenAI yet, try it now
+    if (openai && !usedFallback && lastError) {
+      const isRateLimit = lastError.status === 429 || 
+                         lastError.message?.includes("429") || 
+                         lastError.message?.includes("quota") ||
+                         lastError.message?.includes("rate limit") ||
+                         lastError.message?.includes("RESOURCE_EXHAUSTED");
+      
+      if (isRateLimit) {
+        console.warn(`⚠️ [GEMINI] All retries exhausted. Attempting OpenAI fallback as last resort...`);
+        try {
+          const temperature = modelConfig.generationConfig?.temperature || 0.2;
+          const text = await callOpenAI(prompt, temperature);
+          return text;
+        } catch (fallbackError) {
+          console.error("❌ [OPENAI FALLBACK] Final fallback attempt failed:", fallbackError.message);
         }
       }
     }
@@ -588,11 +671,48 @@ ${textContent}
   router.get("/", auth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id, title, template_name, preview_url, file_url, created_at, format
-       FROM resumes WHERE user_id=$1 ORDER BY created_at DESC`,
+      `SELECT 
+        id, title, template_name, preview_url, file_url, created_at, format,
+        original_resume_id, version_number, is_version, is_default
+       FROM resumes 
+       WHERE user_id=$1 
+       ORDER BY 
+         CASE WHEN is_version = TRUE THEN 1 ELSE 0 END,
+         original_resume_id NULLS LAST,
+         version_number NULLS LAST,
+         created_at DESC`,
       [req.user.id]
     );
-    res.json({ resumes: rows });
+    
+    // Filter out original resumes if they have a default version
+    // Show the default version resume instead of the original
+    const filteredResumes = [];
+    const originalResumeIds = new Set();
+    
+    // First, collect all original resume IDs that have default versions
+    rows.forEach(resume => {
+      if (resume.is_version && resume.is_default && resume.original_resume_id) {
+        originalResumeIds.add(resume.original_resume_id);
+      }
+    });
+    
+    // Then, add resumes (excluding originals that have default versions, but include the default versions themselves)
+    rows.forEach(resume => {
+      if (resume.is_version && resume.is_default) {
+        // This is a default version - include it
+        filteredResumes.push(resume);
+      } else if (!resume.is_version) {
+        // This is an original resume - only include if it doesn't have a default version
+        if (!originalResumeIds.has(resume.id)) {
+          filteredResumes.push(resume);
+        }
+      } else if (resume.is_version && !resume.is_default) {
+        // This is a non-default version - include it (for version control)
+        filteredResumes.push(resume);
+      }
+    });
+    
+    res.json({ resumes: filteredResumes });
   } catch (err) {
     console.error("❌ Fetch resumes error:", err);
     res
@@ -920,7 +1040,9 @@ ${textContent}
 
     if (format === "pdf") {
       const pdfPath = `${base}.pdf`;
-      const baseName = toTemplateFileBase(resume.template_name);
+      // Use default template if template_name is null or empty
+      const templateName = resume.template_name || "ats-optimized";
+      const baseName = toTemplateFileBase(templateName);
       await renderTemplate(baseName, flattenForTemplate(sections), pdfPath);
       return res.download(pdfPath);
     }
