@@ -6,6 +6,10 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import pool from "../db/pool.js";
 import { getRoleTypeFromTitle } from "../utils/roleTypeMapper.js";
+import OpenAI from "openai";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 const router = express.Router();
@@ -891,6 +895,140 @@ router.put("/:id", auth, async (req, res) => {
 
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 // --------------------------------------------------
+// ✅ Generate and link cover letter for a job
+router.post("/:id/generate-cover-letter", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    // Get job details
+    const jobResult = await pool.query(
+      `SELECT id, title, company, description, industry, user_id
+       FROM jobs
+       WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const job = jobResult.rows[0];
+
+    // Generate cover letter using OpenAI
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Get user employment data for experience highlighting
+    let experiences = [];
+    try {
+      const expResult = await pool.query(
+        `SELECT role, company, start_date, end_date, responsibilities, achievements, skills
+         FROM employment
+         WHERE user_id = $1
+         ORDER BY start_date DESC`,
+        [userId]
+      );
+      experiences = expResult.rows || [];
+    } catch (err) {
+      console.warn("⚠️ Employment fetch failed:", err.message);
+    }
+
+    // Build prompt for cover letter generation
+    const experienceSource = experiences.length > 0
+      ? `EMPLOYMENT RECORDS:\n${JSON.stringify(experiences, null, 2)}`
+      : "No structured experience data found.";
+
+    const prompt = `You are an expert career writer for ATS-optimized cover letters.
+
+Generate a professional cover letter for:
+
+Role: ${job.title}
+Company: ${job.company}
+${job.description ? `Job Description:\n${job.description}` : ''}
+
+${experienceSource ? `\nEXPERIENCE DATA:\n${experienceSource}` : ''}
+
+Write a professional, compelling cover letter that:
+- Addresses the specific role and company
+- Highlights relevant experience
+- Is optimized for ATS systems
+- Is concise but impactful (300-400 words)
+
+Return ONLY the cover letter text, no headers or formatting.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 800,
+    });
+
+    const coverLetterContent = response.choices?.[0]?.message?.content || "";
+
+    if (!coverLetterContent) {
+      return res.status(500).json({ error: "Failed to generate cover letter content" });
+    }
+
+    // Save cover letter as a text file
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const coverLetterUploadDir = path.join(__dirname, "..", "uploads", "cover-letters");
+
+    // Ensure directory exists
+    if (!fs.existsSync(coverLetterUploadDir)) {
+      fs.mkdirSync(coverLetterUploadDir, { recursive: true });
+    }
+
+    // Generate filename
+    const timestamp = Date.now();
+    const sanitizedCompany = (job.company || "Company").replace(/[^a-zA-Z0-9]/g, "_");
+    const sanitizedTitle = (job.title || "Role").replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `cover_letter_${sanitizedCompany}_${sanitizedTitle}_${timestamp}.txt`;
+    const filePath = path.join(coverLetterUploadDir, filename);
+    const fileUrl = `/uploads/cover-letters/${filename}`;
+
+    // Write file
+    fs.writeFileSync(filePath, coverLetterContent, "utf8");
+
+    // Save to uploaded_cover_letters table
+    const coverLetterResult = await pool.query(
+      `INSERT INTO uploaded_cover_letters (user_id, title, format, file_url, content)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, title, format, file_url, content, created_at`,
+      [
+        userId,
+        `Cover Letter - ${job.company} - ${job.title}`,
+        "txt",
+        fileUrl,
+        coverLetterContent,
+      ]
+    );
+
+    const coverLetter = coverLetterResult.rows[0];
+
+    // Link to job in job_materials table
+    await pool.query(
+      `INSERT INTO job_materials (job_id, user_id, cover_letter_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (job_id) 
+       DO UPDATE SET 
+         cover_letter_id = EXCLUDED.cover_letter_id,
+         updated_at = NOW()`,
+      [id, userId, coverLetter.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Cover letter generated and linked successfully",
+      cover_letter: coverLetter,
+      job_id: id,
+    });
+  } catch (err) {
+    console.error("❌ Error generating cover letter for job:", err);
+    res.status(500).json({ error: "Failed to generate cover letter: " + err.message });
+  }
+});
+
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 router.get("/:id/materials-history", auth, async (req, res) => {
   try {
