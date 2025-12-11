@@ -550,6 +550,56 @@ router.get("/archived", auth, async (req, res) => {
   }
 });
 
+// ---------- GET APPLICATION HISTORY FOR ALL JOBS ----------
+// IMPORTANT: This route must come BEFORE /:id to avoid route conflict
+router.get("/history", auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        ah.id,
+        ah.job_id,
+        ah.event,
+        ah.timestamp,
+        ah.from_status,
+        ah.to_status,
+        ah.meta,
+        j.title,
+        j.company
+      FROM application_history ah
+      INNER JOIN jobs j ON ah.job_id = j.id
+      WHERE j.user_id = $1
+      ORDER BY ah.timestamp DESC`,
+      [req.userId]
+    );
+
+    // Group history by job_id
+    const historyByJob = {};
+    result.rows.forEach((row) => {
+      if (!historyByJob[row.job_id]) {
+        historyByJob[row.job_id] = {
+          job_id: row.job_id,
+          title: row.title,
+          company: row.company,
+          history: [],
+        };
+      }
+      historyByJob[row.job_id].history.push({
+        id: row.id,
+        event: row.event,
+        timestamp: row.timestamp,
+        from_status: row.from_status,
+        to_status: row.to_status,
+        meta: row.meta,
+      });
+    });
+
+    res.json({ history: Object.values(historyByJob) });
+  } catch (err) {
+    console.error("❌ Failed to fetch application history:", err.message);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 // ---------- GET JOB BY ID ----------
 router.get("/:id", auth, async (req, res) => {
   const { id } = req.params;
@@ -959,6 +1009,18 @@ router.put("/:id/status", auth, async (req, res) => {
   if (!status) return res.status(400).json({ error: "Missing status" });
 
   try {
+    // First, get the current status before updating
+    const currentJobResult = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (currentJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
+
+    const previousStatus = currentJobResult.rows[0].status || null;
+
     let query;
     let params;
 
@@ -1008,13 +1070,19 @@ router.put("/:id/status", auth, async (req, res) => {
 
     const updatedJob = result.rows[0];
 
-    // Log into application history
+    // Log into application history with user_id and status changes
     await pool.query(
       `
-      INSERT INTO application_history (job_id, event)
-      VALUES ($1, $2)
+      INSERT INTO application_history (job_id, user_id, event, from_status, to_status)
+      VALUES ($1, $2, $3, $4, $5)
       `,
-      [id, `Status changed to "${status}"`]
+      [
+        id,
+        req.userId,
+        `Status changed to "${status}"`,
+        previousStatus,
+        status,
+      ]
     );
 
     // Update application_submissions table to track responses/interviews/offers
