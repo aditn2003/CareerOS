@@ -74,6 +74,7 @@ import qualityScoringRoutes from "./routes/qualityScoring.js";
 import githubRoutes from "./routes/github.js";
 import { syncAllUsers } from "./services/githubSyncService.js";
 import timingRoutes from "./routes/timing.js";
+import materialComparisonRoutes from "./routes/materialComparison.js";
 
 import referencesRoutes from "./routes/references.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
@@ -582,6 +583,7 @@ app.use("/api/career-goals", careerGoalsRoutes);
 app.use("/api/quality-scoring", qualityScoringRoutes);
 app.use("/api/github", githubRoutes);
 app.use("/api/timing", timingRoutes);
+app.use("/api/material-comparison", materialComparisonRoutes);
 
 app.use("/api/team", teamRoutes);
 app.use("/api", jobImportRoutes);
