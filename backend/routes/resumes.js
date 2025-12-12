@@ -723,9 +723,24 @@ ${textContent}
 
   router.delete("/:id", auth, async (req, res) => {
   try {
+    const resumeId = req.params.id;
+    const userId = req.user.id;
+
+    // First, delete history records that would violate the constraint
+    // Delete rows where resume_id matches and cover_letter_id is NULL
+    // (these would violate check_at_least_one_material when resume_id is set to NULL)
+    await pool.query(
+      `DELETE FROM application_materials_history 
+       WHERE resume_id=$1 
+       AND cover_letter_id IS NULL
+       AND user_id=$2`,
+      [resumeId, userId]
+    );
+
+    // Now delete the resume (foreign key will set resume_id to NULL for remaining history rows)
     await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
-      req.params.id,
-      req.user.id,
+      resumeId,
+      userId,
     ]);
     res.json({ message: "✅ Resume deleted" });
   } catch (err) {

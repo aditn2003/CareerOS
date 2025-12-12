@@ -484,6 +484,151 @@ router.post("/cover-letters/:coverLetterId/versions/:versionNumber/restore", aut
   }
 });
 
+// Create a new cover letter version
+router.post("/cover-letters/:coverLetterId/create", auth, async (req, res) => {
+  try {
+    const { coverLetterId } = req.params;
+    const userId = req.user.id;
+    const {
+      title,
+      description,
+      change_summary,
+      content,
+      format,
+      file_url,
+      job_id
+    } = req.body;
+
+    // Verify the cover letter belongs to the user
+    const coverLetterCheck = await pool.query(
+      "SELECT id, content, format, file_url, title FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2",
+      [coverLetterId, userId]
+    );
+
+    if (coverLetterCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+
+    const coverLetter = coverLetterCheck.rows[0];
+
+    // Get the next version number
+    const versionCountResult = await pool.query(
+      `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
+      FROM cover_letter_versions
+      WHERE cover_letter_id = $1 AND user_id = $2`,
+      [coverLetterId, userId]
+    );
+    const nextVersion = versionCountResult.rows[0].next_version;
+
+    // Create version record
+    const versionRecordResult = await pool.query(
+      `INSERT INTO cover_letter_versions (
+        cover_letter_id, user_id, version_number, title, content, 
+        format, file_url, change_summary, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      RETURNING *`,
+      [
+        coverLetterId,
+        userId,
+        nextVersion,
+        title || `${coverLetter.title} - Version ${nextVersion}`,
+        content || coverLetter.content,
+        format || coverLetter.format || 'pdf',
+        file_url || coverLetter.file_url,
+        change_summary || null
+      ]
+    );
+
+    res.json({ 
+      version: versionRecordResult.rows[0]
+    });
+  } catch (err) {
+    console.error("❌ Error creating cover letter version:", err);
+    res.status(500).json({ error: "Failed to create version" });
+  }
+});
+
+// Publish a cover letter version as a standalone cover letter
+router.post("/cover-letters/:coverLetterId/versions/:versionNumber/publish", auth, async (req, res) => {
+  try {
+    const { coverLetterId, versionNumber } = req.params;
+    const userId = req.user.id;
+
+    // Get the original cover letter title
+    const originalCoverLetterResult = await pool.query(
+      `SELECT title FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [coverLetterId, userId]
+    );
+
+    if (originalCoverLetterResult.rows.length === 0) {
+      return res.status(404).json({ error: "Original cover letter not found" });
+    }
+
+    const originalTitle = originalCoverLetterResult.rows[0].title;
+
+    // Fetch version data
+    const versionResult = await pool.query(
+      `SELECT 
+        id,
+        version_number,
+        title,
+        content,
+        format,
+        file_url,
+        created_at
+      FROM cover_letter_versions
+      WHERE cover_letter_id = $1 AND user_id = $2 AND version_number = $3`,
+      [coverLetterId, userId, versionNumber]
+    );
+
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Version not found" });
+    }
+
+    const version = versionResult.rows[0];
+
+    // Create a new standalone cover letter from this version
+    const newCoverLetterResult = await pool.query(
+      `INSERT INTO uploaded_cover_letters (
+        user_id, title, content, format, file_url, created_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW())
+      RETURNING *`,
+      [
+        userId,
+        `${version.title} (Published from ${originalTitle} - Version ${versionNumber})`,
+        version.content,
+        version.format,
+        version.file_url
+      ]
+    );
+
+    const newCoverLetter = newCoverLetterResult.rows[0];
+
+    // If there's a job_id in the request, link it
+    if (req.body.job_id) {
+      try {
+        await pool.query(
+          `INSERT INTO job_materials (job_id, user_id, cover_letter_id, updated_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (job_id) 
+           DO UPDATE SET cover_letter_id = $3, updated_at = NOW()`,
+          [req.body.job_id, userId, newCoverLetter.id]
+        );
+      } catch (jobMatError) {
+        console.warn("Could not link job to published cover letter:", jobMatError.message);
+      }
+    }
+
+    res.json({ 
+      cover_letter: newCoverLetter,
+      message: "Version published successfully"
+    });
+  } catch (err) {
+    console.error("❌ Error publishing cover letter version:", err);
+    res.status(500).json({ error: "Failed to publish version" });
+  }
+});
+
 // ============================================================
 // NEW COMPREHENSIVE VERSION CONTROL ROUTES
 // ============================================================
@@ -1191,9 +1336,16 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
     const { resumeId, versionNumber } = req.params;
     const userId = req.user.id;
 
+    console.log(`📋 [PUBLISH RESUME] Publishing resume ${resumeId}, version ${versionNumber} for user ${userId}`);
+
+    // Validate versionNumber is not 0 or null (can't publish original resume)
+    if (!versionNumber || versionNumber === 0 || versionNumber === '0') {
+      return res.status(400).json({ error: "Cannot publish original resume. Please publish a specific version." });
+    }
+
     // Get the original resume title
     const originalResumeResult = await pool.query(
-      `SELECT title FROM resumes WHERE id = $1 AND user_id = $2`,
+      `SELECT id, title FROM resumes WHERE id = $1 AND user_id = $2`,
       [resumeId, userId]
     );
 
@@ -1201,7 +1353,20 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
       return res.status(404).json({ error: "Original resume not found" });
     }
 
-    const originalTitle = originalResumeResult.rows[0].title;
+    const originalResume = originalResumeResult.rows[0];
+    const originalTitle = originalResume.title;
+
+    // Ensure we're not trying to publish the original resume itself
+    // Check if this versionNumber corresponds to the original resume
+    const originalResumeCheck = await pool.query(
+      `SELECT id FROM resumes WHERE id = $1 AND user_id = $2 AND (is_version IS NULL OR is_version = FALSE)`,
+      [resumeId, userId]
+    );
+
+    if (originalResumeCheck.rows.length === 0) {
+      // This resume is itself a version, not an original
+      return res.status(400).json({ error: "Cannot publish a version that is already a version. Please publish from the original resume." });
+    }
 
     // Fetch version data from resume_versions table
     const versionResult = await pool.query(
@@ -1314,6 +1479,7 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
     }
     
     console.log(`📋 [PUBLISH] Publishing resume with template: ${templateName}, sections type: ${typeof sectionsData}, has sections: ${!!sectionsData && Object.keys(sectionsData).length > 0}`);
+    console.log(`📋 [PUBLISH] About to INSERT INTO resumes table (NOT cover_letters)`);
     
     const newResumeResult = await pool.query(
       `INSERT INTO resumes (
@@ -1328,7 +1494,7 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
         original_resume_id,
         version_number
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, title, format, file_url, created_at`,
+      RETURNING id, title, format, file_url, created_at, is_version, original_resume_id, version_number`,
       [
         userId,
         publishedTitle,
@@ -1344,6 +1510,25 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
     );
 
     const newResume = newResumeResult.rows[0];
+    
+    console.log(`✅ [PUBLISH] Created new resume:`, {
+      id: newResume.id,
+      title: newResume.title,
+      is_version: newResume.is_version,
+      original_resume_id: newResume.original_resume_id,
+      version_number: newResume.version_number
+    });
+    
+    // Verify it was created correctly
+    if (newResume.is_version !== false || newResume.original_resume_id !== null || newResume.version_number !== null) {
+      console.error(`❌ [PUBLISH] ERROR: Published resume has incorrect flags!`, newResume);
+      // Fix it
+      await pool.query(
+        `UPDATE resumes SET is_version = FALSE, original_resume_id = NULL, version_number = NULL WHERE id = $1`,
+        [newResume.id]
+      );
+      console.log(`✅ [PUBLISH] Fixed resume flags`);
+    }
 
     // If version was linked to a job, copy that linkage to job_materials
     if (jobId) {

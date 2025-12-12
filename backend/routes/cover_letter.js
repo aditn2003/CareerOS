@@ -90,6 +90,7 @@ router.get("/", auth, async (req, res) => {
           name AS title,
           'pdf' AS format,
           NULL AS file_url,
+          content,
           created_at,
           COALESCE(updated_at, created_at) AS updated_at,
           'template' AS source,
@@ -236,7 +237,6 @@ router.get("/:id", auth, async (req, res) => {
         `SELECT 
           id, 
           title, 
-          name,
           format, 
           file_url, 
           content,
@@ -259,8 +259,8 @@ router.get("/:id", auth, async (req, res) => {
           `SELECT 
             id, 
             name AS title,
-            format, 
-            file_url, 
+            'pdf' AS format, 
+            NULL AS file_url, 
             content,
             created_at,
             updated_at,
@@ -374,6 +374,106 @@ router.get("/:id/download", auth, async (req, res) => {
       
       if (fs.existsSync(filePath)) {
         const ext = path.extname(coverLetter.file_url).toLowerCase();
+        const isView = req.query.view === 'true';
+        
+        // ✅ Convert DOCX to PDF for viewing if requested
+        if ((ext === ".doc" || ext === ".docx") && isView) {
+          if (!mammoth) {
+            console.warn("⚠️ [COVER LETTER DOWNLOAD] mammoth not available - cannot convert DOCX to PDF");
+            // Fall through to serve original file
+          } else {
+            try {
+            console.log(`🔄 [COVER LETTER DOWNLOAD] Converting ${ext} to PDF for viewing`);
+            
+            // Read the DOCX file
+            const fileBuffer = fs.readFileSync(filePath);
+            
+            // Convert DOCX to HTML using mammoth
+            const result = await mammoth.convertToHtml({ buffer: fileBuffer });
+            const html = result.value;
+            
+            // Create a temporary HTML file
+            const tempDir = path.join(__dirname, "..", "temp");
+            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+            
+            const tempHtmlPath = path.join(tempDir, `cover-letter-${coverLetter.id}-${Date.now()}.html`);
+            const tempPdfPath = path.join(tempDir, `cover-letter-${coverLetter.id}-${Date.now()}.pdf`);
+            
+            // Create HTML with proper styling
+            const fullHtml = `
+              <!DOCTYPE html>
+              <html>
+                <head>
+                  <meta charset="UTF-8">
+                  <style>
+                    body {
+                      font-family: Arial, sans-serif;
+                      max-width: 8.5in;
+                      margin: 0 auto;
+                      padding: 1in;
+                      line-height: 1.6;
+                    }
+                    p { margin: 0.5em 0; }
+                    h1, h2, h3 { margin-top: 1em; margin-bottom: 0.5em; }
+                  </style>
+                </head>
+                <body>
+                  ${html}
+                </body>
+              </html>
+            `;
+            
+            fs.writeFileSync(tempHtmlPath, fullHtml);
+            
+            // Convert HTML to PDF using Puppeteer
+            const browser = await puppeteer.launch({
+              headless: true,
+              args: ["--no-sandbox", "--disable-setuid-sandbox"],
+            });
+            
+            const page = await browser.newPage();
+            await page.goto(`file://${tempHtmlPath}`, { waitUntil: "networkidle0" });
+            await page.pdf({
+              path: tempPdfPath,
+              format: "Letter",
+              margin: { top: "1in", right: "1in", bottom: "1in", left: "1in" },
+            });
+            
+            await browser.close();
+            
+            // Clean up temp HTML file
+            try {
+              fs.unlinkSync(tempHtmlPath);
+            } catch (cleanupErr) {
+              console.warn("Failed to cleanup temp HTML file:", cleanupErr);
+            }
+            
+            // Serve the converted PDF
+            res.setHeader("Content-Type", "application/pdf");
+            res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}.pdf"`);
+            
+            // Send PDF and clean up temp file after sending
+            res.sendFile(path.resolve(tempPdfPath), (err) => {
+              // Clean up temp PDF file after sending
+              try {
+                if (fs.existsSync(tempPdfPath)) {
+                  fs.unlinkSync(tempPdfPath);
+                }
+              } catch (cleanupErr) {
+                console.warn("Failed to cleanup temp PDF file:", cleanupErr);
+              }
+              if (err) {
+                console.error("Error sending PDF:", err);
+              }
+            });
+            
+            return;
+            } catch (conversionErr) {
+              console.error("❌ Failed to convert DOCX to PDF:", conversionErr);
+              // Fall through to serve original file
+            }
+          }
+        }
         
         // ✅ Serve all files directly with proper Content-Type headers
         console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
@@ -384,8 +484,10 @@ router.get("/:id/download", auth, async (req, res) => {
           ".txt": "text/plain",
         };
         
+        const disposition = isView ? 'inline' : 'attachment';
+        
         res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-        res.setHeader("Content-Disposition", `attachment; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
+        res.setHeader("Content-Disposition", `${disposition}; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
         return res.sendFile(path.resolve(filePath));
       } else {
         console.warn(`⚠️ [COVER LETTER DOWNLOAD] Uploaded file not found: ${filePath}`);
