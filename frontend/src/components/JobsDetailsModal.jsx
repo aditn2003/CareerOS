@@ -1056,10 +1056,6 @@ export default function JobDetailsModal({
               <>
                 <p>{coverLetter?.title || "Cover Letter"}</p>
 
-                <a
-                  href={`http://localhost:4000/api/cover-letter/${job.cover_letter_id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 <button
                   onClick={handleCoverLetterDownload}
                   style={{

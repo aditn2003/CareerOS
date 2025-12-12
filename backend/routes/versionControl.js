@@ -493,16 +493,18 @@ router.post("/resumes/:resumeId/create", auth, async (req, res) => {
   try {
     const { resumeId } = req.params;
     const userId = req.user.id;
-    const { 
-      title, 
-      description, 
-      change_summary, 
-      source_version_number, 
+    const {
+      title,
+      description,
+      change_summary,
       job_id, 
       is_default, 
       tags,
       sections // Allow sections to be passed for editing
     } = req.body;
+    
+    // Use let for source_version_number since it may be reassigned
+    let source_version_number = req.body.source_version_number;
 
     // Verify the resume belongs to the user
     const resumeCheck = await pool.query(
