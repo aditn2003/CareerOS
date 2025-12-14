@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import pkg from "pg";
 import jwt from "jsonwebtoken";
+import axios from "axios";
 
 dotenv.config();
 const { Pool } = pkg;
@@ -29,6 +30,65 @@ function auth(req, res, next) {
   }
 }
 
+// ---------- HELPER: Geocode location ----------
+async function geocodeLocation(locationString) {
+  if (!locationString || !locationString.trim()) return null;
+
+  try {
+    // Check cache first
+    const cacheResult = await pool.query(
+      `SELECT latitude, longitude FROM geocoding_cache 
+       WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+      [locationString]
+    );
+
+    if (cacheResult.rows.length > 0) {
+      return {
+        latitude: cacheResult.rows[0].latitude,
+        longitude: cacheResult.rows[0].longitude,
+      };
+    }
+
+    // Call Nominatim API with rate limiting
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simple rate limit
+
+    const response = await axios.get("https://nominatim.openstreetmap.org/search", {
+      params: {
+        q: locationString.trim(),
+        format: "json",
+        limit: 1,
+      },
+      headers: {
+        "User-Agent": "ATS-Job-Tracker/1.0",
+      },
+    });
+
+    if (response.data && response.data.length > 0) {
+      const result = response.data[0];
+      const lat = parseFloat(result.lat);
+      const lon = parseFloat(result.lon);
+
+      // Cache the result
+      await pool.query(
+        `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (location_string) DO UPDATE SET
+           latitude = EXCLUDED.latitude,
+           longitude = EXCLUDED.longitude,
+           updated_at = NOW()`,
+        [locationString.trim(), lat, lon, result.display_name]
+      );
+
+      return { latitude: lat, longitude: lon };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("❌ Geocoding error:", error.message);
+    return null;
+  }
+}
+
 // ---------- SAVE OR UPDATE PROFILE ----------
 router.post("/profile", auth, async (req, res) => {
   const {
@@ -42,6 +102,17 @@ router.post("/profile", auth, async (req, res) => {
     experience,
   } = req.body;
   try {
+    // Geocode location if provided
+    let homeLat = null;
+    let homeLon = null;
+    if (location && location.trim()) {
+      const geocodeResult = await geocodeLocation(location);
+      if (geocodeResult) {
+        homeLat = geocodeResult.latitude;
+        homeLon = geocodeResult.longitude;
+      }
+    }
+
     const existing = await pool.query(
       "SELECT id FROM profiles WHERE user_id=$1",
       [req.userId]
@@ -49,7 +120,9 @@ router.post("/profile", auth, async (req, res) => {
     if (existing.rows.length > 0) {
       await pool.query(
         `UPDATE profiles SET full_name=$1, email=$2, phone=$3, location=$4,
-         title=$5, bio=$6, industry=$7, experience=$8 WHERE user_id=$9`,
+         title=$5, bio=$6, industry=$7, experience=$8,
+         home_latitude=$9, home_longitude=$10, home_location_geocoded_at=$11
+         WHERE user_id=$12`,
         [
           full_name,
           email,
@@ -59,13 +132,17 @@ router.post("/profile", auth, async (req, res) => {
           bio,
           industry,
           experience,
+          homeLat,
+          homeLon,
+          homeLat && homeLon ? new Date() : null,
           req.userId,
         ]
       );
     } else {
       await pool.query(
-        `INSERT INTO profiles (user_id, full_name, email, phone, location, title, bio, industry, experience)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO profiles (user_id, full_name, email, phone, location, title, bio, industry, experience,
+         home_latitude, home_longitude, home_location_geocoded_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           req.userId,
           full_name,
@@ -76,6 +153,9 @@ router.post("/profile", auth, async (req, res) => {
           bio,
           industry,
           experience,
+          homeLat,
+          homeLon,
+          homeLat && homeLon ? new Date() : null,
         ]
       );
     }
@@ -90,7 +170,8 @@ router.post("/profile", auth, async (req, res) => {
 router.get("/profile", auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT full_name, email, phone, location, title, bio, industry, experience, picture_url 
+      `SELECT full_name, email, phone, location, title, bio, industry, experience, picture_url,
+       home_latitude, home_longitude, home_location_geocoded_at
        FROM profiles WHERE user_id=$1`,
       [req.userId]
     );

@@ -403,11 +403,23 @@ export default function JobDetailsModal({
       if (!res.ok) throw new Error("Failed to update job");
       const data = await res.json();
       const previousStatus = job.status;
+      const locationChanged = job.location !== data.job.location;
       setJob(data.job);
       
       // If status changed to "Offer", auto-create offer if it doesn't exist
       if (data.job.status === "Offer" && previousStatus !== "Offer" && !existingOffer) {
         await createOfferFromJob(data.job);
+      }
+      
+      // Dispatch event to notify map view to refresh if location changed
+      if (locationChanged) {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId, locationChanged: true } 
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId } 
+        }));
       }
       
       alert("✅ Job updated successfully!");
@@ -530,6 +542,18 @@ export default function JobDetailsModal({
           onChange={(e) => setJob({ ...job, location: e.target.value })}
           placeholder="e.g., New York, NY"
         />
+
+        <label>Location Type</label>
+        <select
+          value={job.location_type || ""}
+          onChange={(e) => setJob({ ...job, location_type: e.target.value })}
+        >
+          <option value="">Select location type</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="on_site">On-Site</option>
+          <option value="flexible">Flexible</option>
+        </select>
 
         {/* STAGE */}
         <label>Status</label>

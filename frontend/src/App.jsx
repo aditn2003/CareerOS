@@ -179,6 +179,16 @@ function MainLayout() {
             }
           />
 
+          {/* --- Jobs Map View (Protected) --- */}
+          <Route
+            path="/jobs/map"
+            element={
+              <ProtectedRoute>
+                <Jobs />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"

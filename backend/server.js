@@ -76,6 +76,7 @@ import { syncAllUsers } from "./services/githubSyncService.js";
 import timingRoutes from "./routes/timing.js";
 
 import referencesRoutes from "./routes/references.js";
+import geocodingRoutes from "./routes/geocoding.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -787,6 +788,7 @@ app.use("/api/mock-interviews", mockInterviewsRoutes);
 app.use("/api/salary-negotiation", salaryNegotiationRoutes);
 app.use("/api/interview-analytics", interviewAnalyticsRoutes);
 app.use("/api/technical-prep", technicalPrepRoutes); // ✅ UC-078
+app.use("/api/geocoding", geocodingRoutes); // ✅ UC-116: Location and Geo-coding Services
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
