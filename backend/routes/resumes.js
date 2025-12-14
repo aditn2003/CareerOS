@@ -673,7 +673,7 @@ ${textContent}
     const { rows } = await pool.query(
       `SELECT 
         id, title, template_name, preview_url, file_url, created_at, format,
-        original_resume_id, version_number, is_version, is_default
+        original_resume_id, version_number, is_version, is_default, description
        FROM resumes 
        WHERE user_id=$1 
        ORDER BY 
@@ -723,9 +723,41 @@ ${textContent}
 
   router.delete("/:id", auth, async (req, res) => {
   try {
+    const resumeId = req.params.id;
+    const userId = req.user.id;
+
+    // First, delete history records that would violate the constraint
+    // Delete rows where resume_id matches and cover_letter_id is NULL
+    // (these would violate check_at_least_one_material when resume_id is set to NULL)
+    await pool.query(
+      `DELETE FROM application_materials_history 
+       WHERE resume_id=$1 
+       AND cover_letter_id IS NULL
+       AND user_id=$2`,
+      [resumeId, userId]
+    );
+
+    // Clean up resume_versions entries that reference this resume as published_resume_id
+    // This ensures published versions are properly cleaned up when the published resume is deleted
+    try {
+      await pool.query(
+        `UPDATE resume_versions 
+         SET published_resume_id = NULL 
+         WHERE published_resume_id = $1 AND user_id = $2`,
+        [resumeId, userId]
+      );
+      console.log(`✅ Cleaned up resume_versions references to deleted resume ${resumeId}`);
+    } catch (versionCleanupError) {
+      // If published_resume_id column doesn't exist, that's okay
+      if (!versionCleanupError.message?.includes('published_resume_id')) {
+        console.warn("⚠️ Could not clean up resume_versions references:", versionCleanupError.message);
+      }
+    }
+
+    // Now delete the resume (foreign key will set resume_id to NULL for remaining history rows)
     await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
-      req.params.id,
-      req.user.id,
+      resumeId,
+      userId,
     ]);
     res.json({ message: "✅ Resume deleted" });
   } catch (err) {

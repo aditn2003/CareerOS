@@ -55,6 +55,9 @@ export default function JobDetailsModal({
     offer_status: "pending"
   });
 
+  // Cover letter generation
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState(null);
   // Salary benchmark data
   const [salaryBenchmark, setSalaryBenchmark] = useState(null);
   const [loadingBenchmark, setLoadingBenchmark] = useState(false);
@@ -454,6 +457,68 @@ export default function JobDetailsModal({
     }
   }
 
+  // Generate cover letter for this job
+  async function handleGenerateCoverLetter() {
+    if (!jobId) return;
+
+    try {
+      setGeneratingCoverLetter(true);
+      setCoverLetterError(null);
+
+      const res = await api.post(`/api/jobs/${jobId}/generate-cover-letter`);
+
+      if (res.data.success) {
+        alert("✅ Cover letter generated and linked successfully!");
+        
+        // Reload job to get updated cover_letter_id
+        const jobRes = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (jobRes.ok) {
+          const jobData = await jobRes.json();
+          setJob(jobData.job);
+          
+          // Reload cover letter if it exists
+          if (jobData.job.cover_letter_id) {
+            try {
+              const clRes = await fetch(
+                `http://localhost:4000/api/cover-letter/${jobData.job.cover_letter_id}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+              if (clRes.ok) {
+                const clData = await clRes.json();
+                if (clData.cover_letter) setCoverLetter(clData.cover_letter);
+              }
+            } catch (err) {
+              console.error("Failed to reload cover letter:", err);
+            }
+          }
+        }
+
+        // Refresh cover letters list
+        try {
+          const c = await api.get("/api/cover-letters");
+          setCoverLetters(c.data.cover_letters || []);
+          if (res.data.cover_letter?.id) {
+            setSelectedCover(res.data.cover_letter.id.toString());
+          }
+        } catch (err) {
+          console.error("Failed to reload cover letters:", err);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to generate cover letter:", err);
+      setCoverLetterError(
+        err.response?.data?.error || "Failed to generate cover letter. Please try again."
+      );
+      alert(`Failed to generate cover letter: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setGeneratingCoverLetter(false);
+    }
+  }
+
   // 🟡 Save job updates
   async function handleSave() {
     if (!job.title?.trim() || !job.company?.trim()) {
@@ -474,11 +539,23 @@ export default function JobDetailsModal({
       if (!res.ok) throw new Error("Failed to update job");
       const data = await res.json();
       const previousStatus = job.status;
+      const locationChanged = job.location !== data.job.location;
       setJob(data.job);
       
       // If status changed to "Offer", auto-create offer if it doesn't exist
       if (data.job.status === "Offer" && previousStatus !== "Offer" && !existingOffer) {
         await createOfferFromJob(data.job);
+      }
+      
+      // Dispatch event to notify map view to refresh if location changed
+      if (locationChanged) {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId, locationChanged: true } 
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId } 
+        }));
       }
       
       alert("✅ Job updated successfully!");
@@ -601,6 +678,18 @@ export default function JobDetailsModal({
           onChange={(e) => setJob({ ...job, location: e.target.value })}
           placeholder="e.g., New York, NY"
         />
+
+        <label>Location Type</label>
+        <select
+          value={job.location_type || ""}
+          onChange={(e) => setJob({ ...job, location_type: e.target.value })}
+        >
+          <option value="">Select location type</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="on_site">On-Site</option>
+          <option value="flexible">Flexible</option>
+        </select>
 
         {/* STAGE */}
         <label>Status</label>
@@ -1002,6 +1091,7 @@ export default function JobDetailsModal({
                     borderRadius: "6px",
                     marginTop: "8px",
                     fontWeight: 500,
+                    marginRight: "8px",
                     cursor: "pointer",
                   }}
                 >
@@ -1009,7 +1099,30 @@ export default function JobDetailsModal({
                 </button>
               </>
             ) : (
-              <p>No cover letter linked.</p>
+              <>
+                <p>No cover letter linked.</p>
+                <button
+                  onClick={handleGenerateCoverLetter}
+                  disabled={generatingCoverLetter}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: generatingCoverLetter ? "#94a3b8" : "#10b981",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    marginTop: "8px",
+                    fontWeight: 500,
+                    cursor: generatingCoverLetter ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {generatingCoverLetter ? "Generating..." : "✨ Generate Cover Letter for This Job"}
+                </button>
+                {coverLetterError && (
+                  <p style={{ color: "#dc2626", fontSize: "0.875rem", marginTop: "8px" }}>
+                    {coverLetterError}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
