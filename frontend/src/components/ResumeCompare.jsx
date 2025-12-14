@@ -1164,6 +1164,7 @@ export default function ResumeCompare() {
                 sections: mergedResume,
                 resumeTitle: `${resumeTitle} (Final Review)`,
                 selectedTemplate,
+                fromOptimize: location.state?.fromOptimize || false, // Pass through fromOptimize flag
               },
             });
           }}

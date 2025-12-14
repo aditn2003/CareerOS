@@ -588,21 +588,50 @@ router.post("/cover-letters/:coverLetterId/versions/:versionNumber/publish", aut
     const version = versionResult.rows[0];
 
     // Create a new standalone cover letter from this version
+    const publishedTitle = version.title; // Use version title, not "(Published from...)" in title
+    const description = `Published from "${originalTitle}" - Version ${versionNumber}`;
+    
     const newCoverLetterResult = await pool.query(
       `INSERT INTO uploaded_cover_letters (
-        user_id, title, content, format, file_url, created_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW())
+        user_id, title, content, format, file_url, description, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
       RETURNING *`,
       [
         userId,
-        `${version.title} (Published from ${originalTitle} - Version ${versionNumber})`,
+        publishedTitle,
         version.content,
         version.format,
-        version.file_url
+        version.file_url,
+        description
       ]
     );
 
     const newCoverLetter = newCoverLetterResult.rows[0];
+
+    // Mark the version as published in cover_letter_versions table
+    // Also store reference to the published cover letter
+    try {
+      await pool.query(
+        `UPDATE cover_letter_versions 
+         SET is_published = TRUE, published_cover_letter_id = $4
+         WHERE cover_letter_id = $1 AND user_id = $2 AND version_number = $3`,
+        [coverLetterId, userId, versionNumber, newCoverLetter.id]
+      );
+      console.log(`✅ [PUBLISH] Marked cover letter version ${versionNumber} as published, linked to cover letter ${newCoverLetter.id}`);
+    } catch (publishFlagError) {
+      // Try without published_cover_letter_id column (backward compatibility)
+      try {
+        await pool.query(
+          `UPDATE cover_letter_versions 
+           SET is_published = TRUE 
+           WHERE cover_letter_id = $1 AND user_id = $2 AND version_number = $3`,
+          [coverLetterId, userId, versionNumber]
+        );
+        console.log(`✅ [PUBLISH] Marked cover letter version ${versionNumber} as published (without published_cover_letter_id)`);
+      } catch (fallbackError) {
+        console.warn("⚠️ Could not mark version as published:", fallbackError.message);
+      }
+    }
 
     // If there's a job_id in the request, link it
     if (req.body.job_id) {
@@ -1236,6 +1265,19 @@ router.delete("/resumes/:resumeId/versions/:versionNumber", auth, async (req, re
     const { resumeId, versionNumber } = req.params;
     const userId = req.user.id;
 
+    // First, clear the label before deleting (so it can be reused)
+    try {
+      await pool.query(
+        `UPDATE resume_versions 
+         SET version_label = NULL 
+         WHERE resume_id = $1 AND user_id = $2 AND version_number = $3`,
+        [resumeId, userId, versionNumber]
+      );
+    } catch (labelErr) {
+      // If label update fails, continue with deletion
+      console.warn("⚠️ Could not clear label before deletion:", labelErr.message);
+    }
+
     const result = await pool.query(
       `DELETE FROM resume_versions 
       WHERE resume_id = $1 AND user_id = $2 AND version_number = $3
@@ -1552,6 +1594,75 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
       console.log(`⚠️ [PUBLISH] No job_id found for version ${versionNumber}, skipping job link`);
     }
 
+    // Mark the version as published in resume_versions table
+    // Also store reference to the published resume
+    // If version doesn't exist in resume_versions, create it
+    try {
+      // First try to update existing version
+      const updateResult = await pool.query(
+        `UPDATE resume_versions 
+         SET is_published = TRUE, published_resume_id = $4
+         WHERE resume_id = $1 AND user_id = $2 AND version_number = $3`,
+        [resumeId, userId, versionNumber, newResume.id]
+      );
+      
+      // If no rows were updated, create a new entry
+      if (updateResult.rowCount === 0) {
+        console.log(`📋 [PUBLISH] Version ${versionNumber} not found in resume_versions, creating entry...`);
+        // Get resume title for the version entry
+        const resumeTitleResult = await pool.query(
+          `SELECT title FROM resumes WHERE id = $1 AND user_id = $2`,
+          [resumeId, userId]
+        );
+        const resumeTitle = resumeTitleResult.rows[0]?.title || originalTitle;
+        
+        const insertResult = await pool.query(
+          `INSERT INTO resume_versions (resume_id, user_id, version_number, title, is_published, published_resume_id)
+           VALUES ($1, $2, $3, $4, TRUE, $5)
+           ON CONFLICT (resume_id, version_number) 
+           DO UPDATE SET is_published = TRUE, published_resume_id = $5
+           RETURNING id`,
+          [resumeId, userId, versionNumber, resumeTitle, newResume.id]
+        );
+        console.log(`✅ [PUBLISH] Created/updated resume_versions entry for version ${versionNumber} and marked as published. Entry ID: ${insertResult.rows[0]?.id}`);
+      } else {
+        console.log(`✅ [PUBLISH] Marked resume version ${versionNumber} as published, linked to resume ${newResume.id}`);
+      }
+    } catch (publishFlagError) {
+      // Try without published_resume_id column (backward compatibility)
+      try {
+        const updateResult = await pool.query(
+          `UPDATE resume_versions 
+           SET is_published = TRUE 
+           WHERE resume_id = $1 AND user_id = $2 AND version_number = $3`,
+          [resumeId, userId, versionNumber]
+        );
+        
+        // If no rows were updated, create a new entry
+        if (updateResult.rowCount === 0) {
+          console.log(`📋 [PUBLISH] Version ${versionNumber} not found in resume_versions, creating entry (without published_resume_id)...`);
+          const resumeTitleResult = await pool.query(
+            `SELECT title FROM resumes WHERE id = $1 AND user_id = $2`,
+            [resumeId, userId]
+          );
+          const resumeTitle = resumeTitleResult.rows[0]?.title || originalTitle;
+          
+          await pool.query(
+            `INSERT INTO resume_versions (resume_id, user_id, version_number, title, is_published)
+             VALUES ($1, $2, $3, $4, TRUE)
+             ON CONFLICT (resume_id, version_number) 
+             DO UPDATE SET is_published = TRUE`,
+            [resumeId, userId, versionNumber, resumeTitle]
+          );
+          console.log(`✅ [PUBLISH] Created resume_versions entry for version ${versionNumber} and marked as published (without published_resume_id)`);
+        } else {
+          console.log(`✅ [PUBLISH] Marked resume version ${versionNumber} as published (without published_resume_id)`);
+        }
+      } catch (fallbackError) {
+        console.warn("⚠️ Could not mark version as published:", fallbackError.message);
+      }
+    }
+
     // Add metadata to description indicating source
     const description = `Published from "${originalTitle}" - Version ${versionNumber}`;
     
@@ -1578,6 +1689,61 @@ router.post("/resumes/:resumeId/versions/:versionNumber/publish", auth, async (r
   } catch (err) {
     console.error("❌ Error publishing version:", err);
     res.status(500).json({ error: "Failed to publish version: " + err.message });
+  }
+});
+
+// Delete a cover letter version (hard delete)
+router.delete("/cover-letters/:coverLetterId/versions/:versionNumber", auth, async (req, res) => {
+  try {
+    const { coverLetterId, versionNumber } = req.params;
+    const userId = req.user.id;
+
+    // Verify the cover letter belongs to the user
+    const coverLetterCheck = await pool.query(
+      `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [coverLetterId, userId]
+    );
+
+    if (coverLetterCheck.rows.length === 0) {
+      // Try legacy cover_letters table
+      const legacyCheck = await pool.query(
+        `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+        [coverLetterId, userId]
+      );
+      if (legacyCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Cover letter not found" });
+      }
+    }
+
+    // First, clear the label before deleting (so it can be reused)
+    try {
+      await pool.query(
+        `UPDATE cover_letter_versions 
+         SET version_label = NULL 
+         WHERE cover_letter_id = $1 AND user_id = $2 AND version_number = $3`,
+        [coverLetterId, userId, versionNumber]
+      );
+    } catch (labelErr) {
+      // If label update fails, continue with deletion
+      console.warn("⚠️ Could not clear label before deletion:", labelErr.message);
+    }
+
+    // Delete the version from cover_letter_versions table
+    const result = await pool.query(
+      `DELETE FROM cover_letter_versions 
+      WHERE cover_letter_id = $1 AND user_id = $2 AND version_number = $3
+      RETURNING id`,
+      [coverLetterId, userId, versionNumber]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Version not found" });
+    }
+
+    res.json({ message: "Version deleted successfully" });
+  } catch (err) {
+    console.error("❌ Error deleting cover letter version:", err);
+    res.status(500).json({ error: "Failed to delete version" });
   }
 });
 

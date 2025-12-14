@@ -152,3 +152,4 @@ COMMENT ON VIEW material_comparison_metrics IS 'Aggregated metrics for comparing
 -- END OF MIGRATION
 -- ============================================================
 
+
