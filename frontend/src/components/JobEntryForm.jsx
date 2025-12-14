@@ -11,6 +11,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     title: "",
     company: "",
     location: "",
+    location_type: "",
     salary_min: "",
     salary_max: "",
     url: "",
@@ -361,6 +362,18 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         value={form.location}
         onChange={(e) => setForm({ ...form, location: e.target.value })}
       />
+
+      <label>Location Type</label>
+      <select
+        value={form.location_type || ""}
+        onChange={(e) => setForm({ ...form, location_type: e.target.value })}
+      >
+        <option value="">Select location type</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="on_site">On-Site</option>
+        <option value="flexible">Flexible</option>
+      </select>
 
       <div className="salary-group">
         <div>
