@@ -723,9 +723,24 @@ ${textContent}
 
   router.delete("/:id", auth, async (req, res) => {
   try {
+    const resumeId = req.params.id;
+    const userId = req.user.id;
+
+    // First, delete history records that would violate the constraint
+    // Delete rows where resume_id matches and cover_letter_id is NULL
+    // (these would violate check_at_least_one_material when resume_id is set to NULL)
+    await pool.query(
+      `DELETE FROM application_materials_history 
+       WHERE resume_id=$1 
+       AND cover_letter_id IS NULL
+       AND user_id=$2`,
+      [resumeId, userId]
+    );
+
+    // Now delete the resume (foreign key will set resume_id to NULL for remaining history rows)
     await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
-      req.params.id,
-      req.user.id,
+      resumeId,
+      userId,
     ]);
     res.json({ message: "✅ Resume deleted" });
   } catch (err) {
@@ -845,8 +860,9 @@ ${textContent}
           // Otherwise, we'll serve the original file
         }
         
-        // ✅ Convert DOC/DOCX to PDF for inline viewing or if PDF requested
-        if (((ext === ".doc" || ext === ".docx") && (requestedFormat === "pdf" || !requestedFormat)) && mammoth) {
+        // ✅ Serve Word files directly (don't auto-convert to PDF)
+        // Only convert if PDF format is explicitly requested
+        if (((ext === ".doc" || ext === ".docx") && requestedFormat === "pdf") && mammoth) {
           try {
             console.log(`🔄 [RESUME DOWNLOAD] Converting ${ext} to PDF for viewing`);
             
@@ -940,10 +956,26 @@ ${textContent}
           return res.sendFile(path.resolve(finalPath));
         }
         
-        // For DOC/DOCX without mammoth or if original format requested, serve as-is
+        // ✅ Serve Word files directly (don't convert unless PDF explicitly requested)
+        if (ext === ".doc" || ext === ".docx") {
+          if (!requestedFormat || requestedFormat === ext.replace(".", "")) {
+            console.log(`✅ [RESUME DOWNLOAD] Serving ${ext} file directly`);
+            const contentTypes = {
+              ".doc": "application/msword",
+              ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            };
+            res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+            res.setHeader("Content-Disposition", `attachment; filename="${resume.title}${ext}"`);
+            return res.sendFile(path.resolve(finalPath));
+          }
+        }
+        
+        // For other formats, serve as-is if no conversion requested
         if (!requestedFormat || requestedFormat === ext.replace(".", "")) {
-          console.log(`⚠️ [RESUME DOWNLOAD] Serving ${ext} file directly`);
+          console.log(`✅ [RESUME DOWNLOAD] Serving ${ext} file directly`);
           const contentTypes = {
+            ".pdf": "application/pdf",
+            ".txt": "text/plain",
             ".doc": "application/msword",
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           };

@@ -6,6 +6,7 @@ import JobEntryForm from "../../components/JobEntryForm";
 import JobPipeline from "../../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../../components/JobsCalendar";
+import JobTimeline from "../../components/JobTimeline";
 
 export default function JobsTab() {
   const { token } = useAuth();
@@ -51,6 +52,11 @@ export default function JobsTab() {
         <div className="profile-box">
           <h3>📊 Job Pipeline</h3>
           <JobPipeline key={refreshKey} token={token} onApply={handleApply} />
+        </div>
+
+        {/* Job Timeline - Added at the bottom */}
+        <div className="profile-box">
+          <JobTimeline key={refreshKey} token={token} />
         </div>
       </div>
 

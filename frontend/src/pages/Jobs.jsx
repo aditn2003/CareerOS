@@ -8,6 +8,7 @@ import JobMapView from "../components/JobMapView";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
 import StatisticsDashboard from "../components/stats";
+import JobTimeline from "../components/JobTimeline";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 

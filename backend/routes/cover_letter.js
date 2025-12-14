@@ -90,6 +90,7 @@ router.get("/", auth, async (req, res) => {
           name AS title,
           'pdf' AS format,
           NULL AS file_url,
+          content,
           created_at,
           COALESCE(updated_at, created_at) AS updated_at,
           'template' AS source,
@@ -228,23 +229,84 @@ router.get("/:id", auth, async (req, res) => {
       return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
     }
     
-    // Try with 'title' first, fall back to 'name' if that column doesn't exist
-    let result;
+   
+    // First try uploaded_cover_letters table (matches job_materials table)
+    let result = { rows: [] };
     try {
       result = await pool.query(
-        `SELECT * FROM cover_letters WHERE id = $1 AND user_id = $2`,
-        [idNum, userId]
+        `SELECT 
+          id, 
+          title, 
+          format, 
+          file_url, 
+          content,
+          created_at,
+          updated_at,
+          'uploaded' AS source
+         FROM uploaded_cover_letters 
+         WHERE id = $1 AND user_id = $2`,
+        [id, userId]
       );
     } catch (err) {
-      console.error("❌ Fetch cover letter error:", err);
-      throw err;
+      // Table might not exist, try next table
+      console.warn("uploaded_cover_letters query failed:", err.message);
+    }
+    
+    // If not found, try cover_letter_templates table
+    if (result.rows.length === 0) {
+      try {
+        result = await pool.query(
+          `SELECT 
+            id, 
+            name AS title,
+            'pdf' AS format, 
+            NULL AS file_url, 
+            content,
+            created_at,
+            updated_at,
+            'template' AS source
+           FROM cover_letter_templates 
+           WHERE id = $1`,
+          [id]
+        );
+      } catch (err) {
+        console.warn("cover_letter_templates query failed:", err.message);
+      }
+    }
+    
+    // If still not found, try legacy cover_letters table
+    if (result.rows.length === 0) {
+      try {
+        result = await pool.query(
+          `SELECT 
+            id,
+            name AS title,
+            'pdf' AS format,
+            NULL AS file_url,
+            content,
+            created_at,
+            updated_at,
+            'legacy' AS source
+           FROM cover_letters 
+           WHERE id = $1 AND user_id = $2`,
+          [id, userId]
+        );
+      } catch (err) {
+        console.warn("cover_letters query failed:", err.message);
+      }
     }
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Cover letter not found" });
     }
     
-    res.json({ cover_letter: result.rows[0] });
+    const coverLetter = result.rows[0];
+    // Ensure title field exists (use name if title doesn't exist)
+    if (!coverLetter.title && coverLetter.name) {
+      coverLetter.title = coverLetter.name;
+    }
+    
+    res.json({ cover_letter: coverLetter });
   } catch (err) {
     console.error("❌ Fetch cover letter error:", err);
     res.status(500).json({ error: "Failed to load cover letter" });
@@ -276,6 +338,20 @@ router.get("/:id/download", auth, async (req, res) => {
       console.error("❌ Error fetching uploaded cover letter:", err);
     }
     
+    // If not found in uploaded_cover_letters, check cover_letters table
+    if (coverLetterResult.rows.length === 0) {
+      try {
+        coverLetterResult = await pool.query(
+          `SELECT id, name AS title, 'pdf' AS format, NULL AS file_url, content, user_id
+           FROM cover_letters
+           WHERE id = $1 AND user_id = $2`,
+          [idNum, userId]
+        );
+      } catch (err) {
+        console.error("❌ Error fetching cover letter:", err);
+      }
+    }
+    
     if (coverLetterResult.rows.length === 0) {
       return res.status(404).json({ error: "Cover letter not found" });
     }
@@ -298,10 +374,15 @@ router.get("/:id/download", auth, async (req, res) => {
       
       if (fs.existsSync(filePath)) {
         const ext = path.extname(coverLetter.file_url).toLowerCase();
+        const isView = req.query.view === 'true';
         
-        // ✅ Convert DOC/DOCX to PDF for inline viewing
-        if ((ext === ".doc" || ext === ".docx") && mammoth) {
-          try {
+        // ✅ Convert DOCX to PDF for viewing if requested
+        if ((ext === ".doc" || ext === ".docx") && isView) {
+          if (!mammoth) {
+            console.warn("⚠️ [COVER LETTER DOWNLOAD] mammoth not available - cannot convert DOCX to PDF");
+            // Fall through to serve original file
+          } else {
+            try {
             console.log(`🔄 [COVER LETTER DOWNLOAD] Converting ${ext} to PDF for viewing`);
             
             // Read the DOCX file
@@ -333,6 +414,7 @@ router.get("/:id/download", auth, async (req, res) => {
                       line-height: 1.6;
                     }
                     p { margin: 0.5em 0; }
+                    h1, h2, h3 { margin-top: 1em; margin-bottom: 0.5em; }
                   </style>
                 </head>
                 <body>
@@ -350,59 +432,62 @@ router.get("/:id/download", auth, async (req, res) => {
             });
             
             const page = await browser.newPage();
-            await page.setContent(fullHtml, { waitUntil: "networkidle0" });
-            
+            await page.goto(`file://${tempHtmlPath}`, { waitUntil: "networkidle0" });
             await page.pdf({
               path: tempPdfPath,
-              format: "A4",
-              printBackground: true,
+              format: "Letter",
               margin: { top: "1in", right: "1in", bottom: "1in", left: "1in" },
             });
             
             await browser.close();
             
             // Clean up temp HTML file
-            if (fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
+            try {
+              fs.unlinkSync(tempHtmlPath);
+            } catch (cleanupErr) {
+              console.warn("Failed to cleanup temp HTML file:", cleanupErr);
+            }
             
-            // Serve the PDF
+            // Serve the converted PDF
             res.setHeader("Content-Type", "application/pdf");
             res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}.pdf"`);
-            res.sendFile(tempPdfPath, (err) => {
+            
+            // Send PDF and clean up temp file after sending
+            res.sendFile(path.resolve(tempPdfPath), (err) => {
               // Clean up temp PDF file after sending
-              if (fs.existsSync(tempPdfPath)) {
-                setTimeout(() => fs.unlinkSync(tempPdfPath), 1000);
+              try {
+                if (fs.existsSync(tempPdfPath)) {
+                  fs.unlinkSync(tempPdfPath);
+                }
+              } catch (cleanupErr) {
+                console.warn("Failed to cleanup temp PDF file:", cleanupErr);
               }
-              if (err) console.error("Error sending PDF:", err);
+              if (err) {
+                console.error("Error sending PDF:", err);
+              }
             });
             
-            console.log(`✅ [COVER LETTER DOWNLOAD] Converted and served PDF: ${tempPdfPath}`);
             return;
-          } catch (convErr) {
-            console.error("❌ [COVER LETTER DOWNLOAD] Conversion error:", convErr);
-            // Fall through to serve original file
+            } catch (conversionErr) {
+              console.error("❌ Failed to convert DOCX to PDF:", conversionErr);
+              // Fall through to serve original file
+            }
           }
         }
         
-        // ✅ Serve PDF and TXT files directly
-        if (ext === ".pdf" || ext === ".txt") {
-          console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
-          const contentTypes = {
-            ".pdf": "application/pdf",
-            ".txt": "text/plain",
-          };
-          res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-          res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
-          return res.sendFile(path.resolve(filePath));
-        }
-        
-        // For DOC/DOCX without mammoth, serve as-is (will show download message in frontend)
-        console.log(`⚠️ [COVER LETTER DOWNLOAD] Serving ${ext} file directly (conversion not available)`);
+        // ✅ Serve all files directly with proper Content-Type headers
+        console.log(`✅ [COVER LETTER DOWNLOAD] Serving uploaded file: ${filePath}`);
         const contentTypes = {
+          ".pdf": "application/pdf",
           ".doc": "application/msword",
           ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".txt": "text/plain",
         };
+        
+        const disposition = isView ? 'inline' : 'attachment';
+        
         res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
-        res.setHeader("Content-Disposition", `inline; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
+        res.setHeader("Content-Disposition", `${disposition}; filename="${coverLetter.title || 'cover-letter'}${ext}"`);
         return res.sendFile(path.resolve(filePath));
       } else {
         console.warn(`⚠️ [COVER LETTER DOWNLOAD] Uploaded file not found: ${filePath}`);
@@ -417,6 +502,141 @@ router.get("/:id/download", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Cover letter download error:", err);
     res.status(500).json({ error: "Failed to download cover letter" });
+  }
+});
+
+// ✅ Get jobs linked to a cover letter
+router.get("/:id/jobs", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    
+    const idNum = parseInt(id, 10);
+    if (isNaN(idNum)) {
+      return res.status(400).json({ error: "Invalid cover letter ID" });
+    }
+
+    // Check if cover letter belongs to user (check both tables for viewing, but only uploaded_cover_letters can be linked)
+    const uploadedCheck = await pool.query(
+      `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [idNum, userId]
+    );
+    const coverLetterCheck = await pool.query(
+      `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+      [idNum, userId]
+    );
+
+    if (uploadedCheck.rows.length === 0 && coverLetterCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+
+    // Get jobs linked to this cover letter from job_materials table
+    // Need to check both uploaded_cover_letters and cover_letters IDs
+    const result = await pool.query(
+      `SELECT j.id, j.title, j.company, j.status, jm.cover_letter_id
+       FROM jobs j
+       INNER JOIN job_materials jm ON j.id = jm.job_id
+       WHERE jm.user_id = $1 
+         AND jm.cover_letter_id = $2
+       ORDER BY j.created_at DESC`,
+      [userId, idNum]
+    );
+
+    res.json({ jobs: result.rows });
+  } catch (err) {
+    console.error("❌ Error fetching linked jobs:", err);
+    res.status(500).json({ error: "Failed to fetch linked jobs" });
+  }
+});
+
+// ✅ Link cover letter to a job
+router.post("/:id/link-job", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { job_id } = req.body;
+    
+    const coverLetterId = parseInt(id, 10);
+    const jobId = parseInt(job_id, 10);
+    
+    if (isNaN(coverLetterId) || isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid cover letter ID or job ID" });
+    }
+
+    // Verify cover letter belongs to user (only uploaded_cover_letters can be linked)
+    const uploadedCheck = await pool.query(
+      `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
+      [coverLetterId, userId]
+    );
+
+    if (uploadedCheck.rows.length === 0) {
+      // Check if it exists in cover_letters table to give a helpful error
+      const coverLetterCheck = await pool.query(
+        `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+        [coverLetterId, userId]
+      );
+      if (coverLetterCheck.rows.length > 0) {
+        return res.status(400).json({ 
+          error: "Only uploaded cover letters can be linked to jobs. Please upload this cover letter as a file first." 
+        });
+      }
+      return res.status(404).json({ error: "Cover letter not found" });
+    }
+
+    // Verify job belongs to user
+    const jobCheck = await pool.query(
+      `SELECT id FROM jobs WHERE id = $1 AND user_id = $2`,
+      [jobId, userId]
+    );
+
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    // Update job_materials table
+    await pool.query(
+      `INSERT INTO job_materials (job_id, user_id, cover_letter_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (job_id) 
+       DO UPDATE SET 
+         cover_letter_id = EXCLUDED.cover_letter_id,
+         updated_at = NOW()`,
+      [jobId, userId, coverLetterId]
+    );
+
+    res.json({ success: true, message: "Cover letter linked to job successfully" });
+  } catch (err) {
+    console.error("❌ Error linking cover letter to job:", err);
+    res.status(500).json({ error: "Failed to link cover letter to job" });
+  }
+});
+
+// ✅ Unlink cover letter from a job
+router.post("/:id/unlink-job", auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { job_id } = req.body;
+    
+    const coverLetterId = parseInt(id, 10);
+    const jobId = parseInt(job_id, 10);
+    
+    if (isNaN(coverLetterId) || isNaN(jobId)) {
+      return res.status(400).json({ error: "Invalid cover letter ID or job ID" });
+    }
+
+    // Update job_materials table to set cover_letter_id to NULL
+    await pool.query(
+      `UPDATE job_materials 
+       SET cover_letter_id = NULL, updated_at = NOW()
+       WHERE job_id = $1 AND user_id = $2 AND cover_letter_id = $3`,
+      [jobId, userId, coverLetterId]
+    );
+
+    res.json({ success: true, message: "Cover letter unlinked from job successfully" });
+  } catch (err) {
+    console.error("❌ Error unlinking cover letter from job:", err);
+    res.status(500).json({ error: "Failed to unlink cover letter from job" });
   }
 });
 

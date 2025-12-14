@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import MatchAnalysisTab from "./MatchAnalysisTab";
 import QualityScoringTab from "./QualityScoringTab";
 import TimingTab from "./TimingTab";
+import MaterialComparisonTab from "./MaterialComparisonTab";
 import "./JobMatch.css";
 
 export default function JobMatch() {
@@ -12,7 +13,7 @@ export default function JobMatch() {
   const tabFromUrl = searchParams.get("tab");
   
   const [activeTab, setActiveTab] = useState(
-    tabFromUrl === "quality" ? "quality" : tabFromUrl === "timing" ? "timing" : "match"
+    tabFromUrl === "quality" ? "quality" : tabFromUrl === "timing" ? "timing" : tabFromUrl === "comparison" ? "comparison" : "match"
   );
 
   // Set active tab if tab param is in URL
@@ -21,6 +22,8 @@ export default function JobMatch() {
       setActiveTab("quality");
     } else if (tabFromUrl === "timing") {
       setActiveTab("timing");
+    } else if (tabFromUrl === "comparison") {
+      setActiveTab("comparison");
     }
   }, [tabFromUrl]);
 
@@ -57,6 +60,13 @@ export default function JobMatch() {
               <span className="tab-icon">⏰</span>
               <span className="tab-text">Timing</span>
             </button>
+            <button
+              className={`nav-tab comparison-tab ${activeTab === "comparison" ? "active" : ""}`}
+              onClick={() => setActiveTab("comparison")}
+            >
+              <span className="tab-icon">📈</span>
+              <span className="tab-text">Comparison</span>
+            </button>
           </div>
         </div>
       </nav>
@@ -66,6 +76,7 @@ export default function JobMatch() {
         {activeTab === "match" && <MatchAnalysisTab />}
         {activeTab === "quality" && <QualityScoringTab jobId={jobIdFromUrl} />}
         {activeTab === "timing" && <TimingTab jobId={jobIdFromUrl} />}
+        {activeTab === "comparison" && <MaterialComparisonTab />}
       </div>
     </div>
   );
