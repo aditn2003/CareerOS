@@ -1,10 +1,7 @@
 /* ===== Base Layout ===== */
 .jobs-layout {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 2.5rem;
+  flex-direction: column;
   padding: 2rem 4rem;
   max-width: 1920px;
   margin: 0 auto;
@@ -12,6 +9,75 @@
   box-sizing: border-box;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
+}
+
+/* ===== Tab Navigation ===== */
+.jobs-tabs-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
+  padding-bottom: 0.5rem;
+}
+
+.jobs-tab {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  margin-bottom: -0.5rem;
+}
+
+.jobs-tab:hover {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 8px 8px 0 0;
+}
+
+.jobs-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.jobs-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+/* ===== Follow-Ups Tab Content ===== */
+.jobs-followups-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-followups-tab .followup-reminders-container {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+.jobs-optimization-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-optimization-tab .optimization-dashboard {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
 }
 
 /* ===== Main Column ===== */
@@ -138,9 +204,12 @@
 /* ===== Responsive Adjustments ===== */
 @media (max-width: 1100px) {
   .jobs-layout {
-    flex-direction: column;
     padding: 1.5rem;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  }
+
+  .jobs-tabs-container {
+    flex-wrap: wrap;
   }
 
   .sidebar-widget {

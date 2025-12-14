@@ -34,6 +34,7 @@ import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import optimizationDashboardRoutes from "./routes/optimizationDashboard.js";
 import teamRoutes from "./routes/team.js";
 import salaryNegotiationRoutes from "./routes/salaryNegotiation.js";
 
@@ -76,6 +77,7 @@ import { syncAllUsers } from "./services/githubSyncService.js";
 import timingRoutes from "./routes/timing.js";
 
 import referencesRoutes from "./routes/references.js";
+import followupRemindersRoutes from "./routes/followupReminders.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -545,6 +547,7 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/optimization-dashboard", optimizationDashboardRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -780,6 +783,7 @@ app.use("/api/mentors", mentorsRoutes);
 app.use("/api/informational-interviews", informationalInterviewsRoutes);
 app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/references", referencesRoutes);
+app.use("/api/followup-reminders", followupRemindersRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);

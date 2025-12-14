@@ -334,7 +334,7 @@ async function loadJobs(currentFilters = filters) {
     <div
       className={`job-card ${
         selectedJobs.includes(job.id) ? "selected" : ""
-      }`}
+      } ${job.is_referral ? "referral-job" : ""}`}
       draggable
       onDragStart={() => setDragged(job)}
       onClick={(e) => {
