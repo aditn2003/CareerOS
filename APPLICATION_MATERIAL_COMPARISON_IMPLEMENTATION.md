@@ -155,3 +155,4 @@ AVG(response_received_at - applied_on) in days
 - The comparison view shows a warning if there are fewer than 10 applications per version for meaningful statistical comparison
 - Archived versions (labels removed) are excluded from comparison metrics
 
+

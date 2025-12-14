@@ -65,6 +65,7 @@ export default function ResumeOptimizeRun() {
         resumeTitle,
         selectedTemplate,
         job,
+        fromOptimize: true, // Flag to track that we came from optimize flow
       },
     });
   }

@@ -1,6 +1,6 @@
 // frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../api";
 
 // Get API base URL for direct fetch calls
@@ -152,6 +152,7 @@ function CertificateUploadForm({ onSuccess, onCancel }) {
 export default function DocsManagement() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [resumes, setResumes] = useState([]);
   const [coverLetters, setCoverLetters] = useState([]);
   const [certificates, setCertificates] = useState([]);
@@ -178,6 +179,16 @@ export default function DocsManagement() {
   useEffect(() => {
     fetchAllData();
   }, [token]);
+
+  // Refresh data when navigating back from optimize flow
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('refresh') === 'true' || location.state?.refresh) {
+      fetchAllData();
+      // Clean up URL
+      navigate('/docs-management', { replace: true });
+    }
+  }, [location.search, location.state]);
 
   const fetchAllData = async () => {
     try {
@@ -1163,19 +1174,31 @@ export default function DocsManagement() {
                   const isVersion = resume.is_version || resume.original_resume_id;
                   const originalResume = isVersion ? resumes.find(r => r.id === resume.original_resume_id) : null;
                   
-                  // Check if this is a published resume (title contains "Published from")
-                  const isPublished = resume.title && resume.title.includes("Published from");
+                  // Check if this is a published resume (description or title contains "Published from")
+                  const isPublished = (resume.description && resume.description.includes("Published from")) || 
+                                     (resume.title && resume.title.includes("Published from"));
                   let publishedSource = null;
                   let publishedVersionNum = null;
                   if (isPublished) {
-                    // Extract source from title: "Resume Title (Published from Original Resume - Version X)"
-                    const match = resume.title.match(/Published from (.+?) - Version (\d+)\)/);
-                    if (match) {
-                      publishedSource = match[1];
-                      publishedVersionNum = match[2];
+                    // Try to extract from description first (new format)
+                    if (resume.description) {
+                      const descMatch = resume.description.match(/Published from "(.+?)" - Version (\d+)/);
+                      if (descMatch) {
+                        publishedSource = descMatch[1];
+                        publishedVersionNum = descMatch[2];
+                      }
                     }
-                    // Debug logging for published resumes
-                    console.log(`📋 [PUBLISHED RESUME] ID: ${resume.id}, Title: ${resume.title}, Linked Jobs: ${linkedJobs.length}`);
+                    // Fallback to title parsing (old format)
+                    if (!publishedSource && resume.title) {
+                      const titleMatch = resume.title.match(/Published from (.+?) - Version (\d+)\)/);
+                      if (titleMatch) {
+                        publishedSource = titleMatch[1];
+                        publishedVersionNum = titleMatch[2];
+                      }
+                    }
+                    // Debug logging for published resumes (only log once per resume, not on every render)
+                    // Removed excessive logging - uncomment if needed for debugging
+                    // console.log(`📋 [PUBLISHED RESUME] ID: ${resume.id}, Description: ${resume.description}, Title: ${resume.title}, Linked Jobs: ${linkedJobs.length}`);
                   }
                   
                   return (
@@ -1334,8 +1357,24 @@ export default function DocsManagement() {
                   if (linkedJobs.length > 0) {
                     console.log(`✅ Cover Letter ${coverLetter.id} linked to jobs:`, linkedJobs.map(j => `${j.title} at ${j.company}`));
                   }
+                  
+                  // Check if this is a published cover letter (description contains "Published from")
+                  const isPublished = coverLetter.description && coverLetter.description.includes("Published from");
+                  let publishedSource = null;
+                  let publishedVersionNum = null;
+                  if (isPublished) {
+                    // Extract source from description: "Published from Original Title - Version X"
+                    const match = coverLetter.description.match(/Published from "(.+?)" - Version (\d+)/);
+                    if (match) {
+                      publishedSource = match[1];
+                      publishedVersionNum = match[2];
+                    }
+                    // Debug logging for published cover letters
+                    console.log(`📋 [PUBLISHED COVER LETTER] ID: ${coverLetter.id}, Description: ${coverLetter.description}, Linked Jobs: ${linkedJobs.length}`);
+                  }
+                  
                   return (
-                    <div key={coverLetter.id} className="doc-card">
+                    <div key={coverLetter.id} className={`doc-card ${isPublished ? 'published-card' : ''}`}>
                       <div className="doc-card-header">
                         {getFormatIcon(coverLetter.format)}
                         <div className="doc-card-title">
@@ -1345,6 +1384,12 @@ export default function DocsManagement() {
                       </div>
 
                       <div className="doc-card-body">
+                        {isPublished && publishedSource && (
+                          <div className="published-info">
+                            <FaExternalLinkAlt className="published-icon" />
+                            <span>Published from <strong>{publishedSource}</strong> - Version {publishedVersionNum}</span>
+                          </div>
+                        )}
                         {linkedJobs.length > 0 && (
                           <div className="doc-linked-jobs">
                             <FaLink className="link-icon" />

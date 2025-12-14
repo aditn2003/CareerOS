@@ -41,6 +41,7 @@ router.get("/", auth, async (req, res) => {
           format, 
           file_url, 
           content,
+          description,
           created_at, 
           COALESCE(updated_at, created_at) AS updated_at, 
           'uploaded' AS source
@@ -652,19 +653,49 @@ router.delete("/:id", auth, async (req, res) => {
       return res.status(400).json({ error: "Invalid cover letter ID. ID must be a number." });
     }
     
-    await pool.query(
-      "DELETE FROM cover_letters WHERE id = $1 AND user_id = $2",
-      [idNum, userId]
-    );
+    // Try to delete from uploaded_cover_letters first (newer table)
+    let deleted = false;
+    try {
+      const uploadedResult = await pool.query(
+        "DELETE FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2 RETURNING id",
+        [idNum, userId]
+      );
+      if (uploadedResult.rowCount > 0) {
+        deleted = true;
+      }
+    } catch (uploadedErr) {
+      // Table might not exist, that's okay
+      if (uploadedErr.code !== '42P01' && !uploadedErr.message.includes('does not exist')) {
+        console.warn("⚠️ Error deleting from uploaded_cover_letters:", uploadedErr.message);
+      }
+    }
+    
+    // If not found in uploaded_cover_letters, try cover_letters table (legacy)
+    if (!deleted) {
+      try {
+        const legacyResult = await pool.query(
+          "DELETE FROM cover_letters WHERE id = $1 AND user_id = $2 RETURNING id",
+          [idNum, userId]
+        );
+        if (legacyResult.rowCount > 0) {
+          deleted = true;
+        }
+      } catch (legacyErr) {
+        // Table might not exist, that's okay
+        if (legacyErr.code !== '42P01' && !legacyErr.message.includes('does not exist')) {
+          console.warn("⚠️ Error deleting from cover_letters:", legacyErr.message);
+        }
+      }
+    }
+    
+    if (!deleted) {
+      return res.status(404).json({ error: "Cover letter not found or you don't have permission to delete it" });
+    }
+    
     res.json({ message: "🗑️ Cover letter deleted" });
   } catch (err) {
-    // Handle case where table doesn't exist yet
-    if (err.code === '42P01' || err.message.includes('does not exist')) {
-      console.warn("⚠️ Cover letters table does not exist yet");
-      return res.status(503).json({ error: "Cover letters feature not available - database migration required" });
-    }
     console.error("❌ Delete cover letter error:", err);
-    res.status(500).json({ error: "Failed to delete cover letter" });
+    res.status(500).json({ error: err.message || "Failed to delete cover letter" });
   }
 });
 

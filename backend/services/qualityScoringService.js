@@ -365,15 +365,15 @@ export function createQualityScoringService(openaiClient = null, dbPool = null) 
             const filePath = path.join(__dirname, "..", resume.file_url);
             if (fs.existsSync(filePath)) {
               try {
-                const buffer = fs.readFileSync(filePath);
-                if (resume.format === 'pdf') {
-                  resumeData.text = await extractPdfText(buffer);
+              const buffer = fs.readFileSync(filePath);
+              if (resume.format === 'pdf') {
+                resumeData.text = await extractPdfText(buffer);
                   console.log(`📄 [QUALITY SCORING] Extracted ${resumeData.text.length} characters from PDF`);
-                } else if (resume.format === 'docx' || resume.format === 'doc') {
-                  resumeData.text = await extractDocxText(buffer);
+              } else if (resume.format === 'docx' || resume.format === 'doc') {
+                resumeData.text = await extractDocxText(buffer);
                   console.log(`📄 [QUALITY SCORING] Extracted ${resumeData.text.length} characters from DOCX`);
-                } else if (resume.format === 'txt') {
-                  resumeData.text = buffer.toString('utf-8');
+              } else if (resume.format === 'txt') {
+                resumeData.text = buffer.toString('utf-8');
                   console.log(`📄 [QUALITY SCORING] Extracted ${resumeData.text.length} characters from TXT`);
                 }
               } catch (fileErr) {
@@ -668,25 +668,68 @@ export function createQualityScoringService(openaiClient = null, dbPool = null) 
           experienceCount = experienceSection.length;
           experienceSection.forEach((exp, idx) => {
             if (exp && typeof exp === 'object') {
-              // Check description field
+              // Track bullets to avoid double-counting
+              const countedBullets = new Set();
+              let bulletsFromDescription = 0;
+              
+              // Count bullets from description (only actual bullet points, not all lines)
               if (exp.description) {
-                const bullets = typeof exp.description === 'string' 
-                  ? exp.description.split(/\n|•|\r/).filter(b => b.trim() && b.trim().length > 0)
-                  : Array.isArray(exp.description) ? exp.description.filter(b => b && b.trim().length > 0) : [];
-                totalBullets += bullets.length;
-                console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bullets.length} bullets`);
+                if (typeof exp.description === 'string') {
+                  // Split by newlines and filter for actual bullet points
+                  const lines = exp.description.split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+                  // Only count lines that look like bullet points (start with •, -, *, or are indented)
+                  const actualBullets = lines.filter(line => {
+                    // Bullet markers: •, -, *, or lines that start with common bullet patterns
+                    return /^[•\-\*]\s/.test(line) || 
+                           /^\d+[\.\)]\s/.test(line) || // Numbered bullets: 1. or 1)
+                           (line.length > 10 && /^[A-Z]/.test(line) && line.match(/\b(?:built|developed|created|designed|implemented|managed|led|improved|increased|reduced|optimized|achieved|delivered)\b/i)); // Action verb bullets
+                  });
+                  bulletsFromDescription = actualBullets.length;
+                  actualBullets.forEach(b => countedBullets.add(b.toLowerCase().trim()));
+                } else if (Array.isArray(exp.description)) {
+                  bulletsFromDescription = exp.description.filter(b => b && b.trim().length > 0).length;
+                  exp.description.forEach(b => countedBullets.add(String(b).toLowerCase().trim()));
+                }
+                totalBullets += bulletsFromDescription;
+                console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bulletsFromDescription} bullets from description`);
               }
-              // Check bullets array field
+              
+              // Count bullets array (only if not already counted in description)
               if (exp.bullets && Array.isArray(exp.bullets)) {
-                const bulletCount = exp.bullets.filter(b => b && b.trim().length > 0).length;
-                totalBullets += bulletCount;
-                console.log(`  Experience ${idx + 1}: Additional ${bulletCount} bullets from bullets array`);
+                const newBullets = exp.bullets.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const bulletText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = bulletText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newBullets.length;
+                if (newBullets.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newBullets.length} bullets from bullets array (${exp.bullets.length} total, ${exp.bullets.length - newBullets.length} duplicates skipped)`);
+                }
               }
-              // Check achievements array field
+              
+              // Count achievements array (only if not already counted)
               if (exp.achievements && Array.isArray(exp.achievements)) {
-                const achievementCount = exp.achievements.filter(b => b && b.trim().length > 0).length;
-                totalBullets += achievementCount;
-                console.log(`  Experience ${idx + 1}: Additional ${achievementCount} bullets from achievements array`);
+                const newAchievements = exp.achievements.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const achievementText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = achievementText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newAchievements.length;
+                if (newAchievements.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newAchievements.length} bullets from achievements array (${exp.achievements.length} total, ${exp.achievements.length - newAchievements.length} duplicates skipped)`);
+                }
               }
             }
           });
@@ -694,23 +737,71 @@ export function createQualityScoringService(openaiClient = null, dbPool = null) 
           // Handle object format where keys might be job IDs or indices
           const expArray = Object.values(experienceSection).filter(exp => exp && typeof exp === 'object');
           experienceCount = expArray.length;
-          expArray.forEach((exp, idx) => {
-            if (exp.description) {
-              const bullets = typeof exp.description === 'string' 
-                ? exp.description.split(/\n|•|\r/).filter(b => b.trim() && b.trim().length > 0)
-                : Array.isArray(exp.description) ? exp.description.filter(b => b && b.trim().length > 0) : [];
-              totalBullets += bullets.length;
-              console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bullets.length} bullets`);
-            }
-            if (exp.bullets && Array.isArray(exp.bullets)) {
-              const bulletCount = exp.bullets.filter(b => b && b.trim().length > 0).length;
-              totalBullets += bulletCount;
-            }
-            if (exp.achievements && Array.isArray(exp.achievements)) {
-              const achievementCount = exp.achievements.filter(b => b && b.trim().length > 0).length;
-              totalBullets += achievementCount;
-            }
-          });
+            expArray.forEach((exp, idx) => {
+              // Track bullets to avoid double-counting
+              const countedBullets = new Set();
+              let bulletsFromDescription = 0;
+              
+              // Count bullets from description (only actual bullet points, not all lines)
+          if (exp.description) {
+                if (typeof exp.description === 'string') {
+                  // Split by newlines and filter for actual bullet points
+                  const lines = exp.description.split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+                  // Only count lines that look like bullet points (start with •, -, *, or are indented)
+                  const actualBullets = lines.filter(line => {
+                    // Bullet markers: •, -, *, or lines that start with common bullet patterns
+                    return /^[•\-\*]\s/.test(line) || 
+                           /^\d+[\.\)]\s/.test(line) || // Numbered bullets: 1. or 1)
+                           (line.length > 10 && /^[A-Z]/.test(line) && line.match(/\b(?:built|developed|created|designed|implemented|managed|led|improved|increased|reduced|optimized|achieved|delivered)\b/i)); // Action verb bullets
+                  });
+                  bulletsFromDescription = actualBullets.length;
+                  actualBullets.forEach(b => countedBullets.add(b.toLowerCase().trim()));
+                } else if (Array.isArray(exp.description)) {
+                  bulletsFromDescription = exp.description.filter(b => b && b.trim().length > 0).length;
+                  exp.description.forEach(b => countedBullets.add(String(b).toLowerCase().trim()));
+                }
+                totalBullets += bulletsFromDescription;
+                console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bulletsFromDescription} bullets from description`);
+              }
+              
+              // Count bullets array (only if not already counted in description)
+              if (exp.bullets && Array.isArray(exp.bullets)) {
+                const newBullets = exp.bullets.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const bulletText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = bulletText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newBullets.length;
+                if (newBullets.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newBullets.length} bullets from bullets array (${exp.bullets.length} total, ${exp.bullets.length - newBullets.length} duplicates skipped)`);
+                }
+              }
+              
+              // Count achievements array (only if not already counted)
+              if (exp.achievements && Array.isArray(exp.achievements)) {
+                const newAchievements = exp.achievements.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const achievementText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = achievementText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newAchievements.length;
+                if (newAchievements.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newAchievements.length} bullets from achievements array (${exp.achievements.length} total, ${exp.achievements.length - newAchievements.length} duplicates skipped)`);
+                }
+              }
+            });
         }
       }
       
@@ -1377,16 +1468,16 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
       
       skillPatterns.forEach(pattern => {
         try {
-          const matches = resume.text.matchAll(new RegExp(pattern.source, 'gi'));
-          for (const match of matches) {
-            if (match[1]) {
+        const matches = resume.text.matchAll(new RegExp(pattern.source, 'gi'));
+        for (const match of matches) {
+          if (match[1]) {
               match[1].split(/[,;|•\n\r]/).forEach(s => {
-                const trimmed = s.trim();
+              const trimmed = s.trim();
                 if (trimmed && trimmed.length > 1 && trimmed.length < 50 && !/^[^\w]+$/.test(trimmed)) {
-                  skills.push(trimmed);
-                }
-              });
-            }
+                skills.push(trimmed);
+              }
+            });
+          }
           }
         } catch (err) {
           // Skip invalid patterns
@@ -1673,7 +1764,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
             if (exp.position) sectionsText += exp.position + ' ';
             
             // CRITICAL: Include description (often contains bullet points as text)
-            if (exp.description) {
+          if (exp.description) {
               const desc = typeof exp.description === 'string' 
                 ? exp.description 
                 : (Array.isArray(exp.description) ? exp.description.join(' ') : '');
@@ -1687,9 +1778,9 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
                   sectionsText += bullet.trim() + ' ';
                 } else if (bullet && typeof bullet === 'object' && bullet.text) {
                   sectionsText += bullet.text.trim() + ' ';
-                }
-              });
-            }
+          }
+        });
+      }
             
             // CRITICAL: Include achievements array
             if (exp.achievements && Array.isArray(exp.achievements)) {
@@ -1724,7 +1815,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
           if (proj && typeof proj === 'object') {
             if (proj.name) sectionsText += proj.name + ' ';
             if (proj.title) sectionsText += proj.title + ' ';
-            if (proj.description) {
+          if (proj.description) {
               const desc = typeof proj.description === 'string' 
                 ? proj.description 
                 : (Array.isArray(proj.description) ? proj.description.join(' ') : '');
@@ -1763,7 +1854,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
       return combined;
     } else if (text) {
       console.log(`📋 [QUALITY SCORING] getResumeText: Using extracted file text (${text.length} chars)`);
-      return text;
+    return text;
     } else if (sectionsText) {
       console.log(`📋 [QUALITY SCORING] getResumeText: Using sections text (${sectionsText.length} chars)`);
       return sectionsText.trim();
@@ -1774,13 +1865,31 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
   
   /**
    * Helper: Normalize skill name for comparison
+   * Handles variations like "REST API" vs "RESTful API" vs "restful api"
    */
   function normalizeSkill(skill) {
     if (!skill) return '';
-    return skill.toLowerCase()
+    let normalized = skill.toLowerCase()
       .trim()
       .replace(/[^\w\s]/g, '') // Remove special characters
       .replace(/\s+/g, ' '); // Normalize whitespace
+    
+    // Handle REST API variations: "rest api", "restful api", "restful", "rest" should all match
+    if (normalized.includes('rest')) {
+      // Normalize all REST variations to "rest api"
+      normalized = normalized.replace(/\brestful\b/g, 'rest');
+      normalized = normalized.replace(/\brest\s+api\b/g, 'rest api');
+      normalized = normalized.replace(/\brest\b(?!\s+api)/g, 'rest api'); // If just "rest" without "api", add "api"
+    }
+    
+    // Handle other common variations
+    // "node.js" -> "nodejs", "node" -> "nodejs"
+    if (normalized.includes('node') && !normalized.includes('nodejs')) {
+      normalized = normalized.replace(/\bnode\.?js\b/g, 'nodejs');
+      normalized = normalized.replace(/\bnode\b(?!js)/g, 'nodejs');
+    }
+    
+    return normalized;
   }
 
   /**
@@ -1866,7 +1975,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
       let totalWeight = 0;
 
       const hasLinkedIn = data.linkedin_score !== null && data.linkedin_score !== undefined;
-      
+
       if (data.resume_score !== null && data.resume_score !== undefined) {
         overallScore += data.resume_score * 0.6;
         totalWeight += 0.6;
@@ -1978,7 +2087,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
         scoreData.missing_skills = scoreData.missing_skills.filter(missingSkill => {
           const normalizedMissing = normalizeSkill(missingSkill);
           
-          // Check 1: Exact match in extracted skills list
+          // Check 1: Exact match in extracted skills list (using improved normalization)
           const foundInSkills = actualSkills.some(actualSkill => {
             const normalizedActual = normalizeSkill(actualSkill);
             return normalizedMissing === normalizedActual || 
@@ -1989,7 +2098,7 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
           // Check 2: Check if skill appears anywhere in resume text (case-insensitive, partial match)
           const foundInText = resumeText.includes(normalizedMissing);
           
-          // Check 3: Handle variations (e.g., "Node.js" vs "Nodejs" vs "node", "React" vs "React.js")
+          // Check 3: Handle variations (e.g., "Node.js" vs "Nodejs" vs "node", "REST API" vs "RESTful API")
           const skillVariations = [
             normalizedMissing,
             normalizedMissing.replace(/\./g, ''), // Remove dots: "node.js" -> "nodejs"
@@ -1997,6 +2106,10 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
             normalizedMissing.split(' ')[0], // First word only: "react native" -> "react"
             normalizedMissing.replace(/\.js$/, ''), // Remove .js suffix: "react.js" -> "react"
             normalizedMissing.replace(/\./g, '').replace(/js$/, ''), // "node.js" -> "node"
+            // Handle REST API variations: "rest api", "restful api", "restful" should all match
+            normalizedMissing.replace(/\brestful\b/g, 'rest'), // "restful api" -> "rest api"
+            normalizedMissing.replace(/\brest\s+api\b/g, 'rest api'), // Normalize "rest api"
+            normalizedMissing.replace(/\brest\b(?!\s+api)/g, 'rest api'), // "rest" -> "rest api"
           ].filter(v => v.length >= 2); // Only keep variations with at least 2 characters
           
           const foundVariation = skillVariations.some(variation => {
@@ -2164,11 +2277,11 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
             experienceSection.forEach((exp, idx) => {
               if (exp && typeof exp === 'object') {
                 // Check description field
-                if (exp.description) {
-                  const bullets = typeof exp.description === 'string' 
+            if (exp.description) {
+              const bullets = typeof exp.description === 'string' 
                     ? exp.description.split(/\n|•|\r/).filter(b => b.trim() && b.trim().length > 0)
                     : Array.isArray(exp.description) ? exp.description.filter(b => b && b.trim().length > 0) : [];
-                  totalBullets += bullets.length;
+              totalBullets += bullets.length;
                   console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bullets.length} bullets`);
                 }
                 // Check bullets array field
@@ -2190,20 +2303,68 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
             const expArray = Object.values(experienceSection).filter(exp => exp && typeof exp === 'object');
             experienceCount = expArray.length;
             expArray.forEach((exp, idx) => {
+              // Track bullets to avoid double-counting
+              const countedBullets = new Set();
+              let bulletsFromDescription = 0;
+              
+              // Count bullets from description (only actual bullet points, not all lines)
               if (exp.description) {
-                const bullets = typeof exp.description === 'string' 
-                  ? exp.description.split(/\n|•|\r/).filter(b => b.trim() && b.trim().length > 0)
-                  : Array.isArray(exp.description) ? exp.description.filter(b => b && b.trim().length > 0) : [];
-                totalBullets += bullets.length;
-                console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bullets.length} bullets`);
+                if (typeof exp.description === 'string') {
+                  // Split by newlines and filter for actual bullet points
+                  const lines = exp.description.split(/\n|\r/).map(l => l.trim()).filter(l => l.length > 0);
+                  // Only count lines that look like bullet points (start with •, -, *, or are indented)
+                  const actualBullets = lines.filter(line => {
+                    // Bullet markers: •, -, *, or lines that start with common bullet patterns
+                    return /^[•\-\*]\s/.test(line) || 
+                           /^\d+[\.\)]\s/.test(line) || // Numbered bullets: 1. or 1)
+                           (line.length > 10 && /^[A-Z]/.test(line) && line.match(/\b(?:built|developed|created|designed|implemented|managed|led|improved|increased|reduced|optimized|achieved|delivered)\b/i)); // Action verb bullets
+                  });
+                  bulletsFromDescription = actualBullets.length;
+                  actualBullets.forEach(b => countedBullets.add(b.toLowerCase().trim()));
+                } else if (Array.isArray(exp.description)) {
+                  bulletsFromDescription = exp.description.filter(b => b && b.trim().length > 0).length;
+                  exp.description.forEach(b => countedBullets.add(String(b).toLowerCase().trim()));
+                }
+                totalBullets += bulletsFromDescription;
+                console.log(`  Experience ${idx + 1}: ${exp.title || exp.position || 'Untitled'} at ${exp.company || 'Unknown'} - ${bulletsFromDescription} bullets from description`);
               }
+              
+              // Count bullets array (only if not already counted in description)
               if (exp.bullets && Array.isArray(exp.bullets)) {
-                const bulletCount = exp.bullets.filter(b => b && b.trim().length > 0).length;
-                totalBullets += bulletCount;
+                const newBullets = exp.bullets.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const bulletText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = bulletText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newBullets.length;
+                if (newBullets.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newBullets.length} bullets from bullets array (${exp.bullets.length} total, ${exp.bullets.length - newBullets.length} duplicates skipped)`);
+                }
               }
+              
+              // Count achievements array (only if not already counted)
               if (exp.achievements && Array.isArray(exp.achievements)) {
-                const achievementCount = exp.achievements.filter(b => b && b.trim().length > 0).length;
-                totalBullets += achievementCount;
+                const newAchievements = exp.achievements.filter(b => {
+                  if (!b || !b.trim().length) return false;
+                  const achievementText = typeof b === 'string' ? b.trim() : (b.text || String(b)).trim();
+                  const key = achievementText.toLowerCase();
+                  // Only count if not already counted
+                  if (!countedBullets.has(key)) {
+                    countedBullets.add(key);
+                    return true;
+                  }
+                  return false;
+                });
+                totalBullets += newAchievements.length;
+                if (newAchievements.length > 0) {
+                  console.log(`  Experience ${idx + 1}: Additional ${newAchievements.length} bullets from achievements array (${exp.achievements.length} total, ${exp.achievements.length - newAchievements.length} duplicates skipped)`);
+                }
               }
             });
           }
@@ -2256,44 +2417,52 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
       
       console.log(`📊 [QUALITY SCORING] Resume analysis: ${skillCount} skills, ${experienceCount} experiences, ${totalBullets} bullets, ${projectCount} projects`);
       console.log(`📊 [QUALITY SCORING] Job requires: ${requiredSkillsCount} skills`);
+      if (experienceCount > 0) {
+        console.log(`📊 [QUALITY SCORING] Bullet analysis: ${totalBullets} total bullets ÷ ${experienceCount} jobs = ${(totalBullets/experienceCount).toFixed(1)} bullets per job (industry standard: 4-6 bullets per job is good)`);
+      }
       
-      // POST-PROCESSING: Apply strict penalties based on resume comprehensiveness
+      // POST-PROCESSING: Apply penalties and rewards based on resume comprehensiveness
+      // SCORING METRICS SUMMARY:
+      // - Skills: 8+ is good, 15+ is excellent, <8 gets penalty (reduced by 5 points)
+      // - Experience: 3+ is good, 2 gets -5 penalty, 1 gets -15 penalty (reduced by 5 points)
+      // - Bullets: No penalty applied (removed)
+      // - Projects: 2+ is good, gets +5 reward
+      // - Skill match: <50% match caps score at 65, <70% caps at 75 (reduced by 5 points)
       let adjustedScore = overallScore;
       
-      // Penalty for sparse skills
+      // Penalty for sparse skills (reduced by 5 points)
       if (skillCount <= 5) {
-        adjustedScore = Math.min(adjustedScore, 55);
-        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 55`);
+        adjustedScore = Math.min(adjustedScore, 60); // Was 55, now 60
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 60`);
       } else if (skillCount < 8) {
-        adjustedScore = Math.min(adjustedScore, 65);
-        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 65`);
+        adjustedScore = Math.min(adjustedScore, 70); // Was 65, now 70
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${skillCount} skills, capping score at 70`);
       }
       
-      // Penalty for sparse experience
+      // Penalty for sparse experience (reduced by 5 points)
       if (experienceCount === 1) {
-        adjustedScore = Math.max(0, adjustedScore - 20);
-        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 1 experience, reducing score by 20`);
+        adjustedScore = Math.max(0, adjustedScore - 15); // Was 20, now 15
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 1 experience, reducing score by 15`);
       } else if (experienceCount === 2) {
-        adjustedScore = Math.max(0, adjustedScore - 10);
-        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 2 experiences, reducing score by 10`);
+        adjustedScore = Math.max(0, adjustedScore - 5); // Was 10, now 5
+        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only 2 experiences, reducing score by 5`);
       }
       
-      // Penalty for sparse bullet points
-      if (experienceCount > 0 && totalBullets < experienceCount * 3) {
-        const penalty = Math.max(0, (experienceCount * 3 - totalBullets) * 3);
-        adjustedScore = Math.max(0, adjustedScore - penalty);
-        console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${totalBullets} bullets for ${experienceCount} jobs, reducing score by ${penalty}`);
+      // Bullet points penalty REMOVED - no longer penalizing based on bullet count
+      if (experienceCount > 0) {
+        const avgBulletsPerJob = totalBullets / experienceCount;
+        console.log(`✅ [QUALITY SCORING] Bullet count: ${totalBullets} bullets for ${experienceCount} jobs (avg ${avgBulletsPerJob.toFixed(1)} per job) - no penalty applied`);
       }
       
-      // Penalty for not matching job requirements
+      // Penalty for not matching job requirements (reduced by 5 points)
       if (requiredSkillsCount > 0 && skillCount > 0) {
         const matchPercentage = (skillCount / requiredSkillsCount) * 100;
         if (matchPercentage < 50) {
-          adjustedScore = Math.min(adjustedScore, 60);
-          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 60`);
+          adjustedScore = Math.min(adjustedScore, 65); // Was 60, now 65
+          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 65`);
         } else if (matchPercentage < 70) {
-          adjustedScore = Math.min(adjustedScore, 70);
-          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 70`);
+          adjustedScore = Math.min(adjustedScore, 75); // Was 70, now 75
+          console.log(`⚠️ [QUALITY SCORING] Applying penalty: Resume has only ${(matchPercentage).toFixed(0)}% of required skills, capping score at 75`);
         }
       }
       
@@ -2307,6 +2476,41 @@ IMPORTANT SCORING RULES (MANDATORY - Follow these exactly):
       } else if (projectCount >= 2) {
         adjustedScore = Math.min(100, adjustedScore + 5);
         console.log(`✅ [QUALITY SCORING] Applying reward: Resume has 2+ projects, adding 5 points`);
+      }
+      
+      // Add bonus to skills_alignment: 2 points per matched skill
+      if (materials.resume && materials.job && materials.job.required_skills && Array.isArray(materials.job.required_skills) && materials.job.required_skills.length > 0) {
+        const resumeSkills = extractSkillsFromResume(materials.resume);
+        const requiredSkills = materials.job.required_skills.map(s => s.toLowerCase().trim());
+        
+        // Normalize resume skills for comparison
+        const normalizedResumeSkills = resumeSkills.map(s => s.toLowerCase().trim());
+        
+        // Count matched skills (skills that appear in both lists)
+        const matchedSkills = requiredSkills.filter(reqSkill => {
+          const reqNormalized = normalizeSkill(reqSkill);
+          
+          // Check exact match using normalized function
+          if (normalizedResumeSkills.some(resSkill => normalizeSkill(resSkill) === reqNormalized)) {
+            return true;
+          }
+          
+          // Check partial match (e.g., "node.js" matches "nodejs" or "node")
+          return normalizedResumeSkills.some(resSkill => {
+            const resNormalized = normalizeSkill(resSkill);
+            return reqNormalized === resNormalized || 
+                   reqNormalized.includes(resNormalized) || 
+                   resNormalized.includes(reqNormalized);
+          });
+        });
+        
+        if (matchedSkills.length > 0 && scoreData.score_breakdown && scoreData.score_breakdown.skills_alignment !== null && scoreData.score_breakdown.skills_alignment !== undefined) {
+          const currentScore = scoreData.score_breakdown.skills_alignment;
+          const bonus = matchedSkills.length * 2; // 2 points per matched skill
+          const newScore = Math.min(100, currentScore + bonus);
+          scoreData.score_breakdown.skills_alignment = newScore;
+          console.log(`✅ [QUALITY SCORING] Skills alignment bonus: ${matchedSkills.length} matched skills (${matchedSkills.slice(0, 5).join(', ')}${matchedSkills.length > 5 ? '...' : ''}), adding ${bonus} points. Score: ${currentScore} → ${newScore}`);
+        }
       }
       
       // Ensure score is between 0-100
