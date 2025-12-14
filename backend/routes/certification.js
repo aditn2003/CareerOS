@@ -2,12 +2,48 @@ import express from "express";
 import pkg from "pg";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+
+// Multer setup for certification files (images and PDFs)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const certFileUploadDir = path.join(__dirname, "..", "uploads", "certification-files");
+
+if (!fs.existsSync(certFileUploadDir)) {
+  fs.mkdirSync(certFileUploadDir, { recursive: true });
+}
+
+const certFileStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, certFileUploadDir),
+  filename: (req, file, cb) => {
+    const userId = req.userId || "unknown";
+    const uniqueName = `${Date.now()}-${userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+    cb(null, uniqueName);
+  },
+});
+
+const certFileUpload = multer({
+  storage: certFileStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp|pdf/i;
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.test(ext.replace(".", ""))) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only image files (JPG, PNG, GIF, WEBP) and PDF files are allowed."));
+    }
+  },
+});
 
 // ✅ Auth middleware
 function auth(req, res, next) {
@@ -24,18 +60,48 @@ function auth(req, res, next) {
   }
 }
 
-// ✅ Add Certification
+// ✅ Upload Certification File (Image or PDF)
+router.post("/certifications/upload-file", auth, certFileUpload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const fileUrl = `/uploads/certification-files/${req.file.filename}`;
+    const fileExt = path.extname(req.file.originalname).toLowerCase();
+    const isImage = /jpeg|jpg|png|gif|webp/i.test(fileExt.replace(".", ""));
+    
+    res.json({ 
+      file_url: fileUrl,
+      badge_url: fileUrl, // For backward compatibility
+      document_url: fileUrl, // For backward compatibility
+      is_image: isImage,
+      file_type: fileExt.replace(".", "")
+    });
+  } catch (err) {
+    console.error("File upload error:", err);
+    res.status(500).json({ error: err.message || "Failed to upload file" });
+  }
+});
+
+// ✅ Add Certification (UC-115)
 router.post("/certifications", auth, async (req, res) => {
   try {
     const {
       name,
       organization,
+      platform,
       category,
       cert_number,
       date_earned,
       expiration_date,
       does_not_expire,
       document_url,
+      badge_url,
+      verification_url,
+      description,
+      scores,
+      achievements,
       renewal_reminder,
       verified,
     } = req.body;
@@ -53,22 +119,42 @@ router.post("/certifications", auth, async (req, res) => {
         ? renewal_reminder
         : null;
 
+    // Parse scores if it's a string
+    let scoresJson = null;
+    if (scores) {
+      try {
+        scoresJson = typeof scores === "string" ? JSON.parse(scores) : scores;
+      } catch (e) {
+        console.warn("Failed to parse scores JSON:", e);
+      }
+    }
+
+    // Use badge_url if provided, otherwise document_url, and set both to the same value
+    const fileUrl = badge_url || document_url || null;
+    
     const { rows } = await pool.query(
       `INSERT INTO certifications
-        (user_id, name, organization, category, cert_number, date_earned, expiration_date,
-         does_not_expire, document_url, renewal_reminder, verified)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        (user_id, name, organization, platform, category, cert_number, date_earned, expiration_date,
+         does_not_expire, document_url, badge_url, verification_url, description, scores, achievements,
+         renewal_reminder, verified)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING *`,
       [
         req.userId,
         name,
         organization,
+        platform || null,
         category || null,
         cert_number || null,
         safeDateEarned,
         safeExpiration,
         does_not_expire || false,
-        document_url || null,
+        fileUrl, // document_url
+        fileUrl, // badge_url (same value)
+        verification_url || null,
+        description || null,
+        scoresJson,
+        achievements || null,
         safeReminder,
         verified || false,
       ]
@@ -95,17 +181,23 @@ router.get("/certifications", auth, async (req, res) => {
   }
 });
 
-// ✅ Update Certification (with null-safe date handling)
+// ✅ Update Certification (UC-115 - with new fields)
 router.put("/certifications/:id", auth, async (req, res) => {
   const fields = [
     "name",
     "organization",
+    "platform",
     "category",
     "cert_number",
     "date_earned",
     "expiration_date",
     "does_not_expire",
     "document_url",
+    "badge_url",
+    "verification_url",
+    "description",
+    "scores",
+    "achievements",
     "renewal_reminder",
     "verified",
   ];
@@ -114,7 +206,18 @@ router.put("/certifications/:id", auth, async (req, res) => {
   const values = [];
   let i = 1;
 
+  // Handle combined file field: if badge_url or document_url is provided, set both to the same value
+  const fileUrl = req.body.badge_url !== undefined ? req.body.badge_url : 
+                  req.body.document_url !== undefined ? req.body.document_url : 
+                  null;
+  const hasFileUpdate = req.body.badge_url !== undefined || req.body.document_url !== undefined;
+
   for (const field of fields) {
+    // Skip file fields if we're handling them separately
+    if ((field === "badge_url" || field === "document_url") && hasFileUpdate) {
+      continue;
+    }
+
     if (req.body[field] !== undefined) {
       let value = req.body[field];
 
@@ -125,9 +228,25 @@ router.put("/certifications/:id", auth, async (req, res) => {
         value = value && value.trim() !== "" ? value : null;
       }
 
+      // Handle JSONB field for scores
+      if (field === "scores" && value) {
+        try {
+          value = typeof value === "string" ? JSON.parse(value) : value;
+        } catch (e) {
+          console.warn("Failed to parse scores JSON:", e);
+          value = null;
+        }
+      }
+
       updates.push(`${field}=$${i++}`);
       values.push(value);
     }
+  }
+
+  // Add file fields together if there's an update
+  if (hasFileUpdate) {
+    updates.push(`badge_url=$${i++}, document_url=$${i++}`);
+    values.push(fileUrl || null, fileUrl || null);
   }
 
   if (updates.length === 0)
@@ -165,6 +284,34 @@ router.delete("/certifications/:id", auth, async (req, res) => {
   } catch (e) {
     console.error("Error deleting certification:", e);
     res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+// ✅ Serve Badge Image
+router.get("/certifications/badge/:filename", auth, (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const filePath = path.join(badgeUploadDir, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Badge image not found" });
+    }
+
+    // Set appropriate content type for images
+    const ext = path.extname(filename).toLowerCase();
+    const contentTypes = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".gif": "image/gif",
+      ".webp": "image/webp",
+    };
+
+    res.setHeader("Content-Type", contentTypes[ext] || "image/jpeg");
+    res.sendFile(path.resolve(filePath));
+  } catch (err) {
+    console.error("Error serving badge image:", err);
+    res.status(500).json({ error: "Failed to serve badge image" });
   }
 });
 
