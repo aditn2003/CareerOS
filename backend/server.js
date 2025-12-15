@@ -111,15 +111,20 @@ const transporter = nodemailer.createTransport({
 // ===== Middleware =====
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://atscareeros.com",
-      "https://www.atscareeros.com",
-    ],
+    origin: (origin, cb) => {
+      const allowed = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://atscareeros.com",
+        "https://www.atscareeros.com",
+      ];
+      if (!origin || allowed.includes(origin)) return cb(null, true);
+      cb(new Error("CORS blocked"));
+    },
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 // ✅ Serve uploaded images so React can access them
