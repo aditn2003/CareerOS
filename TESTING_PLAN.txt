@@ -1,0 +1,717 @@
+================================================================================
+COMPREHENSIVE TESTING PLAN FOR ATS APPLICATION
+Target: 92%+ Code Coverage for Frontend and Backend
+================================================================================
+
+PHASE 1: BACKEND TEST INFRASTRUCTURE SETUP
+===========================================
+
+Step 1.1: Review and Enhance Test Configuration
+- Review vitest.config.js and jest.config.js
+- Ensure coverage thresholds are set to 92% for all metrics
+- Configure test database setup/teardown
+- Set up test environment variables
+- Create test database connection pooling strategy
+- Configure test timeout values appropriately
+
+Step 1.2: Create Test Utilities and Helpers
+- Create test database setup/teardown utilities
+- Create authentication helpers (mock JWT tokens, user creation)
+- Create database seeding utilities for test data
+- Create API request helpers (supertest wrappers)
+- Create mock factories for common entities (users, jobs, resumes, etc.)
+- Create test data cleanup utilities
+- Create email/messaging mocks
+
+Step 1.3: Create Test Setup Files
+- Create vitest-setup.js with global test configuration
+- Create database migration helpers for tests
+- Set up test environment isolation
+- Configure mock reset between tests
+
+PHASE 2: BACKEND ROUTE TESTING (60+ Routes)
+==========================================
+
+Step 2.1: Authentication Routes (server.js)
+- Test /register endpoint (all validation cases, success, duplicate email)
+- Test /login endpoint (valid, invalid credentials, missing fields)
+- Test /linkedin-login endpoint (new user, existing user, missing fields)
+- Test /google OAuth endpoint (valid token, invalid token, new user, existing user)
+- Test /logout endpoint
+- Test /forgot password endpoint (email exists, doesn't exist, email sending)
+- Test /reset password endpoint (valid code, expired code, invalid code, password validation)
+- Test /me GET endpoint (authenticated, unauthenticated)
+- Test /me PUT endpoint (update user info)
+- Test /delete account endpoint (valid password, invalid password)
+- Test password validation rules
+- Test JWT token generation and validation
+- Test account type validation (candidate, mentor)
+
+Step 2.2: Profile Routes (routes/profile.js)
+- Test GET /api/profile (authenticated, unauthenticated)
+- Test PUT /api/profile (update profile, validation)
+- Test profile picture upload
+- Test profile completeness calculation
+- Test profile data retrieval
+
+Step 2.3: Job Routes (routes/job.js)
+- Test GET /api/jobs (list all jobs, filtering, pagination)
+- Test POST /api/jobs (create job, validation)
+- Test GET /api/jobs/:id (get single job, not found)
+- Test PUT /api/jobs/:id (update job, authorization)
+- Test DELETE /api/jobs/:id (delete job, authorization)
+- Test job status updates
+- Test job deadline reminders
+- Test job search/filter functionality
+- Test job archiving
+
+Step 2.4: Resume Routes (routes/resumes.js)
+- Test GET /api/resumes (list resumes)
+- Test POST /api/resumes (create resume, validation)
+- Test GET /api/resumes/:id (get resume, not found)
+- Test PUT /api/resumes/:id (update resume)
+- Test DELETE /api/resumes/:id (delete resume)
+- Test resume export (PDF, DOCX)
+- Test resume version control
+- Test resume optimization
+- Test resume matching with jobs
+
+Step 2.5: Company Routes (routes/company.js)
+- Test GET /api/companies (list companies)
+- Test POST /api/companies (create company)
+- Test GET /api/companies/:id (get company)
+- Test PUT /api/companies/:id (update company)
+- Test DELETE /api/companies/:id (delete company)
+- Test company research features
+
+Step 2.6: Match Routes (routes/match.js)
+- Test job-resume matching algorithm
+- Test match score calculation
+- Test GET /api/match/:jobId/:resumeId
+- Test match analysis endpoints
+- Test skill matching logic
+
+Step 2.7: Cover Letter Routes
+- Test routes/cover_letter.js (CRUD operations)
+- Test routes/coverLetterAI.js (AI generation, error handling)
+- Test routes/coverLetterTemplates.js (template management)
+- Test routes/coverLetterExport.js (export functionality)
+
+Step 2.8: Education Routes (routes/education.js)
+- Test GET /api/education (list education)
+- Test POST /api/education (create education entry)
+- Test PUT /api/education/:id (update education)
+- Test DELETE /api/education/:id (delete education)
+- Test validation and error cases
+
+Step 2.9: Employment Routes (routes/employment.js)
+- Test GET /api/employment (list employment history)
+- Test POST /api/employment (create employment entry)
+- Test PUT /api/employment/:id (update employment)
+- Test DELETE /api/employment/:id (delete employment)
+- Test date validation and overlap detection
+
+Step 2.10: Skills Routes (routes/skills.js)
+- Test GET /api/skills (list skills)
+- Test POST /api/skills (add skill)
+- Test PUT /api/skills/:id (update skill)
+- Test DELETE /api/skills/:id (delete skill)
+- Test skill proficiency levels
+
+Step 2.11: Projects Routes (routes/projects.js)
+- Test GET /api/projects (list projects)
+- Test POST /api/projects (create project)
+- Test PUT /api/projects/:id (update project)
+- Test DELETE /api/projects/:id (delete project)
+
+Step 2.12: Certification Routes (routes/certification.js)
+- Test GET /api/certifications (list certifications)
+- Test POST /api/certifications (create certification)
+- Test PUT /api/certifications/:id (update certification)
+- Test DELETE /api/certifications/:id (delete certification)
+- Test expiration date handling
+
+Step 2.13: Dashboard Routes (routes/dashboard.js)
+- Test GET /api/dashboard (dashboard statistics)
+- Test dashboard data aggregation
+- Test performance metrics calculation
+
+Step 2.14: Skills Gap Routes (routes/skillsGap.js)
+- Test skills gap analysis
+- Test gap identification algorithm
+- Test recommendations generation
+
+Step 2.15: Salary Research Routes (routes/salaryResearch.js)
+- Test salary research endpoints
+- Test salary data retrieval
+- Test salary comparison features
+
+Step 2.16: Interview Routes
+- Test routes/interviewInsights.js (insights generation)
+- Test routes/interviewAnalytics.js (analytics calculation)
+- Test routes/interviewAnalysis.js (analysis features)
+- Test routes/mockInterviews.js (mock interview functionality)
+- Test routes/responseCoaching.js (coaching features)
+- Test routes/technicalPrep.js (technical preparation)
+
+Step 2.17: Networking Routes
+- Test routes/networking.js (networking features)
+- Test routes/contacts.js (contact management)
+- Test routes/referrals.js (referral management)
+- Test routes/references.js (reference management)
+- Test routes/mentors.js (mentor features)
+- Test routes/informationalInterviews.js
+- Test routes/industryContacts.js
+
+Step 2.18: Team Routes (routes/team.js)
+- Test team creation
+- Test team member invitation
+- Test team member management
+- Test shared jobs functionality
+- Test task management
+- Test feedback features
+- Test team analytics
+
+Step 2.19: Version Control Routes (routes/versionControl.js)
+- Test resume versioning
+- Test version comparison
+- Test version restoration
+
+Step 2.20: Additional Routes
+- Test routes/offers.js (job offers management)
+- Test routes/salaryNegotiation.js (negotiation features)
+- Test routes/successAnalysis.js (success analysis)
+- Test routes/goals.js (goal management)
+- Test routes/careerGoals.js (career goal features)
+- Test routes/calendar.js (calendar integration)
+- Test routes/github.js (GitHub integration)
+- Test routes/geocoding.js (location services)
+- Test routes/qualityScoring.js (quality scoring)
+- Test routes/timing.js (timing analytics)
+- Test routes/materialComparison.js (material comparison)
+- Test routes/compensationHistory.js
+- Test routes/compensationAnalytics.js
+- Test routes/marketIntel.js
+- Test routes/marketBenchmarks.js
+- Test routes/timeInvestment.js
+- Test routes/competitiveAnalysis.js
+- Test routes/successPatterns.js
+- Test routes/customReports.js
+- Test routes/performancePrediction.js
+- Test routes/networkingAnalysis.js
+- Test routes/companyResearch.js
+- Test routes/jobDescriptions.js
+- Test routes/resumePresets.js
+- Test routes/sectionPresets.js
+- Test routes/skillProgress.js
+- Test routes/fileUpload.js
+- Test routes/upload.js
+- Test routes/jobRoutes.js
+
+Step 2.21: Server.js Additional Features
+- Test cron job functionality (deadline reminders)
+- Test GitHub sync cron job
+- Test error handlers
+- Test database connection handling
+- Test middleware functionality
+
+PHASE 3: BACKEND UTILITY AND SERVICE TESTING
+=============================================
+
+Step 3.1: Auth Utilities (auth.js)
+- Test JWT verification
+- Test authentication middleware
+- Test token expiration handling
+- Test invalid token handling
+
+Step 3.2: Utility Functions
+- Test utils/roleTypeMapper.js (all role mappings)
+- Test utils/schedulingHelpers.js (scheduling logic)
+- Test utils/tokenEncryption.js (if exists)
+- Test utils/renderTemplate.js (template rendering)
+- Test utils/reminderScheduler.js (reminder scheduling)
+
+Step 3.3: Service Functions
+- Test services/githubService.js (GitHub API integration)
+- Test services/githubSyncService.js (sync functionality)
+- Test services/qualityScoringService.js (scoring algorithms)
+
+Step 3.4: Database Utilities
+- Test db/pool.js (connection pooling)
+- Test database query helpers
+
+PHASE 4: FRONTEND TEST INFRASTRUCTURE SETUP
+============================================
+
+Step 4.1: Install Frontend Testing Dependencies
+- Install Vitest for frontend
+- Install @testing-library/react
+- Install @testing-library/jest-dom
+- Install @testing-library/user-event
+- Install @testing-library/react-hooks (if needed)
+- Install jsdom for DOM environment
+- Install @vitest/ui for test UI
+- Install @vitest/coverage-v8 for coverage
+- Install msw (Mock Service Worker) for API mocking
+
+Step 4.2: Configure Frontend Testing
+- Create vitest.config.js for frontend
+- Configure test environment (jsdom)
+- Set up coverage thresholds (92%)
+- Configure test file patterns
+- Set up path aliases for imports
+- Configure React Testing Library setup
+
+Step 4.3: Create Frontend Test Utilities
+- Create test setup file (test-setup.js)
+- Create API mocking utilities (msw handlers)
+- Create component render helpers
+- Create user interaction helpers
+- Create mock data factories
+- Create authentication context mocks
+- Create router mocks
+
+PHASE 5: FRONTEND COMPONENT TESTING (130+ Components)
+=====================================================
+
+Step 5.1: Core Components
+- Test App.jsx (main app component, routing)
+- Test NavBar.jsx (navigation, authentication state)
+- Test ProfileNavBar.jsx
+- Test MentorNavBar.jsx
+- Test Spinner.jsx (loading states)
+
+Step 5.2: Authentication Components
+- Test Login.jsx (form validation, submission, error handling)
+- Test Register.jsx (form validation, password rules, account types)
+- Test ForgotPassword.jsx (email submission, error handling)
+- Test ResetPassword.jsx (code validation, password reset)
+- Test LinkedInOAuthButton.jsx (OAuth flow)
+- Test LinkedInCallback.jsx (callback handling)
+- Test LinkedInAuthSuccess.jsx
+
+Step 5.3: Profile Components
+- Test ProfileForm.jsx (form submission, validation)
+- Test ProfileDashboard.jsx (data display, statistics)
+- Test ProfileCompleteness.jsx (completeness calculation)
+- Test ProfilePictureUpload.jsx (image upload, preview)
+- Test ProfileSection.jsx (section rendering)
+- Test CandidateProfileModal.jsx
+
+Step 5.4: Job Components
+- Test JobEntryForm.jsx (form validation, submission)
+- Test JobDetailsModal.jsx (modal display, interactions)
+- Test JobsDetailsModal.jsx
+- Test JobPipeLine.jsx (pipeline visualization)
+- Test JobTimeline.jsx (timeline display)
+- Test JobsCalendar.jsx (calendar view, date selection)
+- Test JobMapView.jsx (map display, markers)
+- Test JobSearchFilter.jsx (filtering logic)
+- Test JobsTabs.jsx (tab navigation)
+- Test UpcomingDeadlinesWidget.jsx (deadline display)
+
+Step 5.5: Resume Components
+- Test ResumeEditor.jsx (editor functionality, saving)
+- Test ResumeOptimize.jsx (optimization features)
+- Test ResumeOptimizeRun.jsx (optimization execution)
+- Test ResumeFinalReview.jsx (review features)
+- Test ResumeCompare.jsx (comparison functionality)
+- Test ResumeTemplateChooser.jsx (template selection)
+- Test Resumeview.jsx (resume display)
+- Test EditableResumeForm.jsx (form editing)
+- Test FormattingIssuesList.jsx (issue display)
+- Test ImprovementSuggestions.jsx (suggestions display)
+- Test QualityScoreCard.jsx (score display)
+- Test ScoreBreakdown.jsx (breakdown visualization)
+
+Step 5.6: Education Components
+- Test EducationForm.jsx (form validation, submission)
+- Test EducationSection.jsx (section display, editing)
+
+Step 5.7: Employment Components
+- Test EmploymentForm.jsx (form validation, date handling)
+- Test EmploymentSection.jsx (section display, editing)
+
+Step 5.8: Skills Components
+- Test SkillsForm.jsx (form validation, skill addition)
+- Test SkillsSection.jsx (section display, editing)
+- Test SkillDist.jsx (distribution visualization)
+
+Step 5.9: Project Components
+- Test ProjectForm.jsx (form validation, submission)
+- Test ProjectSection.jsx (section display, editing)
+- Test ProjectDetailModal.jsx (modal display)
+- Test ProjectPortfolio.jsx (portfolio display)
+
+Step 5.10: Certification Components
+- Test CertificationForm.jsx (form validation, submission)
+- Test CertificationSection.jsx (section display, editing)
+
+Step 5.11: Cover Letter Components
+- Test cover letter creation components
+- Test cover letter editing components
+- Test cover letter template selection
+- Test cover letter export functionality
+
+Step 5.12: Networking Components
+- Test NetworkContacts.jsx (contact list, filtering)
+- Test NetworkingEvents.jsx (event display, creation)
+- Test ReferralRequests.jsx (referral management)
+- Test ProfessionalReferences.jsx (reference management)
+- Test MentorsCoaches.jsx (mentor display)
+- Test InformationalInterviews.jsx (interview scheduling)
+- Test IndustryContactDiscovery.jsx (contact discovery)
+- Test RelationshipMaintenance.jsx (relationship tracking)
+- Test LinkedInMessageTemplates.jsx (template management)
+- Test LinkedInProfileOptimization.jsx (optimization features)
+
+Step 5.13: Company Components
+- Test CompanyDetailsModal.jsx (company information display)
+- Test CompanyResearchCard.jsx (research card display)
+- Test CompanyDetails.css (styling verification)
+
+Step 5.14: Analytics Components
+- Test ProfileDashboard.jsx (dashboard analytics)
+- Test InterviewAnalysis.jsx (interview analytics)
+- Test NetworkingAnalysis.jsx (networking analytics)
+- Test SuccessAnalysis.jsx (success metrics)
+- Test TimeInvestmentAnalysis.jsx (time tracking)
+- Test PerformancePrediction.jsx (prediction display)
+- Test CompetitiveAnalysis.jsx (competitive metrics)
+- Test SuccessPatternAnalysis.jsx (pattern analysis)
+- Test MarketIntel.jsx (market intelligence)
+- Test TimingAnalytics.jsx (timing metrics)
+- Test CompensationAnalysis.jsx (compensation data)
+- Test ComprehensiveCompensationAnalysis.jsx
+
+Step 5.15: Chart Components
+- Test all chart components in charts/ directory
+- Test data visualization accuracy
+- Test responsive behavior
+
+Step 5.16: Form Components
+- Test FormField.jsx (field validation, error display)
+- Test form.css (styling)
+
+Step 5.17: Team Components
+- Test TeamDropdown.jsx (team selection)
+- Test TaskModal.jsx (task creation/editing)
+- Test FeedbackModal.jsx (feedback submission)
+- Test FeedbackThreads.jsx (thread display)
+
+Step 5.18: File Upload Components
+- Test FileUpload.jsx (file selection, upload, progress)
+- Test file validation (size, type)
+- Test error handling
+
+Step 5.19: GitHub Components
+- Test GitHubSection.jsx (GitHub integration, repo display)
+
+Step 5.20: Goals Components
+- Test GoalsSettings.jsx (goal configuration)
+- Test CareerGoals.jsx (career goal management)
+
+Step 5.21: Offer Components
+- Test OfferForm.jsx (offer entry, validation)
+
+Step 5.22: Report Components
+- Test CustomReportGenerator.jsx (report generation)
+
+Step 5.23: Utility Components
+- Test stats.jsx (statistics display)
+- Test Logo.tsx (logo rendering)
+
+PHASE 6: FRONTEND PAGE TESTING
+===============================
+
+Step 6.1: Authentication Pages
+- Test Home.jsx (landing page, navigation)
+- Test Login.jsx (complete login flow)
+- Test Register.jsx (complete registration flow)
+- Test ForgotPassword.jsx (password reset flow)
+- Test ResetPassword.jsx (password reset completion)
+
+Step 6.2: Profile Pages
+- Test ProfileLayout.jsx (layout, navigation)
+- Test DashboardTab.jsx (dashboard display)
+- Test InfoTab.jsx (profile information)
+- Test JobsTab.jsx (jobs list)
+- Test ResumeBuilder.jsx (resume building workflow)
+- Test ResumeSetup.jsx (resume setup)
+- Test SavedResumes.jsx (resume list)
+- Test EducationTab.jsx (education management)
+- Test EmploymentTab.jsx (employment management)
+- Test SkillsTab.jsx (skills management)
+- Test ProjectsTab.jsx (projects management)
+- Test CertificationsTab.jsx (certifications management)
+- Test GitHubTab.jsx (GitHub integration)
+- Test MentorTab.jsx (mentor features)
+- Test DangerTab.jsx (account deletion)
+
+Step 6.3: Job Pages
+- Test Jobs.jsx (job list, filtering, search)
+- Test ArchivedJobs.jsx (archived jobs display)
+
+Step 6.4: Resume Pages
+- Test Resume.jsx (resume display, editing)
+- Test SavedResumes.jsx (resume management)
+
+Step 6.5: Cover Letter Pages
+- Test CoverLetter.jsx (cover letter creation, editing)
+
+Step 6.6: Match Pages
+- Test JobMatch.jsx (job matching display)
+- Test MatchAnalysisTab.jsx (match analysis)
+- Test MatchCompare.jsx (comparison view)
+- Test MaterialComparisonTab.jsx (material comparison)
+- Test QualityScoringTab.jsx (quality scoring)
+- Test TimingTab.jsx (timing analysis)
+
+Step 6.7: Interview Pages
+- Test Interviews.jsx (interview list)
+- Test InterviewsLayout.jsx (layout)
+- Test InterviewTracker.jsx (tracking)
+- Test InterviewAnalytics.jsx (analytics)
+- Test InterviewInsights.jsx (insights)
+- Test MockInterview.jsx (mock interviews)
+- Test ResponseCoaching.jsx (coaching)
+- Test TechnicalPrep.jsx (technical preparation)
+- Test QuestionBank.jsx (question management)
+- Test CompanyResearch.jsx (company research)
+- Test SalaryNegotiation.jsx (negotiation)
+- Test SalaryResearch.jsx (salary research)
+- Test FollowUpTemplates.jsx (templates)
+
+Step 6.8: Networking Pages
+- Test Networking.jsx (networking dashboard)
+- Test NetworkLayout.jsx (layout)
+- Test ContactsTab.jsx (contacts management)
+- Test EventsTab.jsx (events management)
+- Test InformationalInterviewsTab.jsx (interviews)
+- Test ReferencesTab.jsx (references)
+- Test ReferralsTab.jsx (referrals)
+- Test MaintenanceTab.jsx (maintenance)
+- Test DiscoveryTab.jsx (discovery)
+
+Step 6.9: Mentor Pages
+- Test MentorLayout.jsx (mentor layout)
+- Test ActivityFeedTab.jsx (activity feed)
+- Test FeedbackTab.jsx (feedback)
+- Test InviteHandler.jsx (invite handling)
+- Test SharedJobsTab.jsx (shared jobs)
+- Test TaskManagementTab.jsx (task management)
+- Test TeamAnalyticsTab.jsx (team analytics)
+
+Step 6.10: Skills Gap Pages
+- Test SkillsGapAnalysis.jsx (gap analysis)
+
+Step 6.11: Statistics Pages
+- Test StatisticsPage.jsx (statistics display)
+
+Step 6.12: Compensation Pages
+- Test Compensation.jsx (compensation tracking)
+
+Step 6.13: Docs Management Pages
+- Test DocsManagement.jsx (document management)
+
+PHASE 7: FRONTEND CONTEXT TESTING
+=================================
+
+Step 7.1: AuthContext Testing
+- Test authentication state management
+- Test login/logout functionality
+- Test token storage and retrieval
+- Test user data management
+
+Step 7.2: ProfileContext Testing
+- Test profile data management
+- Test profile updates
+- Test profile loading states
+
+Step 7.3: TeamContext Testing
+- Test team data management
+- Test team member management
+- Test shared resources
+
+PHASE 8: FRONTEND UTILITY TESTING
+==================================
+
+Step 8.1: API Utilities (api.js)
+- Test API request functions
+- Test error handling
+- Test authentication headers
+- Test response parsing
+
+Step 8.2: Auth Utilities (utils/auth.js)
+- Test authentication helpers
+- Test token management
+- Test user session handling
+
+PHASE 9: END-TO-END WORKFLOW TESTING
+====================================
+
+Step 9.1: Registration to Job Application Workflow
+- Test complete user registration
+- Test profile completion
+- Test resume creation
+- Test job application creation
+- Test application tracking
+- Test status updates
+
+Step 9.2: AI Features End-to-End
+- Test resume optimization workflow
+- Test cover letter AI generation
+- Test job matching AI
+- Test skills gap AI analysis
+- Test interview insights AI
+- Test salary research AI
+
+Step 9.3: Multi-User Collaboration Scenarios
+- Test team creation workflow
+- Test team member invitation
+- Test shared job workflow
+- Test task assignment and completion
+- Test feedback exchange
+- Test mentor-candidate interaction
+
+Step 9.4: Email Notification Testing
+- Test registration confirmation emails
+- Test password reset emails
+- Test deadline reminder emails
+- Test team invitation emails
+- Test notification delivery verification
+
+Step 9.5: Error Handling and Edge Cases
+- Test network failure scenarios
+- Test invalid input handling
+- Test unauthorized access attempts
+- Test concurrent request handling
+- Test large data handling
+- Test boundary value testing
+- Test null/undefined handling
+
+PHASE 10: MOBILE RESPONSIVENESS TESTING
+=======================================
+
+Step 10.1: Responsive Design Testing
+- Test all pages on mobile viewport (375px, 414px)
+- Test all pages on tablet viewport (768px, 1024px)
+- Test all pages on desktop viewport (1920px)
+- Test navigation on mobile devices
+- Test form inputs on mobile
+- Test modals on mobile
+- Test tables on mobile (horizontal scroll, responsive tables)
+- Test charts/graphs on mobile
+- Test file uploads on mobile
+
+Step 10.2: Touch Interaction Testing
+- Test touch events on mobile
+- Test swipe gestures
+- Test tap interactions
+- Test long press interactions
+
+Step 10.3: Cross-Browser Testing
+- Test on Chrome
+- Test on Firefox
+- Test on Safari
+- Test on Edge
+- Test on mobile browsers (iOS Safari, Chrome Mobile)
+
+PHASE 11: PERFORMANCE TESTING
+==============================
+
+Step 11.1: Backend Performance
+- Test API response times
+- Test database query performance
+- Test concurrent request handling
+- Test load testing
+
+Step 11.2: Frontend Performance
+- Test page load times
+- Test component render performance
+- Test large data set rendering
+- Test image loading optimization
+
+PHASE 12: COVERAGE VERIFICATION AND GAP ANALYSIS
+================================================
+
+Step 12.1: Generate Coverage Reports
+- Run backend coverage report
+- Run frontend coverage report
+- Identify files below 92% coverage
+- Create coverage gap report
+
+Step 12.2: Fill Coverage Gaps
+- Add tests for uncovered lines
+- Add tests for uncovered branches
+- Add tests for uncovered functions
+- Ensure all statements are covered
+
+Step 12.3: Verify Coverage Thresholds
+- Ensure all files meet 92% threshold
+- Verify statement coverage
+- Verify branch coverage
+- Verify function coverage
+- Verify line coverage
+
+PHASE 13: TEST DOCUMENTATION
+============================
+
+Step 13.1: Create Test Cases Document
+- Document 100+ test scenarios
+- Organize by feature/component
+- Include test data requirements
+- Include expected results
+- Include edge cases
+
+Step 13.2: Create Test Execution Guide
+- Document how to run tests
+- Document test environment setup
+- Document test data requirements
+- Document troubleshooting guide
+
+PHASE 14: CONTINUOUS INTEGRATION SETUP
+=======================================
+
+Step 14.1: CI/CD Test Integration
+- Configure tests to run on CI
+- Set up coverage reporting in CI
+- Configure test failure notifications
+- Set up test result artifacts
+
+================================================================================
+ESTIMATED TEST COUNTS
+================================================================================
+
+Backend Tests:
+- Route Tests: ~500+ test cases
+- Utility Tests: ~100+ test cases
+- Service Tests: ~50+ test cases
+- Integration Tests: ~50+ test cases
+Total Backend: ~700+ test cases
+
+Frontend Tests:
+- Component Tests: ~400+ test cases
+- Page Tests: ~100+ test cases
+- Context Tests: ~30+ test cases
+- Utility Tests: ~20+ test cases
+- E2E Workflow Tests: ~50+ test cases
+Total Frontend: ~600+ test cases
+
+Grand Total: ~1300+ test cases
+
+================================================================================
+EXECUTION STRATEGY
+================================================================================
+
+1. Execute phases sequentially
+2. After each phase, verify coverage and fix any issues
+3. Run full test suite after each major phase
+4. Document any blockers or issues
+5. Update plan as needed based on findings
+
+================================================================================
+END OF PLAN
+================================================================================
+
+

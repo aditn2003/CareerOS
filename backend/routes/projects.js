@@ -2,12 +2,14 @@ import express from "express";
 import pkg from "pg";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import sharedPool from "../db/pool.js";
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
 
-const pool = new Pool({
+// Use shared pool in test mode for transaction isolation
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 

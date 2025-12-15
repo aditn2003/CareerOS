@@ -6,9 +6,11 @@ import OpenAI from "openai";
 const { Pool } = pkg;
 
 // Factory function for dependency injection (for testing)
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
+
 function createCoverLetterTemplatesRoutes(dbPool = null, openaiClient = null) {
   const router = express.Router();
-  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = dbPool || (process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL }));
   const openai = openaiClient || new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ========================================================================

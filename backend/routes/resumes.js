@@ -2,6 +2,7 @@ import express from "express";
 import { Pool } from "pg";
 import dotenv from "dotenv";
 import { auth } from "../auth.js";
+import sharedPool from "../db/pool.js"; // Import shared pool for default use
 import multer from "multer";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -146,7 +147,8 @@ function createResumesRoutes(
 ) {
   const router = express.Router();
   // Use injected dependencies or create defaults
-  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  // In test mode, use shared pool to ensure transaction isolation works
+  const pool = dbPool || (process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL }));
   const upload = multerUpload || multer({ dest: "uploads/" });
   
   // Log API key status (first 10 and last 4 chars for security)

@@ -1,11 +1,10 @@
 import express from "express";
-import { Pool } from "pg";
+import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 // Middleware
@@ -16,6 +15,7 @@ function auth(req, res, next) {
     const token = header.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.id;
+    req.user = { id: decoded.id, email: decoded.email }; // Also set req.user for consistency
     next();
   } catch {
     return res.status(401).json({ error: "Invalid token" });
@@ -29,11 +29,16 @@ router.post("/resume-presets", auth, async (req, res) => {
     return res.status(400).json({ error: "Invalid data" });
 
   try {
+    // Convert visible_sections to JSON if it's an array or object
+    const visibleSectionsJson = visible_sections 
+      ? (typeof visible_sections === 'string' ? visible_sections : JSON.stringify(visible_sections))
+      : null;
+    
     const { rows } = await pool.query(
       `INSERT INTO resume_presets (user_id, name, section_order, visible_sections)
-       VALUES ($1, $2, $3, $4)
+       VALUES ($1, $2, $3, $4::jsonb)
        RETURNING *`,
-      [req.userId, name, section_order, visible_sections]
+      [req.userId, name, section_order, visibleSectionsJson]
     );
     res.json({ preset: rows[0], message: "✅ Preset saved successfully" });
   } catch (err) {

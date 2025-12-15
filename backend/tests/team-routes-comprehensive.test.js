@@ -3,15 +3,10 @@
  * Tests all team-related functionality including shared jobs
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import { resetMocks } from './mocks.js';
 import teamRoutes from '../routes/team.js';
-
-beforeEach(() => {
-  resetMocks();
-});
 
 describe('Team Routes - Comprehensive', () => {
   let app;
@@ -20,7 +15,7 @@ describe('Team Routes - Comprehensive', () => {
     app = express();
     app.use(express.json());
     app.use('/api/team', teamRoutes);
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   // ============================================
