@@ -167,16 +167,20 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
     <form className="profile-box" onSubmit={handleSubmit}>
       <h4>{cert?.id ? "Edit Certification" : "Add Certification"}</h4>
 
-      <label>Certification Name *</label>
+      <label htmlFor="cert-name">Certification Name *</label>
       <input
+        id="cert-name"
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
         required
         placeholder="e.g., AWS Certified Solutions Architect"
+        aria-label="Certification name"
+        aria-required="true"
       />
 
-      <label>Issuing Organization / Platform *</label>
+      <label htmlFor="cert-organization">Issuing Organization / Platform *</label>
       <select
+        id="cert-organization"
         value={isCustomOrg ? "Custom" : form.organization}
         onChange={(e) => {
           if (e.target.value === "Custom") {
@@ -188,6 +192,8 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
           }
         }}
         required
+        aria-label="Issuing organization or platform"
+        aria-required="true"
       >
         <option value="">Select organization/platform</option>
         <option value="CompTIA">CompTIA</option>
@@ -206,18 +212,23 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
       {isCustomOrg && (
         <input
           type="text"
+          id="cert-organization-custom"
           placeholder="Enter organization/platform name"
           value={form.organization}
           onChange={(e) => setForm({ ...form, organization: e.target.value })}
           required
           style={{ marginTop: "8px" }}
+          aria-label="Custom organization or platform name"
+          aria-required="true"
         />
       )}
 
-      <label>Category</label>
+      <label htmlFor="cert-category">Category</label>
       <select
+        id="cert-category"
         value={form.category}
         onChange={(e) => setForm({ ...form, category: e.target.value })}
+        aria-label="Certification category"
       >
         <option value="">Select category</option>
         <option value="Coding">Coding</option>
@@ -232,24 +243,30 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
         <option value="Data Science">Data Science</option>
       </select>
 
-      <label>Certification Number / ID</label>
+      <label htmlFor="cert-number">Certification Number / ID</label>
       <input
+        id="cert-number"
         value={form.cert_number}
         onChange={(e) => setForm({ ...form, cert_number: e.target.value })}
         placeholder="e.g., ABC123456789"
+        aria-label="Certification number or ID"
       />
 
-      <label>Date Earned *</label>
+      <label htmlFor="cert-date-earned">Date Earned *</label>
       <input
         type="date"
+        id="cert-date-earned"
         value={form.date_earned}
         onChange={(e) => setForm({ ...form, date_earned: e.target.value })}
         required
+        aria-label="Date certification was earned"
+        aria-required="true"
       />
 
       <label>
         <input
           type="checkbox"
+          id="cert-does-not-expire"
           checked={form.does_not_expire}
           onChange={(e) =>
             setForm({
@@ -258,36 +275,41 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
               expiration_date: e.target.checked ? "" : form.expiration_date,
             })
           }
+          aria-label="Certification does not expire"
         />
         Does not expire
       </label>
 
       {!form.does_not_expire && (
         <>
-          <label>Expiration Date</label>
+          <label htmlFor="cert-expiration-date">Expiration Date</label>
           <input
             type="date"
+            id="cert-expiration-date"
             value={form.expiration_date}
             onChange={(e) =>
               setForm({ ...form, expiration_date: e.target.value })
             }
+            aria-label="Certification expiration date"
           />
         </>
       )}
 
-      <label>Verification URL</label>
+      <label htmlFor="cert-verification-url">Verification URL</label>
       <input
         type="url"
+        id="cert-verification-url"
         value={form.verification_url}
         onChange={(e) => setForm({ ...form, verification_url: e.target.value })}
         placeholder="https://verify.example.com/certificate/..."
+        aria-label="Certification verification URL"
       />
       <small style={{ color: "#666", fontSize: "12px" }}>
         Link where employers can verify this certification
       </small>
 
       {/* Certification File Upload (Image or PDF) */}
-      <label>Certification File (Image or PDF)</label>
+      <label htmlFor="cert-file-upload">Certification File (Image or PDF)</label>
       {form.badge_url && (
         <div style={{ marginBottom: "12px" }}>
           {uploadedFileType === "pdf" || form.badge_url.toLowerCase().endsWith(".pdf") ? (
@@ -343,9 +365,11 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
       )}
       <input
         type="file"
+        id="cert-file-upload"
         accept="image/*,.pdf,application/pdf"
         onChange={handleFileUpload}
         disabled={uploadingFile}
+        aria-label="Upload certification file (image or PDF)"
       />
       {uploadingFile && <p style={{ color: "#666", fontSize: "12px" }}>Uploading file...</p>}
       <small style={{ color: "#666", fontSize: "12px", display: "block", marginTop: "4px" }}>
@@ -358,35 +382,41 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
         
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
           <div>
-            <label style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Score</label>
+            <label htmlFor="cert-score" style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Score</label>
             <input
               type="number"
+              id="cert-score"
               value={scores.score}
               onChange={(e) => setScores({ ...scores, score: e.target.value })}
               placeholder="e.g., 95"
               style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #ddd" }}
+              aria-label="Certification score"
             />
           </div>
           <div>
-            <label style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Percentile</label>
+            <label htmlFor="cert-percentile" style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Percentile</label>
             <input
               type="number"
+              id="cert-percentile"
               value={scores.percentile}
               onChange={(e) => setScores({ ...scores, percentile: e.target.value })}
               placeholder="e.g., 87"
               style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #ddd" }}
+              aria-label="Certification percentile"
             />
           </div>
         </div>
         
         <div>
-          <label style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Skills Assessed</label>
+          <label htmlFor="cert-skills-assessed" style={{ fontSize: "13px", display: "block", marginBottom: "4px" }}>Skills Assessed</label>
           <input
             type="text"
+            id="cert-skills-assessed"
             value={scores.skills_assessed}
             onChange={(e) => setScores({ ...scores, skills_assessed: e.target.value })}
             placeholder="e.g., JavaScript, React, Node.js"
             style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #ddd" }}
+            aria-label="Skills assessed by certification"
           />
           <small style={{ color: "#666", fontSize: "12px", display: "block", marginTop: "4px" }}>
             Separate multiple skills with commas
@@ -395,31 +425,37 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
       </div>
 
       {/* Achievements */}
-      <label>Achievements</label>
+      <label htmlFor="cert-achievements">Achievements</label>
       <textarea
+        id="cert-achievements"
         rows="3"
         value={form.achievements}
         onChange={(e) => setForm({ ...form, achievements: e.target.value })}
         placeholder="e.g., Top 10% performer, Solved 500+ problems, etc."
+        aria-label="Certification achievements"
       />
 
       {/* Rich Text Description */}
-      <label>Description</label>
+      <label htmlFor="cert-description">Description</label>
       <textarea
+        id="cert-description"
         rows="5"
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
         placeholder="Describe what this certification validates, what you learned, and how it demonstrates your skills..."
+        aria-label="Certification description"
       />
 
 
-      <label>Renewal Reminder</label>
+      <label htmlFor="cert-renewal-reminder">Renewal Reminder</label>
       <input
         type="date"
+        id="cert-renewal-reminder"
         value={form.renewal_reminder}
         onChange={(e) =>
           setForm({ ...form, renewal_reminder: e.target.value })
         }
+        aria-label="Certification renewal reminder date"
       />
 
       <div className="button-group">

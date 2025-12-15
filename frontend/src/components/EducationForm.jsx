@@ -39,28 +39,39 @@ export default function EducationForm({ token, edu, onSaved, onCancel }) {
     <div className="card-container">
       <h4>{edu ? "Edit Education" : "Add Education"}</h4>
       <form onSubmit={handleSubmit}>
-        <label>Institution *</label>
+        <label htmlFor="edu-institution">Institution *</label>
         <input
+          id="edu-institution"
           value={form.institution}
           onChange={(e) => setForm({ ...form, institution: e.target.value })}
+          aria-label="Educational institution"
+          aria-required="true"
         />
 
-        <label>Degree *</label>
+        <label htmlFor="edu-degree">Degree *</label>
         <input
+          id="edu-degree"
           value={form.degree_type}
           onChange={(e) => setForm({ ...form, degree_type: e.target.value })}
+          aria-label="Degree type"
+          aria-required="true"
         />
 
-        <label>Field of Study *</label>
+        <label htmlFor="edu-field">Field of Study *</label>
         <input
+          id="edu-field"
           value={form.field_of_study}
           onChange={(e) => setForm({ ...form, field_of_study: e.target.value })}
+          aria-label="Field of study"
+          aria-required="true"
         />
 
-        <label>Education Level</label>
+        <label htmlFor="edu-level">Education Level</label>
         <select
+          id="edu-level"
           value={form.education_level}
           onChange={(e) => setForm({ ...form, education_level: e.target.value })}
+          aria-label="Education level"
         >
           <option value="">Select level</option>
           <option>High School</option>
@@ -70,49 +81,59 @@ export default function EducationForm({ token, edu, onSaved, onCancel }) {
           <option>PhD</option>
         </select>
 
-        <label>Graduation Date</label>
+        <label htmlFor="edu-graduation-date">Graduation Date</label>
         <input
           type="date"
+          id="edu-graduation-date"
           value={form.graduation_date || ""}
           onChange={(e) => setForm({ ...form, graduation_date: e.target.value })}
+          aria-label="Graduation date"
         />
 
         <label>
           <input
             type="checkbox"
+            id="edu-currently-enrolled"
             checked={form.currently_enrolled}
             onChange={(e) =>
               setForm({ ...form, currently_enrolled: e.target.checked })
             }
+            aria-label="Currently enrolled"
           />{" "}
           Currently Enrolled
         </label>
 
-        <label>GPA (optional)</label>
+        <label htmlFor="edu-gpa">GPA (optional)</label>
         <input
           type="number"
+          id="edu-gpa"
           step="0.01"
           max="4"
           min="0"
           value={form.gpa || ""}
           onChange={(e) => setForm({ ...form, gpa: e.target.value })}
+          aria-label="Grade point average"
         />
 
         <label>
           <input
             type="checkbox"
+            id="edu-gpa-private"
             checked={form.gpa_private}
             onChange={(e) =>
               setForm({ ...form, gpa_private: e.target.checked })
             }
+            aria-label="Hide GPA from public view"
           />{" "}
           Hide GPA (private)
         </label>
 
-        <label>Honors / Achievements</label>
+        <label htmlFor="edu-honors">Honors / Achievements</label>
         <textarea
+          id="edu-honors"
           value={form.honors}
           onChange={(e) => setForm({ ...form, honors: e.target.value })}
+          aria-label="Honors and achievements"
         />
 
         <div className="button-group">

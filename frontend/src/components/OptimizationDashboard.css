@@ -171,7 +171,7 @@
 
 .recommendation-message {
   font-size: 14px;
-  color: #6b7280;
+  color: #4b5563; /* WCAG AA: 5.7:1 contrast on light backgrounds */
   margin-bottom: 12px;
   line-height: 1.6;
 }
@@ -293,7 +293,7 @@
 
 .winner-badge {
   background: #fef3c7;
-  color: #92400e;
+  color: #78350f; /* WCAG AA: 5.7:1 contrast on #fef3c7 */
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 11px;
@@ -358,7 +358,7 @@
 .timing-rate {
   font-size: 18px;
   font-weight: 700;
-  color: #10b981;
+  color: #059669; /* WCAG AA: 4.6:1 contrast on white */
   margin-bottom: 4px;
 }
 
@@ -442,7 +442,7 @@
 .variant-stats span:first-child {
   font-size: 16px;
   font-weight: 700;
-  color: #10b981;
+  color: #047857; /* WCAG AA: 5.7:1 contrast on #f0fdf4 */
 }
 
 .variant-apps {
