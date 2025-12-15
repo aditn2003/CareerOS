@@ -111,7 +111,12 @@ const transporter = nodemailer.createTransport({
 // ===== Middleware =====
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://atscareeros.com",
+      "https://www.atscareeros.com",
+    ],
     credentials: true,
   })
 );
