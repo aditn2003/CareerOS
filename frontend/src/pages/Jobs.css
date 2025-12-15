@@ -2,60 +2,17 @@
 .jobs-layout {
   display: flex;
   flex-direction: column;
-  padding: 2rem 4rem;
-  max-width: 1920px;
+  padding: 32px 24px;
+  max-width: 1500px;
   margin: 0 auto;
   overflow-x: hidden;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: transparent;
   min-height: 100vh;
 }
 
-/* ===== Tab Navigation ===== */
-.jobs-tabs-container {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  border-bottom: 2px solid rgba(102, 126, 234, 0.2);
-  padding-bottom: 0.5rem;
-}
-
-.jobs-tab {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1.5rem;
-  background: transparent;
-  border: none;
-  border-bottom: 3px solid transparent;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #6b7280;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  margin-bottom: -0.5rem;
-}
-
-.jobs-tab:hover {
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.05);
-  border-radius: 8px 8px 0 0;
-}
-
-.jobs-tab.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
-}
-
-.jobs-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-}
+/* ===== Tab Navigation - Now using Statistics Page Style ===== */
+/* Tab styles are imported from StatisticsLayout.css */
 
 /* ===== Follow-Ups Tab Content ===== */
 .jobs-followups-tab {
@@ -204,12 +161,7 @@
 /* ===== Responsive Adjustments ===== */
 @media (max-width: 1100px) {
   .jobs-layout {
-    padding: 1.5rem;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  }
-
-  .jobs-tabs-container {
-    flex-wrap: wrap;
+    padding: 16px;
   }
 
   .sidebar-widget {

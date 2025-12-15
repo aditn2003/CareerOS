@@ -1,7 +1,7 @@
 // src/pages/Jobs.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket } from "react-icons/fa";
+import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale } from "react-icons/fa";
 import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
@@ -9,8 +9,10 @@ import JobsCalendar from "../components/JobsCalendar";
 import StatisticsDashboard from "../components/stats";
 import FollowUpReminders from "../components/FollowUpReminders";
 import OptimizationDashboard from "../components/OptimizationDashboard";
+import OfferComparison from "../components/OfferComparison";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
+import "./StatisticsLayout.css";
 
 export default function Jobs() {
   const { token } = useAuth();
@@ -18,7 +20,7 @@ export default function Jobs() {
 
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const [activeTab, setActiveTab] = useState("pipeline"); // 'pipeline', 'followups', or 'optimization'
+  const [activeTab, setActiveTab] = useState("pipeline"); // 'pipeline', 'followups', 'optimization', or 'comparison'
 
   const handleApply = (jobId) => {
     if (!jobId) return;
@@ -32,29 +34,41 @@ export default function Jobs() {
 
   return (
     <div className="jobs-layout">
-      {/* Tab Navigation */}
-      <div className="jobs-tabs-container">
-        <button
-          className={`jobs-tab ${activeTab === "pipeline" ? "active" : ""}`}
-          onClick={() => setActiveTab("pipeline")}
-        >
-          <FaBriefcase style={{ marginRight: "0.5rem" }} />
-          Pipeline
-        </button>
-        <button
-          className={`jobs-tab ${activeTab === "followups" ? "active" : ""}`}
-          onClick={() => setActiveTab("followups")}
-        >
-          <FaBell style={{ marginRight: "0.5rem" }} />
-          Follow-Ups
-        </button>
-        <button
-          className={`jobs-tab ${activeTab === "optimization" ? "active" : ""}`}
-          onClick={() => setActiveTab("optimization")}
-        >
-          <FaRocket style={{ marginRight: "0.5rem" }} />
-          Optimization
-        </button>
+      {/* Tab Navigation - Matching Statistics Page Style */}
+      <div className="statistics-nav-container">
+        <div className="statistics-nav-group">
+          <span className="statistics-nav-group-label">Jobs</span>
+          <div className="statistics-nav-group-tabs">
+            <button
+              className={`statistics-nav-tab analytics ${activeTab === "pipeline" ? "active" : ""}`}
+              onClick={() => setActiveTab("pipeline")}
+            >
+              <span className="statistics-tab-icon">💼</span>
+              <span className="statistics-tab-text">Pipeline</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${activeTab === "followups" ? "active" : ""}`}
+              onClick={() => setActiveTab("followups")}
+            >
+              <span className="statistics-tab-icon">🔔</span>
+              <span className="statistics-tab-text">Follow-Ups</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${activeTab === "optimization" ? "active" : ""}`}
+              onClick={() => setActiveTab("optimization")}
+            >
+              <span className="statistics-tab-icon">🚀</span>
+              <span className="statistics-tab-text">Optimization</span>
+            </button>
+            <button
+              className={`statistics-nav-tab compensation ${activeTab === "comparison" ? "active" : ""}`}
+              onClick={() => setActiveTab("comparison")}
+            >
+              <span className="statistics-tab-icon">⚖️</span>
+              <span className="statistics-tab-text">Offer Comparison</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -122,6 +136,12 @@ export default function Jobs() {
       {activeTab === "optimization" && (
         <div className="jobs-optimization-tab">
           <OptimizationDashboard />
+        </div>
+      )}
+
+      {activeTab === "comparison" && (
+        <div className="jobs-comparison-tab">
+          <OfferComparison />
         </div>
       )}
     </div>
