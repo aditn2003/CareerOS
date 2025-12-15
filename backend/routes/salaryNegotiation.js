@@ -2,6 +2,7 @@
 import express from "express";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 // Factory function for dependency injection (for testing)
 function createSalaryNegotiationRoutes(supabaseClient = null, openaiApiKey = null) {
@@ -59,7 +60,8 @@ function createSalaryNegotiationRoutes(supabaseClient = null, openaiApiKey = nul
   experienceYears,
   currentSalary,
   offerAmount,
-  marketData
+  marketData,
+  userId = null
 ) {
   const prompt = `
 You are generating a HIGHLY PERSONALIZED salary negotiation package for a job candidate.
@@ -247,22 +249,32 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert salary negotiation coach who provides HIGHLY PERSONALIZED, company-specific, role-specific, and location-specific advice. You avoid generic advice and always tailor recommendations to the specific situation."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          max_tokens: 3000
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert salary negotiation coach who provides HIGHLY PERSONALIZED, company-specific, role-specific, and location-specific advice. You avoid generic advice and always tailor recommendations to the specific situation."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 3000
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_strategy', company, role },
+        estimateCost: 0.003
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -314,7 +326,8 @@ Return ONLY valid JSON.
       experienceYears || 0,
       currentSalary,
       offerAmount,
-      marketData
+      marketData,
+      userIdInt
     );
 
     if (!packageData) {

@@ -21,6 +21,7 @@ import {
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
   FaUsers, // ✅ Icon for Network
+  FaServer, // ✅ Icon for API Monitoring
   FaBars,
   FaTimes,
   FaExternalLinkAlt,
@@ -43,6 +44,9 @@ export default function NavBar() {
     teamState?.isMentor ||
     teamState?.isCandidate ||
     (teamState?.primaryTeam && teamState?.primaryTeam?.status);
+
+  // Show Admin section only to mentor/admin users
+  const showAdminSection = teamState?.isMentor || teamState?.isAdmin;
 
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
@@ -95,6 +99,17 @@ export default function NavBar() {
           ],
           isAccount: true,
         },
+        // Admin section - only show to mentor/admin users
+        ...(showAdminSection
+          ? [
+              {
+                title: "Admin",
+                links: [
+                  { to: "/admin/api-monitoring", label: "API Monitoring", icon: FaServer },
+                ],
+              },
+            ]
+          : []),
       ]
     : [
         {

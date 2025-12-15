@@ -78,6 +78,8 @@ import materialComparisonRoutes from "./routes/materialComparison.js";
 
 import referencesRoutes from "./routes/references.js";
 import geocodingRoutes from "./routes/geocoding.js";
+import apiMonitoringRoutes from "./routes/apiMonitoring.js";
+import testTrackingRoutes from "./routes/testApiTracking.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -588,6 +590,8 @@ app.use("/api/material-comparison", materialComparisonRoutes);
 
 app.use("/api/team", teamRoutes);
 app.use("/api", jobImportRoutes);
+app.use("/api/admin", apiMonitoringRoutes); // UC-117: API Monitoring Dashboard
+app.use("/api/test", testTrackingRoutes); // Test endpoint for API tracking
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
@@ -625,7 +629,7 @@ crons.schedule("0 9 * * *", async () => {
   try {
     // Fetch all jobs due in the next 3 days for all users
     const result = await pool.query(`
-      SELECT j.id, j.title, j.deadline, u.email, u.first_name
+      SELECT j.id, j.title, j.deadline, j.user_id, u.email, u.first_name
       FROM jobs j
       JOIN users u ON u.id = j.user_id
       WHERE j.deadline BETWEEN NOW() AND NOW() + INTERVAL '3 days'
@@ -663,6 +667,8 @@ crons.schedule("0 9 * * *", async () => {
         </div>
       `;
 
+      // Note: Using nodemailer instead of Resend for this cron job
+      // Tracking would need to be added if we switch to Resend
       await transporter.sendMail({
         from: "ATS for Candidates <njit_job_alerts@aditnuwal.com>",
         to: job.email,
@@ -690,6 +696,7 @@ async function sendDeadlineReminders() {
         j.id,
         j.title,
         j.deadline,
+        j.user_id,
         u.email,
         u.first_name
       FROM jobs j
@@ -743,12 +750,53 @@ async function sendDeadlineReminders() {
         </div>
       `;
 
+      const startTime = Date.now();
       const { data, error } = await resend.emails.send({
         from: `ATS for Candidates <${process.env.EMAIL_FROM}>`,
         to: job.email,
         subject,
         html,
       });
+      const responseTimeMs = Date.now() - startTime;
+
+      // Track API usage (userId is job.user_id from the query)
+      try {
+        const { logApiUsage, logApiError } = await import("./utils/apiTrackingService.js");
+        if (error) {
+          await logApiError({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            userId: job.user_id || null,
+            errorType: 'api_error',
+            errorMessage: error.message || 'Email send failed',
+            statusCode: error.statusCode || 500,
+            requestPayload: { from: process.env.EMAIL_FROM, to: job.email, purpose: 'deadline_reminder' }
+          });
+          await logApiUsage({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            method: 'POST',
+            userId: job.user_id || null,
+            requestPayload: { to: job.email, purpose: 'deadline_reminder' },
+            responseStatus: error.statusCode || 500,
+            responseTimeMs,
+            success: false
+          });
+        } else {
+          await logApiUsage({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            method: 'POST',
+            userId: job.user_id || null,
+            requestPayload: { to: job.email, purpose: 'deadline_reminder' },
+            responseStatus: 200,
+            responseTimeMs,
+            success: true
+          });
+        }
+      } catch (trackErr) {
+        console.warn("Failed to track Resend API call:", trackErr);
+      }
 
       if (error) {
         console.error(

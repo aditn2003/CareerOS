@@ -45,7 +45,8 @@ async function syncUserRepositories(userId, settings) {
     // Fetch repositories from GitHub
     const repositories = await githubService.fetchUserRepositories(
       github_username,
-      decryptedToken || null
+      decryptedToken || null,
+      userId
     );
 
     // Filter private repositories based on user preference
@@ -75,7 +76,8 @@ async function syncUserRepositories(userId, settings) {
           repoDetails = await githubService.fetchRepositoryDetails(
             github_username,
             repo.name,
-            decryptedToken || null
+            decryptedToken || null,
+            userId
           );
         } catch (detailError) {
           // If we can't get details (403, 404, etc.), use basic repo info
@@ -190,7 +192,8 @@ async function syncUserRepositories(userId, settings) {
               github_username,
               repo.name,
               decryptedToken || null,
-              365 // Last 365 days
+              365, // Last 365 days
+              userId
             );
             
             console.log(`📊 Received ${contributions?.length || 0} contribution records for ${repo.name}`);

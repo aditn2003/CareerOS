@@ -4,6 +4,7 @@ import { auth } from "../auth.js";
 import pkg from "pg";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 const { Pool } = pkg;
@@ -195,7 +196,7 @@ async function saveToCache(jobTitle, location, level, salaryData, dataSource = "
 
 // Use OpenAI to fetch realistic salary data based on job market knowledge
 // Returns null if OpenAI unavailable, causing fallback to computed estimates
-async function fetchBLSData(jobTitle, location, level) {
+async function fetchBLSData(jobTitle, location, level, userId = null) {
   try {
     // Use OpenAI to generate realistic salary data based on market knowledge
     if (process.env.OPENAI_API_KEY && openai) {
@@ -228,12 +229,22 @@ Requirements:
 
 Return ONLY the JSON, no other text.`;
 
-        const aiResponse = await openai.chat.completions.create({
-          model: "gpt-4o-mini", // Using gpt-4o-mini for cost efficiency
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.3, // Lower temperature for more consistent, factual data
-          max_tokens: 300,
-        });
+        const aiResponse = await trackApiCall(
+          'openai',
+          () => openai.chat.completions.create({
+            model: "gpt-4o-mini", // Using gpt-4o-mini for cost efficiency
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.3, // Lower temperature for more consistent, factual data
+            max_tokens: 300,
+          }),
+          {
+            endpoint: '/v1/chat/completions',
+            method: 'POST',
+            userId,
+            requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_research', jobTitle, location, level },
+            estimateCost: 0.0005
+          }
+        );
 
         const responseText = aiResponse.choices[0]?.message?.content?.trim() || "";
         
@@ -400,7 +411,7 @@ router.get("/:jobId", auth, async (req, res) => {
     // 4. If not cached, fetch from external APIs or compute
     if (!range) {
       // Try external APIs first (Adzuna, BLS, etc.)
-      const externalData = await fetchBLSData(title, location, level);
+      const externalData = await fetchBLSData(title, location, level, userId);
       
       if (externalData) {
         range = externalData;
@@ -476,10 +487,20 @@ Average market salary: ${range.avg}
 
 Based on current market data, give 5 concise bullet-point salary negotiation recommendations.
 `;
-    const aiRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-    });
+    const aiRes = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_recommendations', jobTitle: title, company, location },
+        estimateCost: 0.0005
+      }
+    );
     const recommendations =
       aiRes.choices[0]?.message?.content || "No recommendations available.";
 
@@ -595,7 +616,7 @@ router.get("/benchmark/:jobId", auth, async (req, res) => {
     if (!range) {
       // Compute if not cached - try external APIs first
       const companySize = inferCompanySize(job.company);
-      const externalData = await fetchBLSData(title, location, level);
+      const externalData = await fetchBLSData(title, location, level, userId);
       
       if (externalData) {
         range = externalData;

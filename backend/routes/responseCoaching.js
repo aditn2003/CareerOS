@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ const supabase = createClient(
 /* -------------------------
    Helper: Analyze Response with OpenAI
 ------------------------- */
-async function analyzeResponseWithAI(questionText, responseText, questionCategory) {
+async function analyzeResponseWithAI(questionText, responseText, questionCategory, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackAnalysis(responseText);
   }
@@ -117,21 +118,31 @@ Be constructive and actionable in all feedback.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert interview coach providing detailed, actionable feedback on interview responses."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert interview coach providing detailed, actionable feedback on interview responses."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'response_coaching_analysis', category: questionCategory },
+        estimateCost: 0.001
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -248,7 +259,7 @@ router.post("/analyze", async (req, res) => {
     console.log(`🤖 Analyzing response for question ${questionId}...`);
 
     // Get AI analysis
-    const analysis = await analyzeResponseWithAI(questionText, responseText, questionCategory);
+    const analysis = await analyzeResponseWithAI(questionText, responseText, questionCategory, userIdInt);
 
     // Round scores to integers (database expects INT4)
     const roundedOverallScore = Math.round(analysis.scores.overall_score);

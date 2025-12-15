@@ -3,6 +3,7 @@ import express from "express";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
 import { syncToGoogleCalendar, sendInterviewConfirmation } from "../utils/schedulingHelpers.js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 // Factory function for dependency injection (for testing)
 function createInterviewAnalyticsRoutes(supabaseClient = null, openaiApiKey = null) {
@@ -99,22 +100,32 @@ Generate a JSON response with this EXACT structure:
 Be specific, data-driven, and actionable. Reference actual numbers from their data.
 Return ONLY valid JSON, no markdown formatting.`;
 
-    const { data } = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert interview coach who provides specific, data-driven insights and recommendations.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          max_tokens: 1500
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert interview coach who provides specific, data-driven insights and recommendations.'
-          },
-          { role: 'user', content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 1500
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'interview_analytics_insights' },
+        estimateCost: 0.002
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -522,7 +533,7 @@ Return ONLY valid JSON, no markdown formatting.`;
       improvementRate
     };
 
-    const aiInsights = await generateInsights(analyticsForAI, userId);
+    const aiInsights = await generateInsights(analyticsForAI, userIdInt);
 
     // === Compile final response ===
     const response = {
