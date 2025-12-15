@@ -43,6 +43,7 @@ import DocsManagement from "./pages/DocsManagement";
 import ApiMonitoringDashboard from "./pages/Admin/ApiMonitoringDashboard"; // UC-117: API Monitoring Dashboard
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
+import FollowUpReminders from "./components/FollowUpReminders"; // UC-118: Smart Follow-Up Reminder System
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -196,6 +197,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <StatisticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
+          <Route
+            path="/followup-reminders"
+            element={
+              <ProtectedRoute>
+                <FollowUpReminders />
               </ProtectedRoute>
             }
           />

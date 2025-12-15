@@ -1,17 +1,62 @@
 /* ===== Base Layout ===== */
 .jobs-layout {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 2.5rem;
-  padding: 2rem 4rem;
-  max-width: 1920px;
+  flex-direction: column;
+  padding: 32px 24px;
+  max-width: 1500px;
   margin: 0 auto;
   overflow-x: hidden;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: transparent;
   min-height: 100vh;
+}
+
+/* ===== Tab Navigation - Now using Statistics Page Style ===== */
+/* Tab styles are imported from StatisticsLayout.css */
+
+/* ===== Follow-Ups Tab Content ===== */
+.jobs-followups-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-followups-tab .followup-reminders-container {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+.jobs-optimization-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-optimization-tab .optimization-dashboard {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+.jobs-comparison-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-comparison-tab .offer-comparison {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+.jobs-growth-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-growth-tab .career-growth-calculator {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
 }
 
 /* ===== Main Column ===== */
@@ -185,9 +230,7 @@
 /* ===== Responsive Adjustments ===== */
 @media (max-width: 1100px) {
   .jobs-layout {
-    flex-direction: column;
-    padding: 1.5rem;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    padding: 16px;
   }
 
   .sidebar-widget {

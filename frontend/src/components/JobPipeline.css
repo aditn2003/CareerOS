@@ -199,6 +199,49 @@
   width: 5px;
 }
 
+/* Referral Job Highlighting - Bright Border */
+.job-card.referral-job {
+  border: 3px solid #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2),
+              0 8px 25px rgba(16, 185, 129, 0.15),
+              0 4px 12px rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  position: relative;
+}
+
+.job-card.referral-job::after {
+  content: '🎯 Referral';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.job-card.referral-job:hover {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3),
+              0 12px 35px rgba(16, 185, 129, 0.2),
+              0 6px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px) translateX(4px);
+  background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+}
+
+.job-card.referral-job.selected {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.4),
+              0 12px 35px rgba(16, 185, 129, 0.25),
+              inset 0 0 0 1px rgba(16, 185, 129, 0.15);
+  background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%);
+}
+
 .job-info {
   flex: 1;
   min-width: 0;
