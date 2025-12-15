@@ -6,11 +6,13 @@ import dotenv from "dotenv";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// In test mode, use shared pool to ensure transaction isolation works
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 // 🟢 Ensure uploads directory exists

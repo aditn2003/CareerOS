@@ -332,9 +332,9 @@ app.post("/linkedin-login", async (req, res) => {
 
         // Create profile for new user
         await pool.query(
-          `INSERT INTO profiles (user_id, first_name, last_name, profile_picture, linkedin_picture_url, created_at) 
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [user.id, first_name, last_name, profile_pic_url, profile_pic_url]
+          `INSERT INTO profiles (user_id, full_name, picture_url, linkedin_picture_url, created_at) 
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [user.id, `${first_name} ${last_name}`, profile_pic_url, profile_pic_url]
         );
       }
     } else {
@@ -508,6 +508,9 @@ app.post("/delete", auth, async (req, res) => {
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Export client for testing
+export { client as googleOAuthClient };
+
 app.post("/google", async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -530,9 +533,12 @@ app.post("/google", async (req, res) => {
       email,
     ]);
     if (result.rows.length === 0) {
+      // Create a random password hash for OAuth users (they won't use password login)
+      const randomPassword = Math.random().toString(36) + Date.now().toString(36);
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
-        [email, firstName, lastName]
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'google','candidate') RETURNING id",
+        [email, passwordHash, firstName, lastName]
       );
     }
 
@@ -936,4 +942,4 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 // Export for tests
-export { app, pool };
+export { app, pool, resetCodes };

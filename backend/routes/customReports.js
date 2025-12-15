@@ -50,7 +50,7 @@ const REPORT_TEMPLATES = {
 // ------------------------------
 async function fetchFilteredJobs(userId, filters) {
   // Exclude archived jobs
-  let query = `SELECT * FROM jobs WHERE user_id = $1 AND ("isarchived" = false OR "isarchived" IS NULL)`;
+  let query = `SELECT * FROM jobs WHERE user_id = $1 AND (COALESCE("isArchived", false) = false)`;
   const params = [userId];
   let paramIndex = 2;
 
@@ -908,7 +908,7 @@ router.post("/generate", auth, async (req, res) => {
       const allJobsRes = await pool.query(
         `SELECT * FROM jobs 
          WHERE user_id = $1 
-           AND ("isarchived" = false OR "isarchived" IS NULL)
+           AND COALESCE("isArchived", false) = false
          ORDER BY created_at DESC`,
         [userId]
       );
@@ -1276,7 +1276,7 @@ router.get("/filter-options", auth, async (req, res) => {
       `SELECT DISTINCT company 
        FROM jobs 
        WHERE user_id = $1 
-         AND ("isarchived" = false OR "isarchived" IS NULL)
+         AND COALESCE("isArchived", false) = false
          AND company IS NOT NULL 
          AND company != ''
        ORDER BY company`,
@@ -1288,7 +1288,7 @@ router.get("/filter-options", auth, async (req, res) => {
       `SELECT DISTINCT industry 
        FROM jobs 
        WHERE user_id = $1 
-         AND ("isarchived" = false OR "isarchived" IS NULL)
+         AND COALESCE("isArchived", false) = false
          AND industry IS NOT NULL 
          AND industry != ''
        ORDER BY industry`,
@@ -1300,7 +1300,7 @@ router.get("/filter-options", auth, async (req, res) => {
       `SELECT DISTINCT title 
        FROM jobs 
        WHERE user_id = $1 
-         AND ("isarchived" = false OR "isarchived" IS NULL)
+         AND COALESCE("isArchived", false) = false
          AND title IS NOT NULL 
          AND title != ''
        ORDER BY title`,
@@ -1312,7 +1312,7 @@ router.get("/filter-options", auth, async (req, res) => {
       `SELECT MIN(created_at) as min_date, MAX(created_at) as max_date 
        FROM jobs 
        WHERE user_id = $1 
-         AND ("isarchived" = false OR "isarchived" IS NULL)`,
+         AND COALESCE("isArchived", false) = false`,
       [userId]
     );
 
