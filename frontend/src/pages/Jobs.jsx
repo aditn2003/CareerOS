@@ -1,7 +1,7 @@
 // src/pages/Jobs.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale } from "react-icons/fa";
+import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale, FaChartBar } from "react-icons/fa";
 import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
@@ -10,6 +10,7 @@ import StatisticsDashboard from "../components/stats";
 import FollowUpReminders from "../components/FollowUpReminders";
 import OptimizationDashboard from "../components/OptimizationDashboard";
 import OfferComparison from "../components/OfferComparison";
+import CareerGrowthCalculator from "../components/CareerGrowthCalculator";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 import "./StatisticsLayout.css";
@@ -20,7 +21,7 @@ export default function Jobs() {
 
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const [activeTab, setActiveTab] = useState("pipeline"); // 'pipeline', 'followups', 'optimization', or 'comparison'
+  const [activeTab, setActiveTab] = useState("pipeline"); // 'pipeline', 'followups', 'optimization', 'comparison', or 'growth'
 
   const handleApply = (jobId) => {
     if (!jobId) return;
@@ -66,6 +67,13 @@ export default function Jobs() {
             >
               <span className="statistics-tab-icon">⚖️</span>
               <span className="statistics-tab-text">Offer Comparison</span>
+            </button>
+            <button
+              className={`statistics-nav-tab career ${activeTab === "growth" ? "active" : ""}`}
+              onClick={() => setActiveTab("growth")}
+            >
+              <span className="statistics-tab-icon">📈</span>
+              <span className="statistics-tab-text">Career Growth</span>
             </button>
           </div>
         </div>
@@ -142,6 +150,12 @@ export default function Jobs() {
       {activeTab === "comparison" && (
         <div className="jobs-comparison-tab">
           <OfferComparison />
+        </div>
+      )}
+
+      {activeTab === "growth" && (
+        <div className="jobs-growth-tab">
+          <CareerGrowthCalculator />
         </div>
       )}
     </div>

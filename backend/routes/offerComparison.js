@@ -886,6 +886,56 @@ router.put('/:id/financial', async (req, res) => {
   }
 });
 
+// PUT update career milestones and notes
+router.put('/:id/career', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { milestones, notes } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (milestones !== undefined) {
+      updates.push(`career_milestones = $${paramIndex}`);
+      values.push(JSON.stringify(milestones));
+      paramIndex++;
+    }
+
+    if (notes !== undefined) {
+      updates.push(`career_notes = $${paramIndex}`);
+      values.push(notes);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(id, userId);
+
+    const query = `
+      UPDATE offers
+      SET ${updates.join(', ')}
+      WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1}
+      RETURNING *
+    `;
+
+    const { rows } = await pool.query(query, values);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Offer not found' });
+    }
+
+    res.json({ message: 'Career data updated successfully', offer: rows[0] });
+  } catch (err) {
+    console.error('Error updating career data:', err);
+    res.status(500).json({ error: 'Failed to update career data' });
+  }
+});
+
 export default router;
 
 

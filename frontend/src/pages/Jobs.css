@@ -37,6 +37,28 @@
   max-width: 100%;
 }
 
+.jobs-comparison-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-comparison-tab .offer-comparison {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
+.jobs-growth-tab {
+  width: 100%;
+  flex: 1;
+}
+
+.jobs-growth-tab .career-growth-calculator {
+  background: transparent;
+  padding: 0;
+  max-width: 100%;
+}
+
 /* ===== Main Column ===== */
 .jobs-main {
   flex: 3;
