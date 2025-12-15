@@ -1,7 +1,10 @@
 // src/components/NavBar.jsx
-import React from "react";
+import React, { useState } from "react";
 import "./navbar.css";
 import Logo from "./Logo";
+import DecryptedText from "./DecryptedText";
+import LightPillar from "./LightPillar";
+import ElectricBorder from "./ElectricBorder";
 import {
   FaHome,
   FaUser,
@@ -18,8 +21,12 @@ import {
   FaCalendarAlt, // ✅ Icon for Networking Events
   FaUserGraduate, // ✅ Icon for Mentor
   FaUsers, // ✅ Icon for Network
+  FaServer, // ✅ Icon for API Monitoring
+  FaBars,
+  FaTimes,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useTeam } from "../contexts/TeamContext";
 
@@ -27,6 +34,8 @@ export default function NavBar() {
   const { authed, logout } = useAuth();
   const { teamState } = useTeam() || {};
   const navigate = useNavigate();
+  const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Show Mentor button to anyone who has a team (admin, mentor, or candidate)
   // or if they're a candidate/member waiting to be part of a team
@@ -36,116 +45,192 @@ export default function NavBar() {
     teamState?.isCandidate ||
     (teamState?.primaryTeam && teamState?.primaryTeam?.status);
 
+  // Show Admin section only to mentor/admin users
+  const showAdminSection = teamState?.isMentor || teamState?.isAdmin;
+
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
     logout(); // Removes token + clears auth context
     window.location.replace("/login"); // Prevents back button access
   };
 
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+  const closeMenu = () => {
+    setIsMenuOpen(false);
+  };
+
+  // Navigation sections for overlay menu
+  const navSections = authed
+    ? [
+        {
+          title: "Documents",
+          links: [
+            { to: "/resume", label: "Resume", icon: FaFileAlt },
+            { to: "/cover-letter", label: "Cover Letter", icon: FaEnvelope },
+            { to: "/docs-management", label: "Doc Management", icon: FaFileAlt },
+          ],
+        },
+        {
+          title: "Job Search",
+          links: [
+            { to: "/jobs", label: "Jobs", icon: FaBriefcase },
+            { to: "/job-match", label: "Job Match", icon: FaStar },
+          ],
+        },
+        {
+          title: "Growth",
+          links: [
+            { to: "/interviews", label: "Interviews", icon: FaComments },
+            ...(showMentorButton
+              ? [{ to: "/mentor", label: "Mentor", icon: FaUserGraduate }]
+              : []),
+            { to: "/network", label: "Network", icon: FaUsers },
+            { to: "/statistics", label: "Statistics", icon: FaChartBar },
+          ],
+        },
+        {
+          title: "Account",
+          links: [
+            { to: "/profile/info", label: "Profile", icon: FaUser },
+            { to: "/", label: "Home", icon: FaHome },
+          ],
+          isAccount: true,
+        },
+        // Admin section - only show to mentor/admin users
+        ...(showAdminSection
+          ? [
+              {
+                title: "Admin",
+                links: [
+                  { to: "/admin/api-monitoring", label: "API Monitoring", icon: FaServer },
+                ],
+              },
+            ]
+          : []),
+      ]
+    : [
+        {
+          title: "Get Started",
+          links: [
+            { to: "/login", label: "Login", icon: FaSignInAlt },
+            { to: "/register", label: "Register", icon: FaUserPlus },
+          ],
+        },
+      ];
+
   return (
-    <header className="navbar">
-      {/* Logo */}
-      <div className="navbar-logo" onClick={() => navigate("/")}>
-        <Logo size={80} />
-      </div>
+    <div className="navbar-wrapper">
+      <header className={`navbar ${isMenuOpen ? 'navbar-expanded' : ''}`}>
+        {/* Light Pillar Background - memoized to prevent re-renders */}
+        <div className="navbar-light-pillar">
+          <LightPillar
+            key="navbar-light-pillar" // Stable key prevents re-mounting
+            topColor="#7c3aed"
+            bottomColor="#a78bfa"
+            intensity={0.8}
+            rotationSpeed={0.2}
+            glowAmount={0.003}
+            pillarWidth={2.8}
+            pillarHeight={0.45}
+            noiseIntensity={0.3}
+            mixBlendMode="normal"
+            pillarRotation={45}
+          />
+        </div>
+        {/* Logo */}
+        <div className="navbar-logo" onClick={() => navigate("/")}>
+          <Logo size={80} />
+        </div>
 
-      <div className="navbar-title-container">
-        <h1 className="navbar-title">CareerOS</h1>
-        <p className="navbar-subtitle">Your Career Operating System</p>
-      </div>
+        <div className="navbar-title-container">
+          <h1 className="navbar-title">
+            <DecryptedText
+              text="CareerOS"
+              animateOn="view"
+              revealDirection="center"
+              speed={80}
+              maxIterations={15}
+              sequential={true}
+            />
+          </h1>
+          <p className="navbar-subtitle">
+            <DecryptedText
+              text="YOUR CAREER OPERATING SYSTEM"
+              animateOn="view"
+              revealDirection="start"
+              speed={60}
+              maxIterations={12}
+              sequential={true}
+              delay={800}
+            />
+          </p>
+        </div>
 
-      {/* Nav Links */}
-      <nav className="navbar-right">
-        <NavLink to="/" end>
-          <FaHome /> Home
-        </NavLink>
+        {/* Menu Toggle Button */}
+        <button className="navbar-menu-toggle" onClick={toggleMenu} aria-label="Toggle menu">
+          {isMenuOpen ? <FaTimes /> : <FaBars />}
+        </button>
 
-        {authed ? (
-          <>
-            {/* ═══════════════════════════════════════════
-                DOCUMENTS - Build Your Profile
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/resume">
-              <FaFileAlt /> Resume
-            </NavLink>
-
-            <NavLink to="/cover-letter">
-              <FaEnvelope /> Cover Letter
-            </NavLink>
-
-            {/* ═══════════════════════════════════════════
-                JOB SEARCH - Find & Match
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/jobs">
-              <FaBriefcase /> Jobs
-            </NavLink>
-
-            <NavLink to="/job-match">
-              <FaStar /> Job Match
-            </NavLink>
-
-            <NavLink to="/docs-management">
-              <FaFileAlt /> Doc Management
-            </NavLink>
-
-           
-
-           
-
-            {/* 🗨️ INTERVIEWS (includes Company Research & Salary Research) */}
-            <NavLink to="/interviews">
-              <FaComments /> Interviews
-            </NavLink>
-
-            {/* 👨‍🏫 Mentor */}
-            {/* ═══════════════════════════════════════════
-                GROWTH - Network & Learn
-            ═══════════════════════════════════════════ */}
-
-            {showMentorButton && (
-              <NavLink to="/mentor">
-                <FaUserGraduate /> Mentor
-              </NavLink>
-            )}
-
-            {/* ═══════════════════════════════════════════
-                INSIGHTS - Track Progress
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/statistics">
-              <FaChartBar /> Statistics
-            </NavLink>
-
-            {/* 🌐 Network & Relationships (Professional Network + Referrals + Networking Events) */}
-            <NavLink to="/network">
-              <FaUsers /> Network
-            </NavLink>
-
-         
-           
-
-            {/* ═══════════════════════════════════════════
-                ACCOUNT
-            ═══════════════════════════════════════════ */}
-            <NavLink to="/profile/info">
-              <FaUser /> Profile
-            </NavLink>
-
-            <button onClick={handleLogout} className="logout-btn">
-              <FaSignOutAlt /> Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <NavLink to="/login">
-              <FaSignInAlt /> Login
-            </NavLink>
-
-            <NavLink to="/register">
-              <FaUserPlus /> Register
-            </NavLink>
-          </>
+        {/* Expandable Menu Inside Navbar */}
+        {isMenuOpen && (
+          <div className="navbar-menu-content">
+            {/* Navigation Cards */}
+            <div className="navbar-overlay-cards">
+              {navSections.map((section, index) => (
+                <ElectricBorder
+                  key={index}
+                  color="#a78bfa"
+                  speed={1}
+                  chaos={0.5}
+                  thickness={2}
+                  style={{ borderRadius: 14 }}
+                >
+                  <div className="navbar-overlay-card">
+                    <h2 className="navbar-overlay-card-title">{section.title}</h2>
+                    <ul className="navbar-overlay-card-links">
+                      {section.links.map((link, linkIndex) => {
+                        const Icon = link.icon;
+                        return (
+                          <li key={linkIndex}>
+                            <NavLink
+                              to={link.to}
+                              onClick={closeMenu}
+                              className={({ isActive }) => 
+                                `navbar-overlay-link ${isActive ? 'active' : ''}`
+                              }
+                              end={link.to === '/'}
+                            >
+                              <span>{link.label}</span>
+                              <FaExternalLinkAlt className="navbar-overlay-link-icon" />
+                            </NavLink>
+                          </li>
+                        );
+                      })}
+                      {section.isAccount && (
+                        <li>
+                          <button
+                            onClick={() => {
+                              closeMenu();
+                              handleLogout();
+                            }}
+                            className="navbar-overlay-link navbar-overlay-logout"
+                          >
+                            <span>Logout</span>
+                            <FaExternalLinkAlt className="navbar-overlay-link-icon" />
+                          </button>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </ElectricBorder>
+              ))}
+            </div>
+          </div>
         )}
-      </nav>
-    </header>
+      </header>
+    </div>
   );
 }

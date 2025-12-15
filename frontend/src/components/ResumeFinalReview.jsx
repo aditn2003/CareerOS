@@ -261,7 +261,7 @@ export default function ResumeFinalReview() {
           .map((key) => [key, draft[key]])
       );
 
-      await api.post("/api/resumes", {
+      const response = await api.post("/api/resumes", {
         title: resumeTitle,
         template_id: template?.id || 1,
         template_name: template?.name || "ATS Optimized",
@@ -270,7 +270,18 @@ export default function ResumeFinalReview() {
       });
 
       alert("✅ Resume saved successfully!");
-      navigate("/profile");
+      
+      // Navigate back to docs management if we came from optimize flow
+      // Check if we came from optimize flow (which starts from docs management)
+      const cameFromOptimize = location.state?.fromOptimize || 
+                               document.referrer.includes('/resume/optimize') ||
+                               document.referrer.includes('/resume/compare');
+      
+      if (cameFromOptimize) {
+        navigate("/docs-management?refresh=true");
+      } else {
+        navigate("/profile");
+      }
     } catch (err) {
       console.error(err);
       alert("❌ Failed to save resume.");

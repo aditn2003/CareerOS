@@ -40,6 +40,7 @@ import InterviewTracker from './pages/Interviews/InterviewTracker';
 import LinkedInAuthSuccess from "./pages/LinkedInAuthSuccess"; // LinkedIn OAuth callback handler
 import LinkedInCallback from "./pages/LinkedInCallback"; // LinkedIn OAuth callback (new)
 import DocsManagement from "./pages/DocsManagement";
+import ApiMonitoringDashboard from "./pages/Admin/ApiMonitoringDashboard"; // UC-117: API Monitoring Dashboard
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 import FollowUpReminders from "./components/FollowUpReminders"; // UC-118: Smart Follow-Up Reminder System
@@ -173,6 +174,16 @@ function MainLayout() {
           {/* --- Jobs Dashboard (Protected) --- */}
           <Route
             path="/jobs"
+            element={
+              <ProtectedRoute>
+                <Jobs />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Jobs Map View (Protected) --- */}
+          <Route
+            path="/jobs/map"
             element={
               <ProtectedRoute>
                 <Jobs />
@@ -325,6 +336,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
+          <Route
+            path="/admin/api-monitoring"
+            element={
+              <ProtectedRoute>
+                <ApiMonitoringDashboard />
               </ProtectedRoute>
             }
           />

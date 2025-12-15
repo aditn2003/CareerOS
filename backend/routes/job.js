@@ -6,6 +6,10 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import pool from "../db/pool.js";
 import { getRoleTypeFromTitle } from "../utils/roleTypeMapper.js";
+import OpenAI from "openai";
+import { fileURLToPath } from "url";
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 const router = express.Router();
@@ -50,6 +54,7 @@ router.post("/", auth, async (req, res) => {
       title,
       company,
       location,
+      location_type,
       salary_min,
       salary_max,
       url,
@@ -161,12 +166,12 @@ router.post("/", auth, async (req, res) => {
     // Remove resume_id and cover_letter_id from jobs table INSERT (they don't exist anymore)
     const insertJobQuery = `
       INSERT INTO jobs (
-        user_id, title, company, location, salary_min, salary_max,
+        user_id, title, company, location, location_type, salary_min, salary_max,
         url, deadline, description, industry, type, role_level,
         "applicationDate", "required_skills",
         status, status_updated_at, created_at
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'Interested',NOW(),NOW())
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Interested',NOW(),NOW())
       RETURNING *;
     `;
 
@@ -176,12 +181,18 @@ router.post("/", auth, async (req, res) => {
     // Handle role_level: convert empty string to null for consistency
     const roleLevelValue =
       role_level && role_level.trim() !== "" ? role_level.trim() : null;
+    // Handle location_type: validate and convert empty string to null
+    const locationTypeValue = 
+      location_type && ['remote', 'hybrid', 'on_site', 'flexible'].includes(location_type) 
+        ? location_type 
+        : null;
 
     const jobValues = [
       req.userId,
       title.trim(),
       company.trim(),
       location || "",
+      locationTypeValue,
       safeSalaryMin,
       safeSalaryMax,
       url || "",
@@ -456,6 +467,146 @@ router.get("/", auth, async (req, res) => {
 
 //
 // ==================================================================
+//               JOBS WITH GEOCODING DATA FOR MAP VIEW (UC-116)
+// ==================================================================
+//
+router.get("/map", auth, async (req, res) => {
+  try {
+    const {
+      locationType,
+      maxDistance,
+      maxTime,
+      status,
+    } = req.query;
+
+    const params = [req.userId];
+    const whereClauses = [
+      "j.user_id = $1",
+      `(j."isArchived" = false OR j."isArchived" IS NULL)`,
+      "j.location IS NOT NULL",
+      "j.location != ''"
+    ];
+    let i = 2;
+
+    // Filter by location type
+    if (locationType && ['remote', 'hybrid', 'on_site', 'flexible'].includes(locationType)) {
+      whereClauses.push(`j.location_type = $${i}`);
+      params.push(locationType);
+      i++;
+    }
+
+    // Filter by status if provided
+    if (status && STAGES.includes(status)) {
+      whereClauses.push(`LOWER(j.status) = LOWER($${i})`);
+      params.push(status.trim());
+      i++;
+    }
+
+    // Get jobs with geocoding data
+    const result = await pool.query(
+      `
+      SELECT 
+        j.id,
+        j.title,
+        j.company,
+        j.location,
+        j.latitude,
+        j.longitude,
+        j.location_type,
+        j.timezone,
+        j.utc_offset,
+        j.status,
+        j.salary_min,
+        j.salary_max,
+        j.url,
+        j.deadline,
+        j.created_at
+      FROM jobs j
+      WHERE ${whereClauses.join(" AND ")}
+      ORDER BY j.created_at DESC
+    `,
+      params
+    );
+
+    let jobs = result.rows;
+
+    // If maxDistance or maxTime filters are provided, we need to calculate commute
+    // This requires home location, so we'll filter in the response
+    if (maxDistance || maxTime) {
+      // Get user's home location
+      const profileResult = await pool.query(
+        `SELECT home_latitude, home_longitude, location, home_timezone, home_utc_offset 
+         FROM profiles 
+         WHERE user_id = $1`,
+        [req.userId]
+      );
+
+      const profile = profileResult.rows[0];
+      if (profile?.home_latitude && profile?.home_longitude) {
+        // Filter jobs by distance/time
+        const filteredJobs = [];
+        
+        for (const job of jobs) {
+          if (!job.latitude || !job.longitude) continue;
+
+          // Calculate distance (Haversine formula)
+          const R = 6371; // Earth's radius in km
+          const dLat = ((job.latitude - profile.home_latitude) * Math.PI) / 180;
+          const dLon = ((job.longitude - profile.home_longitude) * Math.PI) / 180;
+          const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos((profile.home_latitude * Math.PI) / 180) *
+              Math.cos((job.latitude * Math.PI) / 180) *
+              Math.sin(dLon / 2) *
+              Math.sin(dLon / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          const distanceKm = R * c;
+          const distanceMiles = distanceKm * 0.621371;
+
+          // Estimate time (60 km/h average)
+          const estimatedTimeMinutes = (distanceKm / 60) * 60;
+
+          // Apply filters
+          if (maxDistance) {
+            const maxDist = parseFloat(maxDistance);
+            if (distanceMiles > maxDist) continue;
+          }
+
+          if (maxTime) {
+            const maxTimeMinutes = parseFloat(maxTime);
+            if (estimatedTimeMinutes > maxTimeMinutes) continue;
+          }
+
+          filteredJobs.push({
+            ...job,
+            commuteDistance: {
+              kilometers: Math.round(distanceKm * 10) / 10,
+              miles: Math.round(distanceMiles * 10) / 10,
+            },
+            commuteTime: {
+              minutes: Math.round(estimatedTimeMinutes),
+              hours: Math.round(estimatedTimeMinutes / 60 * 10) / 10,
+            },
+          });
+        }
+
+        jobs = filteredJobs;
+      }
+    }
+
+    res.json({ 
+      success: true,
+      jobs,
+      count: jobs.length 
+    });
+  } catch (err) {
+    console.error("❌ Fetch jobs for map error:", err.message);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+//
+// ==================================================================
 //               STATISTICS ROUTE (UC-044)
 // ==================================================================
 //
@@ -571,6 +722,56 @@ router.get("/archived", auth, async (req, res) => {
   }
 });
 
+// ---------- GET APPLICATION HISTORY FOR ALL JOBS ----------
+// IMPORTANT: This route must come BEFORE /:id to avoid route conflict
+router.get("/history", auth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        ah.id,
+        ah.job_id,
+        ah.event,
+        ah.timestamp,
+        ah.from_status,
+        ah.to_status,
+        ah.meta,
+        j.title,
+        j.company
+      FROM application_history ah
+      INNER JOIN jobs j ON ah.job_id = j.id
+      WHERE j.user_id = $1
+      ORDER BY ah.timestamp DESC`,
+      [req.userId]
+    );
+
+    // Group history by job_id
+    const historyByJob = {};
+    result.rows.forEach((row) => {
+      if (!historyByJob[row.job_id]) {
+        historyByJob[row.job_id] = {
+          job_id: row.job_id,
+          title: row.title,
+          company: row.company,
+          history: [],
+        };
+      }
+      historyByJob[row.job_id].history.push({
+        id: row.id,
+        event: row.event,
+        timestamp: row.timestamp,
+        from_status: row.from_status,
+        to_status: row.to_status,
+        meta: row.meta,
+      });
+    });
+
+    res.json({ history: Object.values(historyByJob) });
+  } catch (err) {
+    console.error("❌ Failed to fetch application history:", err.message);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 // ---------- GET JOB BY ID ----------
 router.get("/:id", auth, async (req, res) => {
   const { id } = req.params;
@@ -585,12 +786,27 @@ router.get("/:id", auth, async (req, res) => {
 
     const job = result.rows[0];
 
-    // Get materials from clean table
+    // Get materials from clean table with cover letter details (like mentor tab)
     try {
       const materialsResult = await pool.query(
-        `SELECT resume_id, cover_letter_id
-         FROM job_materials
-         WHERE job_id = $1`,
+        `SELECT 
+          jm.resume_id, 
+          jm.cover_letter_id,
+          r.title AS resume_title,
+          r.format AS resume_format,
+          COALESCE(cl.title, clt.name) AS cover_letter_title,
+          cl.format AS cover_letter_format,
+          cl.file_url AS cover_letter_file_url,
+          CASE 
+            WHEN cl.id IS NOT NULL THEN 'uploaded_cover_letters'
+            WHEN clt.id IS NOT NULL THEN 'cover_letter_templates'
+            ELSE NULL
+          END AS cover_letter_source
+         FROM job_materials jm
+         LEFT JOIN resumes r ON jm.resume_id = r.id AND r.user_id = jm.user_id
+         LEFT JOIN uploaded_cover_letters cl ON jm.cover_letter_id = cl.id AND cl.user_id = jm.user_id
+         LEFT JOIN cover_letter_templates clt ON jm.cover_letter_id = clt.id
+         WHERE jm.job_id = $1`,
         [id]
       );
 
@@ -599,8 +815,36 @@ router.get("/:id", auth, async (req, res) => {
         // Set job's resume_id and cover_letter_id from materials table
         job.resume_id = materials.resume_id;
         job.cover_letter_id = materials.cover_letter_id;
+        
+        // Include cover letter details if available
+        if (materials.cover_letter_id) {
+          job.cover_letter = {
+            id: materials.cover_letter_id,
+            title: materials.cover_letter_title || `Cover Letter #${materials.cover_letter_id}`,
+            format: materials.cover_letter_format || "pdf", // Use actual format from database
+            file_url: materials.cover_letter_file_url,
+            source: materials.cover_letter_source
+          };
+          console.log(
+            `✅ [GET JOB ${id}] Cover letter found: id=${materials.cover_letter_id}, title="${materials.cover_letter_title}", format="${materials.cover_letter_format}", source="${materials.cover_letter_source}"`
+          );
+        } else {
+          console.log(
+            `⚠️ [GET JOB ${id}] No cover letter ID found in materials`
+          );
+        }
+        
+        // Include resume details if available
+        if (materials.resume_id) {
+          job.resume = {
+            id: materials.resume_id,
+            title: materials.resume_title || `Resume #${materials.resume_id}`,
+            format: materials.resume_format || 'pdf'
+          };
+        }
+        
         console.log(
-          `✅ [GET JOB ${id}] Materials found: resume_id=${materials.resume_id}, cover_letter_id=${materials.cover_letter_id}`
+          `✅ [GET JOB ${id}] Materials found: resume_id=${materials.resume_id}, cover_letter_id=${materials.cover_letter_id}, cover_letter_title="${materials.cover_letter_title}"`
         );
       } else {
         // No materials found in job_materials table
@@ -644,6 +888,7 @@ router.put("/:id", auth, async (req, res) => {
       "title",
       "company",
       "location",
+      "location_type",
       "status",
       "salary_min",
       "salary_max",
@@ -681,10 +926,19 @@ router.put("/:id", auth, async (req, res) => {
                 ? industryValue.trim()
                 : industryValue;
           }
-        } else {
-          updates[key] = req.body[key];
+      } else if (key === "location_type") {
+        // Validate location_type
+        const locationTypeValue = req.body[key];
+        if (locationTypeValue && ['remote', 'hybrid', 'on_site', 'flexible'].includes(locationTypeValue)) {
+          updates[key] = locationTypeValue;
+        } else if (locationTypeValue === "" || locationTypeValue === null) {
+          updates[key] = null;
         }
+        // If invalid value, skip it
+      } else {
+        updates[key] = req.body[key];
       }
+    }
     }
 
     if (updates.title) {
@@ -704,6 +958,18 @@ router.put("/:id", auth, async (req, res) => {
       .join(", ");
 
     const values = Object.values(updates);
+
+    // Check if location is being updated - we'll need to re-geocode
+    const locationChanged = updates.location !== undefined;
+    let oldLocation = null;
+    if (locationChanged) {
+      // Get old location before update
+      const oldJob = await pool.query(
+        `SELECT location FROM jobs WHERE id = $1 AND user_id = $2`,
+        [id, req.userId]
+      );
+      oldLocation = oldJob.rows[0]?.location;
+    }
 
     const result = await pool.query(
       `
@@ -725,6 +991,89 @@ router.put("/:id", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
 
     const job = result.rows[0];
+
+    // Re-geocode if location was updated (even if same string, to ensure coordinates are fresh)
+    // Also re-geocode if location exists but coordinates are missing
+    const needsGeocoding = locationChanged && job.location && job.location.trim() && 
+                           (job.location !== oldLocation || !job.latitude || !job.longitude);
+    
+    if (needsGeocoding) {
+      try {
+        // Call geocoding service internally
+        const axios = (await import("axios")).default;
+        const baseUrl = process.env.BACKEND_URL || "http://localhost:4000";
+        
+        // Call our own geocoding endpoint internally
+        const geocodeRes = await axios.post(
+          `${baseUrl}/api/geocoding/geocode`,
+          { location: job.location.trim() },
+          {
+            headers: {
+              Authorization: req.headers.authorization,
+            },
+          }
+        ).catch(err => {
+          // If internal call fails, try direct geocoding
+          console.log("Internal geocoding call failed, trying direct geocoding...");
+          return null;
+        });
+
+        if (geocodeRes && geocodeRes.data && geocodeRes.data.success && geocodeRes.data.data) {
+          const geoData = geocodeRes.data.data;
+          // Update job with new coordinates and timezone
+          await pool.query(
+            `UPDATE jobs 
+             SET latitude = $1, longitude = $2, location_type = COALESCE($3, location_type),
+                 timezone = COALESCE($4, timezone), utc_offset = COALESCE($5, utc_offset),
+                 geocoded_at = NOW(), geocoding_error = NULL
+             WHERE id = $6 AND user_id = $7`,
+            [
+              geoData.latitude,
+              geoData.longitude,
+              geoData.location_type,
+              geoData.timezone || null,
+              geoData.utc_offset || null,
+              id,
+              req.userId,
+            ]
+          );
+          // Update job object with new coordinates
+          job.latitude = geoData.latitude;
+          job.longitude = geoData.longitude;
+          if (geoData.location_type) {
+            job.location_type = geoData.location_type;
+          }
+          if (geoData.timezone) {
+            job.timezone = geoData.timezone;
+            job.utc_offset = geoData.utc_offset;
+          }
+          job.geocoded_at = new Date();
+        } else {
+          // Clear coordinates if geocoding failed or location is invalid
+          await pool.query(
+            `UPDATE jobs 
+             SET latitude = NULL, longitude = NULL, geocoding_error = $1, geocoded_at = NULL
+             WHERE id = $2 AND user_id = $3`,
+            ["Location changed - needs re-geocoding", id, req.userId]
+          );
+          job.latitude = null;
+          job.longitude = null;
+          job.geocoding_error = "Location changed - needs re-geocoding";
+        }
+      } catch (geoErr) {
+        console.error("❌ Error re-geocoding job location:", geoErr.message);
+        // Clear coordinates on error
+        await pool.query(
+          `UPDATE jobs 
+           SET latitude = NULL, longitude = NULL, geocoding_error = $1
+           WHERE id = $2 AND user_id = $3`,
+          [`Geocoding error: ${geoErr.message}`, id, req.userId]
+        );
+        job.latitude = null;
+        job.longitude = null;
+        // Don't fail the update if geocoding fails
+      }
+    }
 
     // 🧩 UPDATE MATERIALS IN CLEAN TABLE
     // Note: resume_id and cover_letter_id are NOT in the allowed fields for PUT /:id
@@ -819,12 +1168,181 @@ router.put("/:id", auth, async (req, res) => {
 
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 // --------------------------------------------------
+// ✅ Generate and link cover letter for a job
+router.post("/:id/generate-cover-letter", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+
+    // Get job details
+    const jobResult = await pool.query(
+      `SELECT id, title, company, description, industry, user_id
+       FROM jobs
+       WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+
+    const job = jobResult.rows[0];
+
+    // Generate cover letter using OpenAI
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    // Get user employment data for experience highlighting
+    let experiences = [];
+    try {
+      const expResult = await pool.query(
+        `SELECT role, company, start_date, end_date, responsibilities, achievements, skills
+         FROM employment
+         WHERE user_id = $1
+         ORDER BY start_date DESC`,
+        [userId]
+      );
+      experiences = expResult.rows || [];
+    } catch (err) {
+      console.warn("⚠️ Employment fetch failed:", err.message);
+    }
+
+    // Build prompt for cover letter generation
+    const experienceSource = experiences.length > 0
+      ? `EMPLOYMENT RECORDS:\n${JSON.stringify(experiences, null, 2)}`
+      : "No structured experience data found.";
+
+    const prompt = `You are an expert career writer for ATS-optimized cover letters.
+
+Generate a professional cover letter for:
+
+Role: ${job.title}
+Company: ${job.company}
+${job.description ? `Job Description:\n${job.description}` : ''}
+
+${experienceSource ? `\nEXPERIENCE DATA:\n${experienceSource}` : ''}
+
+Write a professional, compelling cover letter that:
+- Addresses the specific role and company
+- Highlights relevant experience
+- Is optimized for ATS systems
+- Is concise but impactful (300-400 words)
+
+Return ONLY the cover letter text, no headers or formatting.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_tokens: 800,
+    });
+
+    const coverLetterContent = response.choices?.[0]?.message?.content || "";
+
+    if (!coverLetterContent) {
+      return res.status(500).json({ error: "Failed to generate cover letter content" });
+    }
+
+    // Save cover letter as a text file
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const coverLetterUploadDir = path.join(__dirname, "..", "uploads", "cover-letters");
+
+    // Ensure directory exists
+    if (!fs.existsSync(coverLetterUploadDir)) {
+      fs.mkdirSync(coverLetterUploadDir, { recursive: true });
+    }
+
+    // Generate filename
+    const timestamp = Date.now();
+    const sanitizedCompany = (job.company || "Company").replace(/[^a-zA-Z0-9]/g, "_");
+    const sanitizedTitle = (job.title || "Role").replace(/[^a-zA-Z0-9]/g, "_");
+    const filename = `cover_letter_${sanitizedCompany}_${sanitizedTitle}_${timestamp}.txt`;
+    const filePath = path.join(coverLetterUploadDir, filename);
+    const fileUrl = `/uploads/cover-letters/${filename}`;
+
+    // Write file
+    fs.writeFileSync(filePath, coverLetterContent, "utf8");
+
+    // Save to uploaded_cover_letters table
+    const coverLetterResult = await pool.query(
+      `INSERT INTO uploaded_cover_letters (user_id, title, format, file_url, content)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, title, format, file_url, content, created_at`,
+      [
+        userId,
+        `Cover Letter - ${job.company} - ${job.title}`,
+        "txt",
+        fileUrl,
+        coverLetterContent,
+      ]
+    );
+
+    const coverLetter = coverLetterResult.rows[0];
+
+    // Link to job in job_materials table
+    await pool.query(
+      `INSERT INTO job_materials (job_id, user_id, cover_letter_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (job_id) 
+       DO UPDATE SET 
+         cover_letter_id = EXCLUDED.cover_letter_id,
+         updated_at = NOW()`,
+      [id, userId, coverLetter.id]
+    );
+
+    res.json({
+      success: true,
+      message: "Cover letter generated and linked successfully",
+      cover_letter: coverLetter,
+      job_id: id,
+    });
+  } catch (err) {
+    console.error("❌ Error generating cover letter for job:", err);
+    res.status(500).json({ error: "Failed to generate cover letter: " + err.message });
+  }
+});
+
 // 🔥 MATERIALS HISTORY FOR THIS JOB
 router.get("/:id/materials-history", auth, async (req, res) => {
   try {
-    // History tracking removed - we now use job_materials table only
-    // Current materials are in job_materials table, no history is tracked
-    res.json({ history: [] });
+    const { id } = req.params;
+
+    // Check if application_materials_history table exists
+    const tableCheck = await pool.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'application_materials_history'
+      )`
+    );
+
+    if (!tableCheck.rows[0].exists) {
+      console.warn("⚠️ application_materials_history table does not exist");
+      return res.json({ history: [] });
+    }
+
+    // Query materials history with resume and cover letter titles
+    const result = await pool.query(
+      `
+      SELECT 
+        h.id,
+        h.changed_at,
+        h.action,
+        h.resume_id,
+        h.cover_letter_id,
+        h.details,
+        r.title AS resume_title,
+        ucl.name AS cover_title
+      FROM application_materials_history h
+      LEFT JOIN resumes r ON r.id = h.resume_id
+      LEFT JOIN uploaded_cover_letters ucl ON ucl.id = h.cover_letter_id
+      WHERE h.job_id = $1 AND h.user_id = $2
+      ORDER BY h.changed_at DESC
+      `,
+      [id, req.userId]
+    );
+
+    res.json({ history: result.rows });
   } catch (err) {
     console.error("❌ History fetch error:", err);
     res.json({ history: [] });
@@ -898,7 +1416,7 @@ router.put("/:id/materials", auth, async (req, res) => {
       );
     }
 
-    // Get updated job
+    // Get updated job with materials
     const result = await pool.query(
       `SELECT * FROM jobs WHERE id = $1 AND user_id = $2`,
       [id, req.userId]
@@ -908,7 +1426,32 @@ router.put("/:id/materials", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    res.json({ job: result.rows[0] });
+    const job = result.rows[0];
+
+    // Get materials from job_materials table
+    try {
+      const materialsResult = await pool.query(
+        `SELECT resume_id, cover_letter_id
+         FROM job_materials
+         WHERE job_id = $1`,
+        [id]
+      );
+
+      if (materialsResult.rows.length > 0) {
+        const materials = materialsResult.rows[0];
+        job.resume_id = materials.resume_id;
+        job.cover_letter_id = materials.cover_letter_id;
+      } else {
+        job.resume_id = null;
+        job.cover_letter_id = null;
+      }
+    } catch (materialsErr) {
+      console.warn(`⚠️ Error fetching materials:`, materialsErr.message);
+      job.resume_id = null;
+      job.cover_letter_id = null;
+    }
+
+    res.json({ job });
   } catch (err) {
     console.error("❌ Update materials error:", err);
     res.status(500).json({ error: "Failed to update materials" });
@@ -980,6 +1523,18 @@ router.put("/:id/status", auth, async (req, res) => {
   if (!status) return res.status(400).json({ error: "Missing status" });
 
   try {
+    // First, get the current status before updating
+    const currentJobResult = await pool.query(
+      `SELECT status FROM jobs WHERE id = $1 AND user_id = $2`,
+      [id, req.userId]
+    );
+
+    if (currentJobResult.rows.length === 0) {
+      return res.status(404).json({ error: "Job not found or unauthorized" });
+    }
+
+    const previousStatus = currentJobResult.rows[0].status || null;
+
     let query;
     let params;
 
@@ -1029,13 +1584,19 @@ router.put("/:id/status", auth, async (req, res) => {
 
     const updatedJob = result.rows[0];
 
-    // Log into application history
+    // Log into application history with user_id and status changes
     await pool.query(
       `
-      INSERT INTO application_history (job_id, event)
-      VALUES ($1, $2)
+      INSERT INTO application_history (job_id, user_id, event, from_status, to_status)
+      VALUES ($1, $2, $3, $4, $5)
       `,
-      [id, `Status changed to "${status}"`]
+      [
+        id,
+        req.userId,
+        `Status changed to "${status}"`,
+        previousStatus,
+        status,
+      ]
     );
 
     // Update application_submissions table to track responses/interviews/offers
