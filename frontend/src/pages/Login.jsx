@@ -140,18 +140,26 @@ export default function Login() {
     <section>
       <h2>Login</h2>
 
+      <label htmlFor="login-email">Email</label>
       <input
         type="email"
+        id="login-email"
         placeholder="Email"
         value={form.email}
         onChange={(e) => setForm({ ...form, email: e.target.value })}
+        aria-label="Email address"
+        aria-required="true"
       />
 
+      <label htmlFor="login-password">Password</label>
       <input
         type="password"
+        id="login-password"
         placeholder="Password"
         value={form.password}
         onChange={(e) => setForm({ ...form, password: e.target.value })}
+        aria-label="Password"
+        aria-required="true"
       />
 
       <button onClick={handleLogin}>Login</button>

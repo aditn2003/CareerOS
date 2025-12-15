@@ -34,6 +34,7 @@ import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import optimizationDashboardRoutes from "./routes/optimizationDashboard.js";
 import teamRoutes from "./routes/team.js";
 import salaryNegotiationRoutes from "./routes/salaryNegotiation.js";
 
@@ -59,6 +60,7 @@ import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import offersRoutes from "./routes/offers.js";
+import offerComparisonRoutes from "./routes/offerComparison.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 import marketIntelRoutes from "./routes/marketIntel.js";
 import timeInvestmentRoutes from "./routes/timeInvestment.js";
@@ -77,6 +79,7 @@ import timingRoutes from "./routes/timing.js";
 import materialComparisonRoutes from "./routes/materialComparison.js";
 
 import referencesRoutes from "./routes/references.js";
+import followupRemindersRoutes from "./routes/followupReminders.js";
 import geocodingRoutes from "./routes/geocoding.js";
 import apiMonitoringRoutes from "./routes/apiMonitoring.js";
 import testTrackingRoutes from "./routes/testApiTracking.js";
@@ -108,10 +111,20 @@ const transporter = nodemailer.createTransport({
 // ===== Middleware =====
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: (origin, cb) => {
+      const allowed = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://atscareeros.com",
+        "https://www.atscareeros.com",
+      ];
+      if (!origin || allowed.includes(origin)) return cb(null, true);
+      cb(new Error("CORS blocked"));
+    },
     credentials: true,
   })
 );
+
 app.use(express.json());
 
 // ✅ Serve uploaded images so React can access them
@@ -324,9 +337,9 @@ app.post("/linkedin-login", async (req, res) => {
 
         // Create profile for new user
         await pool.query(
-          `INSERT INTO profiles (user_id, first_name, last_name, profile_picture, linkedin_picture_url, created_at) 
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [user.id, first_name, last_name, profile_pic_url, profile_pic_url]
+          `INSERT INTO profiles (user_id, full_name, picture_url, linkedin_picture_url, created_at) 
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [user.id, `${first_name} ${last_name}`, profile_pic_url, profile_pic_url]
         );
       }
     } else {
@@ -500,6 +513,9 @@ app.post("/delete", auth, async (req, res) => {
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Export client for testing
+export { client as googleOAuthClient };
+
 app.post("/google", async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -522,9 +538,12 @@ app.post("/google", async (req, res) => {
       email,
     ]);
     if (result.rows.length === 0) {
+      // Create a random password hash for OAuth users (they won't use password login)
+      const randomPassword = Math.random().toString(36) + Date.now().toString(36);
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
-        [email, firstName, lastName]
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'google','candidate') RETURNING id",
+        [email, passwordHash, firstName, lastName]
       );
     }
 
@@ -549,6 +568,7 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/optimization-dashboard", optimizationDashboardRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -572,6 +592,7 @@ app.use("/api/interview-analysis", interviewAnalysisRoutes);
 app.use("/api/networking-analysis", networkingAnalysisRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
+app.use("/api/offer-comparison", offerComparisonRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
 app.use("/api/market-intel", marketIntelRoutes);
 app.use("/api/time-investment", timeInvestmentRoutes);
@@ -831,6 +852,7 @@ app.use("/api/mentors", mentorsRoutes);
 app.use("/api/informational-interviews", informationalInterviewsRoutes);
 app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/references", referencesRoutes);
+app.use("/api/followup-reminders", followupRemindersRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
@@ -925,4 +947,4 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 // Export for tests
-export { app, pool };
+export { app, pool, resetCodes };

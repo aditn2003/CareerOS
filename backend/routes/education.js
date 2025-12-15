@@ -6,8 +6,9 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 
 // ---------- AUTH ----------

@@ -26,14 +26,14 @@ async function getTimezoneFromCoordinates(latitude, longitude, userId = null) {
     const response = await trackApiCall(
       'google_geocoding', // Using google_geocoding service for timezone lookup
       () => axios.get("http://api.timezonedb.com/v2.1/get-time-zone", {
-        params: {
-          key: process.env.TIMEZONEDB_API_KEY || "demo",
-          format: "json",
-          by: "position",
-          lat: latitude,
-          lng: longitude,
-        },
-        timeout: 5000,
+      params: {
+        key: process.env.TIMEZONEDB_API_KEY || "demo",
+        format: "json",
+        by: "position",
+        lat: latitude,
+        lng: longitude,
+      },
+      timeout: 5000,
       }),
       {
         endpoint: '/v2.1/get-time-zone',
@@ -108,16 +108,16 @@ async function geocodeWithRateLimit(locationString, userId = null) {
     const response = await trackApiCall(
       'google_geocoding', // Using google_geocoding service (Nominatim is free geocoding)
       () => axios.get("https://nominatim.openstreetmap.org/search", {
-        params: {
-          q: locationString,
-          format: "json",
-          limit: 10, // Get more results to find city/town level
-          addressdetails: 1,
-          "accept-language": "en",
-        },
-        headers: {
-          "User-Agent": "ATS-Job-Tracker/1.0", // Required by Nominatim
-        },
+      params: {
+        q: locationString,
+        format: "json",
+        limit: 10, // Get more results to find city/town level
+        addressdetails: 1,
+        "accept-language": "en",
+      },
+      headers: {
+        "User-Agent": "ATS-Job-Tracker/1.0", // Required by Nominatim
+      },
       }),
       {
         endpoint: '/search',

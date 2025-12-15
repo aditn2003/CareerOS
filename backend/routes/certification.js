@@ -6,11 +6,13 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import sharedPool from "../db/pool.js";
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Use shared pool in test mode for transaction isolation
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 
 // Multer setup for certification files (images and PDFs)
@@ -112,7 +114,8 @@ router.post("/certifications", auth, async (req, res) => {
         .json({ error: "Certification name and organization are required" });
     }
 
-    const safeDateEarned = date_earned || null;
+    // date_earned is NOT NULL, use current date as default if not provided
+    const safeDateEarned = date_earned || new Date().toISOString().split('T')[0];
     const safeExpiration = does_not_expire ? null : expiration_date || null;
     const safeReminder =
       renewal_reminder && renewal_reminder.trim() !== ""

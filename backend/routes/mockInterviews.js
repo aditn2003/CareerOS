@@ -113,20 +113,20 @@ Make questions specific to ${company} and ${role}.
     const { data } = await trackApiCall(
       'openai',
       () => axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert interview simulator creating realistic interview scenarios."
-            },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.6,
-        },
-        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert interview simulator creating realistic interview scenarios."
+          },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.6,
+      },
+      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
       ),
       {
         endpoint: '/v1/chat/completions',
@@ -266,27 +266,27 @@ Return ONLY a JSON object with this exact format:
       const { data } = await trackApiCall(
         'openai',
         () => axios.post(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: "You are a strict interview evaluator. Give honest, critical scores. Gibberish or nonsense should score 0-30. Good responses score 60-90."
-              },
-              {
-                role: "user",
-                content: prompt
-              }
-            ],
-            temperature: 0.3,
-            max_tokens: 200
-          },
-          {
-            headers: {
-              "Authorization": `Bearer ${OPENAI_KEY}`,
-              "Content-Type": "application/json"
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a strict interview evaluator. Give honest, critical scores. Gibberish or nonsense should score 0-30. Good responses score 60-90."
+            },
+            {
+              role: "user",
+              content: prompt
             }
+          ],
+          temperature: 0.3,
+          max_tokens: 200
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${OPENAI_KEY}`,
+            "Content-Type": "application/json"
+          }
           }
         ),
         {
@@ -387,17 +387,17 @@ Make the follow-up feel natural and dig deeper into their response.
     const { data } = await trackApiCall(
       'openai',
       () => axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are conducting an interview and asking thoughtful follow-up questions." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.7,
-        },
-        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are conducting an interview and asking thoughtful follow-up questions." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      },
+      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
       ),
       {
         endpoint: '/v1/chat/completions',
@@ -499,20 +499,20 @@ Be encouraging but honest. Provide specific, actionable feedback.
     const { data } = await trackApiCall(
       'openai',
       () => axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert interview coach providing comprehensive performance feedback."
-            },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.4,
-        },
-        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert interview coach providing comprehensive performance feedback."
+          },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4,
+      },
+      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
       ),
       {
         endpoint: '/v1/chat/completions',

@@ -1,12 +1,10 @@
 import express from "express";
-import pkg from "pg";
+import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
-const { Pool } = pkg;
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
 
 /* AUTH */
@@ -21,6 +19,7 @@ function auth(req, res, next) {
       const token = header.split(" ")[1];
       const decoded = jwt.verify(token, JWT_SECRET);
       req.userId = decoded.id;
+      req.user = { id: decoded.id, email: decoded.email }; // Also set req.user for consistency
       next();
     } catch {
       return res.status(401).json({ error: "Invalid token" });
@@ -64,16 +63,28 @@ router.put("/:skill", auth, async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
+    // First try to update existing entry
+    const updateResult = await pool.query(
+      `UPDATE skill_progress
+       SET status = $1, updated_at = NOW()
+       WHERE user_id = $2 AND skill = $3
+       RETURNING *`,
+      [status, req.userId, skill]
+    );
+
+    if (updateResult.rows.length > 0) {
+      return res.json({ message: "Progress updated", entry: updateResult.rows[0] });
+    }
+
+    // If no update, insert new entry
+    const insertResult = await pool.query(
       `INSERT INTO skill_progress (user_id, skill, status)
        VALUES ($1, $2, $3)
-       ON CONFLICT (user_id, skill)
-       DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()
        RETURNING *`,
       [req.userId, skill, status]
     );
 
-    res.json({ message: "Progress updated", entry: result.rows[0] });
+    res.json({ message: "Progress updated", entry: insertResult.rows[0] });
   } catch (err) {
     console.error("Progress update error:", err);
     res.status(500).json({ error: "Failed to update progress" });

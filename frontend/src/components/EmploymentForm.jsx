@@ -50,38 +50,51 @@ export default function EmploymentForm({ job = {}, token, onCancel, onSaved }) {
     >
       <h4>{job.id ? "Edit Employment" : "Add Employment"}</h4>
 
-      <label>Job Title *</label>
+      <label htmlFor="emp-title">Job Title *</label>
       <input
+        id="emp-title"
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
+        aria-label="Job title"
+        aria-required="true"
       />
 
-      <label>Company Name *</label>
+      <label htmlFor="emp-company">Company Name *</label>
       <input
+        id="emp-company"
         value={form.company}
         onChange={(e) => setForm({ ...form, company: e.target.value })}
+        aria-label="Company name"
+        aria-required="true"
       />
 
-      <label>Location</label>
+      <label htmlFor="emp-location">Location</label>
       <input
+        id="emp-location"
         value={form.location}
         onChange={(e) => setForm({ ...form, location: e.target.value })}
+        aria-label="Job location"
       />
 
-      <label>Start Date *</label>
+      <label htmlFor="emp-start-date">Start Date *</label>
       <input
         type="date"
+        id="emp-start-date"
         value={form.start_date}
         onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+        aria-label="Employment start date"
+        aria-required="true"
       />
 
       {!form.current && (
         <>
-          <label>End Date</label>
+          <label htmlFor="emp-end-date">End Date</label>
           <input
             type="date"
+            id="emp-end-date"
             value={form.end_date}
             onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+            aria-label="Employment end date"
           />
         </>
       )}
@@ -89,18 +102,24 @@ export default function EmploymentForm({ job = {}, token, onCancel, onSaved }) {
       <label>
         <input
           type="checkbox"
+          id="emp-current"
           checked={form.current}
           onChange={(e) => setForm({ ...form, current: e.target.checked })}
+          aria-label="Current position"
         />
         Current Position
       </label>
 
-      <label>Job Description</label>
+      <label htmlFor="emp-description">Job Description</label>
       <textarea
+        id="emp-description"
         maxLength={1000}
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
+        aria-label="Job description"
+        aria-describedby="emp-description-hint"
       />
+      <span id="emp-description-hint" className="visually-hidden">Maximum 1000 characters</span>
       <p style={{ textAlign: "right", fontSize: 12 }}>
         {form.description.length}/1000
       </p>

@@ -1,18 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
-import pkg from "pg";
 import jwt from "jsonwebtoken";
 import axios from "axios";
+import pool from "../db/pool.js";
 
 dotenv.config();
-const { Pool } = pkg;
 
 const router = express.Router();
 
-// ✅ Use the same database as in server.js
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// ✅ Use the shared database pool (same as server.js)
+// This ensures transaction-based test isolation works correctly
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
@@ -49,8 +46,10 @@ async function geocodeLocation(locationString) {
       };
     }
 
-    // Call Nominatim API with rate limiting
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simple rate limit
+    // Call Nominatim API with rate limiting (skip delay in test mode)
+    if (process.env.NODE_ENV !== 'test') {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simple rate limit
+    }
 
     const response = await axios.get("https://nominatim.openstreetmap.org/search", {
       params: {
@@ -118,20 +117,31 @@ router.post("/profile", auth, async (req, res) => {
       [req.userId]
     );
     if (existing.rows.length > 0) {
+      // For updates, only set fields that are provided (not undefined)
+      // Use COALESCE to preserve existing values when new values are null/undefined
       await pool.query(
-        `UPDATE profiles SET full_name=$1, email=$2, phone=$3, location=$4,
-         title=$5, bio=$6, industry=$7, experience=$8,
-         home_latitude=$9, home_longitude=$10, home_location_geocoded_at=$11
+        `UPDATE profiles SET 
+         full_name=COALESCE($1, full_name),
+         email=COALESCE($2, email),
+         phone=COALESCE($3, phone),
+         location=COALESCE($4, location),
+         title=COALESCE($5, title),
+         bio=COALESCE($6, bio),
+         industry=COALESCE($7, industry),
+         experience=COALESCE($8, experience),
+         home_latitude=COALESCE($9, home_latitude),
+         home_longitude=COALESCE($10, home_longitude),
+         home_location_geocoded_at=$11
          WHERE user_id=$12`,
         [
-          full_name,
-          email,
-          phone,
-          location,
-          title,
-          bio,
-          industry,
-          experience,
+          full_name || null,
+          email || null,
+          phone || null,
+          location || null,
+          title || null,
+          bio || null,
+          industry || null,
+          experience || null,
           homeLat,
           homeLon,
           homeLat && homeLon ? new Date() : null,
@@ -232,20 +242,22 @@ router.get("/profile/summary", auth, async (req, res) => {
     // TODO: adjust table names/columns if yours differ
     const q = (text, params) => pool.query(text, params);
 
-    // Debug: Check userId type and verify user exists
-    console.log("🔍 userId type:", typeof userId, "value:", userId);
-    const userCheck = await pool.query("SELECT id FROM users WHERE id=$1", [userId]);
-    console.log("🔍 User exists:", userCheck.rows.length > 0);
-    
-    // Check if data exists with this userId (try both string and number)
-    const testEmployment = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM employment GROUP BY user_id LIMIT 5");
-    const testSkills = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM skills GROUP BY user_id LIMIT 5");
-    console.log("🔍 Sample user_ids in employment:", testEmployment.rows);
-    console.log("🔍 Sample user_ids in skills:", testSkills.rows);
-    
-    // Try querying with explicit type casting
-    const testQuery = await pool.query("SELECT COUNT(*)::int AS c FROM employment WHERE user_id::text = $1::text", [String(userId)]);
-    console.log("🔍 Test query with string cast:", testQuery.rows[0]?.c);
+    // Debug queries only in non-test mode (they slow down tests significantly)
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("🔍 userId type:", typeof userId, "value:", userId);
+      const userCheck = await pool.query("SELECT id FROM users WHERE id=$1", [userId]);
+      console.log("🔍 User exists:", userCheck.rows.length > 0);
+      
+      // Check if data exists with this userId (try both string and number)
+      const testEmployment = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM employment GROUP BY user_id LIMIT 5");
+      const testSkills = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM skills GROUP BY user_id LIMIT 5");
+      console.log("🔍 Sample user_ids in employment:", testEmployment.rows);
+      console.log("🔍 Sample user_ids in skills:", testSkills.rows);
+      
+      // Try querying with explicit type casting
+      const testQuery = await pool.query("SELECT COUNT(*)::int AS c FROM employment WHERE user_id::text = $1::text", [String(userId)]);
+      console.log("🔍 Test query with string cast:", testQuery.rows[0]?.c);
+    }
 
     const [employment, skills, education, certifications, projects, info, skillsDist] =
       await Promise.all([
@@ -294,7 +306,9 @@ router.get("/profile/summary", auth, async (req, res) => {
       projects_count: projects.rows[0]?.c || 0,
     };
 
-    console.log("📊 Profile summary counts:", counts);
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("📊 Profile summary counts:", counts);
+    }
 
     const infoRow = info.rows[0] || {};
     const info_complete =
@@ -361,7 +375,9 @@ router.get("/profile/summary", auth, async (req, res) => {
       skills_distribution,
     };
     
-    console.log("📊 Sending response:", JSON.stringify(response, null, 2));
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("📊 Sending response:", JSON.stringify(response, null, 2));
+    }
     
     return res.json(response);
   } catch (err) {

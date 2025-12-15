@@ -356,12 +356,14 @@ export default function JobMapView({ token }) {
       {/* Filters */}
       <div className="map-filters">
         <div className="filter-group">
-          <label>Location Type:</label>
+          <label htmlFor="map-location-type">Location Type:</label>
           <select
+            id="map-location-type"
             value={filters.locationType}
             onChange={(e) =>
               setFilters({ ...filters, locationType: e.target.value })
             }
+            aria-label="Filter jobs by location type"
           >
             <option value="">All</option>
             <option value="remote">Remote</option>
@@ -372,29 +374,36 @@ export default function JobMapView({ token }) {
         </div>
 
         <div className="filter-group">
-          <label>Max Distance (miles):</label>
+          <label htmlFor="map-max-distance">Max Distance (miles):</label>
           <input
             type="number"
+            id="map-max-distance"
             value={tempMaxDistance}
             onChange={(e) => setTempMaxDistance(e.target.value)}
             placeholder="e.g., 50"
+            aria-label="Maximum distance in miles"
           />
         </div>
 
         <div className="filter-group">
-          <label>Max Time (minutes):</label>
+          <label htmlFor="map-max-time">Max Time (minutes):</label>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <input
               type="number"
+              id="map-max-time"
               value={tempMaxTime}
               onChange={(e) => setTempMaxTime(e.target.value)}
               placeholder="e.g., 60"
               style={{ flex: 1 }}
+              aria-label="Maximum travel time in minutes"
             />
+            <label htmlFor="map-travel-mode" className="visually-hidden">Travel Mode</label>
             <select
+              id="map-travel-mode"
               value={filters.maxTimeMode}
               onChange={(e) => setFilters({ ...filters, maxTimeMode: e.target.value })}
               style={{ width: "auto" }}
+              aria-label="Travel mode for maximum time calculation"
             >
               <option value="driving">🚗 Car</option>
               <option value="flying">✈️ Plane</option>
@@ -403,12 +412,14 @@ export default function JobMapView({ token }) {
         </div>
 
         <div className="filter-group">
-          <label>Status:</label>
+          <label htmlFor="map-status">Status:</label>
           <select
+            id="map-status"
             value={filters.status}
             onChange={(e) =>
               setFilters({ ...filters, status: e.target.value })
             }
+            aria-label="Filter jobs by application status"
           >
             <option value="">All</option>
             <option value="Interested">Interested</option>

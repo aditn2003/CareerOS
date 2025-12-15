@@ -34,39 +34,61 @@ export default function Register() {
     <section>
       <h2>Create an Account</h2>
 
+      <label htmlFor="reg-first-name">First name</label>
       <input
+        id="reg-first-name"
         placeholder="First name"
         value={form.firstName}
         onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+        aria-label="First name"
+        aria-required="true"
       />
+      <label htmlFor="reg-last-name">Last name</label>
       <input
+        id="reg-last-name"
         placeholder="Last name"
         value={form.lastName}
         onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+        aria-label="Last name"
+        aria-required="true"
       />
+      <label htmlFor="reg-email">Email</label>
       <input
         type="email"
+        id="reg-email"
         placeholder="Email"
         value={form.email}
         onChange={(e) => setForm({ ...form, email: e.target.value })}
+        aria-label="Email address"
+        aria-required="true"
       />
+      <label htmlFor="reg-password">Password</label>
       <input
         type="password"
+        id="reg-password"
         placeholder="Password"
         value={form.password}
         onChange={(e) => setForm({ ...form, password: e.target.value })}
+        aria-label="Password"
+        aria-required="true"
       />
+      <label htmlFor="reg-confirm-password">Confirm password</label>
       <input
         type="password"
+        id="reg-confirm-password"
         placeholder="Confirm password"
         value={form.confirmPassword}
         onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+        aria-label="Confirm password"
+        aria-required="true"
       />
-      <label className="account-type-label">
+      <label htmlFor="reg-account-type" className="account-type-label">
         Account type
         <select
+          id="reg-account-type"
           value={form.accountType}
           onChange={(e) => setForm({ ...form, accountType: e.target.value })}
+          aria-label="Account type"
         >
           <option value="candidate">
             Individual job seeker (candidate)
