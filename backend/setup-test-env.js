@@ -51,3 +51,4 @@ console.log('   You can create it by running: CREATE SCHEMA IF NOT EXISTS test;'
 console.log('   Then copy all table structures from public schema to test schema.');
 
 
+
