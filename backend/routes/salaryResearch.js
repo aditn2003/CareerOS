@@ -528,9 +528,7 @@ Based on current market data, give 5 concise bullet-point salary negotiation rec
         estimateCost: 0.0005
       }
     );
-    const recommendations =
-      aiRes.choices[0]?.message?.content || "No recommendations available.";
-
+  
     // 7. Compare user vs market
     const marketDiff = userSalary
       ? Math.round(((range.avg - userSalary) / userSalary) * 100)
