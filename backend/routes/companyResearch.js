@@ -1,46 +1,65 @@
 import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
+import { trackApiCall, logApiError } from "../utils/apiTrackingService.js";
 dotenv.config();
 
 const router = express.Router();
 const http = axios.create({ timeout: 15000 });
 
 /* ------------------------- 🌐 Wikipedia Hybrid Fetcher ------------------------- */
-async function getWikipedia(company) {
+async function getWikipedia(company, userId = null) {
   try {
     const wikiHeaders = { "User-Agent": "ATS-ResearchBot/1.0 (contact: team@ats.com)" };
 
     // 1️⃣ Find page ID
-    const searchRes = await http.get("https://en.wikipedia.org/w/api.php", {
-      params: {
-        action: "query",
-        list: "search",
-        srsearch: company,
-        format: "json",
-        srlimit: 1,
-        origin: "*",
-      },
-      headers: wikiHeaders,
-    });
+    const searchRes = await trackApiCall(
+      'wikipedia',
+      () => http.get("https://en.wikipedia.org/w/api.php", {
+        params: {
+          action: "query",
+          list: "search",
+          srsearch: company,
+          format: "json",
+          srlimit: 1,
+          origin: "*",
+        },
+        headers: wikiHeaders,
+      }),
+      {
+        endpoint: '/w/api.php',
+        method: 'GET',
+        userId,
+        requestPayload: { action: 'query', list: 'search', srsearch: company }
+      }
+    );
 
     const pageId = searchRes?.data?.query?.search?.[0]?.pageid;
     const pageTitle = searchRes?.data?.query?.search?.[0]?.title;
     if (!pageId || !pageTitle) return { summary: "", fullText: "", infobox: null };
 
     // 2️⃣ Get full text
-    const articleRes = await http.get("https://en.wikipedia.org/w/api.php", {
-      params: {
-        action: "query",
-        prop: "extracts|info",
-        explaintext: true,
-        format: "json",
-        pageids: pageId,
-        inprop: "url",
-        origin: "*",
-      },
-      headers: wikiHeaders,
-    });
+    const articleRes = await trackApiCall(
+      'wikipedia',
+      () => http.get("https://en.wikipedia.org/w/api.php", {
+        params: {
+          action: "query",
+          prop: "extracts|info",
+          explaintext: true,
+          format: "json",
+          pageids: pageId,
+          inprop: "url",
+          origin: "*",
+        },
+        headers: wikiHeaders,
+      }),
+      {
+        endpoint: '/w/api.php',
+        method: 'GET',
+        userId,
+        requestPayload: { action: 'query', prop: 'extracts|info', pageids: pageId }
+      }
+    );
 
     const pageData = articleRes?.data?.query?.pages?.[pageId];
     const fullText = pageData?.extract || "";
@@ -57,9 +76,18 @@ async function getWikipedia(company) {
     }
 
     // 3️⃣ Get summary metadata
-    const summaryRes = await http.get(
-      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`,
-      { headers: wikiHeaders }
+    const summaryRes = await trackApiCall(
+      'wikipedia',
+      () => http.get(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`,
+        { headers: wikiHeaders }
+      ),
+      {
+        endpoint: `/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`,
+        method: 'GET',
+        userId,
+        requestPayload: { pageTitle }
+      }
     );
 
     const summaryData = summaryRes?.data || {};
@@ -79,7 +107,7 @@ async function getWikipedia(company) {
 }
 
 /* ------------------------- 🗞️ News Fetcher (UC-064 — Smart Categorization) ------------------------- */
-async function getNews(company) {
+async function getNews(company, userId = null) {
   const apiKey = process.env.NEWS_API_KEY;
 
   const mockNews = [
@@ -121,9 +149,18 @@ async function getNews(company) {
   }
 
   try {
-    const { data } = await axios.get("https://newsapi.org/v2/everything", {
-      params: { qInTitle: company, language: "en", pageSize: 6, sortBy: "relevancy", apiKey },
-    });
+    const { data } = await trackApiCall(
+      'news_api',
+      () => axios.get("https://newsapi.org/v2/everything", {
+        params: { qInTitle: company, language: "en", pageSize: 6, sortBy: "relevancy", apiKey },
+      }),
+      {
+        endpoint: '/v2/everything',
+        method: 'GET',
+        userId,
+        requestPayload: { qInTitle: company }
+      }
+    );
 
     if (data.status !== "ok" || !data.articles?.length) {
       console.warn(`⚠️ NewsAPI limit or no data for ${company} — using mock news.`);
@@ -182,7 +219,7 @@ function extractKeyPoints(text) {
 /* (already handled in generateInsights) */
 
 /* ------------------------- ⚡ Complete AI Company Research ------------------------- */
-async function generateInsights(company, wikiText, newsHeadlines) {
+async function generateInsights(company, wikiText, newsHeadlines, userId = null) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) return null;
 
@@ -235,20 +272,30 @@ Rules:
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await axios.post(
-          "https://api.openai.com/v1/chat/completions",
+        const response = await trackApiCall(
+          'openai',
+          () => axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "You are a factual company research assistant." },
+                { role: "user", content: basePrompt },
+              ],
+              temperature: 0.3,
+              response_format: { type: "json_object" },
+            },
+            { 
+              headers: { Authorization: `Bearer ${key}` },
+              timeout: 30000
+            }
+          ),
           {
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: "You are a factual company research assistant." },
-              { role: "user", content: basePrompt },
-            ],
-            temperature: 0.3,
-            response_format: { type: "json_object" },
-          },
-          { 
-            headers: { Authorization: `Bearer ${key}` },
-            timeout: 30000
+            endpoint: '/v1/chat/completions',
+            method: 'POST',
+            userId,
+            requestPayload: { model: 'gpt-4o-mini', company },
+            estimateCost: 0.001 // Estimate cost per request
           }
         );
         data = response.data;
@@ -293,20 +340,30 @@ From public knowledge, fill them in realistically and return JSON only:
       let retry;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          retry = await axios.post(
-            "https://api.openai.com/v1/chat/completions",
+          retry = await trackApiCall(
+            'openai',
+            () => axios.post(
+              "https://api.openai.com/v1/chat/completions",
+              {
+                model: "gpt-4o-mini",
+                messages: [
+                  { role: "system", content: "You fill in missing company fields accurately." },
+                  { role: "user", content: retryPrompt },
+                ],
+                temperature: 0.3,
+                response_format: { type: "json_object" },
+              },
+              { 
+                headers: { Authorization: `Bearer ${key}` },
+                timeout: 30000
+              }
+            ),
             {
-              model: "gpt-4o-mini",
-              messages: [
-                { role: "system", content: "You fill in missing company fields accurately." },
-                { role: "user", content: retryPrompt },
-              ],
-              temperature: 0.3,
-              response_format: { type: "json_object" },
-            },
-            { 
-              headers: { Authorization: `Bearer ${key}` },
-              timeout: 30000
+              endpoint: '/v1/chat/completions',
+              method: 'POST',
+              userId,
+              requestPayload: { model: 'gpt-4o-mini', company, retry: true },
+              estimateCost: 0.001
             }
           );
           break; // Success
@@ -407,7 +464,7 @@ function buildSocialLinks(name) {
 }
 
 /* ------------------------- 💡 Generate Talking Points & Questions (UC-074) ------------------------- */
-async function generateTalkingPointsAndQuestions(companyData) {
+async function generateTalkingPointsAndQuestions(companyData, userId = null) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     // Return fallback talking points if no API key
@@ -460,20 +517,30 @@ Rules:
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await axios.post(
-          "https://api.openai.com/v1/chat/completions",
+        const response = await trackApiCall(
+          'openai',
+          () => axios.post(
+            "https://api.openai.com/v1/chat/completions",
+            {
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "You are an expert interview preparation coach." },
+                { role: "user", content: contextPrompt },
+              ],
+              temperature: 0.7,
+              response_format: { type: "json_object" },
+            },
+            { 
+              headers: { Authorization: `Bearer ${key}` },
+              timeout: 30000
+            }
+          ),
           {
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: "You are an expert interview preparation coach." },
-              { role: "user", content: contextPrompt },
-            ],
-            temperature: 0.7,
-            response_format: { type: "json_object" },
-          },
-          { 
-            headers: { Authorization: `Bearer ${key}` },
-            timeout: 30000
+            endpoint: '/v1/chat/completions',
+            method: 'POST',
+            userId,
+            requestPayload: { model: 'gpt-4o-mini', purpose: 'talking_points' },
+            estimateCost: 0.001
           }
         );
         data = response.data;
@@ -544,14 +611,17 @@ router.get("/", async (req, res) => {
 
   try {
     console.log(`🔍 Running fresh research for: ${company}`);
+    // Get userId if auth middleware is applied, otherwise null (for tracking)
+    const userId = req.user?.id || null;
 
-    const wiki = await getWikipedia(company);
-    const news = await getNews(company);
+    const wiki = await getWikipedia(company, userId);
+    const news = await getNews(company, userId);
 
     const ai = await generateInsights(
       company,
       wiki?.fullText || wiki?.summary,
-      news.map((n) => n.title)
+      news.map((n) => n.title),
+      userId
     );
     
     const finalSize =
@@ -586,7 +656,7 @@ router.get("/", async (req, res) => {
       recentNews: news,
       productsServices: data.productsServices,
       competitiveLandscape: data.competitiveLandscape
-    });
+    }, userId);
 
     data.interviewPrep = interviewPrep;
 

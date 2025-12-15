@@ -26,7 +26,6 @@ export default function JobDetailsModal({
   const [saving, setSaving] = useState(false);
 
   const [resume, setResume] = useState(null);
-  const [history, setHistory] = useState([]); // ✅ FOR HISTORY
 
   const [resumes, setResumes] = useState([]); // ✅ LIST OF RESUMES
   const [coverLetters, setCoverLetters] = useState([]); // ✅ LIST OF COVER LETTERS
@@ -55,6 +54,14 @@ export default function JobDetailsModal({
     offer_date: new Date().toISOString().split('T')[0],
     offer_status: "pending"
   });
+
+  // Cover letter generation
+  const [generatingCoverLetter, setGeneratingCoverLetter] = useState(false);
+  const [coverLetterError, setCoverLetterError] = useState(null);
+  // Salary benchmark data
+  const [salaryBenchmark, setSalaryBenchmark] = useState(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+  const [benchmarkError, setBenchmarkError] = useState(null);
 
   // 🟢 Load job details
 
@@ -140,14 +147,25 @@ export default function JobDetailsModal({
     }
   }
 
-  async function loadHistory() {
+  // Load salary benchmark data
+  async function loadSalaryBenchmark() {
+    if (!jobId) return;
+    
     try {
-      const res = await api.get(`/api/jobs/${jobId}/materials-history`);
-      setHistory(res.data.history || []);
+      setLoadingBenchmark(true);
+      setBenchmarkError(null);
+      const res = await api.get(`/api/salary-research/benchmark/${jobId}`);
+      setSalaryBenchmark(res.data);
     } catch (err) {
-      console.error("❌ Failed to load history:", err);
+      console.error("❌ Error loading salary benchmark:", err);
+      // Graceful error handling - don't show error, just don't display benchmark
+      setBenchmarkError(err.response?.data?.message || "Unable to load salary data");
+      setSalaryBenchmark(null);
+    } finally {
+      setLoadingBenchmark(false);
     }
   }
+
   useEffect(() => {
     async function loadJob() {
       try {
@@ -166,12 +184,18 @@ export default function JobDetailsModal({
 
     if (jobId) {
       loadJob();
-      loadHistory(); // 🔥 now this works
       loadExistingOffer(); // Load offer if it exists
       loadQualityScore(); // Load quality score
       loadUserStats(); // Load user stats
     }
   }, [jobId, token]);
+
+  // Load salary benchmark when job data is available
+  useEffect(() => {
+    if (job && job.title && job.location && jobId) {
+      loadSalaryBenchmark();
+    }
+  }, [job, jobId]);
 
   // Load existing offer for this job
   async function loadExistingOffer() {
@@ -212,35 +236,40 @@ export default function JobDetailsModal({
   }, [job, existingOffer]);
 
   useEffect(() => {
-    async function loadCoverLetter() {
-      if (!job?.cover_letter_id) return;
-
-      try {
-        const res = await fetch(
-          `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+    // Use cover letter data from job object if available (loaded directly from backend)
+    if (job?.cover_letter) {
+      setCoverLetter(job.cover_letter);
+    } else if (job?.cover_letter_id) {
+      // Fallback: try to load via API if not included in job object
+      async function loadCoverLetter() {
+        try {
+          const res = await fetch(
+            `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          
+          if (!res.ok) {
+            if (res.status === 404) {
+              console.warn(`⚠️ Cover letter ${job.cover_letter_id} not found. It may have been deleted.`);
+              setCoverLetter(null);
+              return;
+            }
+            throw new Error(`Failed to load cover letter: ${res.status}`);
           }
-        );
-        
-        if (!res.ok) {
-          if (res.status === 404) {
-            console.warn(`⚠️ Cover letter ${job.cover_letter_id} not found. It may have been deleted.`);
-            setCoverLetter(null);
-            return;
-          }
-          throw new Error(`Failed to load cover letter: ${res.status}`);
+          
+          const data = await res.json();
+          if (data.cover_letter) setCoverLetter(data.cover_letter);
+        } catch (err) {
+          console.error("❌ Failed to load linked cover letter:", err);
+          setCoverLetter(null);
         }
-        
-        const data = await res.json();
-        if (data.cover_letter) setCoverLetter(data.cover_letter);
-      } catch (err) {
-        console.error("❌ Failed to load linked cover letter:", err);
-        setCoverLetter(null);
       }
+      loadCoverLetter();
+    } else {
+      setCoverLetter(null);
     }
-
-    loadCoverLetter();
   }, [job, token]);
 
   useEffect(() => {
@@ -300,11 +329,11 @@ export default function JobDetailsModal({
   }, [job, token]);
 
   async function handleResumeDownload() {
-    if (!resume) return alert("No resume linked.");
+    if (!job.resume_id) return alert("No resume linked.");
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/resumes/${resume.id}/download`,
+        `http://localhost:4000/api/resumes/${job.resume_id}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -317,13 +346,45 @@ export default function JobDetailsModal({
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${resume.title}.${resume.format || "pdf"}`;
+      const resumeTitle = resume?.title || job.resume?.title || `Resume_${job.resume_id}`;
+      const resumeFormat = resume?.format || job.resume?.format || "pdf";
+      link.download = `${resumeTitle}.${resumeFormat}`;
       link.click();
 
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error("❌ Resume download failed:", err);
       alert("Failed to download resume.");
+    }
+  }
+
+  async function handleCoverLetterDownload() {
+    if (!job.cover_letter_id) return alert("No cover letter linked.");
+
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/cover-letters/${job.cover_letter_id}/download`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!res.ok) throw new Error("Download failed");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      const coverLetterTitle = coverLetter?.title || coverLetter?.name || job.cover_letter?.title || job.cover_letter?.name || `CoverLetter_${job.cover_letter_id}`;
+      const coverLetterFormat = coverLetter?.format || job.cover_letter?.format || "pdf";
+      link.download = `${coverLetterTitle}.${coverLetterFormat}`;
+      link.click();
+
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Cover letter download failed:", err);
+      alert("Failed to download cover letter.");
     }
   }
 
@@ -334,11 +395,55 @@ export default function JobDetailsModal({
         cover_letter_id: selectedCover || null,
       });
 
-      alert("Materials and customization levels updated!");
-      setJob(res.data.job);
-
-      await loadHistory();
+      alert("Materials updated successfully!");
       
+      // Update job state with the response (includes updated materials)
+      const updatedJob = res.data.job;
+      setJob(updatedJob);
+      
+      // Update selected values to match the saved state
+      setSelectedResume(updatedJob.resume_id || "");
+      setSelectedCover(updatedJob.cover_letter_id || "");
+
+      // Reload resume and cover letter if IDs changed
+      if (updatedJob.resume_id) {
+        try {
+          const resumeRes = await fetch(
+            `http://localhost:4000/api/resumes/${updatedJob.resume_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (resumeRes.ok) {
+            const resumeData = await resumeRes.json();
+            if (resumeData.resume) setResume(resumeData.resume);
+          }
+        } catch (err) {
+          console.error("Failed to reload resume:", err);
+        }
+      } else {
+        setResume(null);
+      }
+
+      if (updatedJob.cover_letter_id) {
+        try {
+          const coverRes = await fetch(
+            `http://localhost:4000/api/cover-letters/${updatedJob.cover_letter_id}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          if (coverRes.ok) {
+            const coverData = await coverRes.json();
+            if (coverData.cover_letter) setCoverLetter(coverData.cover_letter);
+          }
+        } catch (err) {
+          console.error("Failed to reload cover letter:", err);
+        }
+      } else {
+        setCoverLetter(null);
+      }
+
       // Re-analyze quality score if materials changed
       if (jobId) {
         await analyzeQuality();
@@ -349,6 +454,68 @@ export default function JobDetailsModal({
       const errorHint = err.response?.data?.hint || "";
       const errorDetails = err.response?.data?.details || "";
       alert(`Failed to update materials.\n\nError: ${errorMessage}${errorHint ? `\n\nHint: ${errorHint}` : ''}${errorDetails ? `\n\nDetails: ${errorDetails}` : ''}`);
+    }
+  }
+
+  // Generate cover letter for this job
+  async function handleGenerateCoverLetter() {
+    if (!jobId) return;
+
+    try {
+      setGeneratingCoverLetter(true);
+      setCoverLetterError(null);
+
+      const res = await api.post(`/api/jobs/${jobId}/generate-cover-letter`);
+
+      if (res.data.success) {
+        alert("✅ Cover letter generated and linked successfully!");
+        
+        // Reload job to get updated cover_letter_id
+        const jobRes = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (jobRes.ok) {
+          const jobData = await jobRes.json();
+          setJob(jobData.job);
+          
+          // Reload cover letter if it exists
+          if (jobData.job.cover_letter_id) {
+            try {
+              const clRes = await fetch(
+                `http://localhost:4000/api/cover-letter/${jobData.job.cover_letter_id}`,
+                {
+                  headers: { Authorization: `Bearer ${token}` },
+                }
+              );
+              if (clRes.ok) {
+                const clData = await clRes.json();
+                if (clData.cover_letter) setCoverLetter(clData.cover_letter);
+              }
+            } catch (err) {
+              console.error("Failed to reload cover letter:", err);
+            }
+          }
+        }
+
+        // Refresh cover letters list
+        try {
+          const c = await api.get("/api/cover-letters");
+          setCoverLetters(c.data.cover_letters || []);
+          if (res.data.cover_letter?.id) {
+            setSelectedCover(res.data.cover_letter.id.toString());
+          }
+        } catch (err) {
+          console.error("Failed to reload cover letters:", err);
+        }
+      }
+    } catch (err) {
+      console.error("❌ Failed to generate cover letter:", err);
+      setCoverLetterError(
+        err.response?.data?.error || "Failed to generate cover letter. Please try again."
+      );
+      alert(`Failed to generate cover letter: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setGeneratingCoverLetter(false);
     }
   }
 
@@ -372,11 +539,23 @@ export default function JobDetailsModal({
       if (!res.ok) throw new Error("Failed to update job");
       const data = await res.json();
       const previousStatus = job.status;
+      const locationChanged = job.location !== data.job.location;
       setJob(data.job);
       
       // If status changed to "Offer", auto-create offer if it doesn't exist
       if (data.job.status === "Offer" && previousStatus !== "Offer" && !existingOffer) {
         await createOfferFromJob(data.job);
+      }
+      
+      // Dispatch event to notify map view to refresh if location changed
+      if (locationChanged) {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId, locationChanged: true } 
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId } 
+        }));
       }
       
       alert("✅ Job updated successfully!");
@@ -500,6 +679,18 @@ export default function JobDetailsModal({
           placeholder="e.g., New York, NY"
         />
 
+        <label>Location Type</label>
+        <select
+          value={job.location_type || ""}
+          onChange={(e) => setJob({ ...job, location_type: e.target.value })}
+        >
+          <option value="">Select location type</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="on_site">On-Site</option>
+          <option value="flexible">Flexible</option>
+        </select>
+
         {/* STAGE */}
         <label>Status</label>
         <select
@@ -549,6 +740,163 @@ export default function JobDetailsModal({
             onChange={(e) => setJob({ ...job, salary_max: e.target.value })}
           />
         </div>
+
+        {/* SALARY BENCHMARK SECTION */}
+        {job && (job.title || job.location) && (
+          <div style={{
+            marginTop: "20px",
+            padding: "16px",
+            backgroundColor: "#f9fafb",
+            borderRadius: "8px",
+            border: "1px solid #e5e7eb"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>💰 Market Salary Benchmarks</h3>
+              {!loadingBenchmark && (
+                <button
+                  type="button"
+                  onClick={() => loadSalaryBenchmark()}
+                  style={{
+                    padding: "6px 12px",
+                    backgroundColor: "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    fontSize: "12px"
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+              )}
+            </div>
+
+            {loadingBenchmark && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Loading salary benchmarks...
+              </p>
+            )}
+
+            {benchmarkError && !salaryBenchmark && !loadingBenchmark && (
+              <p style={{ color: "#dc2626", fontSize: "0.875rem", margin: 0 }}>
+                ⚠️ {benchmarkError}
+              </p>
+            )}
+
+            {!loadingBenchmark && !salaryBenchmark && !benchmarkError && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Click "Refresh" to load salary benchmark data.
+              </p>
+            )}
+
+            {salaryBenchmark && salaryBenchmark.available && salaryBenchmark.range && (
+              <div>
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "12px", marginBottom: "12px" }}>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>Low</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600 }}>
+                        ${salaryBenchmark.range.low?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>Average</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600, color: "#2563eb" }}>
+                        ${salaryBenchmark.range.avg?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <strong style={{ color: "#6b7280", fontSize: "0.75rem", textTransform: "uppercase" }}>High</strong>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "1.1rem", fontWeight: 600 }}>
+                        ${salaryBenchmark.range.high?.toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Percentiles */}
+                  {salaryBenchmark.range.percentile25 && salaryBenchmark.range.percentile50 && salaryBenchmark.range.percentile75 && (
+                    <div style={{
+                      padding: "12px",
+                      backgroundColor: "white",
+                      borderRadius: "6px",
+                      border: "1px solid #e5e7eb",
+                      marginTop: "12px"
+                    }}>
+                      <strong style={{ fontSize: "0.875rem", color: "#374151", marginBottom: "8px", display: "block" }}>
+                        Percentile Breakdown
+                      </strong>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>25th (Lower)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#dc2626" }}>
+                            ${salaryBenchmark.range.percentile25.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>50th (Median)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#2563eb" }}>
+                            ${salaryBenchmark.range.percentile50.toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <small style={{ color: "#6b7280" }}>75th (Upper)</small>
+                          <p style={{ margin: "2px 0 0 0", fontSize: "0.95rem", fontWeight: 500, color: "#059669" }}>
+                            ${salaryBenchmark.range.percentile75.toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {salaryBenchmark.dataSource && (
+                  <div style={{
+                    padding: "8px 12px",
+                    backgroundColor: "#eff6ff",
+                    borderRadius: "4px",
+                    fontSize: "0.75rem",
+                    color: "#1e40af"
+                  }}>
+                    <strong>Data Source:</strong> {salaryBenchmark.dataSource}
+                  </div>
+                )}
+
+                <div style={{
+                  marginTop: "12px",
+                  padding: "8px 12px",
+                  backgroundColor: "#fef3c7",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  color: "#92400e"
+                }}>
+                  <strong>Note:</strong> Salary benchmarks are estimates based on job title and location. 
+                  For detailed analysis, visit the <strong>Salary Data</strong> tab under Interviews.
+                </div>
+              </div>
+            )}
+
+            {salaryBenchmark && !salaryBenchmark.available && (
+              <p style={{ color: "#6b7280", fontSize: "0.875rem", margin: 0 }}>
+                Salary benchmark data is not available for this position. 
+                Try refreshing or check back later.
+              </p>
+            )}
+          </div>
+        )}
+
+        {job && (!job.title && !job.location) && (
+          <div style={{
+            marginTop: "20px",
+            padding: "12px",
+            backgroundColor: "#fef3c7",
+            borderRadius: "6px",
+            border: "1px solid #f59e0b",
+            fontSize: "0.875rem",
+            color: "#92400e"
+          }}>
+            💡 <strong>Tip:</strong> Add a job title and location to see salary benchmarks.
+          </div>
+        )}
 
         {/* DEADLINE */}
         <label>Application Deadline</label>
@@ -639,7 +987,6 @@ export default function JobDetailsModal({
           <option value="director">Director</option>
           <option value="vp">VP</option>
         </select>
-
         {/* NOTES */}
         <label>Personal Notes</label>
         <textarea
@@ -693,22 +1040,6 @@ export default function JobDetailsModal({
           placeholder="Feedback, interviewer names, or impressions"
         />
 
-        {/* HISTORY */}
-        <div className="history-section">
-          <h3>Application History</h3>
-          {job.history && job.history.length > 0 ? (
-            <ul>
-              {job.history.map((h, i) => (
-                <li key={i}>
-                  <small>{new Date(h.timestamp).toLocaleString()}</small> —{" "}
-                  {h.event}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>No history yet.</p>
-          )}
-        </div>
         {/* APPLICATION MATERIALS */}
         <div className="linked-materials">
           <h3>Application Materials</h3>
@@ -720,23 +1051,22 @@ export default function JobDetailsModal({
               <>
                 <p>{resume?.title || "Resume"}</p>
 
-                <a
-                  href={`http://localhost:4000/api/resumes/${job.resume_id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={handleResumeDownload}
                   style={{
                     display: "inline-block",
                     padding: "8px 16px",
                     backgroundColor: "#2563eb",
                     color: "white",
-                    textDecoration: "none",
+                    border: "none",
                     borderRadius: "6px",
                     marginTop: "8px",
                     fontWeight: 500,
+                    cursor: "pointer",
                   }}
                 >
                   ⬇ Download Resume
-                </a>
+                </button>
               </>
             ) : (
               <p>No resume linked.</p>
@@ -750,26 +1080,49 @@ export default function JobDetailsModal({
               <>
                 <p>{coverLetter?.title || "Cover Letter"}</p>
 
-                <a
-                  href={`http://localhost:4000/api/cover-letters/${job.cover_letter_id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={handleCoverLetterDownload}
                   style={{
                     display: "inline-block",
                     padding: "8px 16px",
                     backgroundColor: "#10b981",
                     color: "white",
-                    textDecoration: "none",
+                    border: "none",
                     borderRadius: "6px",
                     marginTop: "8px",
                     fontWeight: 500,
+                    marginRight: "8px",
+                    cursor: "pointer",
                   }}
                 >
                   Download Cover Letter
-                </a>
+                </button>
               </>
             ) : (
-              <p>No cover letter linked.</p>
+              <>
+                <p>No cover letter linked.</p>
+                <button
+                  onClick={handleGenerateCoverLetter}
+                  disabled={generatingCoverLetter}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: generatingCoverLetter ? "#94a3b8" : "#10b981",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    marginTop: "8px",
+                    fontWeight: 500,
+                    cursor: generatingCoverLetter ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {generatingCoverLetter ? "Generating..." : "✨ Generate Cover Letter for This Job"}
+                </button>
+                {coverLetterError && (
+                  <p style={{ color: "#dc2626", fontSize: "0.875rem", marginTop: "8px" }}>
+                    {coverLetterError}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -957,42 +1310,6 @@ export default function JobDetailsModal({
           )}
         </div>
 
-        {/* ---------------------------------------- */}
-        {/* APPLICATION MATERIALS HISTORY            */}
-        {/* ---------------------------------------- */}
-        <div className="materials-history">
-          <h3>Materials History</h3>
-
-          {history.length === 0 ? (
-            <p>No history recorded yet.</p>
-          ) : (
-            <ul>
-              {history.map((h) => (
-                <li key={h.id} className="history-item">
-                  <strong>{new Date(h.changed_at).toLocaleString()}</strong>
-
-                  <div>
-                    {h.resume_title && h.resume_title.trim() !== '' ? (
-                      <p>
-                        📄 Resume: <strong>{h.resume_title}</strong>
-                      </p>
-                    ) : (
-                      <p>📄 Resume: None</p>
-                    )}
-
-                    {h.cover_title && h.cover_title.trim() !== '' ? (
-                      <p>
-                        ✉️ Cover Letter: <strong>{h.cover_title}</strong>
-                      </p>
-                    ) : (
-                      <p>✉️ Cover Letter: None</p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
 
         {/* OFFER SECTION - Show when status is "Offer" */}
         {(job.status === "Offer" || existingOffer) && (

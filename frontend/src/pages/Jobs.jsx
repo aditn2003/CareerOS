@@ -1,9 +1,10 @@
 // src/pages/Jobs.jsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale, FaChartBar } from "react-icons/fa";
+import { useNavigate, useLocation, NavLink } from "react-router-dom";
+import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale, FaChartBar, FaMapMarkedAlt, FaTh } from "react-icons/fa";
 import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
+import JobMapView from "../components/JobMapView";
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
 import StatisticsDashboard from "../components/stats";
@@ -11,6 +12,7 @@ import FollowUpReminders from "../components/FollowUpReminders";
 import OptimizationDashboard from "../components/OptimizationDashboard";
 import OfferComparison from "../components/OfferComparison";
 import CareerGrowthCalculator from "../components/CareerGrowthCalculator";
+import JobTimeline from "../components/JobTimeline";
 import { useAuth } from "../contexts/AuthContext";
 import "./Jobs.css";
 import "./StatisticsLayout.css";
@@ -21,7 +23,7 @@ export default function Jobs() {
 
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  const [activeTab, setActiveTab] = useState("pipeline"); // 'pipeline', 'followups', 'optimization', 'comparison', or 'growth'
+  const [activeTab, setActiveTab] = useState("pipeline");
 
   const handleApply = (jobId) => {
     if (!jobId) return;
@@ -46,6 +48,13 @@ export default function Jobs() {
             >
               <span className="statistics-tab-icon">💼</span>
               <span className="statistics-tab-text">Pipeline</span>
+            </button>
+            <button
+              className={`statistics-nav-tab analytics ${activeTab === "map" ? "active" : ""}`}
+              onClick={() => setActiveTab("map")}
+            >
+              <span className="statistics-tab-icon">🗺️</span>
+              <span className="statistics-tab-text">Map View</span>
             </button>
             <button
               className={`statistics-nav-tab analytics ${activeTab === "followups" ? "active" : ""}`}
@@ -132,6 +141,18 @@ export default function Jobs() {
           <aside className="sidebar-widget">
             <UpcomingDeadlinesWidget token={token} />
           </aside>
+        </div>
+      )}
+
+      {activeTab === "map" && (
+        <div className="jobs-map-tab">
+          <div className="profile-box">
+            <h3>
+              <FaMapMarkedAlt style={{ marginRight: "0.5rem", display: "inline-block" }} />
+              Job Locations Map
+            </h3>
+            <JobMapView key={refreshKey} token={token} />
+          </div>
         </div>
       )}
 

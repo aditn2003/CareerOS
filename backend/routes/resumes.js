@@ -8,6 +8,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import PDFDocument from "pdfkit";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
@@ -171,7 +172,7 @@ function createResumesRoutes(
   }
 
   // Helper function to call OpenAI with the same prompt
-  async function callOpenAI(prompt, temperature = 0.2) {
+  async function callOpenAI(prompt, temperature = 0.2, userId = null) {
     if (!openai) {
       throw new Error("OpenAI client not available - OPENAI_API_KEY not set");
     }
@@ -179,22 +180,32 @@ function createResumesRoutes(
     console.log("🔄 [OPENAI FALLBACK] Using OpenAI as fallback for Gemini rate limit...");
     
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant that returns valid JSON responses. Always return only valid JSON without markdown formatting.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: temperature,
-        response_format: { type: "json_object" },
-        max_tokens: 4000,
-      });
+      const completion = await trackApiCall(
+        'openai',
+        () => openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant that returns valid JSON responses. Always return only valid JSON without markdown formatting.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: temperature,
+          response_format: { type: "json_object" },
+          max_tokens: 4000,
+        }),
+        {
+          endpoint: '/v1/chat/completions',
+          method: 'POST',
+          userId,
+          requestPayload: { model: 'gpt-4o-mini', purpose: 'resume_processing_fallback' },
+          estimateCost: 0.001
+        }
+      );
       
       const text = completion.choices[0]?.message?.content || "";
       console.log("✅ [OPENAI FALLBACK] Successfully got response from OpenAI");
@@ -206,7 +217,7 @@ function createResumesRoutes(
   }
 
   // Helper function for retry logic with exponential backoff and OpenAI fallback
-  async function callGeminiWithRetry(prompt, modelConfig, maxRetries = 3) {
+  async function callGeminiWithRetry(prompt, modelConfig, maxRetries = 3, userId = null) {
     let retryCount = 0;
     let lastError = null;
     let usedFallback = false;
@@ -215,8 +226,31 @@ function createResumesRoutes(
       try {
         const model = genAI.getGenerativeModel(modelConfig);
         console.log(`🤖 [GEMINI] Attempting API call (attempt ${retryCount + 1}/${maxRetries})...`);
+        const startTime = Date.now();
         const result = await model.generateContent(prompt);
+        const responseTimeMs = Date.now() - startTime;
         const text = result.response.text();
+        
+        // Track successful Gemini API call
+        try {
+          const { logApiUsage } = await import("../utils/apiTrackingService.js");
+          const tokensUsed = result.response.usageMetadata?.totalTokenCount || null;
+          await logApiUsage({
+            serviceName: 'google_gemini',
+            endpoint: '/v1/models/' + (modelConfig.model || 'gemini-2.0-flash') + ':generateContent',
+            method: 'POST',
+            userId,
+            requestPayload: { model: modelConfig.model, purpose: 'resume_processing' },
+            responseStatus: 200,
+            responseTimeMs,
+            tokensUsed,
+            success: true,
+            costEstimate: tokensUsed ? (tokensUsed / 1000000) * 0.000125 : 0.001 // Rough estimate
+          });
+        } catch (trackErr) {
+          console.warn("Failed to track Gemini API call:", trackErr);
+        }
+        
         return text;
       } catch (apiError) {
         lastError = apiError;
@@ -235,7 +269,7 @@ function createResumesRoutes(
             console.warn(`⚠️ [GEMINI] Rate limit hit (429). Attempting OpenAI fallback...`);
             try {
               const temperature = modelConfig.generationConfig?.temperature || 0.2;
-              const text = await callOpenAI(prompt, temperature);
+              const text = await callOpenAI(prompt, temperature, userId);
               usedFallback = true;
               return text;
             } catch (fallbackError) {
@@ -271,7 +305,7 @@ function createResumesRoutes(
         console.warn(`⚠️ [GEMINI] All retries exhausted. Attempting OpenAI fallback as last resort...`);
         try {
           const temperature = modelConfig.generationConfig?.temperature || 0.2;
-          const text = await callOpenAI(prompt, temperature);
+          const text = await callOpenAI(prompt, temperature, userId);
           return text;
         } catch (fallbackError) {
           console.error("❌ [OPENAI FALLBACK] Final fallback attempt failed:", fallbackError.message);
@@ -626,13 +660,14 @@ ${textContent}
 `;
 
     // Use retry helper for Gemini API call
+    const userId = req.user?.id || null;
     const text = await callGeminiWithRetry(prompt, {
       model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.2,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
 
     let structured;
     try {
@@ -673,7 +708,7 @@ ${textContent}
     const { rows } = await pool.query(
       `SELECT 
         id, title, template_name, preview_url, file_url, created_at, format,
-        original_resume_id, version_number, is_version, is_default
+        original_resume_id, version_number, is_version, is_default, description
        FROM resumes 
        WHERE user_id=$1 
        ORDER BY 
@@ -723,9 +758,41 @@ ${textContent}
 
   router.delete("/:id", auth, async (req, res) => {
   try {
+    const resumeId = req.params.id;
+    const userId = req.user.id;
+
+    // First, delete history records that would violate the constraint
+    // Delete rows where resume_id matches and cover_letter_id is NULL
+    // (these would violate check_at_least_one_material when resume_id is set to NULL)
+    await pool.query(
+      `DELETE FROM application_materials_history 
+       WHERE resume_id=$1 
+       AND cover_letter_id IS NULL
+       AND user_id=$2`,
+      [resumeId, userId]
+    );
+
+    // Clean up resume_versions entries that reference this resume as published_resume_id
+    // This ensures published versions are properly cleaned up when the published resume is deleted
+    try {
+      await pool.query(
+        `UPDATE resume_versions 
+         SET published_resume_id = NULL 
+         WHERE published_resume_id = $1 AND user_id = $2`,
+        [resumeId, userId]
+      );
+      console.log(`✅ Cleaned up resume_versions references to deleted resume ${resumeId}`);
+    } catch (versionCleanupError) {
+      // If published_resume_id column doesn't exist, that's okay
+      if (!versionCleanupError.message?.includes('published_resume_id')) {
+        console.warn("⚠️ Could not clean up resume_versions references:", versionCleanupError.message);
+      }
+    }
+
+    // Now delete the resume (foreign key will set resume_id to NULL for remaining history rows)
     await pool.query(`DELETE FROM resumes WHERE id=$1 AND user_id=$2`, [
-      req.params.id,
-      req.user.id,
+      resumeId,
+      userId,
     ]);
     res.json({ message: "✅ Resume deleted" });
   } catch (err) {
@@ -845,8 +912,9 @@ ${textContent}
           // Otherwise, we'll serve the original file
         }
         
-        // ✅ Convert DOC/DOCX to PDF for inline viewing or if PDF requested
-        if (((ext === ".doc" || ext === ".docx") && (requestedFormat === "pdf" || !requestedFormat)) && mammoth) {
+        // ✅ Serve Word files directly (don't auto-convert to PDF)
+        // Only convert if PDF format is explicitly requested
+        if (((ext === ".doc" || ext === ".docx") && requestedFormat === "pdf") && mammoth) {
           try {
             console.log(`🔄 [RESUME DOWNLOAD] Converting ${ext} to PDF for viewing`);
             
@@ -940,10 +1008,26 @@ ${textContent}
           return res.sendFile(path.resolve(finalPath));
         }
         
-        // For DOC/DOCX without mammoth or if original format requested, serve as-is
+        // ✅ Serve Word files directly (don't convert unless PDF explicitly requested)
+        if (ext === ".doc" || ext === ".docx") {
+          if (!requestedFormat || requestedFormat === ext.replace(".", "")) {
+            console.log(`✅ [RESUME DOWNLOAD] Serving ${ext} file directly`);
+            const contentTypes = {
+              ".doc": "application/msword",
+              ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            };
+            res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+            res.setHeader("Content-Disposition", `attachment; filename="${resume.title}${ext}"`);
+            return res.sendFile(path.resolve(finalPath));
+          }
+        }
+        
+        // For other formats, serve as-is if no conversion requested
         if (!requestedFormat || requestedFormat === ext.replace(".", "")) {
-          console.log(`⚠️ [RESUME DOWNLOAD] Serving ${ext} file directly`);
+          console.log(`✅ [RESUME DOWNLOAD] Serving ${ext} file directly`);
           const contentTypes = {
+            ".pdf": "application/pdf",
+            ".txt": "text/plain",
             ".doc": "application/msword",
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           };
@@ -1488,6 +1572,7 @@ router.get("/:id", auth, async (req, res) => {
 router.post("/optimize", auth, async (req, res) => {
   try {
     const { sections, jobDescription } = req.body;
+    const userId = req.user?.id || null;
 
     if (!sections || !jobDescription)
       return res.status(400).json({
@@ -1555,14 +1640,14 @@ User Resume (JSON):
 ${JSON.stringify(sections, null, 2)}
 `;
 
-    // Use retry helper for Gemini API call
+    // Use retry helper for Gemini API call (userId already declared above)
     const text = await callGeminiWithRetry(prompt, {
       model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.5,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
 
     // Try to parse AI JSON safely
     let data;
@@ -1629,7 +1714,9 @@ ${JSON.stringify(sections, null, 2)}
       return res
         .status(400)
         .json({ error: "Missing data for reconciliation." });
-
+    
+    const userId = req.user?.id || null;
+    
     // 🧠 Prompt Gemini to intelligently merge both resumes
     const prompt = `
 You are an expert resume optimizer and structured data modeler.
@@ -1682,7 +1769,7 @@ ${JSON.stringify(aiSuggestions, null, 2)}
         temperature: 0.4,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
     
     const text = rawText.replace(/```json|```/g, "").trim();
 
