@@ -15,4 +15,4 @@ frontend/public/.DS_Store
 .env
 frontend/.env
 backend/.env
-.env
+backend/.env.test
