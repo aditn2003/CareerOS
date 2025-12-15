@@ -9,6 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import PDFDocument from "pdfkit";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
@@ -173,7 +174,7 @@ function createResumesRoutes(
   }
 
   // Helper function to call OpenAI with the same prompt
-  async function callOpenAI(prompt, temperature = 0.2) {
+  async function callOpenAI(prompt, temperature = 0.2, userId = null) {
     if (!openai) {
       throw new Error("OpenAI client not available - OPENAI_API_KEY not set");
     }
@@ -181,22 +182,32 @@ function createResumesRoutes(
     console.log("🔄 [OPENAI FALLBACK] Using OpenAI as fallback for Gemini rate limit...");
     
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant that returns valid JSON responses. Always return only valid JSON without markdown formatting.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: temperature,
-        response_format: { type: "json_object" },
-        max_tokens: 4000,
-      });
+      const completion = await trackApiCall(
+        'openai',
+        () => openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful assistant that returns valid JSON responses. Always return only valid JSON without markdown formatting.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: temperature,
+          response_format: { type: "json_object" },
+          max_tokens: 4000,
+        }),
+        {
+          endpoint: '/v1/chat/completions',
+          method: 'POST',
+          userId,
+          requestPayload: { model: 'gpt-4o-mini', purpose: 'resume_processing_fallback' },
+          estimateCost: 0.001
+        }
+      );
       
       const text = completion.choices[0]?.message?.content || "";
       console.log("✅ [OPENAI FALLBACK] Successfully got response from OpenAI");
@@ -208,7 +219,7 @@ function createResumesRoutes(
   }
 
   // Helper function for retry logic with exponential backoff and OpenAI fallback
-  async function callGeminiWithRetry(prompt, modelConfig, maxRetries = 3) {
+  async function callGeminiWithRetry(prompt, modelConfig, maxRetries = 3, userId = null) {
     let retryCount = 0;
     let lastError = null;
     let usedFallback = false;
@@ -217,8 +228,31 @@ function createResumesRoutes(
       try {
         const model = genAI.getGenerativeModel(modelConfig);
         console.log(`🤖 [GEMINI] Attempting API call (attempt ${retryCount + 1}/${maxRetries})...`);
+        const startTime = Date.now();
         const result = await model.generateContent(prompt);
+        const responseTimeMs = Date.now() - startTime;
         const text = result.response.text();
+        
+        // Track successful Gemini API call
+        try {
+          const { logApiUsage } = await import("../utils/apiTrackingService.js");
+          const tokensUsed = result.response.usageMetadata?.totalTokenCount || null;
+          await logApiUsage({
+            serviceName: 'google_gemini',
+            endpoint: '/v1/models/' + (modelConfig.model || 'gemini-2.0-flash') + ':generateContent',
+            method: 'POST',
+            userId,
+            requestPayload: { model: modelConfig.model, purpose: 'resume_processing' },
+            responseStatus: 200,
+            responseTimeMs,
+            tokensUsed,
+            success: true,
+            costEstimate: tokensUsed ? (tokensUsed / 1000000) * 0.000125 : 0.001 // Rough estimate
+          });
+        } catch (trackErr) {
+          console.warn("Failed to track Gemini API call:", trackErr);
+        }
+        
         return text;
       } catch (apiError) {
         lastError = apiError;
@@ -237,7 +271,7 @@ function createResumesRoutes(
             console.warn(`⚠️ [GEMINI] Rate limit hit (429). Attempting OpenAI fallback...`);
             try {
               const temperature = modelConfig.generationConfig?.temperature || 0.2;
-              const text = await callOpenAI(prompt, temperature);
+              const text = await callOpenAI(prompt, temperature, userId);
               usedFallback = true;
               return text;
             } catch (fallbackError) {
@@ -273,7 +307,7 @@ function createResumesRoutes(
         console.warn(`⚠️ [GEMINI] All retries exhausted. Attempting OpenAI fallback as last resort...`);
         try {
           const temperature = modelConfig.generationConfig?.temperature || 0.2;
-          const text = await callOpenAI(prompt, temperature);
+          const text = await callOpenAI(prompt, temperature, userId);
           return text;
         } catch (fallbackError) {
           console.error("❌ [OPENAI FALLBACK] Final fallback attempt failed:", fallbackError.message);
@@ -628,13 +662,14 @@ ${textContent}
 `;
 
     // Use retry helper for Gemini API call
+    const userId = req.user?.id || null;
     const text = await callGeminiWithRetry(prompt, {
       model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.2,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
 
     let structured;
     try {
@@ -1539,6 +1574,7 @@ router.get("/:id", auth, async (req, res) => {
 router.post("/optimize", auth, async (req, res) => {
   try {
     const { sections, jobDescription } = req.body;
+    const userId = req.user?.id || null;
 
     if (!sections || !jobDescription)
       return res.status(400).json({
@@ -1606,14 +1642,14 @@ User Resume (JSON):
 ${JSON.stringify(sections, null, 2)}
 `;
 
-    // Use retry helper for Gemini API call
+    // Use retry helper for Gemini API call (userId already declared above)
     const text = await callGeminiWithRetry(prompt, {
       model: "gemini-2.0-flash",
       generationConfig: {
         temperature: 0.5,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
 
     // Try to parse AI JSON safely
     let data;
@@ -1680,7 +1716,9 @@ ${JSON.stringify(sections, null, 2)}
       return res
         .status(400)
         .json({ error: "Missing data for reconciliation." });
-
+    
+    const userId = req.user?.id || null;
+    
     // 🧠 Prompt Gemini to intelligently merge both resumes
     const prompt = `
 You are an expert resume optimizer and structured data modeler.
@@ -1733,7 +1771,7 @@ ${JSON.stringify(aiSuggestions, null, 2)}
         temperature: 0.4,
         responseMimeType: "application/json",
       },
-    });
+    }, 3, userId);
     
     const text = rawText.replace(/```json|```/g, "").trim();
 

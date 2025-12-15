@@ -391,14 +391,35 @@ router.get("/", auth, async (req, res) => {
         orderColumn = "j.created_at";
     }
 
+    // Check if referral_requests table exists
+    let referralJoin = '';
+    let referralSelect = 'false as is_referral';
+    try {
+      const tableCheck = await pool.query(
+        `SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'referral_requests'
+        )`
+      );
+      if (tableCheck.rows[0].exists) {
+        referralJoin = 'LEFT JOIN referral_requests rr ON j.id = rr.job_id AND rr.user_id = j.user_id';
+        referralSelect = 'CASE WHEN rr.id IS NOT NULL THEN true ELSE false END as is_referral';
+      }
+    } catch (err) {
+      console.warn('Could not check for referral_requests table:', err.message);
+    }
+
     const result = await pool.query(
       `
       SELECT j.*,
         GREATEST(0, CEIL(EXTRACT(EPOCH FROM (NOW() - COALESCE(j.status_updated_at, j.created_at))) / 86400.0))::int AS days_in_stage,
         jm.resume_id,
-        jm.cover_letter_id
+        jm.cover_letter_id,
+        ${referralSelect}
       FROM jobs j
       LEFT JOIN job_materials jm ON j.id = jm.job_id
+      ${referralJoin}
       WHERE ${whereClauses.join(" AND ")}
       ORDER BY ${orderColumn} DESC
     `,

@@ -8,6 +8,7 @@ import { Resend } from 'resend';
 import pkg from 'pg';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv';
+import { logApiUsage, logApiError } from '../utils/apiTrackingService.js';
 
 dotenv.config();
 
@@ -195,10 +196,10 @@ router.put('/requests/:id', authMiddleware, async (req, res) => {
       referrer_notes
     } = req.body;
 
-    // Verify ownership
+    // Get the existing referral request to check current status and job_id
     const { data: existing, error: checkError } = await supabase
       .from('referral_requests')
-      .select('id')
+      .select('*')
       .eq('id', req.params.id)
       .eq('user_id', req.user.id)
       .single();
@@ -221,6 +222,46 @@ router.put('/requests/:id', authMiddleware, async (req, res) => {
     if (followup_score) updateData.followup_score = followup_score;
     if (gratitude_expressed !== undefined) updateData.gratitude_expressed = gratitude_expressed;
     if (referrer_notes) updateData.referrer_notes = referrer_notes;
+
+    // If status is being changed to "accepted" or "referred" and job_id is null, create a job
+    if (status && (status === 'accepted' || status === 'referred') && !existing.job_id) {
+      try {
+        // Check if a job with the same title and company already exists
+        const existingJobCheck = await pool.query(
+          `SELECT id FROM jobs 
+           WHERE user_id = $1 
+           AND LOWER(TRIM(title)) = LOWER(TRIM($2))
+           AND LOWER(TRIM(company)) = LOWER(TRIM($3))
+           AND ("isArchived" = false OR "isArchived" IS NULL)
+           LIMIT 1`,
+          [req.user.id, existing.job_title, existing.company]
+        );
+
+        let jobId;
+        if (existingJobCheck.rows.length > 0) {
+          // Job already exists, use it
+          jobId = existingJobCheck.rows[0].id;
+          console.log(`✅ Found existing job ${jobId} for referral ${req.params.id}`);
+        } else {
+          // Create new job with "Interested" status
+          const newJobResult = await pool.query(
+            `INSERT INTO jobs (
+              user_id, title, company, status, created_at, status_updated_at
+            ) VALUES ($1, $2, $3, 'Interested', NOW(), NOW())
+            RETURNING id`,
+            [req.user.id, existing.job_title.trim(), existing.company.trim()]
+          );
+          jobId = newJobResult.rows[0].id;
+          console.log(`✅ Created new job ${jobId} for referral ${req.params.id}`);
+        }
+
+        // Link the job to the referral request
+        updateData.job_id = jobId;
+      } catch (jobError) {
+        console.error('Error creating job for referral:', jobError);
+        // Continue with referral update even if job creation fails
+      }
+    }
 
     const { data, error } = await supabase
       .from('referral_requests')
@@ -773,6 +814,8 @@ router.post('/requests/:id/send-email', authMiddleware, async (req, res) => {
     `;
 
     // Send email using Resend
+    const userId = req.user?.id || null;
+    const startTime = Date.now();
     const emailResult = await resend.emails.send({
       from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
       to: contactEmail,
@@ -780,6 +823,45 @@ router.post('/requests/:id/send-email', authMiddleware, async (req, res) => {
       html: emailHtml,
       replyTo: userEmail, // Allow contact to reply directly to the user
     });
+    const responseTimeMs = Date.now() - startTime;
+
+    // Track API usage
+    try {
+      if (emailResult.error) {
+        await logApiError({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          userId: userId,
+          errorType: 'api_error',
+          errorMessage: emailResult.error.message || 'Email send failed',
+          statusCode: emailResult.error.statusCode || 500,
+          requestPayload: { from: process.env.EMAIL_FROM, to: contactEmail, purpose: 'referral_request' }
+        });
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: contactEmail, purpose: 'referral_request' },
+          responseStatus: emailResult.error.statusCode || 500,
+          responseTimeMs,
+          success: false
+        });
+      } else {
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: contactEmail, purpose: 'referral_request' },
+          responseStatus: 200,
+          responseTimeMs,
+          success: true
+        });
+      }
+    } catch (trackErr) {
+      console.warn("Failed to track Resend API call:", trackErr);
+    }
 
     if (emailResult.error) {
       console.error('Resend API error:', emailResult.error);

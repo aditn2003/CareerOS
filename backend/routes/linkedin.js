@@ -120,17 +120,28 @@ router.get("/callback", async (req, res) => {
     const redirectUri = process.env.LINKEDIN_CALLBACK_URL || "http://localhost:4000/api/linkedin/callback";
     
     // Exchange code for access token
-    const tokenRes = await axios.post(
-      "https://www.linkedin.com/oauth/v2/accessToken",
-      new URLSearchParams({
-        grant_type: "authorization_code",
-        code,
-        redirect_uri: redirectUri,
-        client_id: process.env.LINKEDIN_CLIENT_ID,
-        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-      }),
+    const { trackApiCall } = await import("../utils/apiTrackingService.js");
+    
+    const tokenRes = await trackApiCall(
+      'linkedin',
+      () => axios.post(
+        "https://www.linkedin.com/oauth/v2/accessToken",
+        new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: redirectUri,
+          client_id: process.env.LINKEDIN_CLIENT_ID,
+          client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+        }),
+        {
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        }
+      ),
       {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        endpoint: '/oauth/v2/accessToken',
+        method: 'POST',
+        userId: null, // Not authenticated yet during OAuth flow
+        requestPayload: { grant_type: 'authorization_code' }
       }
     );
 
@@ -140,12 +151,21 @@ router.get("/callback", async (req, res) => {
     console.log("✅ Got access token");
 
     // Fetch user profile using OpenID Connect userinfo endpoint
-    const profileRes = await axios.get(
-      "https://api.linkedin.com/v2/userinfo",
+    const profileRes = await trackApiCall(
+      'linkedin',
+      () => axios.get(
+        "https://api.linkedin.com/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      ),
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        endpoint: '/v2/userinfo',
+        method: 'GET',
+        userId: null, // Not authenticated yet during OAuth flow
+        requestPayload: { purpose: 'oauth_callback_profile' }
       }
     );
 
@@ -399,12 +419,23 @@ router.get("/fetch-profile", authMiddleware, async (req, res) => {
     const accessToken = userData.linkedin_access_token;
 
     // Fetch profile using OpenID Connect userinfo endpoint
-    const profileRes = await axios.get(
-      "https://api.linkedin.com/v2/userinfo",
+    const { trackApiCall } = await import("../utils/apiTrackingService.js");
+    
+    const profileRes = await trackApiCall(
+      'linkedin',
+      () => axios.get(
+        "https://api.linkedin.com/v2/userinfo",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      ),
       {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+        endpoint: '/v2/userinfo',
+        method: 'GET',
+        userId: req.user.id,
+        requestPayload: { purpose: 'fetch_profile' }
       }
     );
 

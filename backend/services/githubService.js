@@ -1,6 +1,7 @@
 // backend/services/githubService.js
 // GitHub API Integration Service
 import axios from "axios";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 const GITHUB_API_BASE = "https://api.github.com";
 
@@ -13,9 +14,10 @@ export function createGitHubService(dbPool = null) {
    * Fetch user's public repositories from GitHub API
    * @param {string} username - GitHub username
    * @param {string} token - Optional GitHub personal access token
+   * @param {number} userId - Optional user ID for tracking
    * @returns {Promise<Array>} Array of repository objects
    */
-  async function fetchUserRepositories(username, token = null) {
+  async function fetchUserRepositories(username, token = null, userId = null) {
     try {
       const headers = {
         Accept: "application/vnd.github.v3+json",
@@ -33,16 +35,25 @@ export function createGitHubService(dbPool = null) {
         ? `${GITHUB_API_BASE}/user/repos`  // Authenticated user endpoint - returns private repos
         : `${GITHUB_API_BASE}/users/${username}/repos`; // Public endpoint - only public repos
 
-      const response = await axios.get(endpoint, {
-        headers,
-        params: {
-          type: "all", // Get all repos (public + private if token provided)
-          sort: "updated",
-          direction: "desc",
-          per_page: 100, // Max per page
-        },
-        timeout: 15000,
-      });
+      const response = await trackApiCall(
+        'github',
+        () => axios.get(endpoint, {
+          headers,
+          params: {
+            type: "all", // Get all repos (public + private if token provided)
+            sort: "updated",
+            direction: "desc",
+            per_page: 100, // Max per page
+          },
+          timeout: 15000,
+        }),
+        {
+          endpoint: token ? '/user/repos' : `/users/${username}/repos`,
+          method: 'GET',
+          userId,
+          requestPayload: { username, hasToken: !!token }
+        }
+      );
 
       let repos = response.data || [];
 
@@ -51,10 +62,19 @@ export function createGitHubService(dbPool = null) {
       if (token) {
         // Get the authenticated user's login to verify
         try {
-          const userResponse = await axios.get(`${GITHUB_API_BASE}/user`, {
-            headers,
-            timeout: 5000,
-          });
+          const userResponse = await trackApiCall(
+            'github',
+            () => axios.get(`${GITHUB_API_BASE}/user`, {
+              headers,
+              timeout: 5000,
+            }),
+            {
+              endpoint: '/user',
+              method: 'GET',
+              userId,
+              requestPayload: { purpose: 'verify_token_owner' }
+            }
+          );
           const tokenOwner = userResponse.data.login?.toLowerCase();
           const requestedUser = username.toLowerCase();
           
@@ -143,9 +163,10 @@ export function createGitHubService(dbPool = null) {
    * @param {string} username - GitHub username
    * @param {string} repoName - Repository name
    * @param {string} token - Optional GitHub personal access token
+   * @param {number} userId - Optional user ID for tracking
    * @returns {Promise<Object>} Repository details with languages
    */
-  async function fetchRepositoryDetails(username, repoName, token = null) {
+  async function fetchRepositoryDetails(username, repoName, token = null, userId = null) {
     try {
       const headers = {
         Accept: "application/vnd.github.v3+json",
@@ -158,7 +179,16 @@ export function createGitHubService(dbPool = null) {
 
       // Check rate limit first
       try {
-        const rateLimitResponse = await axios.get(`${GITHUB_API_BASE}/rate_limit`, { headers });
+        const rateLimitResponse = await trackApiCall(
+          'github',
+          () => axios.get(`${GITHUB_API_BASE}/rate_limit`, { headers }),
+          {
+            endpoint: '/rate_limit',
+            method: 'GET',
+            userId,
+            requestPayload: { purpose: 'check_rate_limit' }
+          }
+        );
         const rateLimit = rateLimitResponse.data.rate;
         if (rateLimit.remaining < 10) {
           const resetTime = new Date(rateLimit.reset * 1000);
@@ -171,14 +201,32 @@ export function createGitHubService(dbPool = null) {
 
       // Fetch repository details
       const [repoResponse, languagesResponse] = await Promise.all([
-        axios.get(`${GITHUB_API_BASE}/repos/${username}/${repoName}`, {
-          headers,
-          timeout: 15000,
-        }),
-        axios.get(`${GITHUB_API_BASE}/repos/${username}/${repoName}/languages`, {
-          headers,
-          timeout: 15000,
-        }).catch(() => ({ data: {} })), // Languages endpoint may fail, continue without it
+        trackApiCall(
+          'github',
+          () => axios.get(`${GITHUB_API_BASE}/repos/${username}/${repoName}`, {
+            headers,
+            timeout: 15000,
+          }),
+          {
+            endpoint: `/repos/${username}/${repoName}`,
+            method: 'GET',
+            userId,
+            requestPayload: { username, repoName, purpose: 'fetch_repo_details' }
+          }
+        ),
+        trackApiCall(
+          'github',
+          () => axios.get(`${GITHUB_API_BASE}/repos/${username}/${repoName}/languages`, {
+            headers,
+            timeout: 15000,
+          }),
+          {
+            endpoint: `/repos/${username}/${repoName}/languages`,
+            method: 'GET',
+            userId,
+            requestPayload: { username, repoName, purpose: 'fetch_repo_languages' }
+          }
+        ).catch(() => ({ data: {} })), // Languages endpoint may fail, continue without it
       ]);
 
       const repo = repoResponse.data;
@@ -254,9 +302,10 @@ export function createGitHubService(dbPool = null) {
   /**
    * Check GitHub API rate limit status
    * @param {string} token - Optional GitHub personal access token
+   * @param {number} userId - Optional user ID for tracking
    * @returns {Promise<Object>} Rate limit information
    */
-  async function checkRateLimit(token = null) {
+  async function checkRateLimit(token = null, userId = null) {
     try {
       const headers = {
         Accept: "application/vnd.github.v3+json",
@@ -267,10 +316,19 @@ export function createGitHubService(dbPool = null) {
         headers.Authorization = `token ${token}`;
       }
 
-      const response = await axios.get(`${GITHUB_API_BASE}/rate_limit`, {
-        headers,
-        timeout: 5000,
-      });
+      const response = await trackApiCall(
+        'github',
+        () => axios.get(`${GITHUB_API_BASE}/rate_limit`, {
+          headers,
+          timeout: 5000,
+        }),
+        {
+          endpoint: '/rate_limit',
+          method: 'GET',
+          userId,
+          requestPayload: { purpose: 'check_rate_limit' }
+        }
+      );
 
       return response.data.rate || {};
     } catch (error) {
@@ -286,9 +344,10 @@ export function createGitHubService(dbPool = null) {
    * @param {string} repoName - Repository name
    * @param {string} token - Optional GitHub personal access token
    * @param {number} daysBack - Number of days to look back (default: 365)
+   * @param {number} userId - Optional user ID for tracking
    * @returns {Promise<Array>} Array of contribution data with date, commit_count, additions, deletions
    */
-  async function fetchRepositoryContributions(username, repoName, token = null, daysBack = 365) {
+  async function fetchRepositoryContributions(username, repoName, token = null, daysBack = 365, userId = null) {
     try {
       const headers = {
         Accept: "application/vnd.github.v3+json",
@@ -314,10 +373,19 @@ export function createGitHubService(dbPool = null) {
           );
           
           const userResponse = await Promise.race([
-            axios.get(`${GITHUB_API_BASE}/user`, {
-              headers,
-              timeout: 3000,
-            }),
+            trackApiCall(
+              'github',
+              () => axios.get(`${GITHUB_API_BASE}/user`, {
+                headers,
+                timeout: 3000,
+              }),
+              {
+                endpoint: '/user',
+                method: 'GET',
+                userId,
+                requestPayload: { purpose: 'get_authenticated_user_for_contributions' }
+              }
+            ),
             timeoutPromise
           ]);
           
@@ -355,12 +423,21 @@ export function createGitHubService(dbPool = null) {
             params.author = authenticatedUserLogin;
           }
 
-          const response = await axios.get(
-            `${GITHUB_API_BASE}/repos/${username}/${repoName}/commits`,
+          const response = await trackApiCall(
+            'github',
+            () => axios.get(
+              `${GITHUB_API_BASE}/repos/${username}/${repoName}/commits`,
+              {
+                headers,
+                params,
+                timeout: 15000,
+              }
+            ),
             {
-              headers,
-              params,
-              timeout: 15000,
+              endpoint: `/repos/${username}/${repoName}/commits`,
+              method: 'GET',
+              userId,
+              requestPayload: { username, repoName, purpose: 'fetch_contributions', page }
             }
           );
 

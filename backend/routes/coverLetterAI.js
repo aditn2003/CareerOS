@@ -3,6 +3,7 @@ import express from "express";
 import { auth } from "../auth.js";
 import OpenAI from "openai";
 import pkg from "pg";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 const { Pool } = pkg;
 
@@ -152,11 +153,22 @@ ${experienceSource}
 `;
 
     try {
-      const expAI = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0.2,
-        messages: [{ role: "user", content: safeExperiencePrompt }],
-      });
+      const userId = userProfile?.id || req.user?.id || null;
+      const expAI = await trackApiCall(
+        'openai',
+        () => openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          temperature: 0.2,
+          messages: [{ role: "user", content: safeExperiencePrompt }],
+        }),
+        {
+          endpoint: '/v1/chat/completions',
+          method: 'POST',
+          userId,
+          requestPayload: { model: 'gpt-4o-mini', purpose: 'cover_letter_experience_analysis' },
+          estimateCost: 0.001
+        }
+      );
 
       let raw = expAI.choices?.[0]?.message?.content?.trim() || "{}";
 
@@ -245,12 +257,23 @@ COVER LETTER VARIATION #3
 ===================================================
 `;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: mainPrompt }],
-      temperature: 0.85,
-      max_tokens: 1650,
-    });
+    const userId = userProfile?.id || req.user?.id || null;
+    const response = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: mainPrompt }],
+        temperature: 0.85,
+        max_tokens: 1650,
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'cover_letter_generation', max_tokens: 1650 },
+        estimateCost: 0.002
+      }
+    );
 
     const content = response.choices?.[0]?.message?.content || "";
 
@@ -310,15 +333,26 @@ COVER LETTER:
 ${text}
     `.trim();
 
-    const ai = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.4,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+    const userId = req.user?.id || null;
+    const ai = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'cover_letter_refinement' },
+        estimateCost: 0.001
+      }
+    );
 
     const parsed = JSON.parse(ai.choices[0].message.content || "{}");
     const improved = parsed.improved_text || text;

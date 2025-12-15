@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { Resend } from "resend";
 import dotenv from "dotenv";
+import { logApiUsage, logApiError } from "./apiTrackingService.js";
 
 dotenv.config();
 
@@ -266,12 +267,52 @@ export async function sendInterviewReminder(interview, userEmail, reminderType) 
       </html>
     `;
 
+    const startTime = Date.now();
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: userEmail,
       subject: subject,
       html: htmlContent
     });
+    const responseTimeMs = Date.now() - startTime;
+
+    // Track API usage (userId not available in this context - it's a helper function)
+    try {
+      if (error) {
+        await logApiError({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          userId: null, // Helper function doesn't have userId context
+          errorType: 'api_error',
+          errorMessage: error.message || 'Email send failed',
+          statusCode: error.statusCode || 500,
+          requestPayload: { from: process.env.EMAIL_FROM, to: userEmail, purpose: 'interview_reminder', reminderType }
+        });
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: null,
+          requestPayload: { to: userEmail, purpose: 'interview_reminder', reminderType },
+          responseStatus: error.statusCode || 500,
+          responseTimeMs,
+          success: false
+        });
+      } else {
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: null,
+          requestPayload: { to: userEmail, purpose: 'interview_reminder', reminderType },
+          responseStatus: 200,
+          responseTimeMs,
+          success: true
+        });
+      }
+    } catch (trackErr) {
+      console.warn("Failed to track Resend API call:", trackErr);
+    }
 
     if (error) {
       console.error("❌ Resend error:", error);
@@ -290,6 +331,7 @@ export async function sendInterviewConfirmation(interview, userEmail) {
   try {
     const interviewDateTime = new Date(`${interview.interview_date}T${interview.interview_time || '00:00:00'}`);
     
+    const startTime = Date.now();
     const { data, error } = await resend.emails.send({
       from: process.env.EMAIL_FROM,
       to: userEmail,
@@ -305,6 +347,45 @@ export async function sendInterviewConfirmation(interview, userEmail) {
         <p>Good luck! 🚀</p>
       `
     });
+    const responseTimeMs = Date.now() - startTime;
+
+    // Track API usage (userId not available in this context)
+    try {
+      if (error) {
+        await logApiError({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          userId: null,
+          errorType: 'api_error',
+          errorMessage: error.message || 'Email send failed',
+          statusCode: error.statusCode || 500,
+          requestPayload: { from: process.env.EMAIL_FROM, to: userEmail, purpose: 'interview_confirmation' }
+        });
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: null,
+          requestPayload: { to: userEmail, purpose: 'interview_confirmation' },
+          responseStatus: error.statusCode || 500,
+          responseTimeMs,
+          success: false
+        });
+      } else {
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: null,
+          requestPayload: { to: userEmail, purpose: 'interview_confirmation' },
+          responseStatus: 200,
+          responseTimeMs,
+          success: true
+        });
+      }
+    } catch (trackErr) {
+      console.warn("Failed to track Resend API call:", trackErr);
+    }
 
     if (error) throw error;
     

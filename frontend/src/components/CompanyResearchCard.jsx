@@ -1,12 +1,30 @@
 import React, { useState } from "react";
 import { api } from "../api";
+import { getErrorAdvice } from "../utils/apiErrorMessages";
 import "./CompanyDetails.css";
 
 export default function CompanyResearchCard({ data, loading, error }) {
   const [exporting, setExporting] = useState(false);
 
   if (loading) return <p>Loading company research...</p>;
-  if (error) return <p style={{ color: "red" }}>{error}</p>;
+  if (error) {
+    return (
+      <div style={{ 
+        padding: "1rem", 
+        background: "#fee2e2", 
+        border: "1px solid #fca5a5", 
+        borderRadius: "8px",
+        color: "#991b1b"
+      }}>
+        <p style={{ margin: 0, fontWeight: "500" }}>{error}</p>
+        {getErrorAdvice(error) && (
+          <p style={{ marginTop: "0.5rem", fontSize: "0.875rem", opacity: 0.9 }}>
+            {getErrorAdvice(error)}
+          </p>
+        )}
+      </div>
+    );
+  }
   if (!data) return null;
 
   const {
