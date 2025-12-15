@@ -2,6 +2,7 @@
 import express from "express";
 import axios from "axios";
 import pkg from "pg";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 const { Pool } = pkg;
 
@@ -103,7 +104,7 @@ function createMatchRoutes(dbPool = null, openaiApiKey = null) {
   /* ==========================================================
      3. OPENAI MATCH ANALYSIS
      ========================================================== */
-  async function analyzeMatch(job, profile, weights) {
+  async function analyzeMatch(job, profile, weights, userId = null) {
   if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
 
   const prompt = `
@@ -133,18 +134,28 @@ Weights:
 - Education: ${weights.educationWeight}
 `;
 
-  const { data } = await axios.post(
-    "https://api.openai.com/v1/chat/completions",
+  const { data } = await trackApiCall(
+    'openai',
+    () => axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: "You are a precise ATS scoring engine." },
+          { role: "user", content: prompt },
+        ],
+      },
+      { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
+    ),
     {
-      model: "gpt-4o-mini",
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: "You are a precise ATS scoring engine." },
-        { role: "user", content: prompt },
-      ],
-    },
-    { headers: { Authorization: `Bearer ${OPENAI_API_KEY}` } }
+      endpoint: '/v1/chat/completions',
+      method: 'POST',
+      userId,
+      requestPayload: { model: 'gpt-4o-mini', purpose: 'job_match_analysis' },
+      estimateCost: 0.001
+    }
   );
 
   let raw = {};
@@ -203,7 +214,8 @@ Weights:
     if (!job)
       return res.status(404).json({ success: false, message: "Job not found" });
 
-    const ai = await analyzeMatch(job, profile, w);
+    const userId = req.body.userId ? parseInt(req.body.userId, 10) : null;
+    const ai = await analyzeMatch(job, profile, w, userId);
 
     const analysis = {
       jobId,

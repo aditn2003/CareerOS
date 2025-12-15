@@ -159,8 +159,9 @@ function createGitHubRoutes(dbPool = null) {
       // Fetch repositories from GitHub
       // Always use token if available (for better rate limits), but filter based on user preference
       const repositories = await githubService.fetchUserRepositories(
-        github_username, 
-        decryptedToken || null
+        github_username,
+        decryptedToken || null,
+        userId
       );
 
       // Filter repositories based on user preference
@@ -191,7 +192,8 @@ function createGitHubRoutes(dbPool = null) {
           const repoDetails = await githubService.fetchRepositoryDetails(
             github_username,
             repo.name,
-            decryptedToken || null
+            decryptedToken || null,
+            userId
           );
 
           const normalized = githubService.normalizeRepositoryData(repoDetails, github_username);
@@ -303,7 +305,8 @@ function createGitHubRoutes(dbPool = null) {
               github_username,
               repo.name,
               decryptedToken || null,
-              365 // Last 365 days
+              365, // Last 365 days
+              userId
             );
             
             const timeoutPromise = new Promise((_, reject) => 
