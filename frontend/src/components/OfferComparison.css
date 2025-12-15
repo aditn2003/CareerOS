@@ -285,7 +285,7 @@
 }
 
 .winner-badge {
-  color: #d97706;
+  color: #78350f; /* WCAG AA: 5.7:1 contrast on light backgrounds */
   font-size: 1.25rem;
   display: inline-flex;
   align-items: center;
