@@ -16,49 +16,61 @@ import { useAuth } from "../../contexts/AuthContext";
 import MentorTab from "./MentorTab";
 import TeamManagement from "./TeamManagement";
 import ArchivedJobs from "../ArchivedJobs";
+import "./ProfileLayout.css";
 
 export default function ProfileLayout() {
   const { authed } = useAuth();
 
   if (!authed) {
     return (
-      <section className="profile-box">
-        <p>You must log in to view your profile.</p>
-      </section>
+      <div className="profile-layout">
+        <div className="profile-content">
+          <div className="profile-box">
+            <p style={{ color: "#1f2937" }}>You must log in to view your profile.</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <section className="profile-section">
-      <h2>My Profile</h2>
+    <div className="profile-layout">
+      <div className="profile-header">
+        <h1 className="profile-main-title">My Profile</h1>
+        <p className="profile-main-subtitle">Manage your professional information and career details</p>
+      </div>
 
-      {/* 🧭 Top navigation bar for tabs */}
-      <ProfileNavBar />
+      {/* Navigation Container */}
+      <div className="profile-nav-container">
+        <ProfileNavBar />
+      </div>
 
-      {/* Nested tab routes */}
-      <Routes>
-        {/* Default → Info tab */}
-        <Route index element={<InfoTab />} />
-        <Route path="info" element={<InfoTab />} />
+      {/* Content Area */}
+      <div className="profile-content">
+        <Routes>
+          {/* Default → Info tab */}
+          <Route index element={<InfoTab />} />
+          <Route path="info" element={<InfoTab />} />
 
-        {/* Core Profile Tabs */}
-        <Route path="dashboard" element={<DashboardTab />} />
-        <Route path="archived" element={<ArchivedJobs />} />
-        <Route path="employment" element={<EmploymentTab />} />
-        <Route path="skills" element={<SkillsTab />} />
-        <Route path="education" element={<EducationTab />} />
-        <Route path="certifications" element={<CertificationsTab />} />
-        <Route path="projects" element={<ProjectsTab />} />
-        <Route path="github" element={<GitHubTab />} />
-        <Route path="jobs" element={<JobsTab />} />
+          {/* Core Profile Tabs */}
+          <Route path="dashboard" element={<DashboardTab />} />
+          <Route path="archived" element={<ArchivedJobs />} />
+          <Route path="employment" element={<EmploymentTab />} />
+          <Route path="skills" element={<SkillsTab />} />
+          <Route path="education" element={<EducationTab />} />
+          <Route path="certifications" element={<CertificationsTab />} />
+          <Route path="projects" element={<ProjectsTab />} />
+          <Route path="github" element={<GitHubTab />} />
+          <Route path="jobs" element={<JobsTab />} />
 
-        <Route path="team" element={<TeamManagement />} />
+          <Route path="team" element={<TeamManagement />} />
 
-        <Route path="danger" element={<DangerTab />} />
+          <Route path="danger" element={<DangerTab />} />
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/profile/info" replace />} />
-      </Routes>
-    </section>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/profile/info" replace />} />
+        </Routes>
+      </div>
+    </div>
   );
 }
