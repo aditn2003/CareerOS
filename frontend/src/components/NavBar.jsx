@@ -52,7 +52,8 @@ export default function NavBar() {
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
     logout(); // Removes token + clears auth context
-    window.location.replace("/login"); // Prevents back button access
+    // Use navigate with replace to prevent back button access
+    navigate("/login", { replace: true });
   };
 
   const toggleMenu = () => {
