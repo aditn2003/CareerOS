@@ -4,6 +4,7 @@ import * as cheerio from "cheerio";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 
@@ -82,7 +83,7 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
   /* -----------------------------------------------------
      1. SERP — Google Search (now role-aware)
   ----------------------------------------------------- */
-  async function getSerpSnippets(company, role) {
+  async function getSerpSnippets(company, role, userId = null) {
   if (!SERP_API_KEY) {
     console.warn("⚠️ SERP_API_KEY missing. Returning fallback empty array.");
     return [];
@@ -93,14 +94,23 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
     : `${company} interview questions process`;
 
   try {
-    const { data } = await http.get("https://serpapi.com/search.json", {
-      params: {
-        engine: "google",
-        q: query,
-        api_key: SERP_API_KEY,
-        num: 8,
-      },
-    });
+    const { data } = await trackApiCall(
+      'serp',
+      () => http.get("https://serpapi.com/search.json", {
+        params: {
+          engine: "google",
+          q: query,
+          api_key: SERP_API_KEY,
+          num: 8,
+        },
+      }),
+      {
+        endpoint: '/search.json',
+        method: 'GET',
+        userId,
+        requestPayload: { engine: 'google', q: query }
+      }
+    );
 
     const arr = [];
     (data.organic_results || []).forEach((r) => {
@@ -118,7 +128,7 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
   /* -----------------------------------------------------
      2. Indeed Scrape (still useful even without role)
   ----------------------------------------------------- */
-  async function scrapeIndeed(company) {
+  async function scrapeIndeed(company, userId = null) {
   const slug = slugify(company);
   const urls = [
     `https://www.indeed.com/cmp/${slug}/interviews`,
@@ -127,7 +137,16 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
 
   for (const url of urls) {
     try {
-      const { data } = await http.get(url);
+      const { data } = await trackApiCall(
+        'wikipedia', // Using wikipedia service for general web scraping
+        () => http.get(url),
+        {
+          endpoint: url,
+          method: 'GET',
+          userId,
+          requestPayload: { url }
+        }
+      );
       const $ = cheerio.load(data);
 
       const parts = [];
@@ -146,7 +165,7 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
   /* -----------------------------------------------------
      3. Reddit + Glassdoor (now also role-aware)
   ----------------------------------------------------- */
-  async function getCommunitySnippets(company, role) {
+  async function getCommunitySnippets(company, role, userId = null) {
   if (!SERP_API_KEY) return [];
 
   const query = role
@@ -154,14 +173,23 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
     : `${company} interview experience reddit OR glassdoor`;
 
   try {
-    const { data } = await http.get("https://serpapi.com/search.json", {
-      params: {
-        engine: "google",
-        q: query,
-        api_key: SERP_API_KEY,
-        num: 6,
-      },
-    });
+    const { data } = await trackApiCall(
+      'serp',
+      () => http.get("https://serpapi.com/search.json", {
+        params: {
+          engine: "google",
+          q: query,
+          api_key: SERP_API_KEY,
+          num: 6,
+        },
+      }),
+      {
+        endpoint: '/search.json',
+        method: 'GET',
+        userId,
+        requestPayload: { engine: 'google', q: query }
+      }
+    );
 
     const arr = [];
     (data.organic_results || []).forEach((r) => {
@@ -178,7 +206,7 @@ function createInterviewInsightsRoutes(supabaseClient = null, openaiApiKey = nul
   /* -----------------------------------------------------
      4. OpenAI Role-Aware Enrichment
   ----------------------------------------------------- */
-  async function enrichInterviewInsights(company, role, serp, indeed, community) {
+  async function enrichInterviewInsights(company, role, serp, indeed, community, userId = null) {
   const context = `
 Company: ${company}
 Role: ${role || "N/A"}
@@ -244,23 +272,33 @@ STRICT RULES:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You generate highly accurate, role-specific interview preparation content.",
+            },
+            { role: "user", content: context },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.2,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You generate highly accurate, role-specific interview preparation content.",
-          },
-          { role: "user", content: context },
-          { role: "user", content: prompt },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.2,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', company, role, purpose: 'interview_insights' },
+        estimateCost: 0.001
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -273,7 +311,7 @@ STRICT RULES:
   /* -----------------------------------------------------
      🆕 UC-075: Generate Role-Specific Question Bank with Difficulty Levels
   ----------------------------------------------------- */
-  async function generateQuestionBank(role, industry, difficulty) {
+  async function generateQuestionBank(role, industry, difficulty, userId = null) {
   if (!OPENAI_KEY) {
     // Return fallback questions with difficulty levels
     return {
@@ -361,18 +399,28 @@ REQUIREMENTS:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are an expert interview preparation coach creating role-specific question banks." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are an expert interview preparation coach creating role-specific question banks." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.6,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', role, industry, difficulty, purpose: 'question_bank' },
+        estimateCost: 0.001
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -393,7 +441,8 @@ REQUIREMENTS:
   router.get("/", async (req, res) => {
   const company = req.query.company?.trim();
   const role = req.query.role?.trim() || "";
-  const userId = req.query.userId?.trim() || "1";
+  const userIdParam = req.query.userId?.trim() || "1";
+  const userId = req.user?.id || (userIdParam !== "1" ? parseInt(userIdParam, 10) : null);
 
   if (!company)
     return res.status(400).json({ success: false, message: "Missing ?company=" });
@@ -402,60 +451,66 @@ REQUIREMENTS:
 
   try {
     const [serp, indeed, community] = await Promise.all([
-      getSerpSnippets(company, role),
-      scrapeIndeed(company),
-      getCommunitySnippets(company, role),
+      getSerpSnippets(company, role, userId),
+      scrapeIndeed(company, userId),
+      getCommunitySnippets(company, role, userId),
     ]);
 
-    const ai = await enrichInterviewInsights(company, role, serp, indeed, community);
+    const ai = await enrichInterviewInsights(company, role, serp, indeed, community, userId);
 
     if (!ai)
       return res.status(500).json({ success: false, message: "AI generation failed" });
 
-    // Check if there's a saved checklist for this user/company/role
-    const userIdInt = parseInt(userId, 10);
-    
-    const { data: savedChecklist, error: fetchError } = await retryDatabaseOperation(async () => {
-      return await supabase
-        .from("interview_checklist_items")
-        .select("checklist_data")
-        .eq("user_id", userIdInt)
-        .eq("company", company)
-        .eq("role", role)
-        .single();
-    });
+    // Check if there's a saved checklist for this user/company/role (only if userId is provided)
+    if (userId) {
+      const userIdInt = parseInt(userId, 10);
+      if (!isNaN(userIdInt)) {
+        const { data: savedChecklist, error: fetchError } = await retryDatabaseOperation(async () => {
+          return await supabase
+            .from("interview_checklist_items")
+            .select("checklist_data")
+            .eq("user_id", userIdInt)
+            .eq("company", company)
+            .eq("role", role)
+            .single();
+        });
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 = no rows found, which is fine
-      console.error("❌ Error fetching saved checklist:", fetchError);
-    }
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          // PGRST116 = no rows found, which is fine
+          console.error("❌ Error fetching saved checklist:", fetchError);
+        }
 
-    if (savedChecklist && savedChecklist.checklist_data) {
-      // Use saved checklist
-      console.log(`✅ Using saved checklist for: ${company} (${role})`);
-      ai.checklist = savedChecklist.checklist_data;
-    } else {
-      // Save the newly generated checklist
-      console.log(`💾 Saving new checklist for: ${company} (${role})`);
-      
-      await retryDatabaseOperation(async () => {
-        const { error } = await supabase
-          .from("interview_checklist_items")
-          .upsert({
-            user_id: userIdInt,
-            company,
-            role,
-            checklist_data: ai.checklist,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,company,role'
-          });
+        if (savedChecklist && savedChecklist.checklist_data) {
+          // Use saved checklist
+          console.log(`✅ Using saved checklist for: ${company} (${role})`);
+          ai.checklist = savedChecklist.checklist_data;
+          
+          console.log(`✅ Completed interview insights for: ${company} (${role})`);
+          return res.json({ success: true, data: ai });
+        }
         
-        if (error) throw error;
-        return { success: true };
-      });
-      
-      console.log(`✅ Checklist saved successfully`);
+        // Save the newly generated checklist
+        console.log(`💾 Saving new checklist for: ${company} (${role})`);
+        
+        await retryDatabaseOperation(async () => {
+          const { error } = await supabase
+            .from("interview_checklist_items")
+            .upsert({
+              user_id: userIdInt,
+              company,
+              role,
+              checklist_data: ai.checklist,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'user_id,company,role'
+            });
+          
+          if (error) throw error;
+          return { success: true };
+        });
+        
+        console.log(`✅ Checklist saved successfully`);
+      }
     }
 
     console.log(`✅ Completed interview insights for: ${company} (${role})`);
@@ -487,7 +542,8 @@ REQUIREMENTS:
   console.log(`🔍 Generating question bank for: ${role} | Industry: ${industry} | Difficulty: ${difficulty}`);
 
   try {
-    const questionBank = await generateQuestionBank(role, industry, difficulty);
+    const userId = req.user?.id || null;
+    const questionBank = await generateQuestionBank(role, industry, difficulty, userId);
     
     console.log(`✅ Generated question bank for ${role}`);
     return res.json({ 
@@ -1117,7 +1173,8 @@ REQUIREMENTS:
   interviewerName,
   interviewerTitle,
   interviewDate,
-  conversationHighlights
+  conversationHighlights,
+  userId = null
 ) {
   const prompt = `
 You are generating a professional interview follow-up email template.
@@ -1201,21 +1258,31 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You generate professional, personalized interview follow-up email templates."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You generate professional, personalized interview follow-up email templates."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', templateType, purpose: 'follow_up_template' },
+        estimateCost: 0.001
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -1354,7 +1421,8 @@ Return ONLY valid JSON.
       interviewerName || 'the interviewer',
       interviewerTitle,
       interviewDate || new Date().toISOString().split('T')[0],
-      conversationHighlights
+      conversationHighlights,
+      userIdInt
     );
 
     if (!template) {
@@ -1782,7 +1850,7 @@ Return ONLY valid JSON.
           });
         }
 
-        const { data: emailData, error: emailError } = await resend.emails.send({
+        const emailResult = await resend.emails.send({
           from: fromEmail,
           to: interviewerEmail,
           subject: finalSubject,
@@ -1790,6 +1858,46 @@ Return ONLY valid JSON.
           html: `<pre style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; white-space: pre-wrap; line-height: 1.6;">${finalContent}</pre>`,
           replyTo: userEmail
         });
+
+        // Track the API call manually since Resend uses { data, error } format
+        console.log(`📊 Attempting to track Resend API call (interviewInsights) - userId: ${userIdInt}, success: ${!emailResult.error}`);
+        try {
+          const { logApiUsage, logApiError } = await import("../utils/apiTrackingService.js");
+          // Get template type from template if available
+          const templateTypeValue = template?.template_type || null;
+          if (emailResult.error) {
+            console.log(`📊 Logging Resend API error (interviewInsights)...`);
+            await logApiError({
+              serviceName: 'resend',
+              endpoint: '/emails/send',
+              userId: userIdInt,
+              errorType: 'api_error',
+              errorMessage: emailResult.error.message || 'Email send failed',
+              statusCode: emailResult.error.statusCode || 500,
+              requestPayload: { from: fromEmail, to: interviewerEmail, templateType: templateTypeValue, purpose: 'follow_up_email' }
+            });
+          } else {
+            console.log(`📊 Logging successful Resend API usage (interviewInsights)...`);
+            await logApiUsage({
+              serviceName: 'resend',
+              endpoint: '/emails/send',
+              method: 'POST',
+              userId: userIdInt,
+              requestPayload: { from: fromEmail, to: interviewerEmail, templateType: templateTypeValue, purpose: 'follow_up_email' },
+              responseStatus: 200,
+              responseTimeMs: 0, // Can't measure easily with Resend
+              success: true
+            });
+            console.log(`✅ Resend API usage tracked successfully (interviewInsights) - userId: ${userIdInt}`);
+          }
+        } catch (trackErr) {
+          console.error("❌ Failed to track Resend API call (interviewInsights):", trackErr);
+          console.error("   Error stack:", trackErr.stack);
+          // Don't fail the email send if tracking fails
+        }
+
+        const emailData = emailResult.data;
+        const emailError = emailResult.error;
 
         if (emailError) {
           console.error("❌ Resend email error:", emailError);

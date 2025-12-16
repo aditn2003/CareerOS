@@ -37,6 +37,13 @@ const pool = new Pool({
   allowExitOnIdle: isSupabase ? true : false, // Allow pool to close when idle for Supabase
 });
 
+// In test mode, set search_path to test schema for all connections
+if (process.env.NODE_ENV === 'test') {
+  pool.on('connect', async (client) => {
+    await client.query('SET search_path TO test, public');
+  });
+}
+
 // Handle pool errors gracefully
 pool.on('error', (err) => {
   // Log the error but don't crash the application

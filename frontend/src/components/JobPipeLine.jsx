@@ -244,8 +244,13 @@ async function loadJobs(currentFilters = filters) {
       {/* === Toolbar === */}
       <div className="pipeline-toolbar">
         <div className="toolbar-left">
-          <label>Stage Filter:</label>
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <label htmlFor="stageFilter">Stage Filter:</label>
+          <select 
+            id="stageFilter"
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter jobs by stage"
+          >
             <option>All</option>
             {STAGES.map((s) => (
               <option key={s.name}>{s.name}</option>
@@ -254,10 +259,12 @@ async function loadJobs(currentFilters = filters) {
         </div>
 
         <div className="toolbar-right">
-          <label>Bulk Update:</label>
+          <label htmlFor="bulkStageSelect">Bulk Update:</label>
           <select
+            id="bulkStageSelect"
             value={bulkStage}
             onChange={(e) => setBulkStage(e.target.value)}
+            aria-label="Select stage for bulk update"
           >
             <option value="">Select stage</option>
             {STAGES.map((s) => (
@@ -270,10 +277,12 @@ async function loadJobs(currentFilters = filters) {
         </div>
 
         <div className="toolbar-right">
-          <label>Extend Deadline:</label>
+          <label htmlFor="extendDeadlineSelect">Extend Deadline:</label>
           <select
+            id="extendDeadlineSelect"
             value={bulkDays || ""}
             onChange={(e) => setBulkDays(Number(e.target.value))}
+            aria-label="Select number of days to extend deadline"
           >
             <option value="">Select</option>
             <option value="1">+1 days</option>
@@ -326,6 +335,7 @@ async function loadJobs(currentFilters = filters) {
             : [...prev, job.id]
         );
       }}
+      aria-label={`Select ${job.title || 'job'} at ${job.company || 'company'}`}
     />
 
     {/* ============================
@@ -334,7 +344,7 @@ async function loadJobs(currentFilters = filters) {
     <div
       className={`job-card ${
         selectedJobs.includes(job.id) ? "selected" : ""
-      }`}
+      } ${job.is_referral ? "referral-job" : ""}`}
       draggable
       onDragStart={() => setDragged(job)}
       onClick={(e) => {
@@ -490,6 +500,7 @@ async function loadJobs(currentFilters = filters) {
                               : [...prev, job.id]
                           );
                         }}
+                        aria-label={`Select ${job.title || 'job'} at ${job.company || 'company'}`}
                       />
                       <div
                         className={`job-card ${

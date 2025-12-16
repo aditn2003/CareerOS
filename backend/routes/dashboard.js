@@ -48,8 +48,8 @@ router.get("/stats", async (req, res) => {
     // Test query 3: Check archived flag
     const archivedQuery = await pool.query(
       `SELECT COUNT(*) as total, 
-              COUNT(*) FILTER (WHERE "isarchived" = true) as archived,
-              COUNT(*) FILTER (WHERE "isarchived" = false OR "isarchived" IS NULL) as not_archived
+              COUNT(*) FILTER (WHERE "isArchived" = true) as archived,
+              COUNT(*) FILTER (WHERE "isArchived" = false OR "isArchived" IS NULL) as not_archived
        FROM jobs 
        WHERE user_id = $1`,
       [userId]
@@ -69,7 +69,7 @@ router.get("/stats", async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'Offer') AS total_offers
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
@@ -92,7 +92,7 @@ router.get("/stats", async (req, res) => {
     
         FROM jobs
         WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
         `,
         [userId, startDate, endDate]
@@ -128,7 +128,7 @@ router.get("/stats", async (req, res) => {
               COUNT(*) AS applications
             FROM jobs
             WHERE user_id = $1
-              AND COALESCE("isarchived", false) = false
+              AND COALESCE("isArchived", false) = false
               AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
             GROUP BY week_start
           ),
@@ -185,7 +185,7 @@ router.get("/stats", async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'Offer') AS offer
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
@@ -208,7 +208,7 @@ router.get("/stats", async (req, res) => {
         ) AS avg_days
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       GROUP BY status
       `,

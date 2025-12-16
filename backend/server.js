@@ -8,6 +8,9 @@ import cors from "cors";
 import compression from "compression";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import validator from "validator";
 //import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
@@ -36,6 +39,7 @@ import coverLetterAIRoutes from "./routes/coverLetterAI.js";
 import coverLetterExportRoutes from "./routes/coverLetterExport.js";
 import pool from "./db/pool.js";
 import dashboardRoutes from "./routes/dashboard.js";
+import optimizationDashboardRoutes from "./routes/optimizationDashboard.js";
 import teamRoutes from "./routes/team.js";
 import salaryNegotiationRoutes from "./routes/salaryNegotiation.js";
 
@@ -61,6 +65,7 @@ import goalsRoutes from "./routes/goals.js";
 import interviewAnalysisRoutes from "./routes/interviewAnalysis.js";
 import networkingAnalysisRoutes from "./routes/networkingAnalysis.js";
 import offersRoutes from "./routes/offers.js";
+import offerComparisonRoutes from "./routes/offerComparison.js";
 import compensationAnalyticsRoutes from "./routes/compensationAnalytics.js";
 import marketIntelRoutes from "./routes/marketIntel.js";
 import timeInvestmentRoutes from "./routes/timeInvestment.js";
@@ -79,7 +84,10 @@ import timingRoutes from "./routes/timing.js";
 import materialComparisonRoutes from "./routes/materialComparison.js";
 
 import referencesRoutes from "./routes/references.js";
+import followupRemindersRoutes from "./routes/followupReminders.js";
 import geocodingRoutes from "./routes/geocoding.js";
+import apiMonitoringRoutes from "./routes/apiMonitoring.js";
+import testTrackingRoutes from "./routes/testApiTracking.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
@@ -121,15 +129,49 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ===== Security Middleware (UC-145) =====
+// Helmet adds security headers (removes X-Powered-By, adds CSP, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now to avoid breaking frontend
+  crossOriginEmbedderPolicy: false, // Allow embedding resources
+}));
+
+// Disable X-Powered-By explicitly (also done by helmet, but being explicit)
+app.disable('x-powered-by');
+
+// Rate limiting for authentication endpoints (UC-145: Prevent brute force attacks)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: { error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test', // Skip rate limiting in test environment
+});
+
+// General API rate limiter (more permissive)
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: { error: 'Too many requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test',
+});
+
 // ===== Middleware =====
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:4173",
-      "http://localhost:4174",
-    ],
+    origin: (origin, cb) => {
+      const allowed = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://atscareeros.com",
+        "https://www.atscareeros.com",
+      ];
+      if (!origin || allowed.includes(origin)) return cb(null, true);
+      cb(new Error("CORS blocked"));
+    },
     credentials: true,
   })
 );
@@ -137,25 +179,33 @@ app.use(
 // Enable gzip compression for all responses
 app.use(
   compression({
-    threshold: 1024, // Only compress responses > 1KB
+    threshold: 1024,
   })
 );
+
 app.use(express.json());
 
-// ✅ Production Monitoring and Logging (UC-133)
-// Request logging and response time tracking must come early
+// ✅ Production Monitoring and Logging
 app.use(requestLogger);
 
-// ✅ Serve uploaded images so React can access them
-// Add long-lived caching headers for better frontend performance.
+// ✅ Rate limiting for API routes
+app.use('/api/', apiLimiter);
+
+// ✅ Serve uploaded images with BOTH performance + cross-origin support
 app.use(
   "/uploads",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    next();
+  },
   express.static(path.join(__dirname, "uploads"), {
     maxAge: "30d",
     etag: true,
     immutable: true,
   })
 );
+
 
 // ===== PostgreSQL Setup =====
 // Pool is imported from ./db/pool.js - no need to create it here
@@ -207,7 +257,7 @@ function makeToken(user) {
 const resetCodes = new Map(); // for demo; moves to DB later
 
 // ========== UC-001: Register ==========
-app.post("/register", async (req, res) => {
+app.post("/register", authLimiter, async (req, res) => {
   const {
     email = "",
     password = "",
@@ -217,7 +267,8 @@ app.post("/register", async (req, res) => {
     accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
-    if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
+    // UC-145: Strengthen email validation using validator library
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ error: "Invalid email format" });
     }
     if (!PASSWORD_RULE.test(password)) {
@@ -302,7 +353,7 @@ app.post("/register", async (req, res) => {
 });
 
 // ========== UC-002: Login ==========
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   const { email = "", password = "" } = req.body;
   try {
     const lower = email.toLowerCase();
@@ -372,9 +423,9 @@ app.post("/linkedin-login", async (req, res) => {
 
         // Create profile for new user
         await pool.query(
-          `INSERT INTO profiles (user_id, first_name, last_name, profile_picture, linkedin_picture_url, created_at) 
-           VALUES ($1, $2, $3, $4, $5, NOW())`,
-          [user.id, first_name, last_name, profile_pic_url, profile_pic_url]
+          `INSERT INTO profiles (user_id, full_name, picture_url, linkedin_picture_url, created_at) 
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [user.id, `${first_name} ${last_name}`, profile_pic_url, profile_pic_url]
         );
       }
     } else {
@@ -399,7 +450,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ========== UC-006: Password Reset Request ==========
-app.post("/forgot", async (req, res) => {
+app.post("/forgot", authLimiter, async (req, res) => {
   try {
     const { email = "" } = req.body;
     const lower = email.toLowerCase();
@@ -548,6 +599,9 @@ app.post("/delete", auth, async (req, res) => {
 import { OAuth2Client } from "google-auth-library";
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// Export client for testing
+export { client as googleOAuthClient };
+
 app.post("/google", async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -570,9 +624,12 @@ app.post("/google", async (req, res) => {
       email,
     ]);
     if (result.rows.length === 0) {
+      // Create a random password hash for OAuth users (they won't use password login)
+      const randomPassword = Math.random().toString(36) + Date.now().toString(36);
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
       result = await pool.query(
-        "INSERT INTO users (email, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,'google','candidate') RETURNING id",
-        [email, firstName, lastName]
+        "INSERT INTO users (email, password_hash, first_name, last_name, provider, account_type) VALUES ($1,$2,$3,$4,'google','candidate') RETURNING id",
+        [email, passwordHash, firstName, lastName]
       );
     }
 
@@ -597,6 +654,7 @@ app.use("/api", certifications);
 app.use("/api", projectRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/optimization-dashboard", optimizationDashboardRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/resumes", resumeRoutes);
 app.use("/api", resumePresetsRoutes);
@@ -620,6 +678,7 @@ app.use("/api/interview-analysis", interviewAnalysisRoutes);
 app.use("/api/networking-analysis", networkingAnalysisRoutes);
 app.use("/api/networking", networkingRoutes);
 app.use("/api/offers", offersRoutes);
+app.use("/api/offer-comparison", offerComparisonRoutes);
 app.use("/api/compensation-analytics", compensationAnalyticsRoutes);
 app.use("/api/market-intel", marketIntelRoutes);
 app.use("/api/time-investment", timeInvestmentRoutes);
@@ -638,6 +697,8 @@ app.use("/api/material-comparison", materialComparisonRoutes);
 
 app.use("/api/team", teamRoutes);
 app.use("/api", jobImportRoutes);
+app.use("/api/admin", apiMonitoringRoutes); // UC-117: API Monitoring Dashboard
+app.use("/api/test", testTrackingRoutes); // Test endpoint for API tracking
 
 // ===== Global Error Handler =====
 // Error logger middleware (logs errors before handling)
@@ -720,7 +781,7 @@ crons.schedule("0 9 * * *", async () => {
   try {
     // Fetch all jobs due in the next 3 days for all users
     const result = await pool.query(`
-      SELECT j.id, j.title, j.deadline, u.email, u.first_name
+      SELECT j.id, j.title, j.deadline, j.user_id, u.email, u.first_name
       FROM jobs j
       JOIN users u ON u.id = j.user_id
       WHERE j.deadline BETWEEN NOW() AND NOW() + INTERVAL '3 days'
@@ -808,6 +869,7 @@ async function sendDeadlineReminders() {
         j.id,
         j.title,
         j.deadline,
+        j.user_id,
         u.email,
         u.first_name
       FROM jobs j
@@ -861,12 +923,53 @@ async function sendDeadlineReminders() {
         </div>
       `;
 
+      const startTime = Date.now();
       const { data, error } = await resend.emails.send({
         from: `ATS for Candidates <${process.env.EMAIL_FROM}>`,
         to: job.email,
         subject,
         html,
       });
+      const responseTimeMs = Date.now() - startTime;
+
+      // Track API usage (userId is job.user_id from the query)
+      try {
+        const { logApiUsage, logApiError } = await import("./utils/apiTrackingService.js");
+        if (error) {
+          await logApiError({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            userId: job.user_id || null,
+            errorType: 'api_error',
+            errorMessage: error.message || 'Email send failed',
+            statusCode: error.statusCode || 500,
+            requestPayload: { from: process.env.EMAIL_FROM, to: job.email, purpose: 'deadline_reminder' }
+          });
+          await logApiUsage({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            method: 'POST',
+            userId: job.user_id || null,
+            requestPayload: { to: job.email, purpose: 'deadline_reminder' },
+            responseStatus: error.statusCode || 500,
+            responseTimeMs,
+            success: false
+          });
+        } else {
+          await logApiUsage({
+            serviceName: 'resend',
+            endpoint: '/emails/send',
+            method: 'POST',
+            userId: job.user_id || null,
+            requestPayload: { to: job.email, purpose: 'deadline_reminder' },
+            responseStatus: 200,
+            responseTimeMs,
+            success: true
+          });
+        }
+      } catch (trackErr) {
+        console.warn("Failed to track Resend API call:", trackErr);
+      }
 
       if (error) {
         console.error(
@@ -901,6 +1004,7 @@ app.use("/api/mentors", mentorsRoutes);
 app.use("/api/informational-interviews", informationalInterviewsRoutes);
 app.use("/api/industry-contacts", industryContactsRoutes);
 app.use("/api/references", referencesRoutes);
+app.use("/api/followup-reminders", followupRemindersRoutes);
 app.use("/api/skill-progress", skillProgressRoutes);
 app.use("/api/interview-insights", interviewInsights);
 app.use("/api/response-coaching", responseCoachingRoutes);
@@ -1009,4 +1113,4 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 // Export for tests
-export { app, pool };
+export { app, pool, resetCodes };

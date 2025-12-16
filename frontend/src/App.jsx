@@ -123,9 +123,14 @@ function MainLayout() {
 
   return (
     <div className="app-wrapper">
+      {/* Skip to main content link for keyboard navigation */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
+      
       <NavBar />
 
-      <main className="app-container">
+      <main id="main-content" className="app-container" role="main">
         {loading && <Spinner />}
 
         <Suspense fallback={<Spinner />}>
@@ -140,6 +145,12 @@ function MainLayout() {
           {/* --- LinkedIn OAuth Callback Routes --- */}
           <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
           <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
+
+          {/* --- Help & Legal Pages (Public) --- */}
+          <Route path="/getting-started" element={<GettingStarted />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route
@@ -235,6 +246,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <StatisticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
+          <Route
+            path="/followup-reminders"
+            element={
+              <ProtectedRoute>
+                <FollowUpReminders />
               </ProtectedRoute>
             }
           />
@@ -364,6 +385,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
+          <Route
+            path="/admin/api-monitoring"
+            element={
+              <ProtectedRoute>
+                <ApiMonitoringDashboard />
               </ProtectedRoute>
             }
           />

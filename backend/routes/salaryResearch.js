@@ -4,10 +4,13 @@ import { auth } from "../auth.js";
 import pkg from "pg";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import sharedPool from "../db/pool.js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 const { Pool } = pkg;
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Use shared pool in test mode for transaction isolation
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
 
 const router = express.Router();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -167,24 +170,36 @@ async function saveToCache(jobTitle, location, level, salaryData, dataSource = "
       return; // Don't cache invalid data
     }
 
-    await pool.query(
-      `INSERT INTO salary_cache 
-       (job_title, location, experience_level, percentile_25, percentile_50, percentile_75,
-        salary_low, salary_high, salary_average, data_source, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-       ON CONFLICT (job_title, location, experience_level)
-       DO UPDATE SET
-         percentile_25 = EXCLUDED.percentile_25,
-         percentile_50 = EXCLUDED.percentile_50,
-         percentile_75 = EXCLUDED.percentile_75,
-         salary_low = EXCLUDED.salary_low,
-         salary_high = EXCLUDED.salary_high,
-         salary_average = EXCLUDED.salary_average,
-         data_source = EXCLUDED.data_source,
-         updated_at = NOW(),
-         expires_at = NOW() + INTERVAL '7 days'`,
-      [jobTitle, location, level, percentile25, percentile50, percentile75, low, avg, high, dataSource]
-    );
+    // Try INSERT first, then UPDATE if conflict (handles missing unique constraint)
+    try {
+      await pool.query(
+        `INSERT INTO salary_cache 
+         (job_title, location, experience_level, percentile_25, percentile_50, percentile_75,
+          salary_low, salary_high, salary_average, data_source, updated_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW() + INTERVAL '7 days')`,
+        [jobTitle, location, level, percentile25, percentile50, percentile75, low, avg, high, dataSource]
+      );
+    } catch (insertErr) {
+      // If insert fails (e.g., duplicate), try update
+      if (insertErr.code === '23505') { // Unique violation
+        await pool.query(
+          `UPDATE salary_cache SET
+           percentile_25 = $4,
+           percentile_50 = $5,
+           percentile_75 = $6,
+           salary_low = $7,
+           salary_high = $8,
+           salary_average = $9,
+           data_source = $10,
+           updated_at = NOW(),
+           expires_at = NOW() + INTERVAL '7 days'
+           WHERE job_title = $1 AND location = $2 AND experience_level = $3`,
+          [jobTitle, location, level, percentile25, percentile50, percentile75, low, avg, high, dataSource]
+        );
+      } else {
+        throw insertErr;
+      }
+    }
   } catch (err) {
     console.error("❌ Cache save error:", err);
     // Don't throw - caching failures shouldn't break the request
@@ -195,7 +210,7 @@ async function saveToCache(jobTitle, location, level, salaryData, dataSource = "
 
 // Use OpenAI to fetch realistic salary data based on job market knowledge
 // Returns null if OpenAI unavailable, causing fallback to computed estimates
-async function fetchBLSData(jobTitle, location, level) {
+async function fetchBLSData(jobTitle, location, level, userId = null) {
   try {
     // Use OpenAI to generate realistic salary data based on market knowledge
     if (process.env.OPENAI_API_KEY && openai) {
@@ -228,12 +243,22 @@ Requirements:
 
 Return ONLY the JSON, no other text.`;
 
-        const aiResponse = await openai.chat.completions.create({
-          model: "gpt-4o-mini", // Using gpt-4o-mini for cost efficiency
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.3, // Lower temperature for more consistent, factual data
-          max_tokens: 300,
-        });
+        const aiResponse = await trackApiCall(
+          'openai',
+          () => openai.chat.completions.create({
+            model: "gpt-4o-mini", // Using gpt-4o-mini for cost efficiency
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.3, // Lower temperature for more consistent, factual data
+            max_tokens: 300,
+          }),
+          {
+            endpoint: '/v1/chat/completions',
+            method: 'POST',
+            userId,
+            requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_research', jobTitle, location, level },
+            estimateCost: 0.0005
+          }
+        );
 
         const responseText = aiResponse.choices[0]?.message?.content?.trim() || "";
         
@@ -400,7 +425,7 @@ router.get("/:jobId", auth, async (req, res) => {
     // 4. If not cached, fetch from external APIs or compute
     if (!range) {
       // Try external APIs first (Adzuna, BLS, etc.)
-      const externalData = await fetchBLSData(title, location, level);
+      const externalData = await fetchBLSData(title, location, level, userId);
       
       if (externalData) {
         range = externalData;
@@ -476,13 +501,34 @@ Average market salary: ${range.avg}
 
 Based on current market data, give 5 concise bullet-point salary negotiation recommendations.
 `;
-    const aiRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-    });
-    const recommendations =
-      aiRes.choices[0]?.message?.content || "No recommendations available.";
-
+    let recommendations = "No recommendations available.";
+    try {
+      if (openai && process.env.OPENAI_API_KEY) {
+        const aiRes = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+        });
+        recommendations = aiRes.choices[0]?.message?.content || "No recommendations available.";
+      }
+    } catch (aiErr) {
+      console.warn("⚠️ OpenAI recommendations failed, using default:", aiErr.message);
+      // Use default recommendations
+    }
+    const aiRes = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_recommendations', jobTitle: title, company, location },
+        estimateCost: 0.0005
+      }
+    );
+  
     // 7. Compare user vs market
     const marketDiff = userSalary
       ? Math.round(((range.avg - userSalary) / userSalary) * 100)
@@ -527,11 +573,28 @@ Based on current market data, give 5 concise bullet-point salary negotiation rec
     }
 
     // If we have job info but salary fetch failed, return error with job details
+    let jobInfo = null;
+    try {
+      const jobQuery = await pool.query(
+        "SELECT title, company, location FROM jobs WHERE id=$1 AND user_id=$2",
+        [jobId, userId]
+      );
+      if (jobQuery.rows.length > 0) {
+        jobInfo = {
+          title: jobQuery.rows[0].title,
+          company: jobQuery.rows[0].company,
+          location: jobQuery.rows[0].location
+        };
+      }
+    } catch (e) {
+      // Ignore errors fetching job info
+    }
+    
     res.status(500).json({ 
       message: "Failed to generate salary research",
       error: err.message,
       // Include job info so frontend can still display something
-      job: job ? { title: job.title, company: job.company, location: job.location } : null,
+      job: jobInfo,
       dataAvailable: false,
     });
   }
@@ -595,7 +658,7 @@ router.get("/benchmark/:jobId", auth, async (req, res) => {
     if (!range) {
       // Compute if not cached - try external APIs first
       const companySize = inferCompanySize(job.company);
-      const externalData = await fetchBLSData(title, location, level);
+      const externalData = await fetchBLSData(title, location, level, userId);
       
       if (externalData) {
         range = externalData;

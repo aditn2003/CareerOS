@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 // Factory function for dependency injection (for testing)
 function createJobRoutes(genAIClient = null) {
@@ -87,8 +88,51 @@ ${bodyText}
     });
 
     console.log("🤖 Sending extracted text to Gemini...");
-    const result = await model.generateContent(prompt);
-    const aiResponse = result.response.text();
+    const userId = req.user?.id || null;
+    
+    // Track Gemini API call
+    let geminiResult;
+    let aiResponse;
+    try {
+      geminiResult = await model.generateContent(prompt);
+      aiResponse = geminiResult.response.text();
+      
+      // Log successful API usage
+      const { logApiUsage } = await import("../utils/apiTrackingService.js");
+      await logApiUsage({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'job_import', url },
+        responseStatus: 200,
+        responseTimeMs: 0,
+        success: true,
+        estimateCost: 0.0001
+      });
+    } catch (apiError) {
+      // Log failed API usage
+      const { logApiError, logApiUsage } = await import("../utils/apiTrackingService.js");
+      await logApiError({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        userId,
+        errorType: 'api_error',
+        errorMessage: apiError.message || 'Gemini API error',
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'job_import' }
+      });
+      await logApiUsage({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'job_import' },
+        responseStatus: 500,
+        responseTimeMs: 0,
+        success: false
+      });
+      throw apiError;
+    }
 
     let job;
     try {

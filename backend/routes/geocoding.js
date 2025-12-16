@@ -7,6 +7,7 @@ import axios from "axios";
 import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 const router = express.Router();
@@ -18,11 +19,13 @@ const MIN_REQUEST_INTERVAL = 1000; // 1 second in milliseconds
 
 // ---------- HELPER: Get timezone from coordinates ----------
 // Uses free timezone lookup API (TimeZoneDB with demo key, or falls back gracefully)
-async function getTimezoneFromCoordinates(latitude, longitude) {
+async function getTimezoneFromCoordinates(latitude, longitude, userId = null) {
   try {
     // Try TimeZoneDB API (demo key works but is rate-limited)
     // You can set TIMEZONEDB_API_KEY in .env for better rate limits
-    const response = await axios.get("http://api.timezonedb.com/v2.1/get-time-zone", {
+    const response = await trackApiCall(
+      'google_geocoding', // Using google_geocoding service for timezone lookup
+      () => axios.get("http://api.timezonedb.com/v2.1/get-time-zone", {
       params: {
         key: process.env.TIMEZONEDB_API_KEY || "demo",
         format: "json",
@@ -31,7 +34,14 @@ async function getTimezoneFromCoordinates(latitude, longitude) {
         lng: longitude,
       },
       timeout: 5000,
-    });
+      }),
+      {
+        endpoint: '/v2.1/get-time-zone',
+        method: 'GET',
+        userId,
+        requestPayload: { lat: latitude, lng: longitude, purpose: 'timezone_lookup' }
+      }
+    );
 
     if (response.data && response.data.status === "OK" && response.data.zoneName) {
       // Calculate UTC offset in minutes
@@ -69,7 +79,7 @@ function auth(req, res, next) {
 }
 
 // ---------- HELPER: Rate-limited geocoding request ----------
-async function geocodeWithRateLimit(locationString) {
+async function geocodeWithRateLimit(locationString, userId = null) {
   // Check cache first
   const cacheResult = await pool.query(
     `SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset 
@@ -94,7 +104,10 @@ async function geocodeWithRateLimit(locationString) {
 
   try {
     // Call Nominatim API - request more results to find city/town level specificity
-    const response = await axios.get("https://nominatim.openstreetmap.org/search", {
+    const userId = null; // Helper function doesn't have userId context
+    const response = await trackApiCall(
+      'google_geocoding', // Using google_geocoding service (Nominatim is free geocoding)
+      () => axios.get("https://nominatim.openstreetmap.org/search", {
       params: {
         q: locationString,
         format: "json",
@@ -105,7 +118,14 @@ async function geocodeWithRateLimit(locationString) {
       headers: {
         "User-Agent": "ATS-Job-Tracker/1.0", // Required by Nominatim
       },
-    });
+      }),
+      {
+        endpoint: '/search',
+        method: 'GET',
+        userId,
+        requestPayload: { q: locationString, purpose: 'geocoding' }
+      }
+    );
 
     lastRequestTime = Date.now();
 
@@ -166,7 +186,7 @@ async function geocodeWithRateLimit(locationString) {
       let timezoneInfo = null;
       if (!locationString.toLowerCase().includes("remote")) {
         try {
-          timezoneInfo = await getTimezoneFromCoordinates(lat, lon);
+          timezoneInfo = await getTimezoneFromCoordinates(lat, lon, userId);
         } catch (tzError) {
           // Continue without timezone - it's not critical for functionality
           console.log(`⚠️ Timezone lookup failed for ${locationString}:`, tzError.message);
@@ -225,7 +245,7 @@ router.post("/geocode", auth, async (req, res) => {
       return res.status(400).json({ error: "Location string is required" });
     }
 
-    const result = await geocodeWithRateLimit(location.trim());
+    const result = await geocodeWithRateLimit(location.trim(), req.userId);
 
     if (!result) {
       return res.status(404).json({ error: "Location not found" });
@@ -255,7 +275,7 @@ router.post("/geocode/batch", auth, async (req, res) => {
       if (!location || !location.trim()) continue;
 
       try {
-        const result = await geocodeWithRateLimit(location.trim());
+        const result = await geocodeWithRateLimit(location.trim(), req.userId);
         results.push({
           location,
           success: !!result,

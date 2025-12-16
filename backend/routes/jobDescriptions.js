@@ -1,11 +1,10 @@
 import express from "express";
-import { Pool } from "pg";
+import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 // 🔐 Auth middleware
@@ -16,6 +15,7 @@ function auth(req, res, next) {
     const token = h.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.id;
+    req.user = { id: decoded.id, email: decoded.email }; // Also set req.user for consistency
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });

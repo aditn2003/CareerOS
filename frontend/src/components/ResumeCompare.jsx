@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getUserFriendlyErrorMessage, getErrorAdvice } from "../utils/apiErrorMessages";
 import "./ResumeCompare.css";
 
 export default function ResumeCompare() {
@@ -57,7 +58,10 @@ export default function ResumeCompare() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to fetch profile data");
+      if (!res.ok) {
+        const errorObj = { response: { status: res.status, data } };
+        throw errorObj;
+      }
 
       if (data.sections) {
         console.log("✅ Loaded resume data from profile:", data.sections);
@@ -78,7 +82,8 @@ export default function ResumeCompare() {
       }
     } catch (err) {
       console.error("❌ Error fetching profile data:", err);
-      setError(err.message || "Failed to load profile data");
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'Resume Profile');
+      setError(friendlyMessage);
     } finally {
       setLoadingProfile(false);
     }
@@ -139,7 +144,10 @@ export default function ResumeCompare() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Reconciliation failed");
+      if (!res.ok) {
+        const errorObj = { response: { status: res.status, data } };
+        throw errorObj;
+      }
 
       const aiMerged = data.merged || data;
       const defaultSummary = {
@@ -162,7 +170,8 @@ export default function ResumeCompare() {
       setMergedResume(newMergedResume);
     } catch (err) {
       console.error("❌ Merge failed:", err);
-      setError(err.message || "Failed to merge resumes");
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'Gemini AI');
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -602,7 +611,23 @@ export default function ResumeCompare() {
         {/* RIGHT SIDE – Editable AI Resume */}
         <div className="resume-column resume-ai">
           <h2>✨ AI Optimized Resume</h2>
-          {error && <p className="error-message">{error}</p>}
+          {error && (
+            <div className="error-message" style={{ 
+              padding: "1rem", 
+              background: "#fee2e2", 
+              border: "1px solid #fca5a5", 
+              borderRadius: "8px",
+              color: "#991b1b",
+              marginBottom: "1rem"
+            }}>
+              <div style={{ fontWeight: "500" }}>{error}</div>
+              {getErrorAdvice(error) && (
+                <div style={{ marginTop: "0.5rem", fontSize: "0.875rem", opacity: 0.9 }}>
+                  {getErrorAdvice(error)}
+                </div>
+              )}
+            </div>
+          )}
           {loading && <p className="loading-message">🤖 Reconciling...</p>}
 
           {mergedResume ? (

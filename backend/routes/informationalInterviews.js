@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { auth } from "../auth.js";
 import { Resend } from "resend";
 import pkg from "pg";
+import { logApiUsage, logApiError } from "../utils/apiTrackingService.js";
 
 const { Pool } = pkg;
 const router = express.Router();
@@ -897,6 +898,7 @@ router.post("/candidates/:id/send-email", auth, async (req, res) => {
     `;
 
     // Send email using Resend
+    const startTime = Date.now();
     const emailResult = await resend.emails.send({
       from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
       to: interviewerEmail,
@@ -904,6 +906,45 @@ router.post("/candidates/:id/send-email", auth, async (req, res) => {
       html: emailHtml,
       replyTo: userInfo.email,
     });
+    const responseTimeMs = Date.now() - startTime;
+
+    // Track API usage
+    try {
+      if (emailResult.error) {
+        await logApiError({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          userId: userId,
+          errorType: 'api_error',
+          errorMessage: emailResult.error.message || 'Email send failed',
+          statusCode: emailResult.error.statusCode || 500,
+          requestPayload: { from: process.env.EMAIL_FROM, to: interviewerEmail, purpose: 'informational_interview_request' }
+        });
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: interviewerEmail, purpose: 'informational_interview_request' },
+          responseStatus: emailResult.error.statusCode || 500,
+          responseTimeMs,
+          success: false
+        });
+      } else {
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: interviewerEmail, purpose: 'informational_interview_request' },
+          responseStatus: 200,
+          responseTimeMs,
+          success: true
+        });
+      }
+    } catch (trackErr) {
+      console.warn("Failed to track Resend API call:", trackErr);
+    }
 
     if (emailResult.error) {
       console.error('Resend API error:', emailResult.error);
@@ -1027,6 +1068,7 @@ router.post("/interviews/:id/send-followup-email", auth, async (req, res) => {
     `;
 
     // Send email using Resend
+    const startTime = Date.now();
     const emailResult = await resend.emails.send({
       from: `ATS for Candidates <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
       to: candidateEmail,
@@ -1034,6 +1076,51 @@ router.post("/interviews/:id/send-followup-email", auth, async (req, res) => {
       html: emailHtml,
       replyTo: userInfo.email,
     });
+    const responseTimeMs = Date.now() - startTime;
+
+    // Track API usage
+    console.log(`📊 Attempting to track Resend API call - userId: ${userId}, success: ${!emailResult.error}`);
+    try {
+      if (emailResult.error) {
+        console.log(`📊 Logging Resend API error...`);
+        await logApiError({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          userId: userId,
+          errorType: 'api_error',
+          errorMessage: emailResult.error.message || 'Email send failed',
+          statusCode: emailResult.error.statusCode || 500,
+          requestPayload: { from: process.env.EMAIL_FROM, to: candidateEmail, purpose: 'informational_interview_followup' }
+        });
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: candidateEmail, purpose: 'informational_interview_followup' },
+          responseStatus: emailResult.error.statusCode || 500,
+          responseTimeMs,
+          success: false
+        });
+        console.log(`✅ Resend API error tracked successfully`);
+      } else {
+        console.log(`📊 Logging successful Resend API usage...`);
+        await logApiUsage({
+          serviceName: 'resend',
+          endpoint: '/emails/send',
+          method: 'POST',
+          userId: userId,
+          requestPayload: { to: candidateEmail, purpose: 'informational_interview_followup' },
+          responseStatus: 200,
+          responseTimeMs,
+          success: true
+        });
+        console.log(`✅ Resend API usage tracked successfully - userId: ${userId}`);
+      }
+    } catch (trackErr) {
+      console.error("❌ Failed to track Resend API call:", trackErr);
+      console.error("   Error stack:", trackErr.stack);
+    }
 
     if (emailResult.error) {
       console.error('Resend API error:', emailResult.error);
