@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
+import TeamDropdown from "../../components/TeamDropdown";
 import {
   FaTrophy,
   FaMedal,
@@ -25,8 +26,8 @@ import "./TeamAnalyticsTab.css";
 
 export default function TeamAnalyticsTab() {
   const { teamState } = useTeam() || {};
-  const teamId = teamState?.primaryTeam?.id;
-  const teamName = teamState?.primaryTeam?.name;
+  const teamId = teamState?.activeTeam?.id;
+  const teamName = teamState?.activeTeam?.name;
   const isMentor = teamState?.isMentor;
   const isAdmin = teamState?.isAdmin;
 
@@ -194,6 +195,9 @@ export default function TeamAnalyticsTab() {
           <p className="team-analytics-main-subtitle">
             Track milestones, celebrate achievements, and analyze team performance
           </p>
+          <div style={{ marginTop: "12px", display: "flex", justifyContent: "center", width: "100%" }}>
+            <TeamDropdown />
+          </div>
         </div>
       </div>
 

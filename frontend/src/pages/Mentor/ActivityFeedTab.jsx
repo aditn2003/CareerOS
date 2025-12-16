@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import { useNavigate } from "react-router-dom";
+import TeamDropdown from "../../components/TeamDropdown";
 import {
   FaBriefcase,
   FaCheckCircle,
@@ -24,8 +25,8 @@ import "./ActivityFeedTab.css";
 
 export default function ActivityFeedTab() {
   const { teamState } = useTeam() || {};
-  const teamId = teamState?.primaryTeam?.id;
-  const teamName = teamState?.primaryTeam?.name;
+  const teamId = teamState?.activeTeam?.id;
+  const teamName = teamState?.activeTeam?.name;
   const isMentor = teamState?.isMentor;
   const isAdmin = teamState?.isAdmin;
   const navigate = useNavigate();
@@ -210,13 +211,10 @@ export default function ActivityFeedTab() {
           <p className="activity-feed-main-subtitle">
             Real-time updates and insights from your team
           </p>
-        </div>
-        {teamName && (
-          <div className="activity-team-badge">
-            <FaUsers />
-            <span>{teamName}</span>
+          <div style={{ marginTop: "12px", display: "flex", justifyContent: "center", width: "100%" }}>
+            <TeamDropdown />
           </div>
-        )}
+        </div>
       </div>
 
       {error && <div className="activity-feed-error-banner">{error}</div>}

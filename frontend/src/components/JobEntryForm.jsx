@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "./JobEntryForm.css";
 import { api } from "../api";
 import FileUpload from "./FileUpload";
+import QualityScoreCard from "./QualityScoreCard";
 
 const today = new Date().toISOString().split("T")[0];
 
@@ -10,6 +11,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     title: "",
     company: "",
     location: "",
+    location_type: "",
     salary_min: "",
     salary_max: "",
     url: "",
@@ -31,6 +33,13 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState("");
+  
+  // Quality Scoring
+  const [qualityScore, setQualityScore] = useState(null);
+  const [analyzingQuality, setAnalyzingQuality] = useState(false);
+  const [qualityError, setQualityError] = useState(null);
+  const [tempJobId, setTempJobId] = useState(null); // Temporary job ID for analysis
+  const [overrideThreshold, setOverrideThreshold] = useState(false);
 
   // ⭐ MATERIAL LISTS
   const [resumes, setResumes] = useState([]);
@@ -76,7 +85,97 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
   }, [token]);
 
   // -------------------------------------------------------
-  // Save Job (POST)
+  // Analyze Quality Score
+  // -------------------------------------------------------
+  const canAnalyzeQuality = () => {
+    return (
+      form.title.trim() &&
+      form.company.trim() &&
+      form.description.trim() &&
+      (form.resume_id || form.cover_letter_id)
+    );
+  };
+
+  async function analyzeQuality() {
+    if (!canAnalyzeQuality()) {
+      return alert("Please fill in job title, company, description, and select at least one material (resume or cover letter) before analyzing quality.");
+    }
+
+    try {
+      setAnalyzingQuality(true);
+      setQualityError(null);
+
+      // First, save the job temporarily to get a job ID
+      const skillsArray = form.required_skills
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length > 0);
+
+      const payload = {
+        ...form,
+        required_skills: skillsArray,
+      };
+
+      // Save job first (or use existing tempJobId)
+      let jobId = tempJobId;
+      if (!jobId) {
+        const saveRes = await fetch("http://localhost:4000/api/jobs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!saveRes.ok) throw new Error("Failed to save job for analysis");
+        const saveData = await saveRes.json();
+        jobId = saveData.job.id;
+        setTempJobId(jobId);
+      } else {
+        // Update existing job
+        await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      // Now analyze quality
+      const res = await api.post(`/api/quality-scoring/${jobId}/analyze`, {
+        forceRefresh: true,
+      });
+
+      const score = res.data.score;
+      
+      // Parse JSONB fields if they're strings
+      if (typeof score.score_breakdown === 'string') {
+        score.score_breakdown = JSON.parse(score.score_breakdown);
+      }
+      if (typeof score.formatting_issues === 'string') {
+        score.formatting_issues = JSON.parse(score.formatting_issues);
+      }
+      if (typeof score.inconsistencies === 'string') {
+        score.inconsistencies = JSON.parse(score.inconsistencies);
+      }
+      if (typeof score.improvement_suggestions === 'string') {
+        score.improvement_suggestions = JSON.parse(score.improvement_suggestions);
+      }
+
+      setQualityScore(score);
+    } catch (err) {
+      console.error("❌ Quality analysis error:", err);
+      setQualityError(err.response?.data?.message || "Failed to analyze application quality");
+    } finally {
+      setAnalyzingQuality(false);
+    }
+  }
+
+  // -------------------------------------------------------
+  // Save Job (POST) with Threshold Validation
   // -------------------------------------------------------
   async function saveJob() {
     if (!form.title.trim() || !form.company.trim()) {
@@ -85,6 +184,31 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
     if (!form.deadline) {
       return alert("Please enter an application deadline date.");
+    }
+
+    // Check quality score threshold if score exists
+    if (qualityScore && !qualityScore.meets_threshold && !overrideThreshold) {
+      const minimumThreshold = qualityScore.minimum_threshold || 70;
+      const currentScore = qualityScore.overall_score;
+      
+      const message = `⚠️ Quality Score Below Threshold\n\n` +
+        `Your application quality score is ${currentScore}/100, which is below the minimum threshold of ${minimumThreshold}.\n\n` +
+        `Top 3 Improvement Suggestions:\n` +
+        (qualityScore.improvement_suggestions?.slice(0, 3).map((s, i) => 
+          `${i + 1}. ${s.suggestion}`
+        ).join('\n') || 'No suggestions available') +
+        `\n\nWould you like to:\n` +
+        `• Improve Application (recommended)\n` +
+        `• Submit Anyway (not recommended)`;
+
+      const userChoice = window.confirm(message + "\n\nClick OK to submit anyway, or Cancel to improve first.");
+      
+      if (!userChoice) {
+        return; // User chose to improve first
+      }
+      
+      // User confirmed, set override flag
+      setOverrideThreshold(true);
     }
 
     // ⭐ convert required_skills → array
@@ -101,16 +225,31 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     try {
       setLoading(true);
 
-      const res = await fetch("http://localhost:4000/api/jobs", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      // If we have a tempJobId, update it; otherwise create new
+      let jobId = tempJobId;
+      if (jobId) {
+        const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
 
-      if (!res.ok) throw new Error("Failed to save job");
+        if (!res.ok) throw new Error("Failed to update job");
+      } else {
+        const res = await fetch("http://localhost:4000/api/jobs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error("Failed to save job");
+      }
 
       onSaved?.();
     } catch (err) {
@@ -186,19 +325,22 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       <h3>Add Job Opportunity</h3>
 
       {/* URL + Import Button */}
-      <label>Job Posting URL</label>
+      <label htmlFor="job-url">Job Posting URL</label>
       <div className="import-row">
         <input
           type="url"
+          id="job-url"
           value={form.url}
           onChange={(e) => setForm({ ...form, url: e.target.value })}
           placeholder="https://www.linkedin.com/jobs/view/..."
+          aria-label="Job posting URL"
         />
         <button
           type="button"
           className="import-btn"
           disabled={importing}
           onClick={importJobDetails}
+          aria-label="Import job details from URL"
         >
           {importing ? "Importing..." : "Import"}
         </button>
@@ -206,28 +348,52 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       {importStatus && <p className="import-status">{importStatus}</p>}
 
       {/* MAIN FIELDS */}
-      <label>Job Title *</label>
+      <label htmlFor="job-title">Job Title *</label>
       <input
+        id="job-title"
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
+        aria-label="Job title"
+        aria-required="true"
       />
 
-      <label>Company *</label>
+      <label htmlFor="job-company">Company *</label>
       <input
+        id="job-company"
         value={form.company}
         onChange={(e) => setForm({ ...form, company: e.target.value })}
+        aria-label="Company name"
+        aria-required="true"
       />
 
-      <label>Location</label>
+      <label htmlFor="job-location">Location</label>
       <input
+        id="job-location"
         value={form.location}
         onChange={(e) => setForm({ ...form, location: e.target.value })}
+        aria-label="Job location"
       />
+
+      <label htmlFor="job-location-type">Location Type</label>
+      <select
+        id="job-location-type"
+        value={form.location_type || ""}
+        onChange={(e) => setForm({ ...form, location_type: e.target.value })}
+        aria-label="Location type"
+      >
+        <option value="">Select location type</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="on_site">On-Site</option>
+        <option value="flexible">Flexible</option>
+      </select>
 
       <div className="salary-group">
         <div>
-          <label>Salary Min ($)</label>
+          <label htmlFor="job-salary-min">Salary Min ($)</label>
           <input
+            id="job-salary-min"
+            type="number"
             value={form.salary_min}
             onChange={(e) =>
               setForm({
@@ -235,11 +401,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
                 salary_min: e.target.value.replace(/[^\d]/g, ""),
               })
             }
+            aria-label="Minimum salary in dollars"
           />
         </div>
         <div>
-          <label>Salary Max ($)</label>
+          <label htmlFor="job-salary-max">Salary Max ($)</label>
           <input
+            id="job-salary-max"
+            type="number"
             value={form.salary_max}
             onChange={(e) =>
               setForm({
@@ -247,35 +416,47 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
                 salary_max: e.target.value.replace(/[^\d]/g, ""),
               })
             }
+            aria-label="Maximum salary in dollars"
           />
         </div>
       </div>
 
-      <label>Date Applied</label>
+      <label htmlFor="job-applied-on">Date Applied</label>
       <input
         type="date"
+        id="job-applied-on"
         value={form.applied_on}
         onChange={(e) => setForm({ ...form, applied_on: e.target.value })}
+        aria-label="Date applied"
       />
 
-      <label>Application Deadline *</label>
+      <label htmlFor="job-deadline">Application Deadline *</label>
       <input
         type="date"
+        id="job-deadline"
         value={form.deadline}
         onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+        aria-label="Application deadline"
+        aria-required="true"
       />
 
-      <label>Job Description</label>
+      <label htmlFor="job-description">Job Description</label>
       <textarea
+        id="job-description"
         maxLength={2000}
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
+        aria-label="Job description"
+        aria-describedby="job-description-hint"
       />
+      <span id="job-description-hint" className="visually-hidden">Maximum 2000 characters</span>
 
-      <label>Industry</label>
+      <label htmlFor="job-industry">Industry</label>
       <select
+        id="job-industry"
         value={form.industry}
         onChange={(e) => setForm({ ...form, industry: e.target.value })}
+        aria-label="Industry"
       >
         <option value="">Select industry</option>
         <option value="tech">Technology</option>
@@ -285,10 +466,12 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="manufacturing">Manufacturing</option>
       </select>
 
-      <label>Job Type</label>
+      <label htmlFor="job-type">Job Type</label>
       <select
+        id="job-type"
         value={form.type}
         onChange={(e) => setForm({ ...form, type: e.target.value })}
+        aria-label="Job type"
       >
         <option value="">Select job type</option>
         <option value="full_time">Full Time</option>
@@ -297,10 +480,12 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="contract">Contract</option>
       </select>
 
-      <label>Role Level</label>
+      <label htmlFor="job-role-level">Role Level</label>
       <select
+        id="job-role-level"
         value={form.role_level}
         onChange={(e) => setForm({ ...form, role_level: e.target.value })}
+        aria-label="Role level"
       >
         <option value="">Select role level</option>
         <option value="intern">Intern</option>
@@ -317,23 +502,27 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       </select>
 
       {/* ⭐ REQUIRED SKILLS */}
-      <label>Required Skills (comma-separated)</label>
+      <label htmlFor="job-required-skills">Required Skills (comma-separated)</label>
       <input
+        id="job-required-skills"
         value={form.required_skills}
         onChange={(e) => setForm({ ...form, required_skills: e.target.value })}
         placeholder="e.g., Python, React, SQL"
+        aria-label="Required skills, comma-separated"
       />
 
       {/* ⭐ Material Linking */}
       <div style={{ marginTop: "20px", padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
         <h3 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 600 }}>Application Materials</h3>
         
-        <label>Resume Used</label>
+        <label htmlFor="job-resume-id">Resume Used</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
           <select
+            id="job-resume-id"
             value={form.resume_id}
             onChange={(e) => setForm({ ...form, resume_id: e.target.value })}
             style={{ flex: 1 }}
+            aria-label="Select resume to use"
           >
             <option value="">Select a Resume</option>
             {resumes.map((r) => (
@@ -376,12 +565,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
           </div>
         )}
 
-        <label>Cover Letter Used</label>
+        <label htmlFor="job-cover-letter-id">Cover Letter Used</label>
         <div style={{ display: "flex", gap: "8px" }}>
           <select
+            id="job-cover-letter-id"
             value={form.cover_letter_id}
             onChange={(e) => setForm({ ...form, cover_letter_id: e.target.value })}
             style={{ flex: 1 }}
+            aria-label="Select cover letter to use"
           >
             <option value="">Select a Cover Letter</option>
             {coverLetters.map((c) => (
@@ -423,11 +614,69 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
             />
           </div>
         )}
+
+        {/* Quality Score Analysis */}
+        {canAnalyzeQuality() && (
+          <div style={{ marginTop: "20px", padding: "16px", background: "#f0f9ff", borderRadius: "8px", border: "1px solid #bae6fd" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+              <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 600, color: "#0369a1" }}>
+                ⭐ Application Quality Score
+              </h4>
+              <button
+                type="button"
+                onClick={analyzeQuality}
+                disabled={analyzingQuality}
+                style={{
+                  padding: "8px 16px",
+                  background: analyzingQuality ? "#94a3b8" : "#10b981",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: analyzingQuality ? "not-allowed" : "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                }}
+              >
+                {analyzingQuality ? "Analyzing..." : "Analyze Quality"}
+              </button>
+            </div>
+
+            {qualityError && (
+              <div style={{ padding: "8px", background: "#fee2e2", borderRadius: "6px", marginBottom: "12px", fontSize: "0.875rem", color: "#991b1b" }}>
+                ❌ {qualityError}
+              </div>
+            )}
+
+            {qualityScore && (
+              <div style={{ marginTop: "12px" }}>
+                <QualityScoreCard score={qualityScore} />
+                {!qualityScore.meets_threshold && (
+                  <div style={{ 
+                    marginTop: "12px", 
+                    padding: "12px", 
+                    background: "#fef3c7", 
+                    borderRadius: "6px",
+                    border: "1px solid #f59e0b",
+                    fontSize: "0.875rem"
+                  }}>
+                    ⚠️ <strong>Score below threshold ({qualityScore.minimum_threshold}+).</strong> Consider improving your application before submitting.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* BUTTONS */}
       <div className="button-group">
-        <button onClick={saveJob} disabled={loading}>
+        <button 
+          onClick={saveJob} 
+          disabled={loading}
+          style={{
+            opacity: qualityScore && !qualityScore.meets_threshold && !overrideThreshold ? 0.7 : 1
+          }}
+        >
           {loading ? "Saving..." : "Save"}
         </button>
         <button className="btn-secondary" onClick={onCancel}>

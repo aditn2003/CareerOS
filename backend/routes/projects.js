@@ -2,12 +2,14 @@ import express from "express";
 import pkg from "pg";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import sharedPool from "../db/pool.js";
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
 
-const pool = new Pool({
+// Use shared pool in test mode for transaction isolation
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
@@ -112,6 +114,29 @@ router.get("/projects", auth, async (req, res) => {
   } catch (err) {
     console.error("❌ Project fetch error:", err);
     res.status(500).json({ error: "Database error while fetching projects" });
+  }
+});
+
+// ============================================================
+// ✅ UC-032: GET SINGLE PROJECT (FOR SHARING)
+// ============================================================
+router.get("/projects/:id", auth, async (req, res) => {
+  try {
+    const query = `
+      SELECT *
+      FROM projects
+      WHERE id = $1 AND user_id = $2;
+    `;
+    const result = await pool.query(query, [req.params.id, req.userId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
+    res.json({ project: result.rows[0] });
+  } catch (err) {
+    console.error("❌ Project fetch error:", err);
+    res.status(500).json({ error: "Database error while fetching project" });
   }
 });
 

@@ -25,7 +25,7 @@ export default function SalaryResearch() {
     loadJobs();
   }, []);
 
-  async function fetchSalary(job) {
+  async function fetchSalary(job, forceRefresh = false) {
     if (!job) return;
     try {
       setLoading(true);
@@ -34,13 +34,27 @@ export default function SalaryResearch() {
       setSelectedJob(job);
 
       const res = await api.get(`/api/salary-research/${job.id}`, {
-        params: { userSalary }, // pass user input to backend
+        params: { 
+          userSalary,
+          forceRefresh: forceRefresh ? "true" : "false"
+        },
       });
 
       setSalaryData(res.data);
     } catch (e) {
       console.error("❌ Salary research error:", e);
-      setError("Failed to fetch salary research.");
+      
+      // Graceful error handling
+      if (e.response?.data?.job) {
+        // Partial data available
+        setError("Some salary data may be unavailable, but basic information is shown.");
+        setSalaryData({
+          ...e.response.data,
+          error: true,
+        });
+      } else {
+        setError(e.response?.data?.message || "Failed to fetch salary research. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -117,9 +131,26 @@ export default function SalaryResearch() {
         <button
           className="salary-refresh-btn"
           disabled={!selectedJob || loading}
-          onClick={() => fetchSalary(selectedJob)}
+          onClick={() => fetchSalary(selectedJob, false)}
+          style={{ marginRight: "8px" }}
         >
           🔁 Refresh Salary Research
+        </button>
+        <button
+          className="salary-refresh-btn"
+          disabled={!selectedJob || loading}
+          onClick={() => fetchSalary(selectedJob, true)}
+          style={{
+            backgroundColor: "#f59e0b",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            cursor: loading || !selectedJob ? "not-allowed" : "pointer",
+            opacity: loading || !selectedJob ? 0.6 : 1
+          }}
+        >
+          🔄 Force Refresh (Bypass Cache)
         </button>
       </div>
 
@@ -132,7 +163,30 @@ export default function SalaryResearch() {
       {/* Results area */}
       {salaryData && (
         <div className="salary-results">
-          
+          {/* Data source and cache status */}
+          {salaryData.dataSource && (
+            <div style={{
+              padding: "12px",
+              backgroundColor: "#eff6ff",
+              border: "1px solid #3b82f6",
+              borderRadius: "6px",
+              marginBottom: "20px",
+              fontSize: "13px"
+            }}>
+              <strong>📊 Data Source:</strong> {salaryData.dataSource}
+              {salaryData.cached && (
+                <span style={{ marginLeft: "12px", color: "#059669" }}>
+                  ✓ Cached
+                  {salaryData.cacheTimestamp && (
+                    <span style={{ marginLeft: "8px", color: "#6b7280" }}>
+                      (Updated: {new Date(salaryData.cacheTimestamp).toLocaleDateString()})
+                    </span>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Meta info */}
           <section className="salary-section">
             <h2>📌 Position & Market Factors</h2>
@@ -143,12 +197,52 @@ export default function SalaryResearch() {
             <p><strong>Company Size:</strong> {salaryData.companySize}</p>
           </section>
 
-          {/* Salary range */}
+          {/* Salary range with percentiles */}
           <section className="salary-section">
             <h2>💵 Salary Range for Similar Positions</h2>
-            <p><strong>Low:</strong> ${salaryData.range.low.toLocaleString()}</p>
-            <p><strong>Average:</strong> ${salaryData.range.avg.toLocaleString()}</p>
-            <p><strong>High:</strong> ${salaryData.range.high.toLocaleString()}</p>
+            <div style={{ marginBottom: "16px" }}>
+              <p><strong>Low:</strong> ${salaryData.range.low.toLocaleString()}</p>
+              <p><strong>Average:</strong> ${salaryData.range.avg.toLocaleString()}</p>
+              <p><strong>High:</strong> ${salaryData.range.high.toLocaleString()}</p>
+            </div>
+            
+            {/* Percentile breakdown */}
+            {salaryData.range.percentile25 && salaryData.range.percentile50 && salaryData.range.percentile75 && (
+              <div style={{
+                marginTop: "16px",
+                padding: "16px",
+                backgroundColor: "#f9fafb",
+                borderRadius: "6px",
+                border: "1px solid #e5e7eb"
+              }}>
+                <h3 style={{ marginTop: 0, marginBottom: "12px", fontSize: "1rem" }}>
+                  📈 Percentile Breakdown
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
+                  <div>
+                    <strong style={{ color: "#6b7280", fontSize: "0.875rem" }}>25th Percentile</strong>
+                    <p style={{ fontSize: "1.25rem", fontWeight: 600, margin: "4px 0 0 0", color: "#dc2626" }}>
+                      ${salaryData.range.percentile25.toLocaleString()}
+                    </p>
+                    <small style={{ color: "#6b7280" }}>Lower quartile</small>
+                  </div>
+                  <div>
+                    <strong style={{ color: "#6b7280", fontSize: "0.875rem" }}>50th Percentile (Median)</strong>
+                    <p style={{ fontSize: "1.25rem", fontWeight: 600, margin: "4px 0 0 0", color: "#2563eb" }}>
+                      ${salaryData.range.percentile50.toLocaleString()}
+                    </p>
+                    <small style={{ color: "#6b7280" }}>Market median</small>
+                  </div>
+                  <div>
+                    <strong style={{ color: "#6b7280", fontSize: "0.875rem" }}>75th Percentile</strong>
+                    <p style={{ fontSize: "1.25rem", fontWeight: 600, margin: "4px 0 0 0", color: "#059669" }}>
+                      ${salaryData.range.percentile75.toLocaleString()}
+                    </p>
+                    <small style={{ color: "#6b7280" }}>Upper quartile</small>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Total compensation */}
@@ -228,6 +322,49 @@ export default function SalaryResearch() {
           <button className="salary-export-btn" onClick={handleExport}>
             📄 Export Salary Report
           </button>
+
+          {/* Disclaimer */}
+          <section className="salary-section" style={{
+            marginTop: "24px",
+            padding: "16px",
+            backgroundColor: "#fef3c7",
+            border: "1px solid #f59e0b",
+            borderRadius: "6px"
+          }}>
+            <h3 style={{ marginTop: 0, fontSize: "0.95rem", color: "#92400e" }}>
+              ⚠️ Data Disclaimer
+            </h3>
+            <div style={{ fontSize: "0.875rem", color: "#78350f", lineHeight: "1.6" }}>
+              <p style={{ margin: "0 0 8px 0" }}>
+                <strong>Data Sources & Accuracy:</strong>
+              </p>
+              <ul style={{ margin: "0 0 8px 0", paddingLeft: "20px" }}>
+                <li>Salary data is derived from multiple sources including computed market estimates and cached data from free APIs where available.</li>
+                <li>When available, data may include information from the U.S. Bureau of Labor Statistics (BLS) and community-contributed sources.</li>
+                <li>Salary ranges are estimates based on job title, location, experience level, and company size. Actual compensation may vary significantly.</li>
+                <li>Percentile breakdowns are calculated using statistical models and should be used as general guidelines only.</li>
+              </ul>
+              <p style={{ margin: "8px 0 0 0", fontStyle: "italic" }}>
+                This information is provided for informational purposes only and should not be the sole basis for compensation decisions. 
+                Always conduct your own research and consider multiple factors when negotiating salary.
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Error state with graceful handling */}
+      {error && salaryData?.job && (
+        <div style={{
+          padding: "16px",
+          backgroundColor: "#fee2e2",
+          border: "1px solid #dc2626",
+          borderRadius: "6px",
+          marginTop: "16px"
+        }}>
+          <p style={{ margin: 0, color: "#991b1b" }}>
+            ⚠️ Unable to fetch complete salary data, but partial information may be available above.
+          </p>
         </div>
       )}
     </div>

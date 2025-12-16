@@ -1,0 +1,73 @@
+/* Score Breakdown Styles */
+
+.score-breakdown-card {
+  background: white;
+  border-radius: 18px;
+  padding: 30px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.07);
+  margin-bottom: 30px;
+}
+
+.score-breakdown-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #374151;
+  margin: 0 0 24px 0;
+}
+
+.score-breakdown-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.score-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.score-breakdown-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.score-breakdown-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score-breakdown-item-label {
+  font-weight: 600;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.score-breakdown-item-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.score-breakdown-item-bar {
+  height: 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.score-breakdown-item-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+@media (max-width: 768px) {
+  .score-breakdown-card {
+    padding: 20px;
+  }
+}
+
+
+

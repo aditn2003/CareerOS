@@ -7,9 +7,8 @@ export default function DashboardTab() {
   const { token } = useAuth();
 
   return (
-    <div className="profile-box">
-      <h3>📊 Profilee Dashboard</h3>
-      <ProfileDashboard token={token} setActiveTab={() => {}} />
+    <div className="profile-box" style={{ background: 'transparent', padding: 0 }}>
+      <ProfileDashboard token={token} />
     </div>
   );
 }

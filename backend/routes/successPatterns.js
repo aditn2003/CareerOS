@@ -95,7 +95,7 @@ function analyzeApplicationPatterns(jobs) {
       patterns.byMonth[month] = (patterns.byMonth[month] || 0) + 1;
     }
 
-    // Customization
+    // Customization (only if columns exist)
     if (job.resume_customization) {
       patterns.byCustomization.resume[job.resume_customization] = 
         (patterns.byCustomization.resume[job.resume_customization] || 0) + 1;
@@ -454,9 +454,9 @@ function analyzeStrategyEffectiveness(jobs, networkingActivities, mockInterviews
   jobs.forEach(job => {
     const isSuccess = job.status === 'Offer' || job.status === 'Interview';
     
-    // Customization strategy
-    const resumeCustom = job.resume_customization || 'none';
-    const coverCustom = job.cover_letter_customization || 'none';
+    // Customization strategy (handle missing columns gracefully)
+    const resumeCustom = (job.resume_customization !== undefined) ? job.resume_customization : 'none';
+    const coverCustom = (job.cover_letter_customization !== undefined) ? job.cover_letter_customization : 'none';
     const customLevel = 
       (resumeCustom === 'tailored' || coverCustom === 'tailored') ? 'high' :
       (resumeCustom === 'heavy' || coverCustom === 'heavy') ? 'high' :
@@ -628,7 +628,7 @@ function identifySuccessFactors(jobs, skills, employment) {
   // Customization preference (from actual applications)
   const customCounts = { none: 0, light: 0, heavy: 0, tailored: 0 };
   actualApplications.forEach(job => {
-    const level = job.resume_customization || 'none';
+    const level = (job.resume_customization !== undefined) ? job.resume_customization : 'none';
     customCounts[level]++;
   });
   factors.customizationPreference = Object.entries(customCounts)
@@ -903,13 +903,33 @@ router.get("/", auth, async (req, res) => {
 
   try {
     // 1️⃣ Fetch Jobs (exclude archived)
+    // Check if customization columns exist first
+    let customizationColumns = '';
+    try {
+      const columnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'jobs' 
+        AND column_name IN ('resume_customization', 'cover_letter_customization')
+        AND table_schema = 'public'
+      `);
+      const availableColumns = new Set(columnCheck.rows.map(r => r.column_name));
+      if (availableColumns.has('resume_customization')) {
+        customizationColumns += ', resume_customization';
+      }
+      if (availableColumns.has('cover_letter_customization')) {
+        customizationColumns += ', cover_letter_customization';
+      }
+    } catch (err) {
+      console.warn('Could not check for customization columns:', err.message);
+    }
+
     const jobsRes = await pool.query(
       `SELECT id, title, company, location, industry, status, applied_on, created_at, 
-              status_updated_at, resume_customization, cover_letter_customization, 
-              application_history
+              status_updated_at${customizationColumns}
        FROM jobs 
        WHERE user_id = $1
-         AND ("isarchived" = false OR "isarchived" IS NULL)
+         AND ("isArchived" = false OR "isArchived" IS NULL)
        ORDER BY created_at DESC`,
       [userId]
     );
@@ -1004,7 +1024,7 @@ router.get("/", auth, async (req, res) => {
          INNER JOIN jobs j ON io.job_id = j.id
          WHERE io.user_id = $1
            AND j.user_id = $1
-           AND (j."isarchived" = false OR j."isarchived" IS NULL)`,
+           AND (j."isArchived" = false OR j."isArchived" IS NULL)`,
         [userId]
       );
       interviewOutcomes = interviewRes.rows || [];

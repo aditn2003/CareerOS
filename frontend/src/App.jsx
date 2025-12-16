@@ -40,8 +40,16 @@ import InterviewTracker from './pages/Interviews/InterviewTracker';
 import LinkedInAuthSuccess from "./pages/LinkedInAuthSuccess"; // LinkedIn OAuth callback handler
 import LinkedInCallback from "./pages/LinkedInCallback"; // LinkedIn OAuth callback (new)
 import DocsManagement from "./pages/DocsManagement";
+import ApiMonitoringDashboard from "./pages/Admin/ApiMonitoringDashboard"; // UC-117: API Monitoring Dashboard
 
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
+import FollowUpReminders from "./components/FollowUpReminders"; // UC-118: Smart Follow-Up Reminder System
+
+// ---------- Help Pages ----------
+import GettingStarted from "./pages/Help/GettingStarted";
+import FAQ from "./pages/Help/FAQ";
+import TermsOfService from "./pages/Help/TermsOfService";
+import PrivacyPolicy from "./pages/Help/PrivacyPolicy";
 
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
@@ -84,9 +92,14 @@ function MainLayout() {
 
   return (
     <div className="app-wrapper">
+      {/* Skip to main content link for keyboard navigation */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
+      
       <NavBar />
 
-      <main className="app-container">
+      <main id="main-content" className="app-container" role="main">
         {loading && <Spinner />}
 
         <Routes>
@@ -100,6 +113,12 @@ function MainLayout() {
           {/* --- LinkedIn OAuth Callback Routes --- */}
           <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
           <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
+
+          {/* --- Help & Legal Pages (Public) --- */}
+          <Route path="/getting-started" element={<GettingStarted />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route
@@ -179,12 +198,32 @@ function MainLayout() {
             }
           />
 
+          {/* --- Jobs Map View (Protected) --- */}
+          <Route
+            path="/jobs/map"
+            element={
+              <ProtectedRoute>
+                <Jobs />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"
             element={
               <ProtectedRoute>
                 <StatisticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
+          <Route
+            path="/followup-reminders"
+            element={
+              <ProtectedRoute>
+                <FollowUpReminders />
               </ProtectedRoute>
             }
           />
@@ -314,6 +353,16 @@ function MainLayout() {
             element={
               <ProtectedRoute>
                 <MentorLayout />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
+          <Route
+            path="/admin/api-monitoring"
+            element={
+              <ProtectedRoute>
+                <ApiMonitoringDashboard />
               </ProtectedRoute>
             }
           />

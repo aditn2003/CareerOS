@@ -3,12 +3,13 @@ import { api } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import TaskModal from "../../components/TaskModal";
 import FeedbackModal from "../../components/FeedbackModal";
+import TeamDropdown from "../../components/TeamDropdown";
 import { FaTasks, FaPlus, FaCheckCircle, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./TaskManagementTab.css";
 
 export default function TaskManagementTab() {
   const { teamState } = useTeam() || {};
-  const teamId = teamState?.primaryTeam?.id;
+  const teamId = teamState?.activeTeam?.id;
   const isMentor = teamState?.isMentor;
   const isAdmin = teamState?.isAdmin;
   const isCandidate = teamState?.isCandidate;
@@ -160,6 +161,9 @@ export default function TaskManagementTab() {
           <p className="task-main-subtitle">
             Organize, track, and guide your team's progress
           </p>
+          <div style={{ marginTop: "12px", display: "flex", justifyContent: "center", width: "100%" }}>
+            <TeamDropdown />
+          </div>
         </div>
         {canCreateTasks && (
           <button className="task-create-btn" onClick={handleCreateTask}>

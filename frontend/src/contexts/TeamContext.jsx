@@ -15,6 +15,7 @@ const initialState = {
   accountType: null,
   teams: [],
   primaryTeam: null,
+  selectedTeam: null, // Currently selected team (for mentors with multiple teams)
   role: null,
   status: "idle",
   error: null,
@@ -36,15 +37,27 @@ export function TeamProvider({ children }) {
       const teams = data?.teams || [];
       const primaryTeam = data?.primaryTeam || teams[0] || null;
       const role = primaryTeam?.role || null;
+      
+      // For mentors, if they have multiple teams, use primaryTeam as default selectedTeam
+      // If selectedTeam was already set, try to preserve it if it still exists
+      // Use functional update to access previous state without dependency
+      setState((prev) => {
+        const currentSelectedTeamId = prev.selectedTeam?.id;
+        const preservedSelectedTeam = currentSelectedTeamId 
+          ? teams.find(t => t.id === currentSelectedTeamId) 
+          : null;
+        const selectedTeam = preservedSelectedTeam || primaryTeam || null;
 
-      setState({
-        accountType: data?.accountType || null,
-        userId: data?.userId || null, // Current user ID
-        teams,
-        primaryTeam,
-        role,
-        status: "ready",
-        error: null,
+        return {
+          accountType: data?.accountType || null,
+          userId: data?.userId || null, // Current user ID
+          teams,
+          primaryTeam,
+          selectedTeam,
+          role,
+          status: "ready",
+          error: null,
+        };
       });
     } catch (err) {
       console.error("Failed to load team context", err);
@@ -60,22 +73,34 @@ export function TeamProvider({ children }) {
     refreshTeam();
   }, [token, refreshTeam]);
 
+  const setSelectedTeam = useCallback((team) => {
+    setState((prev) => ({
+      ...prev,
+      selectedTeam: team,
+    }));
+  }, []);
+
   const value = useMemo(() => {
     const isMentor = state.role === "mentor" || state.accountType === "mentor";
     const isAdmin = isMentor; // Mentors have admin privileges
     const isCandidate = state.accountType === "candidate" && !isMentor;
+    
+    // Use selectedTeam if available (for mentors with multiple teams), otherwise fall back to primaryTeam
+    const activeTeam = state.selectedTeam || state.primaryTeam;
 
     return {
       teamState: {
         ...state,
-        hasTeam: !!state.primaryTeam,
+        activeTeam, // The currently active team to use in components
+        hasTeam: !!activeTeam,
         isAdmin,
         isMentor,
         isCandidate,
       },
       refreshTeam,
+      setSelectedTeam,
     };
-  }, [state, refreshTeam]);
+  }, [state, refreshTeam, setSelectedTeam]);
 
   return (
     <TeamContext.Provider value={value}>{children}</TeamContext.Provider>

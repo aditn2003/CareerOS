@@ -1,10 +1,10 @@
 import axios from "axios";
 
 const baseURL =
-  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === "localhost"
     ? "http://localhost:4000"
-    : "http://backend:4000");
+    : "https://aandsz-forces-ats-cs490-civg.onrender.com");
 
 export const api = axios.create({
   baseURL,
@@ -22,20 +22,27 @@ api.interceptors.request.use((config) => {
 
 /* -------------------------------------------------------
    ⬇️ RESPONSE INTERCEPTOR — auto logout on 401
+   TEMPORARILY DISABLED - too many false positives
 ------------------------------------------------------- */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn(
-        "🔐 401 detected — token invalid or expired. Logging out..."
-      );
-
-      // Remove token immediately
-      localStorage.removeItem("token");
-
-      // Force redirect to login AND prevent Back button returning
-      window.location.replace("/login");
+      const errorMessage = error.response?.data?.error || '';
+      const errorPath = error.config?.url || '';
+      const currentPath = window.location.pathname;
+      
+      console.warn("🔐 401 Error (NOT logging out):", {
+        path: errorPath,
+        message: errorMessage,
+        currentPage: currentPath,
+        fullError: error.response?.data
+      });
+      
+      // TEMPORARILY DISABLED AUTO-LOGOUT
+      // Just log the error, don't logout
+      // Components can handle their own errors
+      return Promise.reject(error);
     }
 
     return Promise.reject(error);
@@ -102,14 +109,12 @@ export const duplicateTemplate = (id) =>
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
     
-      const res = await fetch(
-        `http://localhost:4000/api/dashboard/stats?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${api.defaults.baseURL}/api/dashboard/stats?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
     
       if (!res.ok) throw new Error("Failed to load stats");
       const data = await res.json();
