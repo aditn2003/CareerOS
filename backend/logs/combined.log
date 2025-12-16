@@ -12,3 +12,29 @@
 2025-12-14 02:35:03 [INFO]: Application starting {"nodeEnv":"development","port":4000}
 2025-12-14 02:35:03 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
 2025-12-14 02:35:03 [INFO]: Connected to PostgreSQL
+2025-12-15 21:53:05 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 21:53:05 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 21:53:06 [INFO]: Connected to PostgreSQL
+2025-12-15 22:00:00 [INFO]: Running GitHub repository sync
+2025-12-15 22:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-15 22:04:48 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 22:04:48 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 22:04:48 [INFO]: Connected to PostgreSQL
+2025-12-15 22:08:58 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 22:08:58 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 22:08:58 [INFO]: Connected to PostgreSQL
+2025-12-15 22:09:08 [ERROR]: Unhandled error in request {"requestId":"1765854548546-fs2t8kc6y","method":"GET","path":"/debug-sentry","userId":null,"error":{"message":"My first Sentry error!","stack":"Error: My first Sentry error!\n    at mainHandler (file:///C:/Users/Zaid%20Hasan/OneDrive/Desktop/New%20ATS/Aandsz-Forces-ATS-CS490/backend/server.js:627:9)\n    at Layer.handle [as handle_request] (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at next (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\route.js:149:13)\n    at Route.dispatch (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\route.js:119:3)\n    at Layer.handle [as handle_request] (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:284:15\n    at Function.process_params (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:346:12)\n    at next (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:280:10)\n    at Layer.handle [as handle_request] (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\layer.js:91:12)\n    at trim_prefix (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:328:13)\n    at C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:286:9\n    at Function.process_params (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:346:12)\n    at next (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:280:10)\n    at requestLogger (file:///C:/Users/Zaid%20Hasan/OneDrive/Desktop/New%20ATS/Aandsz-Forces-ATS-CS490/backend/middleware/logging.js:63:3)\n    at Layer.handle [as handle_request] (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\layer.js:95:5)\n    at trim_prefix (C:\\Users\\Zaid Hasan\\OneDrive\\Desktop\\New ATS\\Aandsz-Forces-ATS-CS490\\backend\\node_modules\\express\\lib\\router\\index.js:328:13)","name":"Error"}}
+2025-12-15 22:09:08 [ERROR]: Request completed with error {"requestId":"1765854548546-fs2t8kc6y","method":"GET","path":"/debug-sentry","route":"/debug-sentry","statusCode":500,"responseTime":"16ms","userId":null,"error":null}
+2025-12-15 22:10:43 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 22:10:43 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 22:10:43 [INFO]: Connected to PostgreSQL
+2025-12-15 22:22:05 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 22:22:05 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 22:22:06 [INFO]: Connected to PostgreSQL
+2025-12-15 22:34:44 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-15 22:34:44 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-15 22:34:45 [INFO]: Connected to PostgreSQL
+2025-12-15 23:00:00 [INFO]: Running GitHub repository sync
+2025-12-15 23:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-16 00:00:00 [INFO]: Running GitHub repository sync
+2025-12-16 00:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}

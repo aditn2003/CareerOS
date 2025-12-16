@@ -12,8 +12,9 @@ const router = express.Router();
 /**
  * Enhanced health check endpoint for UptimeRobot
  * GET /api/monitoring/health
+ * HEAD /api/monitoring/health (for UptimeRobot compatibility)
  */
-router.get('/health', async (req, res) => {
+const healthCheckHandler = async (req, res) => {
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -62,8 +63,17 @@ router.get('/health', async (req, res) => {
   }
 
   const statusCode = health.status === 'healthy' ? 200 : health.status === 'degraded' ? 200 : 503;
+  
+  // For HEAD requests, send status without body
+  if (req.method === 'HEAD') {
+    return res.status(statusCode).end();
+  }
+  
   res.status(statusCode).json(health);
-});
+};
+
+router.get('/health', healthCheckHandler);
+router.head('/health', healthCheckHandler);
 
 /**
  * Metrics dashboard endpoint

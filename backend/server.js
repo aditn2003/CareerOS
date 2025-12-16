@@ -1,9 +1,11 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
+import "./instrument.js";
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 //import pkg from "pg";
@@ -122,8 +124,20 @@ const transporter = nodemailer.createTransport({
 // ===== Middleware =====
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:4173",
+      "http://localhost:4174",
+    ],
     credentials: true,
+  })
+);
+
+// Enable gzip compression for all responses
+app.use(
+  compression({
+    threshold: 1024, // Only compress responses > 1KB
   })
 );
 app.use(express.json());
@@ -133,7 +147,15 @@ app.use(express.json());
 app.use(requestLogger);
 
 // ✅ Serve uploaded images so React can access them
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Add long-lived caching headers for better frontend performance.
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
+    etag: true,
+    immutable: true,
+  })
+);
 
 // ===== PostgreSQL Setup =====
 // Pool is imported from ./db/pool.js - no need to create it here
