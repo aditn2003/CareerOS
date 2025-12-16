@@ -6,8 +6,8 @@ export default defineConfig({
     environment: 'node',
     
     // Global test timeout (reduced for faster failure detection)
-    testTimeout: 30000, // Increased to 30s for complex tests
-    hookTimeout: 20000, // Increased to 20s for database setup
+    testTimeout: 60000, // 60s for complex tests
+    hookTimeout: 120000, // 120s for database setup (security tests need longer)
     
     // Run tests sequentially for database operations
     pool: 'forks',

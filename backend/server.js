@@ -6,6 +6,9 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import validator from "validator";
 //import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
@@ -108,6 +111,36 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ===== Security Middleware (UC-145) =====
+// Helmet adds security headers (removes X-Powered-By, adds CSP, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now to avoid breaking frontend
+  crossOriginEmbedderPolicy: false, // Allow embedding resources
+}));
+
+// Disable X-Powered-By explicitly (also done by helmet, but being explicit)
+app.disable('x-powered-by');
+
+// Rate limiting for authentication endpoints (UC-145: Prevent brute force attacks)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: { error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test', // Skip rate limiting in test environment
+});
+
+// General API rate limiter (more permissive)
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: { error: 'Too many requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test',
+});
+
 // ===== Middleware =====
 app.use(
   cors({
@@ -126,6 +159,9 @@ app.use(
 );
 
 app.use(express.json());
+
+// Apply rate limiting to API routes
+app.use('/api/', apiLimiter);
 
 // ✅ Serve uploaded images so React can access them
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -172,7 +208,7 @@ function makeToken(user) {
 const resetCodes = new Map(); // for demo; moves to DB later
 
 // ========== UC-001: Register ==========
-app.post("/register", async (req, res) => {
+app.post("/register", authLimiter, async (req, res) => {
   const {
     email = "",
     password = "",
@@ -182,7 +218,8 @@ app.post("/register", async (req, res) => {
     accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
-    if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
+    // UC-145: Strengthen email validation using validator library
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ error: "Invalid email format" });
     }
     if (!PASSWORD_RULE.test(password)) {
@@ -267,7 +304,7 @@ app.post("/register", async (req, res) => {
 });
 
 // ========== UC-002: Login ==========
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   const { email = "", password = "" } = req.body;
   try {
     const lower = email.toLowerCase();
@@ -364,7 +401,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ========== UC-006: Password Reset Request ==========
-app.post("/forgot", async (req, res) => {
+app.post("/forgot", authLimiter, async (req, res) => {
   try {
     const { email = "" } = req.body;
     const lower = email.toLowerCase();

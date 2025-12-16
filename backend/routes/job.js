@@ -10,6 +10,7 @@ import OpenAI from "openai";
 import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
+import { validateIdParam, validateIdParams } from "../utils/inputValidation.js";
 
 dotenv.config();
 const router = express.Router();
@@ -775,7 +776,8 @@ router.get("/history", auth, async (req, res) => {
 });
 
 // ---------- GET JOB BY ID ----------
-router.get("/:id", auth, async (req, res) => {
+// UC-145: Added validateIdParam to prevent SQL injection and return proper 400 error
+router.get("/:id", auth, validateIdParam, async (req, res) => {
   const { id } = req.params;
   try {
     // Get job from jobs table
@@ -877,7 +879,8 @@ router.get("/:id", auth, async (req, res) => {
 });
 
 // ---------- UPDATE JOB ----------
-router.put("/:id", auth, async (req, res) => {
+// UC-145: Added validateIdParam for security
+router.put("/:id", auth, validateIdParam, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -1495,7 +1498,8 @@ router.put("/:id/materials", auth, async (req, res) => {
 });
 
 // ---------- DELETE JOB ----------
-router.delete("/:id", auth, async (req, res) => {
+// UC-145: Added validateIdParam for security
+router.delete("/:id", auth, validateIdParam, async (req, res) => {
   const { id } = req.params;
   let client;
   try {
@@ -1557,7 +1561,8 @@ router.delete("/:id", auth, async (req, res) => {
 
 // ---------- UPDATE STATUS ----------
 // ---------- UPDATE STATUS (with interview_date + offer_date logic) ----------
-router.put("/:id/status", auth, async (req, res) => {
+// UC-145: Added validateIdParam for security
+router.put("/:id/status", auth, validateIdParam, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -1773,7 +1778,8 @@ router.put("/bulk/deadline", auth, async (req, res) => {
 //
 
 // ---------- ARCHIVE A JOB (AC-1) ----------
-router.put("/:id/archive", auth, async (req, res) => {
+// UC-145: Added validateIdParam for security
+router.put("/:id/archive", auth, validateIdParam, async (req, res) => {
   const { id } = req.params;
   try {
     // FIX: Added quotes around "isArchived"
@@ -1793,7 +1799,8 @@ router.put("/:id/archive", auth, async (req, res) => {
 });
 
 // ---------- RESTORE A JOB (AC-3) ----------
-router.put("/:id/restore", auth, async (req, res) => {
+// UC-145: Added validateIdParam for security
+router.put("/:id/restore", auth, validateIdParam, async (req, res) => {
   const { id } = req.params;
   try {
     // FIX: Added quotes around "isArchived"
