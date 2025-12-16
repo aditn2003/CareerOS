@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 import SkillsForm from "./SkillsForm";
+import { 
+  FaCode, 
+  FaTag, 
+  FaChartLine,
+  FaSearch,
+  FaDownload,
+  FaTrash,
+  FaGripVertical,
+  FaLaptopCode,
+  FaHandshake,
+  FaLanguage,
+  FaIndustry,
+  FaStar,
+  FaCheckCircle
+} from "react-icons/fa";
+import "../pages/Profile/SkillsTab.css";
 
 /**
  * SkillsSection.jsx
@@ -96,102 +112,154 @@ export default function SkillsSection({ token }) {
     link.click();
   }
 
+  // Get category icon
+  function getCategoryIcon(category) {
+    switch(category) {
+      case "Technical": return <FaLaptopCode />;
+      case "Soft Skills": return <FaHandshake />;
+      case "Languages": return <FaLanguage />;
+      case "Industry-Specific": return <FaIndustry />;
+      default: return <FaTag />;
+    }
+  }
+
+  // Calculate statistics
+  const totalSkills = skills.length;
+  const expertSkills = skills.filter(s => s.proficiency === "Expert").length;
+  const categoryCount = Object.keys(grouped).length;
+  const avgProficiency = skills.length > 0 
+    ? Math.round((skills.reduce((acc, s) => {
+        const val = s.proficiency === "Expert" ? 4 : s.proficiency === "Advanced" ? 3 : s.proficiency === "Intermediate" ? 2 : 1;
+        return acc + val;
+      }, 0) / skills.length) * 10) / 10
+    : 0;
+
   return (
-    <section>
-      <SkillsForm token={token} onAdded={loadSkills} />
+    <>
+      {/* Form and Stats Layout */}
+      <div className="skills-top-section">
+        <div className="skills-form-wrapper">
+          <SkillsForm token={token} onAdded={loadSkills} />
+        </div>
+        
+        {/* Statistics Section */}
+        {skills.length > 0 && (
+          <div className="skills-stats-wrapper">
+            <div className="skills-stats">
+              <div className="skills-stat-card">
+                <FaCode className="skills-stat-icon" />
+                <div className="skills-stat-content">
+                  <div className="skills-stat-value">{totalSkills}</div>
+                  <div className="skills-stat-label">Total Skills</div>
+                </div>
+              </div>
+              <div className="skills-stat-card">
+                <FaStar className="skills-stat-icon" />
+                <div className="skills-stat-content">
+                  <div className="skills-stat-value">{expertSkills}</div>
+                  <div className="skills-stat-label">Expert Level</div>
+                </div>
+              </div>
+              <div className="skills-stat-card">
+                <FaTag className="skills-stat-icon" />
+                <div className="skills-stat-content">
+                  <div className="skills-stat-value">{categoryCount}</div>
+                  <div className="skills-stat-label">Categories</div>
+                </div>
+              </div>
+              <div className="skills-stat-card">
+                <FaChartLine className="skills-stat-icon" />
+                <div className="skills-stat-content">
+                  <div className="skills-stat-value">{avgProficiency.toFixed(1)}</div>
+                  <div className="skills-stat-label">Avg Proficiency</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
-      <input
-        type="text"
-        placeholder="Search skills..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{
-          marginTop: "1rem",
-          width: "100%",
-          padding: "0.5rem",
-          borderRadius: "8px",
-          border: "1px solid #ddd",
-        }}
-      />
-
-      <div style={{ textAlign: "right", marginTop: "0.5rem" }}>
-        <button className="btn-secondary" onClick={exportCSV}>
-          ⬇️ Export Skills (CSV)
+      {/* Search and Export */}
+      <div className="skills-actions-bar">
+        <div className="skills-search-wrapper">
+          <FaSearch className="skills-search-icon" />
+          <input
+            type="text"
+            className="skills-search"
+            placeholder="Search skills..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <button className="skills-export-btn" onClick={exportCSV}>
+          <FaDownload />
+          <span>Export Skills (CSV)</span>
         </button>
       </div>
 
+      {/* Skills Categories */}
       {filteredGrouped.length === 0 ? (
-        <p>No skills yet.</p>
+        <div className="skills-empty">
+          <FaCode className="skills-empty-icon" />
+          <p>No skills yet.</p>
+          <p className="skills-empty-subtitle">
+            Add your first skill to get started building your professional profile
+          </p>
+        </div>
       ) : (
         filteredGrouped.map(([cat, arr]) => (
           <div
             key={cat}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => handleDrop(e, cat)}
-            style={{
-              marginTop: "1.5rem",
-              background: "#f9f9ff",
-              borderRadius: "12px",
-              padding: "1rem",
-              boxShadow: "0 3px 8px rgba(0,0,0,0.05)",
+            className="skills-category"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add("drag-over");
+            }}
+            onDragLeave={(e) => {
+              e.currentTarget.classList.remove("drag-over");
+            }}
+            onDrop={(e) => {
+              e.currentTarget.classList.remove("drag-over");
+              handleDrop(e, cat);
             }}
           >
-            <h3
-              style={{
-                color: "#5a2cd1",
-                borderBottom: "2px solid #ddd",
-                paddingBottom: "0.4rem",
-                marginBottom: "1rem",
-              }}
-            >
-              {cat} ({arr.length})
-            </h3>
-            <ul className="employment-list">
+            <div className="skills-category-header">
+              <div className="skills-category-title">
+                {getCategoryIcon(cat)}
+                <span>{cat}</span>
+              </div>
+              <div className="skills-category-count">{arr.length}</div>
+            </div>
+            <ul className="skills-list">
               {arr.map((s) => (
                 <li
                   key={s.id}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, s)}
-                  className="employment-item"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "1rem",
-                    background: "#fff",
-                    borderRadius: "10px",
-                    padding: "0.8rem 1rem",
-                    marginBottom: "0.6rem",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
-                    cursor: "grab",
+                  onDragStart={(e) => {
+                    handleDragStart(e, s);
+                    e.currentTarget.classList.add("dragging");
                   }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.classList.remove("dragging");
+                  }}
+                  className={`skills-item ${dragging?.id === s.id ? "dragging" : ""}`}
                 >
-                  <div style={{ flex: 1 }}>
-                    <strong>{s.name}</strong>
-                    <span
-                      className="badge"
-                      style={{
-                        background:
-                          s.proficiency === "Expert"
-                            ? "#8a2be2"
-                            : s.proficiency === "Advanced"
-                            ? "#6f42c1"
-                            : s.proficiency === "Intermediate"
-                            ? "#9370db"
-                            : "#c7a0ff",
-                        color: "#fff",
-                        borderRadius: "6px",
-                        padding: "3px 8px",
-                        marginLeft: "8px",
-                        fontSize: "0.8rem",
-                      }}
-                    >
+                  <div className="skills-item-content">
+                    <FaGripVertical style={{ 
+                      color: "#9ca3af", 
+                      fontSize: "0.9rem",
+                      cursor: "grab",
+                      flexShrink: 0
+                    }} />
+                    <strong className="skills-item-name">{s.name}</strong>
+                    <span className={`skills-proficiency-badge ${s.proficiency.toLowerCase()}`}>
                       {s.proficiency}
                     </span>
                   </div>
 
-                  <div className="employment-actions" style={{ display: "flex", gap: "0.5rem" }}>
+                  <div className="skills-item-actions">
                     <select
+                      className="skills-select"
                       value={s.proficiency}
                       onChange={(e) =>
                         updateSkill(s.id, { proficiency: e.target.value })
@@ -204,6 +272,7 @@ export default function SkillsSection({ token }) {
                     </select>
 
                     <select
+                      className="skills-select"
                       value={s.category}
                       onChange={(e) =>
                         updateSkill(s.id, { category: e.target.value })
@@ -216,10 +285,11 @@ export default function SkillsSection({ token }) {
                     </select>
 
                     <button
-                      className="btn-delete"
+                      className="skills-delete-btn"
                       onClick={() => deleteSkill(s.id)}
                     >
-                      🗑️
+                      <FaTrash />
+                      <span>Delete</span>
                     </button>
                   </div>
                 </li>
@@ -228,6 +298,6 @@ export default function SkillsSection({ token }) {
           </div>
         ))
       )}
-    </section>
+    </>
   );
 }

@@ -1,7 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
 import EducationForm from "./EducationForm";
-import "../App.css";
+import { 
+  FaGraduationCap, 
+  FaUniversity, 
+  FaCalendarAlt,
+  FaAward,
+  FaTrophy,
+  FaEdit,
+  FaTrash,
+  FaPlus,
+  FaCheckCircle,
+  FaChartLine,
+  FaStar
+} from "react-icons/fa";
+import "../pages/Profile/EducationTab.css";
 
 // Helper to format ISO date into readable form
 function formatDate(dateString) {
@@ -9,9 +22,22 @@ function formatDate(dateString) {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     year: "numeric",
-    month: "long",
-    day: "numeric",
+    month: "short",
   });
+}
+
+// Helper to get duration
+function getDuration(startDate, endDate, currentlyEnrolled) {
+  if (currentlyEnrolled) return "Present";
+  if (!startDate || !endDate) return "";
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const years = end.getFullYear() - start.getFullYear();
+  
+  if (years === 1) return "1 year";
+  if (years > 1) return `${years} years`;
+  return "Less than 1 year";
 }
 
 export default function EducationSection({ token }) {
@@ -46,80 +72,179 @@ export default function EducationSection({ token }) {
     if (token) loadEducation();
   }, [token]);
 
+  // Calculate statistics
+  const totalEducation = education.length;
+  const currentlyEnrolled = education.filter(e => e.currently_enrolled).length;
+  const avgGPA = education.length > 0 && education.filter(e => e.gpa && !e.gpa_private).length > 0
+    ? (education
+        .filter(e => e.gpa && !e.gpa_private)
+        .reduce((acc, e) => acc + parseFloat(e.gpa || 0), 0) / 
+       education.filter(e => e.gpa && !e.gpa_private).length).toFixed(2)
+    : 0;
+  const hasHonors = education.filter(e => e.honors).length;
+
   return (
-    <div className="profile-box">
-      {!eduForm && (
-        <button className="btn-success" onClick={() => setEduForm({})}>
-          ➕ Add Education
-        </button>
-      )}
+    <>
+      {/* Form and Stats Layout */}
+      <div className="education-top-section">
+        <div className="education-form-wrapper">
+          {!eduForm && (
+            <button className="education-add-btn" onClick={() => setEduForm({})}>
+              <FaPlus />
+              <span>Add Education</span>
+            </button>
+          )}
 
-      {eduForm && (
-        <EducationForm
-          token={token}
-          edu={eduForm}
-          onCancel={() => setEduForm(null)}
-          onSaved={() => {
-            setEduForm(null);
-            loadEducation();
-          }}
-        />
-      )}
+          {eduForm && (
+            <EducationForm
+              token={token}
+              edu={eduForm}
+              onCancel={() => setEduForm(null)}
+              onSaved={() => {
+                setEduForm(null);
+                loadEducation();
+              }}
+            />
+          )}
+        </div>
+        
+        {/* Statistics Section */}
+        {!eduForm && education.length > 0 && (
+          <div className="education-stats-wrapper">
+            <div className="education-stats">
+              <div className="education-stat-card">
+                <FaGraduationCap className="education-stat-icon" />
+                <div className="education-stat-content">
+                  <div className="education-stat-value">{totalEducation}</div>
+                  <div className="education-stat-label">Total Degrees</div>
+                </div>
+              </div>
+              <div className="education-stat-card">
+                <FaCheckCircle className="education-stat-icon" />
+                <div className="education-stat-content">
+                  <div className="education-stat-value">{currentlyEnrolled}</div>
+                  <div className="education-stat-label">Currently Enrolled</div>
+                </div>
+              </div>
+              <div className="education-stat-card">
+                <FaChartLine className="education-stat-icon" />
+                <div className="education-stat-content">
+                  <div className="education-stat-value">{avgGPA > 0 ? avgGPA : "N/A"}</div>
+                  <div className="education-stat-label">Avg GPA</div>
+                </div>
+              </div>
+              <div className="education-stat-card">
+                <FaTrophy className="education-stat-icon" />
+                <div className="education-stat-content">
+                  <div className="education-stat-value">{hasHonors}</div>
+                  <div className="education-stat-label">With Honors</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
+      {/* Education List */}
       {!eduForm && (
         <>
           {education.length === 0 ? (
-            <p>No education history yet.</p>
+            <div className="education-empty">
+              <FaGraduationCap className="education-empty-icon" />
+              <p>No education history yet.</p>
+              <p className="education-empty-subtitle">
+                Add your first education entry to get started building your academic profile
+              </p>
+            </div>
           ) : (
-            <div className="timeline">
+            <ul className="education-list">
               {education
-                .sort(
-                  (a, b) =>
-                    new Date(b.graduation_date || "9999-12-31") -
-                    new Date(a.graduation_date || "9999-12-31")
-                )
+                .sort((a, b) => {
+                  // Currently enrolled first, then sort by graduation date descending
+                  const aIsEnrolled = a.currently_enrolled;
+                  const bIsEnrolled = b.currently_enrolled;
+                  
+                  if (aIsEnrolled && !bIsEnrolled) return -1;
+                  if (!aIsEnrolled && bIsEnrolled) return 1;
+                  
+                  const dateA = new Date(a.graduation_date || "9999-12-31");
+                  const dateB = new Date(b.graduation_date || "9999-12-31");
+                  return dateB - dateA;
+                })
                 .map((e) => (
-                  <div key={e.id} className="timeline-item">
-                    <strong>{e.degree_type}</strong> in {e.field_of_study}
-                    <small>
-                      {e.institution} •{" "}
-                      {e.currently_enrolled
-                        ? "Currently Enrolled"
-                        : formatDate(e.graduation_date)}
-                    </small>
+                  <li key={e.id} className="education-card">
+                    <div className="education-card-header">
+                      <div className="education-title-section">
+                        <FaGraduationCap className="education-degree-icon" />
+                        <div>
+                          <span className="education-degree">{e.degree_type}</span>
+                          {e.field_of_study && (
+                            <span className="education-field"> in {e.field_of_study}</span>
+                          )}
+                          <div className="education-institution-row">
+                            <FaUniversity className="education-institution-icon" />
+                            <span className="education-institution">{e.institution}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {e.currently_enrolled && (
+                        <div className="education-current-badge">
+                          <FaCheckCircle />
+                          <span>Current</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {(e.graduation_date || e.currently_enrolled) && (
+                      <div className="education-meta">
+                        <FaCalendarAlt className="education-meta-icon" />
+                        <span>
+                          {e.currently_enrolled
+                            ? "Currently Enrolled"
+                            : formatDate(e.graduation_date)}
+                        </span>
+                      </div>
+                    )}
 
                     {e.gpa && !e.gpa_private && (
-                      <p>
-                        <strong>GPA:</strong> {e.gpa}
-                      </p>
+                      <div className="education-gpa">
+                        <FaAward className="education-gpa-icon" />
+                        <span>GPA: {e.gpa}</span>
+                      </div>
                     )}
 
                     {e.honors && (
-                      <p>
-                        🎖️ <strong>Honors:</strong> {e.honors}
-                      </p>
+                      <div className="education-honors">
+                        <div className="education-honors-header">
+                          <FaTrophy />
+                          <span>Honors & Achievements</span>
+                        </div>
+                        <p>{e.honors}</p>
+                      </div>
                     )}
 
-                    <div className="employment-actions">
+                    <div className="education-actions">
                       <button
-                        className="btn-edit"
+                        className="education-btn-edit"
                         onClick={() => setEduForm(e)}
                       >
-                        ✏️ Edit
+                        <FaEdit />
+                        <span>Edit</span>
                       </button>
                       <button
-                        className="btn-delete"
+                        className="education-btn-delete"
                         onClick={() => deleteEducation(e.id)}
                       >
-                        🗑️ Delete
+                        <FaTrash />
+                        <span>Delete</span>
                       </button>
                     </div>
-                  </div>
+                  </li>
                 ))}
-            </div>
+            </ul>
           )}
         </>
       )}
-    </div>
+    </>
   );
 }

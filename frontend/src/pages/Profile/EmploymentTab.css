@@ -1,0 +1,795 @@
+/* ===============================================
+   EMPLOYMENT HISTORY - MODERN DESIGN
+   =============================================== */
+
+.employment-page {
+  min-height: 80vh;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Main Container Card */
+.employment-container {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(99, 102, 241, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* Gradient top border */
+.employment-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa, #ec4899, #a78bfa, #7c3aed);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+  z-index: 1;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Header Section */
+.employment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+}
+
+.employment-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.employment-header-icon {
+  font-size: 1.5rem;
+  color: #6366f1;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+.employment-header h3 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.employment-header::after {
+  display: none;
+}
+
+/* Add Button */
+.employment-add-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.employment-add-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.employment-add-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.employment-add-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.employment-add-btn:active {
+  transform: translateY(0);
+}
+
+.employment-add-btn svg {
+  font-size: 0.9rem;
+}
+
+/* Employment List */
+.employment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Individual Employment Card */
+.employment-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.95) 100%);
+  border: 2px solid rgba(99, 102, 241, 0.12);
+  border-radius: 16px;
+  padding: 2rem;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 4px 20px rgba(99, 102, 241, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  overflow: hidden;
+  animation: slideInUp 0.5s ease-out backwards;
+}
+
+.employment-card::after {
+  content: counter(employment-counter);
+  counter-increment: employment-counter;
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6366f1;
+  opacity: 0.7;
+  z-index: 2;
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  transition: all 0.3s ease;
+}
+
+.employment-card:hover::after {
+  opacity: 1;
+  transform: scale(1.1);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+}
+
+.employment-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.employment-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #6366f1 0%, #818cf8 100%);
+  border-radius: 0 4px 4px 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.employment-card:hover {
+  transform: translateY(-4px) translateX(4px);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 
+    0 12px 40px rgba(99, 102, 241, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset,
+    0 0 60px rgba(99, 102, 241, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(252, 250, 255, 0.98) 100%);
+}
+
+.employment-card:hover::before {
+  opacity: 1;
+}
+
+.employment-card:hover::after {
+  opacity: 1;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.employment-card:nth-child(1) { animation-delay: 0.05s; }
+.employment-card:nth-child(2) { animation-delay: 0.1s; }
+.employment-card:nth-child(3) { animation-delay: 0.15s; }
+.employment-card:nth-child(4) { animation-delay: 0.2s; }
+.employment-card:nth-child(5) { animation-delay: 0.25s; }
+.employment-card:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* Card Number Badge */
+.employment-card {
+  counter-increment: employment-counter;
+}
+
+.employment-card::after {
+  content: counter(employment-counter);
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6366f1;
+  opacity: 0.7;
+  z-index: 2;
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.employment-card:has(.employment-current-badge)::after {
+  top: 4.5rem;
+}
+
+.employment-list {
+  counter-reset: employment-counter;
+}
+
+/* Job Title and Company */
+.employment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  gap: 1rem;
+}
+
+.employment-title-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  flex: 1;
+}
+
+.employment-title-icon {
+  font-size: 1.5rem;
+  color: #6366f1;
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.employment-title {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #4f46e5;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.employment-company-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.employment-company-icon {
+  font-size: 0.9rem;
+  color: #9ca3af;
+}
+
+.employment-company {
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+.employment-current-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  flex-shrink: 0;
+  animation: glow 2s ease-in-out infinite;
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 3;
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); }
+  50% { box-shadow: 0 2px 12px rgba(16, 185, 129, 0.5); }
+}
+
+.employment-current-badge svg {
+  font-size: 0.75rem;
+}
+
+/* Location */
+.employment-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.875rem;
+  background: rgba(99, 102, 241, 0.04);
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.employment-location svg {
+  color: #6366f1;
+  font-size: 0.85rem;
+}
+
+/* Employment Meta (Dates) */
+.employment-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 1rem 0 1.5rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(99, 102, 241, 0.06);
+  border-radius: 10px;
+  border-left: 3px solid rgba(99, 102, 241, 0.3);
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+}
+
+.employment-meta-icon {
+  font-size: 1rem;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.employment-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.employment-duration {
+  color: #9ca3af;
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+/* Employment Description */
+.employment-description {
+  margin: 1.25rem 0 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(249, 250, 251, 0.95) 0%, rgba(250, 245, 255, 0.9) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-left: 4px solid rgba(99, 102, 241, 0.3);
+  transition: all 0.3s ease;
+}
+
+.employment-description:hover {
+  border-left-color: rgba(99, 102, 241, 0.5);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.95) 100%);
+}
+
+.employment-description-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: #6366f1;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.employment-description-header svg {
+  font-size: 0.9rem;
+}
+
+.employment-description p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.95rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Employment Actions */
+.employment-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+/* Edit Button */
+.employment-btn-edit {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 3px 12px rgba(99, 102, 241, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.employment-btn-edit svg {
+  font-size: 0.85rem;
+}
+
+.employment-btn-edit::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.employment-btn-edit:hover::after {
+  width: 200px;
+  height: 200px;
+}
+
+.employment-btn-edit:hover {
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+}
+
+.employment-btn-edit:active {
+  transform: translateY(0);
+}
+
+/* Delete Button */
+.employment-btn-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 3px 12px rgba(239, 68, 68, 0.25);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.employment-btn-delete svg {
+  font-size: 0.85rem;
+}
+
+.employment-btn-delete::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.employment-btn-delete:hover::after {
+  width: 200px;
+  height: 200px;
+}
+
+.employment-btn-delete:hover {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+}
+
+.employment-btn-delete:active {
+  transform: translateY(0);
+}
+
+/* Empty State */
+.employment-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #6b7280;
+  background: rgba(99, 102, 241, 0.03);
+  border-radius: 16px;
+  border: 2px dashed rgba(99, 102, 241, 0.15);
+  margin: 2rem 0;
+}
+
+.employment-empty-icon {
+  font-size: 3rem;
+  color: #818cf8;
+  margin-bottom: 1rem;
+  opacity: 0.6;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.employment-empty p {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin: 0.5rem 0;
+}
+
+.employment-empty-subtitle {
+  font-size: 0.9rem;
+  color: #9ca3af;
+  margin-top: 0.5rem;
+}
+
+/* Statistics Section */
+.employment-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.employment-stat-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.95) 100%);
+  border: 2px solid rgba(99, 102, 241, 0.12);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);
+}
+
+.employment-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
+}
+
+.employment-stat-icon {
+  font-size: 2rem;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.employment-stat-content {
+  flex: 1;
+}
+
+.employment-stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1.2;
+}
+
+.employment-stat-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Loading State */
+.employment-loading {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #6366f1;
+  font-weight: 500;
+}
+
+.employment-loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(99, 102, 241, 0.1);
+  border-top-color: #7c3aed;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Floating Decorations */
+.employment-decoration {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.08));
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+  animation: floatDecoration 6s ease-in-out infinite;
+}
+
+.employment-decoration-1 {
+  top: -100px;
+  right: -100px;
+  animation-delay: 0s;
+}
+
+.employment-decoration-2 {
+  bottom: -100px;
+  left: -100px;
+  animation-delay: 3s;
+}
+
+@keyframes floatDecoration {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(20px, -20px) scale(1.1); }
+}
+
+/* Success Animation */
+@keyframes successPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.employment-card.success {
+  animation: successPulse 0.6s ease-out;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* Enhanced Card Animations */
+.employment-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.employment-card:hover .employment-title {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .employment-page {
+    padding: 1rem;
+  }
+
+  .employment-container {
+    padding: 1.5rem;
+    border-radius: 20px;
+  }
+
+  .employment-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .employment-header h3 {
+    font-size: 1.5rem;
+  }
+
+  .employment-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .employment-stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .employment-card {
+    padding: 1.5rem;
+  }
+
+  .employment-title {
+    font-size: 1.2rem;
+  }
+
+  .employment-actions {
+    flex-direction: column;
+  }
+
+  .employment-btn-edit,
+  .employment-btn-delete {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
