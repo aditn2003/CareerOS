@@ -62,6 +62,7 @@ export default function JobSearchFilter({ onFilterChange, savedPreferences }) {
           placeholder="🔍 Search by title, company, or keyword..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label="Search jobs by title, company, or keyword"
         />
 
         <div className="filter-buttons">
@@ -98,7 +99,12 @@ export default function JobSearchFilter({ onFilterChange, savedPreferences }) {
 
       {/* 🧭 Filter Grid */}
       <div className="filter-grid">
-        <select name="status" value={filters.status} onChange={handleChange}>
+        <select 
+          name="status" 
+          value={filters.status} 
+          onChange={handleChange}
+          aria-label="Filter by job status"
+        >
           <option value="">All Stages</option>
           <option>Interested</option>
           <option>Applied</option>
@@ -113,12 +119,14 @@ export default function JobSearchFilter({ onFilterChange, savedPreferences }) {
           placeholder="Industry"
           value={filters.industry}
           onChange={handleChange}
+          aria-label="Filter by industry"
         />
         <input
           name="location"
           placeholder="Location"
           value={filters.location}
           onChange={handleChange}
+          aria-label="Filter by location"
         />
         <input
           type="number"
@@ -126,6 +134,7 @@ export default function JobSearchFilter({ onFilterChange, savedPreferences }) {
           placeholder="Min Salary"
           value={filters.salaryMin}
           onChange={handleChange}
+          aria-label="Minimum salary filter"
         />
         <input
           type="number"
@@ -133,26 +142,36 @@ export default function JobSearchFilter({ onFilterChange, savedPreferences }) {
           placeholder="Max Salary"
           value={filters.salaryMax}
           onChange={handleChange}
+          aria-label="Maximum salary filter"
         />
 
         <div className="date-range">
-          <label>Deadline: </label>
+          <label htmlFor="dateFrom">Deadline: </label>
           <input
             type="date"
+            id="dateFrom"
             name="dateFrom"
             value={filters.dateFrom}
             onChange={handleChange}
+            aria-label="Deadline start date"
           />
-          <label>to</label>
+          <label htmlFor="dateTo">to</label>
           <input
             type="date"
+            id="dateTo"
             name="dateTo"
             value={filters.dateTo}
             onChange={handleChange}
+            aria-label="Deadline end date"
           />
         </div>
 
-        <select name="sortBy" value={filters.sortBy} onChange={handleChange}>
+        <select 
+          name="sortBy" 
+          value={filters.sortBy} 
+          onChange={handleChange}
+          aria-label="Sort jobs by"
+        >
           <option value="date_added">Sort: Date Added</option>
           <option value="deadline">Deadline</option>
           <option value="salary">Salary</option>

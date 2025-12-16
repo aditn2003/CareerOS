@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../api';
 import {
   Plus,
   Search,
@@ -15,8 +15,6 @@ import {
   Upload,
 } from 'lucide-react';
 import './NetworkContacts.css';
-
-const API_BASE = 'http://localhost:4000/api';
 
 const NetworkContacts = () => {
   const [contacts, setContacts] = useState([]);
@@ -53,15 +51,42 @@ const NetworkContacts = () => {
   const fetchContacts = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      // Check if token exists before making request
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE}/contacts`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setContacts(response.data);
-      applyFilters(response.data);
+      if (!token) {
+        setError('No authentication token found. Please log in again.');
+        console.warn('No token found in localStorage');
+        return;
+      }
+      
+      const response = await api.get('/api/contacts');
+      setContacts(response.data || []);
+      applyFilters(response.data || []);
     } catch (err) {
-      setError('Failed to fetch contacts');
-      console.error(err);
+      console.error('Error fetching contacts:', err);
+      console.error('Error response:', err.response);
+      console.error('Error status:', err.response?.status);
+      console.error('Error data:', err.response?.data);
+      
+      // Only set error message, don't let 401 trigger logout if it's a network/endpoint issue
+      if (err.response?.status === 401) {
+        // Check if it's actually an auth issue or endpoint issue
+        const errorMessage = err.response?.data?.error || 'Authentication failed';
+        if (errorMessage.includes('not found') || errorMessage.includes('404')) {
+          setError('Contacts endpoint not found. Please check your connection.');
+          return; // Don't let this trigger logout
+        }
+        // Real auth error - let interceptor handle it
+        setError('Authentication failed. Please log in again.');
+      } else if (err.response?.status === 404) {
+        setError('Contacts endpoint not found. The API may have changed.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      } else {
+        setError(err.response?.data?.error || 'Failed to fetch contacts');
+      }
     } finally {
       setLoading(false);
     }
@@ -70,13 +95,14 @@ const NetworkContacts = () => {
   // Fetch groups
   const fetchGroups = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_BASE}/contact-groups`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setGroups(response.data);
+      const response = await api.get('/api/contact-groups');
+      setGroups(response.data || []);
     } catch (err) {
       console.error('Failed to fetch groups:', err);
+      // Don't let 401 errors propagate
+      if (err.response?.status === 401) {
+        return; // Let the api interceptor handle logout
+      }
     }
   };
 
@@ -113,8 +139,21 @@ const NetworkContacts = () => {
   }, [searchTerm, filterType, filterIndustry, contacts]);
 
   useEffect(() => {
-    fetchContacts();
-    fetchGroups();
+    // Only fetch if we have a valid token
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.warn('NetworkContacts: No token found, skipping fetch');
+      setError('Please log in to view contacts');
+      return;
+    }
+    
+    // Add a small delay to ensure token is properly set
+    const timer = setTimeout(() => {
+      fetchContacts();
+      fetchGroups();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Prevent background scroll when modals are open
@@ -146,23 +185,15 @@ const NetworkContacts = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
       console.log('📤 Submitting form with data:', formData);
-      console.log('🔑 Token:', token ? 'Present' : 'Missing');
 
       if (editingContact) {
         console.log('✏️ Updating contact:', editingContact.id);
-        await axios.put(
-          `${API_BASE}/contacts/${editingContact.id}`,
-          formData,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await api.put(`/api/contacts/${editingContact.id}`, formData);
       } else {
         console.log('➕ Creating new contact');
-        await axios.post(`${API_BASE}/contacts`, formData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await api.post('/api/contacts', formData);
       }
 
       console.log('✅ Contact saved successfully');
@@ -186,14 +217,15 @@ const NetworkContacts = () => {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE}/contacts/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.delete(`/api/contacts/${id}`);
       fetchContacts();
     } catch (err) {
       setError('Failed to delete contact');
       console.error(err);
+      // Don't let 401 errors propagate - they're handled by api interceptor
+      if (err.response?.status !== 401) {
+        console.error('Error deleting contact:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -674,19 +706,18 @@ const ContactDetailsModal = ({ contact, onClose, onRefresh }) => {
 
   const fetchDetails = async () => {
     try {
-      const token = localStorage.getItem('token');
       const [interactionsRes, remindersRes] = await Promise.all([
-        axios.get(`${API_BASE}/contacts/${contact.id}/interactions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${API_BASE}/contacts/${contact.id}/reminders`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        api.get(`/api/contacts/${contact.id}/interactions`),
+        api.get(`/api/contacts/${contact.id}/reminders`),
       ]);
-      setInteractions(interactionsRes.data);
-      setReminders(remindersRes.data);
+      setInteractions(interactionsRes.data || []);
+      setReminders(remindersRes.data || []);
     } catch (err) {
       console.error('Failed to fetch details:', err);
+      // Don't let 401 errors propagate
+      if (err.response?.status === 401) {
+        return; // Let the api interceptor handle logout
+      }
     }
   };
 
@@ -694,11 +725,9 @@ const ContactDetailsModal = ({ contact, onClose, onRefresh }) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_BASE}/contacts/${contact.id}/interactions`,
-        interactionData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/api/contacts/${contact.id}/interactions`,
+        interactionData
       );
       setInteractionData({
         interactionType: 'Email',
@@ -719,11 +748,9 @@ const ContactDetailsModal = ({ contact, onClose, onRefresh }) => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_BASE}/contacts/${contact.id}/reminders`,
-        reminderData,
-        { headers: { Authorization: `Bearer ${token}` } }
+      await api.post(
+        `/api/contacts/${contact.id}/reminders`,
+        reminderData
       );
       setReminderData({
         reminderType: 'Follow-up',
@@ -1114,11 +1141,9 @@ const ImportContactsModal = ({ onClose, onImport }) => {
         return;
       }
 
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE}/contacts/import/csv`,
-        { contacts },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.post(
+        '/api/contacts/import/csv',
+        { contacts }
       );
 
       setSuccessMessage(`Successfully imported ${response.data.contacts.length} contacts`);
@@ -1144,11 +1169,9 @@ const ImportContactsModal = ({ onClose, onImport }) => {
         return;
       }
 
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE}/contacts/import/google`,
-        { vCardData },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const response = await api.post(
+        '/api/contacts/import/google',
+        { vCardData }
       );
 
       setSuccessMessage(`✓ Successfully imported ${response.data.contacts.length} contacts from Google Contacts`);

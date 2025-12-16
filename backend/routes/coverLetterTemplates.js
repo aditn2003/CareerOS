@@ -2,13 +2,16 @@
 import express from "express";
 import pkg from "pg";
 import OpenAI from "openai";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 const { Pool } = pkg;
 
 // Factory function for dependency injection (for testing)
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
+
 function createCoverLetterTemplatesRoutes(dbPool = null, openaiClient = null) {
   const router = express.Router();
-  const pool = dbPool || new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = dbPool || (process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL }));
   const openai = openaiClient || new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /* ========================================================================
@@ -222,17 +225,30 @@ Requirements:
 ${variationInstruction}
 `;
 
-    const response = await openai.responses.create({
-      model: "gpt-4o-mini",
-      input: [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
-        { role: "user", content: [{ type: "input_text", text: userPrompt }] },
-      ],
-      max_output_tokens: 900,
-    });
+    // Note: This endpoint doesn't use auth middleware, so userId may not be available
+    const userId = req.body.user_id || req.body.userId || null;
+    
+    const response = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 900,
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'cover_letter_template_generation', company, targetRole },
+        estimateCost: 0.002
+      }
+    );
 
     const letter =
-      response.output?.[0]?.content?.[0]?.text ||
+      response.choices?.[0]?.message?.content ||
       "Error: AI model returned no content.";
 
     res.json({ success: true, letter });

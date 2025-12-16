@@ -4,13 +4,14 @@ import { useTeam } from "../../contexts/TeamContext";
 import { api } from "../../api";
 import FeedbackThreads from "../../components/FeedbackThreads";
 import FeedbackModal from "../../components/FeedbackModal";
+import TeamDropdown from "../../components/TeamDropdown";
 import { FaUsers } from "react-icons/fa";
 import "./FeedbackTab.css";
 
 export default function FeedbackTab() {
   const { teamState } = useTeam() || {};
-  const teamId = teamState?.primaryTeam?.id;
-  const teamName = teamState?.primaryTeam?.name;
+  const teamId = teamState?.activeTeam?.id;
+  const teamName = teamState?.activeTeam?.name;
   const isMentor = teamState?.isMentor || teamState?.isAdmin;
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
@@ -80,12 +81,9 @@ export default function FeedbackTab() {
         <p className="feedback-tab-subtitle">
           Build meaningful connections through constructive feedback
         </p>
-      {teamName && (
-          <div className="feedback-tab-team-info">
-            <FaUsers />
-            <span>{teamName}</span>
-          </div>
-      )}
+        <div style={{ marginTop: "12px" }}>
+          <TeamDropdown />
+        </div>
       </div>
 
       <div className="feedback-tab-content">

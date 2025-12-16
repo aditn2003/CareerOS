@@ -1,17 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
-import pkg from "pg";
 import jwt from "jsonwebtoken";
+import axios from "axios";
+import pool from "../db/pool.js";
 
 dotenv.config();
-const { Pool } = pkg;
 
 const router = express.Router();
 
-// ✅ Use the same database as in server.js
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+// ✅ Use the shared database pool (same as server.js)
+// This ensures transaction-based test isolation works correctly
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
@@ -29,6 +27,67 @@ function auth(req, res, next) {
   }
 }
 
+// ---------- HELPER: Geocode location ----------
+async function geocodeLocation(locationString) {
+  if (!locationString || !locationString.trim()) return null;
+
+  try {
+    // Check cache first
+    const cacheResult = await pool.query(
+      `SELECT latitude, longitude FROM geocoding_cache 
+       WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+      [locationString]
+    );
+
+    if (cacheResult.rows.length > 0) {
+      return {
+        latitude: cacheResult.rows[0].latitude,
+        longitude: cacheResult.rows[0].longitude,
+      };
+    }
+
+    // Call Nominatim API with rate limiting (skip delay in test mode)
+    if (process.env.NODE_ENV !== 'test') {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simple rate limit
+    }
+
+    const response = await axios.get("https://nominatim.openstreetmap.org/search", {
+      params: {
+        q: locationString.trim(),
+        format: "json",
+        limit: 1,
+      },
+      headers: {
+        "User-Agent": "ATS-Job-Tracker/1.0",
+      },
+    });
+
+    if (response.data && response.data.length > 0) {
+      const result = response.data[0];
+      const lat = parseFloat(result.lat);
+      const lon = parseFloat(result.lon);
+
+      // Cache the result
+      await pool.query(
+        `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (location_string) DO UPDATE SET
+           latitude = EXCLUDED.latitude,
+           longitude = EXCLUDED.longitude,
+           updated_at = NOW()`,
+        [locationString.trim(), lat, lon, result.display_name]
+      );
+
+      return { latitude: lat, longitude: lon };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("❌ Geocoding error:", error.message);
+    return null;
+  }
+}
+
 // ---------- SAVE OR UPDATE PROFILE ----------
 router.post("/profile", auth, async (req, res) => {
   const {
@@ -42,30 +101,58 @@ router.post("/profile", auth, async (req, res) => {
     experience,
   } = req.body;
   try {
+    // Geocode location if provided
+    let homeLat = null;
+    let homeLon = null;
+    if (location && location.trim()) {
+      const geocodeResult = await geocodeLocation(location);
+      if (geocodeResult) {
+        homeLat = geocodeResult.latitude;
+        homeLon = geocodeResult.longitude;
+      }
+    }
+
     const existing = await pool.query(
       "SELECT id FROM profiles WHERE user_id=$1",
       [req.userId]
     );
     if (existing.rows.length > 0) {
+      // For updates, only set fields that are provided (not undefined)
+      // Use COALESCE to preserve existing values when new values are null/undefined
       await pool.query(
-        `UPDATE profiles SET full_name=$1, email=$2, phone=$3, location=$4,
-         title=$5, bio=$6, industry=$7, experience=$8 WHERE user_id=$9`,
+        `UPDATE profiles SET 
+         full_name=COALESCE($1, full_name),
+         email=COALESCE($2, email),
+         phone=COALESCE($3, phone),
+         location=COALESCE($4, location),
+         title=COALESCE($5, title),
+         bio=COALESCE($6, bio),
+         industry=COALESCE($7, industry),
+         experience=COALESCE($8, experience),
+         home_latitude=COALESCE($9, home_latitude),
+         home_longitude=COALESCE($10, home_longitude),
+         home_location_geocoded_at=$11
+         WHERE user_id=$12`,
         [
-          full_name,
-          email,
-          phone,
-          location,
-          title,
-          bio,
-          industry,
-          experience,
+          full_name || null,
+          email || null,
+          phone || null,
+          location || null,
+          title || null,
+          bio || null,
+          industry || null,
+          experience || null,
+          homeLat,
+          homeLon,
+          homeLat && homeLon ? new Date() : null,
           req.userId,
         ]
       );
     } else {
       await pool.query(
-        `INSERT INTO profiles (user_id, full_name, email, phone, location, title, bio, industry, experience)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO profiles (user_id, full_name, email, phone, location, title, bio, industry, experience,
+         home_latitude, home_longitude, home_location_geocoded_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           req.userId,
           full_name,
@@ -76,6 +163,9 @@ router.post("/profile", auth, async (req, res) => {
           bio,
           industry,
           experience,
+          homeLat,
+          homeLon,
+          homeLat && homeLon ? new Date() : null,
         ]
       );
     }
@@ -90,7 +180,8 @@ router.post("/profile", auth, async (req, res) => {
 router.get("/profile", auth, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT full_name, email, phone, location, title, bio, industry, experience, picture_url 
+      `SELECT full_name, email, phone, location, title, bio, industry, experience, picture_url,
+       home_latitude, home_longitude, home_location_geocoded_at
        FROM profiles WHERE user_id=$1`,
       [req.userId]
     );
@@ -138,25 +229,52 @@ router.post("/profile/picture", auth, async (req, res) => {
 // ---------- PROFILE SUMMARY (for Dashboard) ----------
 router.get("/profile/summary", auth, async (req, res) => {
   try {
+    // Support both req.userId (local auth) and req.user.id (global auth)
+    const userId = req.userId || req.user?.id;
+    
+    if (!userId) {
+      console.error("❌ No userId found in request:", { userId: req.userId, user: req.user });
+      return res.status(401).json({ error: "User ID not found" });
+    }
+
+    console.log("📊 Fetching profile summary for userId:", userId);
+    
     // TODO: adjust table names/columns if yours differ
     const q = (text, params) => pool.query(text, params);
 
-    const [employment, skills, education, certifications, projects, info] =
+    // Debug queries only in non-test mode (they slow down tests significantly)
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("🔍 userId type:", typeof userId, "value:", userId);
+      const userCheck = await pool.query("SELECT id FROM users WHERE id=$1", [userId]);
+      console.log("🔍 User exists:", userCheck.rows.length > 0);
+      
+      // Check if data exists with this userId (try both string and number)
+      const testEmployment = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM employment GROUP BY user_id LIMIT 5");
+      const testSkills = await pool.query("SELECT user_id, COUNT(*)::int AS c FROM skills GROUP BY user_id LIMIT 5");
+      console.log("🔍 Sample user_ids in employment:", testEmployment.rows);
+      console.log("🔍 Sample user_ids in skills:", testSkills.rows);
+      
+      // Try querying with explicit type casting
+      const testQuery = await pool.query("SELECT COUNT(*)::int AS c FROM employment WHERE user_id::text = $1::text", [String(userId)]);
+      console.log("🔍 Test query with string cast:", testQuery.rows[0]?.c);
+    }
+
+    const [employment, skills, education, certifications, projects, info, skillsDist] =
       await Promise.all([
         q("SELECT COUNT(*)::int AS c FROM employment WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM skills WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM education WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM certifications WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q("SELECT COUNT(*)::int AS c FROM projects WHERE user_id=$1", [
-          req.userId,
+          userId,
         ]),
         q(
           `SELECT 
@@ -168,7 +286,15 @@ router.get("/profile/summary", auth, async (req, res) => {
            (bio IS NOT NULL AND bio <> '')             AS has_bio,
            (picture_url IS NOT NULL AND picture_url <> '') AS has_picture
          FROM profiles WHERE user_id=$1`,
-          [req.userId]
+          [userId]
+        ),
+        q(
+          `SELECT category, COUNT(*)::int AS count 
+           FROM skills 
+           WHERE user_id=$1 
+           GROUP BY category 
+           ORDER BY count DESC`,
+          [userId]
         ),
       ]);
 
@@ -179,6 +305,10 @@ router.get("/profile/summary", auth, async (req, res) => {
       certifications_count: certifications.rows[0]?.c || 0,
       projects_count: projects.rows[0]?.c || 0,
     };
+
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("📊 Profile summary counts:", counts);
+    }
 
     const infoRow = info.rows[0] || {};
     const info_complete =
@@ -220,8 +350,10 @@ router.get("/profile/summary", auth, async (req, res) => {
       suggestions.push("List 5+ skills to strengthen your profile.");
     if (counts.education_count === 0)
       suggestions.push("Add an education record.");
+    if (counts.certifications_count === 0)
+      suggestions.push("Add certifications to showcase your professional credentials.");
     if (counts.projects_count === 0)
-      suggestions.push("Showcase a project you’re proud of.");
+      suggestions.push("Showcase a project you're proud of.");
     if (!infoRow.has_picture)
       suggestions.push("Upload a professional profile picture.");
     if (!infoRow.has_title)
@@ -229,12 +361,25 @@ router.get("/profile/summary", auth, async (req, res) => {
         "Add a headline (e.g., 'Software Engineer | ML Enthusiast')."
       );
 
+    // Format skills distribution
+    const skills_distribution = skillsDist.rows.map(row => ({
+      category: row.category || 'Other',
+      count: row.count || 0
+    }));
+
     // respond
-    return res.json({
+    const response = {
       info_complete,
       ...counts,
       completeness: { score: Math.max(0, Math.min(100, score)), suggestions },
-    });
+      skills_distribution,
+    };
+    
+    if (process.env.NODE_ENV !== 'test') {
+      console.log("📊 Sending response:", JSON.stringify(response, null, 2));
+    }
+    
+    return res.json(response);
   } catch (err) {
     console.error("❌ Profile summary error:", err);
     return res.status(500).json({ error: "Database error" });

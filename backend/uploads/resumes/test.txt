@@ -1,0 +1,41 @@
+ADIT NUWAL
+Data Analyst
+NJ/NY • an238@njit.edu • 9297889500
+
+PROFESSIONAL SUMMARY
+ 
+Data Analyst with 1+ year of experience in analyzing and managing datasets, leveraging Python, SQL, and big data tools. Passionate about developing scalable data transformation workflows and optimizing SQL queries using AI/ML techniques and cloud platforms like AWS. Seeking to apply expertise in building and deploying production-ready ML systems within a GenAI platform at Kensho.
+PROFESSIONAL EXPERIENCE
+Office of Institutional Effectiveness, NJIT	Aug 2025 – Present
+Data Analyst
+  Engineered a Python & Azure SQL data pipeline to ingest, clean, and transform 800K+ survey records, enhancing data processing efficiency by 30%. Optimized complex SQL queries and data models (joins, filtering, indexing) to reduce query latency by 40% and improve ETL
+efficiency across 5+ large datasets. Collaborated with stakeholders to design Power BI dashboards that tracked 10+ KPIs, providing actionable insights to NJIT leadership and supporting strategic decision-making, leading to a 15% improvement in resource allocation.
+Bonzai Digital	May 2024 – Jun 2024
+Backend Development Intern
+  Implemented REST APIs with Kotlin and Spring Boot for direct file uploads to AWS S3 using presigned URLs, creating scalable data ingestion pipelines and improving backend throughput by 25%. Debugged Kotlin code by analyzing API response calls and network traffic using
+Postman and browser developer tools, resolving a critical backend issue and achieving a 100% reduction in error rate in collaboration with
+the products team. Optimized AWS Lambda functions using Serverless to extract S3 object metadata and replicate data from S3 to
+PostgreSQL, strengthening data availability for downstream analytics under Agile and CI/CD practices, reducing data retrieval time by 20%.
+Ying Wu College of Computing, NJIT	Dec 2023
+Teaching Assistant
+  Resolved and debugged 99% of coding issues for 70+ students in Python and Operating Systems courses within 24 hours, improving student understanding by 15% based on survey data. Graded 140+ assignments weekly and provided constructive feedback to improve programming and problem-solving skills, contributing to a 10% increase in average assignment scores.
+EDUCATION
+Bachelor's in Computer Science | NJIT | GPA: 3.79	| Apr 2026
+Scholarship and Awards: NJIT Academic Merit Scholarship, Dean’s List: Fall ‘22, Spring ‘23, Fall ‘23, Spring ’24, Spring ‘25
+PROJECTS
+Data Analysis and Prediction App  GitHub
+Technologies Used: Python,Dash,Plotly,Pandas,NumPy,Scikit-learn,Tableau
+  Built multiple predictive models (Linear Regression, KNN, Random Forest) to boost accuracy by 16% and increase in R² of 0.758 to 0.8792 for reliable insurance cost predictions
+  Engineered an end-to-end data pipeline using Python, Pandas, Scikit-learn and Dash to clean, preprocess and model records and deployed an interactive app to enable prediction of insurance charges that reduced manual analysis time by 50%
+Data Breach Analysis Machine Learning Tool – Cybersecurity  GitHub
+Technologies Used: MongoDB,Express.js,React,Node.js,Python,Pandas,NumPy,Scikit-learn,TensorFlow,Keras,Matplotlib,Seaborn,REST API
+  Created a full stack data breach analysis tool with MERN stack and Python, analyzing 13M+ records from 300+ breaches via secure REST APIs with predictive Deep Neural Network model having 85% accuracy
+  Built frontend dashboards to visualize results with Matplotlib and Seaborn that reveal trends, distributions and top impacted organizations to assess risk severity and support data-driven security decisions
+ADDITIONAL INFORMATION
+Programming Languages: Machine Learning, Python, SQL, Azure, Problem Solving, React, JavaScript
+Tools & Technologies: AWS
+Soft Skills: Communication, Teamwork
+Languages: English, Hindi
+CERTIFICATIONS
+Power BI Data Analyst Associat |  Microsoft | Technical	Oct 2025
+AI Foundation Associate |  OCI | Technical	Oct 2025

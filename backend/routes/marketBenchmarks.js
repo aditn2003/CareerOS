@@ -3,6 +3,7 @@ import pool from "../db/pool.js";
 import { auth } from "../auth.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 
@@ -93,8 +94,51 @@ Be accurate and realistic based on 2024-2025 market conditions.`;
       },
     });
 
-    const result = await model.generateContent(prompt);
-    const aiResponse = result.response.text();
+    const userId = req.user?.id || null;
+    
+    // Track Gemini API call
+    let geminiResult;
+    let aiResponse;
+    try {
+      geminiResult = await model.generateContent(prompt);
+      aiResponse = geminiResult.response.text();
+      
+      // Log successful API usage
+      const { logApiUsage } = await import("../utils/apiTrackingService.js");
+      await logApiUsage({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'market_benchmark', role_title, role_level, location },
+        responseStatus: 200,
+        responseTimeMs: 0, // Can't measure easily with SDK
+        success: true,
+        costEstimate: 0.0001
+      });
+    } catch (apiError) {
+      // Log failed API usage
+      const { logApiError, logApiUsage } = await import("../utils/apiTrackingService.js");
+      await logApiError({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        userId,
+        errorType: 'api_error',
+        errorMessage: apiError.message || 'Gemini API error',
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'market_benchmark' }
+      });
+      await logApiUsage({
+        serviceName: 'google_gemini',
+        endpoint: '/v1/models/gemini-2.0-flash:generateContent',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gemini-2.0-flash', purpose: 'market_benchmark' },
+        responseStatus: 500,
+        responseTimeMs: 0,
+        success: false
+      });
+      throw apiError; // Re-throw to be handled by outer catch
+    }
 
     // Parse Gemini response
     let benchmarkData;

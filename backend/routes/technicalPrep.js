@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ const supabase = createClient(
 /* -------------------------
    Helper: Generate Coding Challenge
 ------------------------- */
-async function generateCodingChallenge(techStack, difficulty, category) {
+async function generateCodingChallenge(techStack, difficulty, category, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackCodingChallenge(techStack, difficulty, category);
   }
@@ -87,21 +88,31 @@ Provide clear starter code in ${techStack[0] || 'JavaScript'}.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert technical interviewer creating coding challenges for interview preparation. Generate realistic, well-structured challenges."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert technical interviewer creating coding challenges for interview preparation. Generate realistic, well-structured challenges."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'technical_prep_coding_challenge', techStack, difficulty, category },
+        estimateCost: 0.002
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -199,7 +210,7 @@ function getFallbackCodingChallenge(techStack, difficulty, category) {
 /* -------------------------
    Helper: Generate System Design Question
 ------------------------- */
-async function generateSystemDesignQuestion(role, seniorityLevel, category) {
+async function generateSystemDesignQuestion(role, seniorityLevel, category, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackSystemDesign(category);
   }
@@ -277,21 +288,31 @@ Make it appropriate for ${seniorityLevel} level candidates.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a senior system design interviewer at a top tech company. Create realistic, comprehensive system design questions."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a senior system design interviewer at a top tech company. Create realistic, comprehensive system design questions."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.6,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'technical_prep_system_design', role, seniorityLevel, category },
+        estimateCost: 0.003
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -393,7 +414,7 @@ function getFallbackSystemDesign(category) {
 /* -------------------------
    Helper: Generate Whiteboard Session
 ------------------------- */
-async function generateWhiteboardSession(techStack, topic) {
+async function generateWhiteboardSession(techStack, topic, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackWhiteboardSession();
   }
@@ -466,21 +487,31 @@ Create a JSON response:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert technical interview coach specializing in whiteboard interview preparation."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert technical interview coach specializing in whiteboard interview preparation."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.6,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'technical_prep_whiteboard', techStack, topic },
+        estimateCost: 0.002
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -569,7 +600,7 @@ function getFallbackWhiteboardSession() {
 /* -------------------------
    Helper: Evaluate Code Solution
 ------------------------- */
-async function evaluateCodeSolution(challenge, userSolution, timeSpent) {
+async function evaluateCodeSolution(challenge, userSolution, timeSpent, userId = null) {
   if (!OPENAI_KEY) {
     return {
       score: 70,
@@ -621,21 +652,31 @@ Provide JSON evaluation:
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert code reviewer providing constructive feedback on interview solutions."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert code reviewer providing constructive feedback on interview solutions."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'technical_prep_solution_evaluation', challengeTitle: challenge?.title },
+        estimateCost: 0.002
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -653,7 +694,7 @@ Provide JSON evaluation:
 /* -------------------------
    Helper: Generate Questions for Job
 ------------------------- */
-async function generateTechnicalQuestions(jobDescription, techStack, seniorityLevel) {
+async function generateTechnicalQuestions(jobDescription, techStack, seniorityLevel, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackQuestions(techStack);
   }
@@ -713,21 +754,31 @@ Generate ${seniorityLevel === 'senior' || seniorityLevel === 'staff' ? '15-20' :
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a technical hiring manager creating interview questions based on job requirements."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a technical hiring manager creating interview questions based on job requirements."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.6,
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'technical_prep_questions', seniorityLevel },
+        estimateCost: 0.003
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -879,7 +930,8 @@ router.post("/coding-challenge", async (req, res) => {
     const challenge = await generateCodingChallenge(
       techStack || ["javascript"],
       difficulty || "medium",
-      category || "arrays"
+      category || "arrays",
+      userIdInt
     );
 
     // Save to database
@@ -956,8 +1008,11 @@ router.post("/submit-solution", async (req, res) => {
 
     console.log(`📤 Evaluating solution for challenge: ${challenge.title}`);
 
+    // Get userId from challenge
+    const userId = challenge.user_id || null;
+    
     // Evaluate the solution
-    const evaluation = await evaluateCodeSolution(challenge, userSolution, timeSpent || 0);
+    const evaluation = await evaluateCodeSolution(challenge, userSolution, timeSpent || 0, userId);
 
     // Update the challenge record
     const { error: updateError } = await supabase
@@ -1030,7 +1085,8 @@ router.post("/system-design", async (req, res) => {
     const question = await generateSystemDesignQuestion(
       role || "Software Engineer",
       seniorityLevel || "senior",
-      category || "distributed_systems"
+      category || "distributed_systems",
+      userIdInt
     );
 
     // Save to database
@@ -1187,7 +1243,8 @@ router.post("/whiteboard", async (req, res) => {
     // Generate the session
     const session = await generateWhiteboardSession(
       techStack || ["javascript"],
-      topic || "algorithm problem solving"
+      topic || "algorithm problem solving",
+      userIdInt
     );
 
     // Save to database
@@ -1241,10 +1298,14 @@ router.post("/generate-questions", async (req, res) => {
 
     console.log(`❓ Generating technical questions for ${seniorityLevel} level`);
 
+    // Note: This endpoint doesn't require userId, but we can try to get it from auth if available
+    const userId = req.body.userId ? parseInt(req.body.userId, 10) : null;
+    
     const questions = await generateTechnicalQuestions(
       jobDescription || "General software engineering role",
       techStack || ["javascript"],
-      seniorityLevel || "mid"
+      seniorityLevel || "mid",
+      userId
     );
 
     return res.json({

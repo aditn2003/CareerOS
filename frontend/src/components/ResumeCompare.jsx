@@ -1,17 +1,93 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getUserFriendlyErrorMessage, getErrorAdvice } from "../utils/apiErrorMessages";
 import "./ResumeCompare.css";
 
 export default function ResumeCompare() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { masterResume, aiSuggestions, resumeTitle, selectedTemplate, job } =
+  const { masterResume: initialMasterResume, aiSuggestions, resumeTitle, selectedTemplate, job } =
     location.state || {};
 
+  const [masterResume, setMasterResume] = useState(initialMasterResume);
   const [mergedResume, setMergedResume] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [error, setError] = useState("");
   const [showGeminiBox, setShowGeminiBox] = useState(false);
+  const token = localStorage.getItem("token");
+
+  // Fetch profile data if masterResume is missing or empty
+  useEffect(() => {
+    // Check if we have meaningful resume data
+    const hasResumeData = masterResume && (
+      // Check if summary has actual content (not just empty strings)
+      (masterResume.summary && (
+        masterResume.summary.full_name ||
+        masterResume.summary.title ||
+        masterResume.summary.bio ||
+        (masterResume.summary.contact && (
+          masterResume.summary.contact.email ||
+          masterResume.summary.contact.phone ||
+          masterResume.summary.contact.location
+        ))
+      )) ||
+      // Check if we have experience entries
+      (masterResume.experience && Array.isArray(masterResume.experience) && masterResume.experience.length > 0) ||
+      // Check if we have education entries
+      (masterResume.education && Array.isArray(masterResume.education) && masterResume.education.length > 0) ||
+      // Check if we have skills
+      (masterResume.skills && Array.isArray(masterResume.skills) && masterResume.skills.length > 0) ||
+      // Check if we have projects
+      (masterResume.projects && Array.isArray(masterResume.projects) && masterResume.projects.length > 0)
+    );
+
+    if (!hasResumeData && token) {
+      console.log("📋 No resume data found, fetching from profile...");
+      fetchProfileData();
+    }
+  }, []);
+
+  async function fetchProfileData() {
+    try {
+      setLoadingProfile(true);
+      const res = await fetch("http://localhost:4000/api/resumes/from-profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const errorObj = { response: { status: res.status, data } };
+        throw errorObj;
+      }
+
+      if (data.sections) {
+        console.log("✅ Loaded resume data from profile:", data.sections);
+        
+        // Normalize skills: convert objects to strings
+        const normalizedSections = { ...data.sections };
+        if (Array.isArray(normalizedSections.skills)) {
+          normalizedSections.skills = normalizedSections.skills.map(skill => {
+            if (typeof skill === "string") return skill;
+            if (skill && typeof skill === "object") {
+              return skill.name || skill.skill || Object.values(skill).find(v => typeof v === "string") || "";
+            }
+            return String(skill);
+          }).filter(Boolean);
+        }
+        
+        setMasterResume(normalizedSections);
+      }
+    } catch (err) {
+      console.error("❌ Error fetching profile data:", err);
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'Resume Profile');
+      setError(friendlyMessage);
+    } finally {
+      setLoadingProfile(false);
+    }
+  }
 
   // Helper: Convert description string to bullet array
   function descriptionToBullets(desc) {
@@ -68,15 +144,24 @@ export default function ResumeCompare() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Reconciliation failed");
+      if (!res.ok) {
+        const errorObj = { response: { status: res.status, data } };
+        throw errorObj;
+      }
 
       const aiMerged = data.merged || data;
+      const defaultSummary = {
+        full_name: "",
+        title: "",
+        contact: { email: "", phone: "", location: "" },
+        bio: "",
+      };
       const newMergedResume = {
         ...masterResume,
-        summary: { ...masterResume.summary, ...aiMerged.summary },
-        experience: [...(aiMerged.experience || masterResume.experience)],
-        education: [...(aiMerged.education || masterResume.education)],
-        projects: [...(aiMerged.projects || masterResume.projects)],
+        summary: { ...defaultSummary, ...(masterResume.summary || {}), ...(aiMerged.summary || {}) },
+        experience: [...(aiMerged.experience || masterResume.experience || [])],
+        education: [...(aiMerged.education || masterResume.education || [])],
+        projects: [...(aiMerged.projects || masterResume.projects || [])],
         skills: aiMerged.skills?.length
           ? aiMerged.skills
           : masterResume.skills || [],
@@ -85,7 +170,8 @@ export default function ResumeCompare() {
       setMergedResume(newMergedResume);
     } catch (err) {
       console.error("❌ Merge failed:", err);
-      setError(err.message || "Failed to merge resumes");
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'Gemini AI');
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -93,6 +179,22 @@ export default function ResumeCompare() {
 
   function updateField(section, field, value, index = null, subfield = null) {
     const updated = { ...mergedResume };
+    
+    // Ensure summary exists
+    if (section === "summary" && !updated.summary) {
+      updated.summary = {
+        full_name: "",
+        title: "",
+        contact: { email: "", phone: "", location: "" },
+        bio: "",
+      };
+    }
+    
+    // Ensure contact exists within summary
+    if (section === "summary" && subfield && !updated.summary.contact) {
+      updated.summary.contact = { email: "", phone: "", location: "" };
+    }
+    
     if (index !== null && Array.isArray(updated[section])) {
       if (subfield) {
         updated[section][index][field][subfield] = value;
@@ -100,6 +202,7 @@ export default function ResumeCompare() {
         updated[section][index][field] = value;
       }
     } else if (section === "summary" && subfield) {
+      updated.summary[field] = updated.summary[field] || {};
       updated.summary[field][subfield] = value;
     } else if (section === "summary") {
       updated.summary[field] = value;
@@ -153,12 +256,48 @@ export default function ResumeCompare() {
     }
   }
 
+  if (loadingProfile) {
+    return (
+      <div style={{ textAlign: "center", marginTop: "2rem" }}>
+        <h2>📋 Loading your profile data...</h2>
+        <p>Fetching education, employment, skills, and other information from your profile.</p>
+      </div>
+    );
+  }
+
   if (!masterResume)
     return (
       <div style={{ textAlign: "center", marginTop: "2rem" }}>
         <h2>⚠️ Missing resume data</h2>
+        <p>Unable to load resume or profile data. Please try again or create a resume first.</p>
       </div>
     );
+
+  // Ensure summary exists with default structure
+  const safeSummary = masterResume.summary || {
+    full_name: "",
+    title: "",
+    contact: {
+      email: "",
+      phone: "",
+      location: "",
+    },
+    bio: "",
+  };
+
+  // Ensure contact exists
+  const safeContact = safeSummary.contact || {
+    email: "",
+    phone: "",
+    location: "",
+  };
+
+  // Ensure arrays exist
+  const safeExperience = masterResume.experience || [];
+  const safeEducation = masterResume.education || [];
+  const safeProjects = masterResume.projects || [];
+  const safeSkills = masterResume.skills || [];
+  const safeCertifications = masterResume.certifications || [];
 
   return (
     <div className="compare-container">
@@ -347,20 +486,20 @@ export default function ResumeCompare() {
           <section>
             <h3>Summary</h3>
             <div className="section-item">
-              <strong>{masterResume.summary.full_name}</strong>
-              <p>{masterResume.summary.title}</p>
+              <strong>{safeSummary.full_name || "N/A"}</strong>
+              <p>{safeSummary.title || "N/A"}</p>
               <p>
-                {masterResume.summary.contact.email} |{" "}
-                {masterResume.summary.contact.phone} |{" "}
-                {masterResume.summary.contact.location}
+                {safeContact.email || "N/A"} |{" "}
+                {safeContact.phone || "N/A"} |{" "}
+                {safeContact.location || "N/A"}
               </p>
-              <p>{masterResume.summary.bio}</p>
+              <p>{safeSummary.bio || "No bio available"}</p>
             </div>
           </section>
 
           <section>
             <h3>Experience</h3>
-            {masterResume.experience.map((exp, i) => (
+            {safeExperience.map((exp, i) => (
               <div key={i} className="section-item">
                 <strong>{exp.title}</strong>
                 <p>
@@ -382,7 +521,7 @@ export default function ResumeCompare() {
 
           <section>
             <h3>Education</h3>
-            {masterResume.education.map((edu, i) => (
+            {safeEducation.map((edu, i) => (
               <div key={i} className="section-item">
                 <strong>{edu.institution}</strong>
                 <p>
@@ -402,13 +541,24 @@ export default function ResumeCompare() {
           <section>
             <h3>Skills</h3>
             <div className="section-item">
-              <p>{masterResume.skills.join(", ")}</p>
+              <p>
+                {safeSkills.length > 0 
+                  ? safeSkills.map(skill => {
+                      // Handle both string and object formats
+                      if (typeof skill === "string") return skill;
+                      if (skill && typeof skill === "object") {
+                        return skill.name || skill.skill || Object.values(skill).find(v => typeof v === "string") || "[Unknown Skill]";
+                      }
+                      return String(skill);
+                    }).join(", ")
+                  : "No skills listed"}
+              </p>
             </div>
           </section>
 
           <section>
             <h3>Projects</h3>
-            {masterResume.projects.map((proj, i) => (
+            {safeProjects.map((proj, i) => (
               <div key={i} className="section-item">
                 <strong>{proj.name}</strong>
                 <p>Status: {proj.status}</p>
@@ -441,7 +591,7 @@ export default function ResumeCompare() {
 
           <section>
             <h3>Certifications</h3>
-            {masterResume.certifications.map((cert, i) => (
+            {safeCertifications.map((cert, i) => (
               <div key={i} className="section-item">
                 <strong>{cert.name}</strong>
                 <p>{cert.organization}</p>
@@ -461,7 +611,23 @@ export default function ResumeCompare() {
         {/* RIGHT SIDE – Editable AI Resume */}
         <div className="resume-column resume-ai">
           <h2>✨ AI Optimized Resume</h2>
-          {error && <p className="error-message">{error}</p>}
+          {error && (
+            <div className="error-message" style={{ 
+              padding: "1rem", 
+              background: "#fee2e2", 
+              border: "1px solid #fca5a5", 
+              borderRadius: "8px",
+              color: "#991b1b",
+              marginBottom: "1rem"
+            }}>
+              <div style={{ fontWeight: "500" }}>{error}</div>
+              {getErrorAdvice(error) && (
+                <div style={{ marginTop: "0.5rem", fontSize: "0.875rem", opacity: 0.9 }}>
+                  {getErrorAdvice(error)}
+                </div>
+              )}
+            </div>
+          )}
           {loading && <p className="loading-message">🤖 Reconciling...</p>}
 
           {mergedResume ? (
@@ -469,14 +635,14 @@ export default function ResumeCompare() {
               <section>
                 <h3>Summary</h3>
                 <input
-                  value={mergedResume.summary.full_name}
+                  value={mergedResume.summary?.full_name || ""}
                   onChange={(e) =>
                     updateField("summary", "full_name", e.target.value)
                   }
                   className="input-field"
                 />
                 <input
-                  value={mergedResume.summary.title}
+                  value={mergedResume.summary?.title || ""}
                   onChange={(e) =>
                     updateField("summary", "title", e.target.value)
                   }
@@ -484,7 +650,7 @@ export default function ResumeCompare() {
                 />
                 <div className="contact-inputs">
                   <input
-                    value={mergedResume.summary.contact.email}
+                    value={mergedResume.summary?.contact?.email || ""}
                     onChange={(e) =>
                       updateField(
                         "summary",
@@ -498,7 +664,7 @@ export default function ResumeCompare() {
                     className="input-field"
                   />
                   <input
-                    value={mergedResume.summary.contact.phone}
+                    value={mergedResume.summary?.contact?.phone || ""}
                     onChange={(e) =>
                       updateField(
                         "summary",
@@ -512,7 +678,7 @@ export default function ResumeCompare() {
                     className="input-field"
                   />
                   <input
-                    value={mergedResume.summary.contact.location}
+                    value={mergedResume.summary?.contact?.location || ""}
                     onChange={(e) =>
                       updateField(
                         "summary",
@@ -527,7 +693,7 @@ export default function ResumeCompare() {
                   />
                 </div>
                 <textarea
-                  value={mergedResume.summary.bio}
+                  value={mergedResume.summary?.bio || ""}
                   onChange={(e) =>
                     updateField("summary", "bio", e.target.value)
                   }
@@ -537,7 +703,7 @@ export default function ResumeCompare() {
 
               <section>
                 <h3>Experience</h3>
-                {mergedResume.experience.map((exp, i) => (
+                {(mergedResume.experience || []).map((exp, i) => (
                   <div key={i} className="form-item-enhanced">
                     {exp.relevance_score && (
                       <div className="inline-relevance">
@@ -644,7 +810,7 @@ export default function ResumeCompare() {
 
               <section>
                 <h3>Education</h3>
-                {mergedResume.education.map((edu, i) => (
+                {(mergedResume.education || []).map((edu, i) => (
                   <div key={i} className="form-item">
                     {[
                       "institution",
@@ -716,9 +882,12 @@ export default function ResumeCompare() {
                             : 1;
                       });
 
+                      // Extract skill names for sorting
                       const sorted = [...mergedResume.skills].sort((a, b) => {
-                        const scoreA = priorityMap[a.toLowerCase()] || 0;
-                        const scoreB = priorityMap[b.toLowerCase()] || 0;
+                        const nameA = typeof a === "string" ? a : (a?.name || a?.skill || "");
+                        const nameB = typeof b === "string" ? b : (b?.name || b?.skill || "");
+                        const scoreA = priorityMap[nameA.toLowerCase()] || 0;
+                        const scoreB = priorityMap[nameB.toLowerCase()] || 0;
                         return scoreB - scoreA;
                       });
 
@@ -735,7 +904,16 @@ export default function ResumeCompare() {
                   🎯 Auto-Sort by Relevance
                 </button>
                 <textarea
-                  value={mergedResume.skills.join(", ")}
+                  value={(() => {
+                    // Convert skills array to string, handling both objects and strings
+                    return (mergedResume.skills || []).map(skill => {
+                      if (typeof skill === "string") return skill;
+                      if (skill && typeof skill === "object") {
+                        return skill.name || skill.skill || Object.values(skill).find(v => typeof v === "string") || "";
+                      }
+                      return String(skill);
+                    }).join(", ");
+                  })()}
                   onChange={(e) =>
                     setMergedResume({
                       ...mergedResume,
@@ -1011,6 +1189,7 @@ export default function ResumeCompare() {
                 sections: mergedResume,
                 resumeTitle: `${resumeTitle} (Final Review)`,
                 selectedTemplate,
+                fromOptimize: location.state?.fromOptimize || false, // Pass through fromOptimize flag
               },
             });
           }}

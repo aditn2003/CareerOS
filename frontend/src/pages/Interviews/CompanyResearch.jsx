@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchCompanyResearch, api } from "../../api";
+import { getUserFriendlyErrorMessage, getErrorAdvice } from "../../utils/apiErrorMessages";
 import CompanyResearchCard from "../../components/CompanyResearchCard";
 import "./CompanyResearch.css";
 
@@ -38,7 +39,8 @@ export default function CompanyResearch() {
           setActiveCompany(uniqueCompanies[0]);
         }
       } catch (err) {
-        setError("Failed to fetch jobs.");
+        const friendlyMessage = getUserFriendlyErrorMessage(err);
+        setError(friendlyMessage);
         console.error(err);
       } finally {
         setLoading(false);
@@ -55,9 +57,10 @@ export default function CompanyResearch() {
       setResearchResults((prev) => ({ ...prev, [company]: data }));
     } catch (err) {
       console.error(err);
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'Company Research');
       setResearchResults((prev) => ({
         ...prev,
-        [company]: { error: err.message },
+        [company]: { error: friendlyMessage },
       }));
     } finally {
       if (isRefresh) setRefreshing(false);

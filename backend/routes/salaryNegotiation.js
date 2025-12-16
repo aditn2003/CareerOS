@@ -2,6 +2,7 @@
 import express from "express";
 import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 // Factory function for dependency injection (for testing)
 function createSalaryNegotiationRoutes(supabaseClient = null, openaiApiKey = null) {
@@ -59,7 +60,8 @@ function createSalaryNegotiationRoutes(supabaseClient = null, openaiApiKey = nul
   experienceYears,
   currentSalary,
   offerAmount,
-  marketData
+  marketData,
+  userId = null
 ) {
   const prompt = `
 You are generating a HIGHLY PERSONALIZED salary negotiation package for a job candidate.
@@ -247,22 +249,32 @@ Return ONLY valid JSON.
 `;
 
   try {
-    const { data } = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert salary negotiation coach who provides HIGHLY PERSONALIZED, company-specific, role-specific, and location-specific advice. You avoid generic advice and always tailor recommendations to the specific situation."
+            },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          max_tokens: 3000
+        },
+        { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
       {
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert salary negotiation coach who provides HIGHLY PERSONALIZED, company-specific, role-specific, and location-specific advice. You avoid generic advice and always tailor recommendations to the specific situation."
-          },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
-        max_tokens: 3000
-      },
-      { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_strategy', company, role },
+        estimateCost: 0.003
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -314,7 +326,8 @@ Return ONLY valid JSON.
       experienceYears || 0,
       currentSalary,
       offerAmount,
-      marketData
+      marketData,
+      userIdInt
     );
 
     if (!packageData) {
@@ -444,6 +457,100 @@ Return ONLY valid JSON.
     });
   }
   });
+
+  /* ============================================================
+     GET /stats
+     Get negotiation statistics
+  ============================================================ */
+  router.get("/stats", async (req, res) => {
+  try {
+    const userId = req.query.userId?.trim();
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing ?userId= parameter"
+      });
+    }
+
+    const userIdInt = parseInt(userId, 10);
+    if (isNaN(userIdInt)) {
+      return res.status(400).json({
+        success: false,
+        message: "userId must be a valid integer"
+      });
+    }
+
+    const { data, error } = await retryDatabaseOperation(async () => {
+      return await supabase
+        .from("salary_negotiations")
+        .select("*")
+        .eq("user_id", userIdInt);
+    });
+
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching stats",
+        error: error.message
+      });
+    }
+
+    const negotiations = data || [];
+    const total = negotiations.length;
+    const completed = negotiations.filter(n => n.negotiation_status === 'completed').length;
+    const active = negotiations.filter(n => ['preparing', 'negotiating'].includes(n.negotiation_status)).length;
+
+    // Calculate success metrics
+    const acceptedOffers = negotiations.filter(n => 
+      n.outcome_type === 'accepted_initial' || n.outcome_type === 'accepted_counter'
+    );
+    const successfulCounters = negotiations.filter(n => n.outcome_type === 'accepted_counter').length;
+    
+    // Average salary increase from counter-offers
+    const salaryIncreases = negotiations
+      .filter(n => n.initial_offer_amount && n.final_accepted_amount)
+      .map(n => ((n.final_accepted_amount - n.initial_offer_amount) / n.initial_offer_amount) * 100);
+    
+    const avgIncrease = salaryIncreases.length > 0
+      ? Math.round(salaryIncreases.reduce((a, b) => a + b, 0) / salaryIncreases.length)
+      : 0;
+
+    // Average satisfaction
+    const ratings = negotiations.filter(n => n.satisfaction_rating).map(n => n.satisfaction_rating);
+    const avgSatisfaction = ratings.length > 0
+      ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
+      : 0;
+
+    // By outcome type
+    const byOutcome = {
+      accepted_initial: negotiations.filter(n => n.outcome_type === 'accepted_initial').length,
+      accepted_counter: negotiations.filter(n => n.outcome_type === 'accepted_counter').length,
+      declined_by_company: negotiations.filter(n => n.outcome_type === 'declined_by_company').length,
+      declined_by_user: negotiations.filter(n => n.outcome_type === 'declined_by_user').length
+    };
+
+    return res.json({
+      success: true,
+      data: {
+        total,
+        completed,
+        active,
+        successfulCounters,
+        avgIncrease,
+        avgSatisfaction: parseFloat(avgSatisfaction),
+        byOutcome
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching stats:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch statistics"
+    });
+  }
+});
 
   /* ============================================================
      GET /:id
@@ -638,100 +745,6 @@ Return ONLY valid JSON.
     return res.status(500).json({
       success: false,
       message: "Failed to track outcome"
-    });
-  }
-});
-
-  /* ============================================================
-     GET /stats
-     Get negotiation statistics
-  ============================================================ */
-  router.get("/stats", async (req, res) => {
-  try {
-    const userId = req.query.userId?.trim();
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing ?userId= parameter"
-      });
-    }
-
-    const userIdInt = parseInt(userId, 10);
-    if (isNaN(userIdInt)) {
-      return res.status(400).json({
-        success: false,
-        message: "userId must be a valid integer"
-      });
-    }
-
-    const { data, error } = await retryDatabaseOperation(async () => {
-      return await supabase
-        .from("salary_negotiations")
-        .select("*")
-        .eq("user_id", userIdInt);
-    });
-
-    if (error) {
-      console.error("❌ Supabase error:", error);
-      return res.status(500).json({
-        success: false,
-        message: "Database error while fetching stats",
-        error: error.message
-      });
-    }
-
-    const negotiations = data || [];
-    const total = negotiations.length;
-    const completed = negotiations.filter(n => n.negotiation_status === 'completed').length;
-    const active = negotiations.filter(n => ['preparing', 'negotiating'].includes(n.negotiation_status)).length;
-
-    // Calculate success metrics
-    const acceptedOffers = negotiations.filter(n => 
-      n.outcome_type === 'accepted_initial' || n.outcome_type === 'accepted_counter'
-    );
-    const successfulCounters = negotiations.filter(n => n.outcome_type === 'accepted_counter').length;
-    
-    // Average salary increase from counter-offers
-    const salaryIncreases = negotiations
-      .filter(n => n.initial_offer_amount && n.final_accepted_amount)
-      .map(n => ((n.final_accepted_amount - n.initial_offer_amount) / n.initial_offer_amount) * 100);
-    
-    const avgIncrease = salaryIncreases.length > 0
-      ? Math.round(salaryIncreases.reduce((a, b) => a + b, 0) / salaryIncreases.length)
-      : 0;
-
-    // Average satisfaction
-    const ratings = negotiations.filter(n => n.satisfaction_rating).map(n => n.satisfaction_rating);
-    const avgSatisfaction = ratings.length > 0
-      ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
-      : 0;
-
-    // By outcome type
-    const byOutcome = {
-      accepted_initial: negotiations.filter(n => n.outcome_type === 'accepted_initial').length,
-      accepted_counter: negotiations.filter(n => n.outcome_type === 'accepted_counter').length,
-      declined_by_company: negotiations.filter(n => n.outcome_type === 'declined_by_company').length,
-      declined_by_user: negotiations.filter(n => n.outcome_type === 'declined_by_user').length
-    };
-
-    return res.json({
-      success: true,
-      data: {
-        total,
-        completed,
-        active,
-        successfulCounters,
-        avgIncrease,
-        avgSatisfaction: parseFloat(avgSatisfaction),
-        byOutcome
-      }
-    });
-  } catch (err) {
-    console.error("❌ Error fetching stats:", err.message);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch statistics"
     });
   }
 });
