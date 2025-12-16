@@ -24,6 +24,8 @@ import {
   FaBars,
   FaTimes,
   FaExternalLinkAlt,
+  FaQuestionCircle, // ✅ Icon for Help/FAQ
+  FaRocket, // ✅ Icon for Getting Started
 } from "react-icons/fa";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -109,6 +111,13 @@ export default function NavBar() {
               },
             ]
           : []),
+        {
+          title: "Help",
+          links: [
+            { to: "/getting-started", label: "Getting Started", icon: FaRocket },
+            { to: "/faq", label: "FAQ", icon: FaQuestionCircle },
+          ],
+        },
       ]
     : [
         {
@@ -116,6 +125,13 @@ export default function NavBar() {
           links: [
             { to: "/login", label: "Login", icon: FaSignInAlt },
             { to: "/register", label: "Register", icon: FaUserPlus },
+          ],
+        },
+        {
+          title: "Help",
+          links: [
+            { to: "/getting-started", label: "Getting Started", icon: FaRocket },
+            { to: "/faq", label: "FAQ", icon: FaQuestionCircle },
           ],
         },
       ];
