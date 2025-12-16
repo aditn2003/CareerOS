@@ -164,7 +164,12 @@ app.use(express.json());
 app.use('/api/', apiLimiter);
 
 // ✅ Serve uploaded images so React can access them
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Set Cross-Origin-Resource-Policy to allow embedding from frontend
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
+}, express.static(path.join(__dirname, "uploads")));
 
 // ===== PostgreSQL Setup =====
 // Pool is imported from ./db/pool.js - no need to create it here

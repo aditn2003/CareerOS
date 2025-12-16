@@ -2,6 +2,99 @@ import React, { useEffect, useState } from "react";
 import { api } from "../api";
 import CertificationForm from "./CertificationForm";
 
+// Get the API base URL for image/file URLs
+const API_BASE_URL = api.defaults.baseURL;
+
+// Component to display PDF with blob URL (bypasses CORS for PDFs)
+function PDFViewer({ url, title }) {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load PDF');
+        return res.blob();
+      })
+      .then(blob => {
+        if (isMounted) {
+          const objectUrl = URL.createObjectURL(blob);
+          setBlobUrl(objectUrl);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        width: "100%", 
+        maxWidth: "300px", 
+        height: "200px", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        background: "#f1f5f9",
+        borderRadius: "8px",
+        border: "1px solid #e2e8f0",
+      }}>
+        Loading PDF...
+      </div>
+    );
+  }
+
+  if (error || !blobUrl) {
+    return (
+      <a 
+        href={url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "12px 20px",
+          background: "#f1f5f9",
+          borderRadius: "8px",
+          color: "#2563eb",
+          textDecoration: "none",
+          fontWeight: 500,
+        }}
+      >
+        📄 View Certificate PDF
+      </a>
+    );
+  }
+
+  return (
+    <iframe
+      src={blobUrl}
+      style={{
+        width: "100%",
+        maxWidth: "300px",
+        height: "200px",
+        borderRadius: "8px",
+        border: "1px solid #e2e8f0",
+      }}
+      title={title}
+    />
+  );
+}
+
 function formatDate(dateString) {
   if (!dateString) return "N/A";
   return new Date(dateString).toLocaleDateString("en-US", {
@@ -154,25 +247,39 @@ export default function CertificationSection({ token }) {
                           {(() => {
                             const fileUrl = c.badge_url || c.document_url;
                             const isPdf = fileUrl.toLowerCase().endsWith(".pdf");
+                            const fullUrl = `${API_BASE_URL}${fileUrl}`;
                             
                             if (isPdf) {
                               return (
-                                <iframe
-                                  src={`http://localhost:4000${fileUrl}#toolbar=0`}
-                                  style={{
-                                    width: "100%",
-                                    maxWidth: "400px",
-                                    height: "300px",
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: "8px",
-                                  }}
-                                  title={`${c.name} PDF`}
-                                />
+                                <div>
+                                  <PDFViewer url={fullUrl} title={`${c.name} PDF`} />
+                                  <div style={{ marginTop: "8px" }}>
+                                    <a 
+                                      href={fullUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        padding: "6px 12px",
+                                        background: "#f1f5f9",
+                                        borderRadius: "6px",
+                                        color: "#2563eb",
+                                        textDecoration: "none",
+                                        fontSize: "12px",
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      📄 Open in New Tab
+                                    </a>
+                                  </div>
+                                </div>
                               );
                             } else {
                               return (
                                 <img
-                                  src={`http://localhost:4000${fileUrl}`}
+                                  src={fullUrl}
                                   alt={`${c.name} certification`}
                                   style={{
                                     maxWidth: "150px",

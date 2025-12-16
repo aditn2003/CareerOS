@@ -1,5 +1,98 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { api } from "../api";
+
+// Get the API base URL for file URLs
+const API_BASE_URL = api.defaults.baseURL;
+
+// Component to display PDF with blob URL (bypasses CORS for PDFs)
+function PDFViewer({ url, title, style }) {
+  const [blobUrl, setBlobUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load PDF');
+        return res.blob();
+      })
+      .then(blob => {
+        if (isMounted) {
+          const objectUrl = URL.createObjectURL(blob);
+          setBlobUrl(objectUrl);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setError(true);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div style={{ 
+        width: "100%", 
+        maxWidth: style?.maxWidth || "400px", 
+        height: style?.height || "300px", 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "center",
+        background: "#f1f5f9",
+        borderRadius: "8px",
+        border: "1px solid #ddd",
+      }}>
+        Loading PDF...
+      </div>
+    );
+  }
+
+  if (error || !blobUrl) {
+    return (
+      <a 
+        href={url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "12px 20px",
+          background: "#f1f5f9",
+          borderRadius: "8px",
+          color: "#2563eb",
+          textDecoration: "none",
+        }}
+      >
+        📄 View Certificate PDF
+      </a>
+    );
+  }
+
+  return (
+    <iframe
+      src={blobUrl}
+      style={{
+        width: "100%",
+        maxWidth: style?.maxWidth || "400px",
+        height: style?.height || "300px",
+        border: "1px solid #ddd",
+        borderRadius: "8px",
+        ...style,
+      }}
+      title={title}
+    />
+  );
+}
 
 export default function CertificationForm({ token, cert, onCancel, onSaved }) {
   // Helper function to format date for input field (YYYY-MM-DD)
@@ -39,6 +132,7 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
       description: cert?.description || "",
       achievements: cert?.achievements || "",
       renewal_reminder: formatDateForInput(cert?.renewal_reminder),
+      verified: cert?.verified || false, // Verification status
     };
   });
 
@@ -93,7 +187,7 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("http://localhost:4000/api/certifications/upload-file", {
+      const res = await fetch(`${API_BASE_URL}/api/certifications/upload-file`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -263,7 +357,7 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
         aria-required="true"
       />
 
-      <label>
+      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "14px" }}>
         <input
           type="checkbox"
           id="cert-does-not-expire"
@@ -276,6 +370,7 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
             })
           }
           aria-label="Certification does not expire"
+          className="small-checkbox"
         />
         Does not expire
       </label>
@@ -300,7 +395,15 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
         type="url"
         id="cert-verification-url"
         value={form.verification_url}
-        onChange={(e) => setForm({ ...form, verification_url: e.target.value })}
+        onChange={(e) => {
+          const url = e.target.value;
+          setForm({ 
+            ...form, 
+            verification_url: url,
+            // Auto-mark as verified when a valid URL is provided
+            verified: url && url.trim().startsWith('http') ? true : form.verified
+          });
+        }}
         placeholder="https://verify.example.com/certificate/..."
         aria-label="Certification verification URL"
       />
@@ -308,40 +411,92 @@ export default function CertificationForm({ token, cert, onCancel, onSaved }) {
         Link where employers can verify this certification
       </small>
 
+      {/* Verification Status */}
+      <label style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: "8px",
+        marginTop: "12px",
+        padding: "10px 12px",
+        background: form.verified ? "#dcfce7" : "#fef3c7",
+        borderRadius: "8px",
+        border: `1px solid ${form.verified ? "#86efac" : "#fde047"}`,
+        cursor: "pointer",
+        fontSize: "14px"
+      }}>
+        <input
+          type="checkbox"
+          id="cert-verified"
+          checked={form.verified || false}
+          onChange={(e) => setForm({ ...form, verified: e.target.checked })}
+          aria-label="Mark certification as verified"
+          className="small-checkbox"
+        />
+        <span style={{ fontWeight: 500 }}>
+          {form.verified ? "✅ Verified" : "⏳ Pending Verification"}
+        </span>
+        <small style={{ color: "#666", marginLeft: "auto", fontSize: "12px" }}>
+          {form.verified 
+            ? "This certification has been verified" 
+            : "Check to mark as verified"}
+        </small>
+      </label>
+
       {/* Certification File Upload (Image or PDF) */}
       <label htmlFor="cert-file-upload">Certification File (Image or PDF)</label>
       {form.badge_url && (
         <div style={{ marginBottom: "12px" }}>
-          {uploadedFileType === "pdf" || form.badge_url.toLowerCase().endsWith(".pdf") ? (
-            <div style={{ marginBottom: "12px" }}>
-              <iframe
-                src={`http://localhost:4000${form.badge_url}#toolbar=0`}
+          {(() => {
+            const fullUrl = `${API_BASE_URL}${form.badge_url}`;
+            const isPdf = uploadedFileType === "pdf" || form.badge_url.toLowerCase().endsWith(".pdf");
+            console.log("Certification file URL:", fullUrl);
+            
+            return isPdf ? (
+              <div style={{ marginBottom: "12px" }}>
+                <PDFViewer 
+                  url={fullUrl} 
+                  title="Certification PDF preview"
+                  style={{ maxWidth: "400px", height: "300px" }}
+                />
+                <div style={{ marginTop: "8px" }}>
+                  <a 
+                    href={fullUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "6px 12px",
+                      background: "#f1f5f9",
+                      borderRadius: "6px",
+                      color: "#2563eb",
+                      textDecoration: "none",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    📄 Open in New Tab
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={fullUrl}
+                alt="Certification preview"
                 style={{
-                  width: "100%",
-                  maxWidth: "400px",
-                  height: "300px",
+                  maxWidth: "200px",
+                  maxHeight: "200px",
                   border: "1px solid #ddd",
                   borderRadius: "8px",
+                  padding: "8px",
                 }}
-                title="Certification PDF preview"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
-            </div>
-          ) : (
-            <img
-              src={`http://localhost:4000${form.badge_url}`}
-              alt="Certification preview"
-              style={{
-                maxWidth: "200px",
-                maxHeight: "200px",
-                border: "1px solid #ddd",
-                borderRadius: "8px",
-                padding: "8px",
-              }}
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-          )}
+            );
+          })()}
           <button
             type="button"
             onClick={() => {
