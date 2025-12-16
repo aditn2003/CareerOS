@@ -41,3 +41,14 @@
 2025-12-16 15:30:37 [INFO]: Application starting {"nodeEnv":"development","port":4000}
 2025-12-16 15:30:37 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
 2025-12-16 15:30:37 [INFO]: Connected to PostgreSQL
+2025-12-16 15:37:48 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 15:37:48 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 15:37:48 [INFO]: Connected to PostgreSQL
+2025-12-16 15:55:05 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 15:55:05 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 15:55:05 [INFO]: Connected to PostgreSQL
+2025-12-16 15:56:22 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 15:56:22 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 15:56:22 [INFO]: Connected to PostgreSQL
+2025-12-16 16:00:00 [INFO]: Running GitHub repository sync
+2025-12-16 16:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
