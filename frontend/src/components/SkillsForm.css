@@ -140,6 +140,19 @@
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 2px solid rgba(99, 102, 241, 0.1);
+  justify-content: center;
+}
+
+.skills-form-btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(107, 114, 128, 0.35);
+}
+
+.skills-form-btn-secondary:hover {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
 }
 
 .skills-form-btn {

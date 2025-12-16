@@ -9,7 +9,7 @@ import {
 } from "react-icons/fa";
 import "./SkillsForm.css";
 
-export default function SkillsForm({ token, onAdded }) {
+export default function SkillsForm({ token, onAdded, onCancel }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Technical");
   const [proficiency, setProficiency] = useState("Beginner");
@@ -129,6 +129,14 @@ export default function SkillsForm({ token, onAdded }) {
           <FaCheck />
           <span>Add Skill</span>
         </button>
+        {onCancel && (
+          <button
+            className="skills-form-btn skills-form-btn-secondary"
+            onClick={onCancel}
+          >
+            <span>Cancel</span>
+          </button>
+        )}
       </div>
     </div>
   );

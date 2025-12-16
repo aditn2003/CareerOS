@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
-import SkillsForm from "./SkillsForm";
 import { 
   FaCode, 
   FaTag, 
@@ -80,6 +79,15 @@ export default function SkillsSection({ token }) {
     if (token) loadSkills();
   }, [token]);
 
+  // Listen for skills updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      loadSkills();
+    };
+    window.addEventListener('skillsUpdated', handleUpdate);
+    return () => window.removeEventListener('skillsUpdated', handleUpdate);
+  }, []);
+
   // Group by category
   const grouped = skills.reduce((acc, s) => {
     acc[s.category] = acc[s.category] || [];
@@ -136,48 +144,39 @@ export default function SkillsSection({ token }) {
 
   return (
     <>
-      {/* Form and Stats Layout */}
-      <div className="skills-top-section">
-        <div className="skills-form-wrapper">
-          <SkillsForm token={token} onAdded={loadSkills} />
-        </div>
-        
-        {/* Statistics Section */}
-        {skills.length > 0 && (
-          <div className="skills-stats-wrapper">
-            <div className="skills-stats">
-              <div className="skills-stat-card">
-                <FaCode className="skills-stat-icon" />
-                <div className="skills-stat-content">
-                  <div className="skills-stat-value">{totalSkills}</div>
-                  <div className="skills-stat-label">Total Skills</div>
-                </div>
-              </div>
-              <div className="skills-stat-card">
-                <FaStar className="skills-stat-icon" />
-                <div className="skills-stat-content">
-                  <div className="skills-stat-value">{expertSkills}</div>
-                  <div className="skills-stat-label">Expert Level</div>
-                </div>
-              </div>
-              <div className="skills-stat-card">
-                <FaTag className="skills-stat-icon" />
-                <div className="skills-stat-content">
-                  <div className="skills-stat-value">{categoryCount}</div>
-                  <div className="skills-stat-label">Categories</div>
-                </div>
-              </div>
-              <div className="skills-stat-card">
-                <FaChartLine className="skills-stat-icon" />
-                <div className="skills-stat-content">
-                  <div className="skills-stat-value">{avgProficiency.toFixed(1)}</div>
-                  <div className="skills-stat-label">Avg Proficiency</div>
-                </div>
-              </div>
+      {/* Statistics Section */}
+      {skills.length > 0 && (
+        <div className="skills-stats">
+          <div className="skills-stat-card">
+            <FaCode className="skills-stat-icon" />
+            <div className="skills-stat-content">
+              <div className="skills-stat-value">{totalSkills}</div>
+              <div className="skills-stat-label">Total Skills</div>
             </div>
           </div>
-        )}
-      </div>
+          <div className="skills-stat-card">
+            <FaStar className="skills-stat-icon" />
+            <div className="skills-stat-content">
+              <div className="skills-stat-value">{expertSkills}</div>
+              <div className="skills-stat-label">Expert Level</div>
+            </div>
+          </div>
+          <div className="skills-stat-card">
+            <FaTag className="skills-stat-icon" />
+            <div className="skills-stat-content">
+              <div className="skills-stat-value">{categoryCount}</div>
+              <div className="skills-stat-label">Categories</div>
+            </div>
+          </div>
+          <div className="skills-stat-card">
+            <FaChartLine className="skills-stat-icon" />
+            <div className="skills-stat-content">
+              <div className="skills-stat-value">{avgProficiency.toFixed(1)}</div>
+              <div className="skills-stat-label">Avg Proficiency</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search and Export */}
       <div className="skills-actions-bar">

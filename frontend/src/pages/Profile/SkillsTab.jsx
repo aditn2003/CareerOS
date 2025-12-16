@@ -1,12 +1,14 @@
 // src/pages/Profile/SkillsTab.jsx
-import React from "react";
+import React, { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import SkillsSection from "../../components/SkillsSection";
-import { FaCode } from "react-icons/fa";
+import SkillsForm from "../../components/SkillsForm";
+import { FaCode, FaPlus } from "react-icons/fa";
 import "./SkillsTab.css";
 
 export default function SkillsTab() {
   const { token } = useAuth();
+  const [showForm, setShowForm] = useState(false);
 
   return (
     <div className="skills-page">
@@ -14,17 +16,43 @@ export default function SkillsTab() {
         <div className="skills-decoration skills-decoration-1"></div>
         <div className="skills-decoration skills-decoration-2"></div>
 
+        {/* Header Section */}
         <div className="skills-header">
           <div className="skills-header-title">
             <FaCode className="skills-header-icon" />
-            <div>
-              <h3>Skills</h3>
-              <p className="skills-subtitle">Add, edit, and categorize your technical and professional skills</p>
-            </div>
+            <h3>Skills</h3>
           </div>
         </div>
+        
+        {!showForm && (
+          <div className="skills-add-btn-wrapper">
+            <button 
+              className="skills-add-btn" 
+              onClick={() => setShowForm(true)}
+            >
+              <FaPlus />
+              <span>Add Skill</span>
+            </button>
+          </div>
+        )}
 
-        <SkillsSection token={token} />
+        {/* Form Section */}
+        {showForm && (
+          <SkillsForm 
+            token={token} 
+            onAdded={() => {
+              setShowForm(false);
+              // Trigger refresh in SkillsSection
+              window.dispatchEvent(new Event('skillsUpdated'));
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        )}
+
+        {/* Main Content */}
+        {!showForm && (
+          <SkillsSection token={token} />
+        )}
       </div>
     </div>
   );

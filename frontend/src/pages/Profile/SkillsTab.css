@@ -57,9 +57,9 @@
 /* Header Section */
 .skills-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   padding-bottom: 1.5rem;
   border-bottom: 2px solid rgba(99, 102, 241, 0.1);
 }
@@ -67,6 +67,7 @@
 .skills-header-title {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
 }
 
@@ -97,40 +98,72 @@
   display: none;
 }
 
-.skills-subtitle {
-  color: #6b7280;
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
-  font-style: italic;
-}
-
-/* Top Section: Form and Stats Layout */
-.skills-top-section {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 2rem;
+/* Add Button Wrapper */
+.skills-add-btn-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 2rem;
-  align-items: start;
 }
 
-.skills-form-wrapper {
-  min-width: 0;
-  display: flex;
-  align-items: flex-start;
+/* Add Button */
+.skills-add-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
 }
 
-.skills-stats-wrapper {
-  position: sticky;
-  top: 2rem;
-  display: flex;
-  align-items: flex-start;
+.skills-add-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.skills-add-btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.skills-add-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.skills-add-btn:active {
+  transform: translateY(0);
+}
+
+.skills-add-btn svg {
+  font-size: 0.9rem;
 }
 
 /* Statistics Section */
 .skills-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
   width: 100%;
 }
 
@@ -145,6 +178,9 @@
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);
   min-height: 100px;
+  flex: 1;
+  min-width: 200px;
+  max-width: 280px;
 }
 
 .skills-stat-card:hover {
@@ -187,6 +223,7 @@
   display: flex;
   gap: 1rem;
   align-items: center;
+  justify-content: center;
   margin-bottom: 2rem;
   flex-wrap: wrap;
 }
@@ -194,6 +231,7 @@
 .skills-search-wrapper {
   flex: 1;
   min-width: 250px;
+  max-width: 600px;
   position: relative;
   display: flex;
   align-items: center;
@@ -284,7 +322,7 @@
 
 /* Category Sections */
 .skills-category {
-  margin-top: 2rem;
+  margin: 2rem auto 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.95) 100%);
   border: 2px solid rgba(99, 102, 241, 0.12);
   border-radius: 16px;
@@ -296,6 +334,9 @@
     0 0 0 1px rgba(255, 255, 255, 0.5) inset;
   overflow: hidden;
   animation: slideInUp 0.5s ease-out backwards;
+  max-width: 1000px;
+  width: 100%;
+  display: block;
 }
 
 .skills-category::before {
@@ -410,6 +451,8 @@
   position: relative;
   overflow: hidden;
   animation: slideInLeft 0.4s ease-out backwards;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .skills-item::before {
@@ -847,18 +890,13 @@
 
 /* Responsive Design */
 @media (max-width: 1024px) {
-  .skills-top-section {
-    grid-template-columns: 1fr;
-    gap: 2rem;
-  }
-
-  .skills-stats-wrapper {
-    position: static;
-  }
-
   .skills-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
+  }
+  
+  .skills-stat-card {
+    min-width: 180px;
   }
 }
 
@@ -882,14 +920,13 @@
     font-size: 1.5rem;
   }
 
-  .skills-top-section {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
   .skills-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .skills-stat-card {
+    max-width: 100%;
   }
 
   .skills-actions-bar {
