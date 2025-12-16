@@ -45,6 +45,12 @@ import ApiMonitoringDashboard from "./pages/Admin/ApiMonitoringDashboard"; // UC
 import Networking from "./pages/Networking/Networking"; // Professional Networking Management
 import FollowUpReminders from "./components/FollowUpReminders"; // UC-118: Smart Follow-Up Reminder System
 
+// ---------- Help Pages ----------
+import GettingStarted from "./pages/Help/GettingStarted";
+import FAQ from "./pages/Help/FAQ";
+import TermsOfService from "./pages/Help/TermsOfService";
+import PrivacyPolicy from "./pages/Help/PrivacyPolicy";
+
 // ---------- Resume Flow ----------
 import ResumeBuilder from "./pages/Profile/ResumeBuilder";
 import ResumeSetup from "./pages/Profile/ResumeSetup";
@@ -107,6 +113,12 @@ function MainLayout() {
           {/* --- LinkedIn OAuth Callback Routes --- */}
           <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
           <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
+
+          {/* --- Help & Legal Pages (Public) --- */}
+          <Route path="/getting-started" element={<GettingStarted />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route
