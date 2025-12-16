@@ -172,7 +172,7 @@ export default function NavBar() {
 
         {/* Menu Toggle Button */}
         <button className="navbar-menu-toggle" onClick={toggleMenu} aria-label="Toggle menu">
-          {isMenuOpen ? <FaTimes /> : <FaBars />}
+          {isMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
         </button>
 
         {/* Expandable Menu Inside Navbar */}

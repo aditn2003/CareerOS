@@ -769,10 +769,9 @@ body.dark .navbar-right button.active {
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.3);
   color: #5b21b6;
-  font-size: 1.5rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -783,6 +782,16 @@ body.dark .navbar-right button.active {
     0 4px 15px rgba(0, 0, 0, 0.2),
     0 0 20px rgba(255, 255, 255, 0.3);
   font-weight: 700;
+  padding: 0;
+}
+
+.navbar-menu-toggle svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  font-size: 20px !important;
+  display: block !important;
 }
 
 .navbar-menu-toggle:hover {
