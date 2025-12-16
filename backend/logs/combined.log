@@ -38,3 +38,6 @@
 2025-12-15 23:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
 2025-12-16 00:00:00 [INFO]: Running GitHub repository sync
 2025-12-16 00:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-16 15:30:37 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 15:30:37 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 15:30:37 [INFO]: Connected to PostgreSQL
