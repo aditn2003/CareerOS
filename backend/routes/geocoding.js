@@ -78,15 +78,73 @@ function auth(req, res, next) {
   }
 }
 
+// ---------- HELPER: Ensure geocoding_cache table has timezone columns ----------
+async function ensureTimezoneColumns() {
+  try {
+    // Check if timezone column exists
+    const checkTimezone = await pool.query(
+      `SELECT column_name 
+       FROM information_schema.columns 
+       WHERE table_name = 'geocoding_cache' AND column_name = 'timezone'`
+    );
+    
+    if (checkTimezone.rows.length === 0) {
+      // Add timezone columns if they don't exist
+      await pool.query(`
+        ALTER TABLE geocoding_cache 
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS utc_offset INTEGER
+      `);
+      console.log('✅ Added timezone columns to geocoding_cache table');
+    }
+  } catch (error) {
+    // If check fails, try to add columns anyway (they might already exist)
+    try {
+      await pool.query(`
+        ALTER TABLE geocoding_cache 
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS utc_offset INTEGER
+      `);
+    } catch (addError) {
+      // Columns might already exist, ignore error
+      console.log('⚠️ Could not add timezone columns (they may already exist):', addError.message);
+    }
+  }
+}
+
 // ---------- HELPER: Rate-limited geocoding request ----------
 async function geocodeWithRateLimit(locationString, userId = null) {
-  // Check cache first
-  const cacheResult = await pool.query(
-    `SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset 
-     FROM geocoding_cache 
-     WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
-    [locationString]
-  );
+  // Ensure timezone columns exist
+  await ensureTimezoneColumns();
+  
+  // Check cache first - use defensive query that handles missing columns
+  let cacheResult;
+  try {
+    cacheResult = await pool.query(
+      `SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset 
+       FROM geocoding_cache 
+       WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+      [locationString]
+    );
+  } catch (error) {
+    // If timezone columns still don't exist, try without them
+    if (error.code === '42703' && error.message.includes('timezone')) {
+      console.log('⚠️ Timezone columns not available, using fallback query');
+      cacheResult = await pool.query(
+        `SELECT latitude, longitude, display_name, location_type, country_code 
+         FROM geocoding_cache 
+         WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+        [locationString]
+      );
+      // Add null timezone values to result
+      if (cacheResult.rows.length > 0) {
+        cacheResult.rows[0].timezone = null;
+        cacheResult.rows[0].utc_offset = null;
+      }
+    } else {
+      throw error;
+    }
+  }
 
   if (cacheResult.rows.length > 0) {
     console.log(`✅ Cache hit for: ${locationString}`);
@@ -193,30 +251,58 @@ async function geocodeWithRateLimit(locationString, userId = null) {
         }
       }
 
-      // Cache the result
-      await pool.query(
-        `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code, timezone, utc_offset)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (location_string) DO UPDATE SET
-           latitude = EXCLUDED.latitude,
-           longitude = EXCLUDED.longitude,
-           display_name = EXCLUDED.display_name,
-           location_type = EXCLUDED.location_type,
-           country_code = EXCLUDED.country_code,
-           timezone = EXCLUDED.timezone,
-           utc_offset = EXCLUDED.utc_offset,
-           updated_at = NOW()`,
-        [
-          locationString,
-          lat,
-          lon,
-          result.display_name,
-          locationType,
-          address.country_code?.toUpperCase() || null,
-          timezoneInfo?.timezone || null,
-          timezoneInfo?.utcOffset || null,
-        ]
-      );
+      // Cache the result - with defensive handling for missing timezone columns
+      try {
+        await pool.query(
+          `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code, timezone, utc_offset)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (location_string) DO UPDATE SET
+             latitude = EXCLUDED.latitude,
+             longitude = EXCLUDED.longitude,
+             display_name = EXCLUDED.display_name,
+             location_type = EXCLUDED.location_type,
+             country_code = EXCLUDED.country_code,
+             timezone = EXCLUDED.timezone,
+             utc_offset = EXCLUDED.utc_offset,
+             updated_at = NOW()`,
+          [
+            locationString,
+            lat,
+            lon,
+            result.display_name,
+            locationType,
+            address.country_code?.toUpperCase() || null,
+            timezoneInfo?.timezone || null,
+            timezoneInfo?.utcOffset || null,
+          ]
+        );
+      } catch (insertError) {
+        // If timezone columns don't exist, insert without them
+        if (insertError.code === '42703' && insertError.message.includes('timezone')) {
+          console.log('⚠️ Timezone columns not available, inserting without timezone data');
+          await pool.query(
+            `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (location_string) DO UPDATE SET
+               latitude = EXCLUDED.latitude,
+               longitude = EXCLUDED.longitude,
+               display_name = EXCLUDED.display_name,
+               location_type = EXCLUDED.location_type,
+               country_code = EXCLUDED.country_code,
+               updated_at = NOW()`,
+            [
+              locationString,
+              lat,
+              lon,
+              result.display_name,
+              locationType,
+              address.country_code?.toUpperCase() || null,
+            ]
+          );
+        } else {
+          throw insertError;
+        }
+      }
 
       return {
         latitude: lat,

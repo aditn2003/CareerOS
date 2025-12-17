@@ -169,7 +169,20 @@ app.use(
         "https://atscareeros.com",
         "https://www.atscareeros.com",
       ];
-      if (!origin || allowed.includes(origin)) return cb(null, true);
+      
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return cb(null, true);
+      
+      // Check exact match first
+      if (allowed.includes(origin)) return cb(null, true);
+      
+      // In development, allow localhost and 127.0.0.1 on any port
+      if (process.env.NODE_ENV !== 'production') {
+        if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+          return cb(null, true);
+        }
+      }
+      
       cb(new Error("CORS blocked"));
     },
     credentials: true,
