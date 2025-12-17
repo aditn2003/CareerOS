@@ -508,29 +508,112 @@ router.post("/commute", auth, async (req, res) => {
       });
     }
 
-    // Calculate distance
+    // Calculate distance using Haversine formula (straight-line distance)
     const distanceKm = calculateDistance(homeLat, homeLon, jobLat, jobLon);
     const distanceMiles = distanceKm * 0.621371;
 
-    // Estimate travel time for driving (assuming average speed)
-    // For driving: ~50 km/h average in cities, ~100 km/h on highways
-    // Using conservative 60 km/h average
-    const avgSpeedKmh = 60;
-    const drivingTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
+    // Improved time estimation based on distance
+    // Accounts for the fact that longer trips are mostly highway driving (faster)
+    // while shorter trips involve more city driving (slower)
+    // Also accounts for the fact that actual road distance varies by trip length
+    let roadDistanceMultiplier;
+    if (distanceKm < 50) {
+      // Short distances: road distance is ~1.4x straight-line (more winding city roads)
+      roadDistanceMultiplier = 1.4;
+    } else if (distanceKm < 200) {
+      // Medium distances: road distance is ~1.3x straight-line
+      roadDistanceMultiplier = 1.3;
+    } else if (distanceKm < 1000) {
+      // Medium-long distances: road distance is ~1.2x straight-line (more direct highways)
+      roadDistanceMultiplier = 1.2;
+    } else {
+      // Very long distances: road distance is ~1.15x straight-line (interstate highways are more direct)
+      roadDistanceMultiplier = 1.15;
+    }
+    
+    const adjustedDistanceKm = distanceKm * roadDistanceMultiplier;
+    
+    let avgSpeedKmh;
+    if (distanceKm < 50) {
+      // Short distances: mostly city driving
+      avgSpeedKmh = 40;
+    } else if (distanceKm < 200) {
+      // Medium distances: mix of city and highway
+      avgSpeedKmh = 65;
+    } else if (distanceKm < 500) {
+      // Medium-long distances: mostly highway
+      avgSpeedKmh = 80;
+    } else if (distanceKm < 1500) {
+      // Long distances: mostly interstate highway driving
+      avgSpeedKmh = 95;
+    } else {
+      // Very long distances: interstate highways, higher sustained speeds
+      avgSpeedKmh = 100;
+    }
+    
+    // Calculate time in minutes
+    const drivingTimeMinutes = (adjustedDistanceKm / avgSpeedKmh) * 60;
 
     // Estimate travel time for plane
-    // Average commercial plane speed: ~800 km/h (cruising speed)
-    // Add 2 hours for airport time (check-in, security, boarding, etc.)
-    const planeSpeedKmh = 800;
-    const flightTimeMinutes = (distanceKm / planeSpeedKmh) * 60;
-    const totalPlaneTimeMinutes = flightTimeMinutes + 120; // Add 2 hours for airport time
+    // Flight paths are typically 1.05-1.15x longer than straight-line due to air traffic routes
+    // Shorter flights spend more time climbing/descending (slower average speed)
+    // Longer flights spend more time at cruising altitude (faster average speed)
+    let flightDistanceMultiplier;
+    if (distanceKm < 500) {
+      // Short flights: more deviation from straight line, more climb/descent time
+      flightDistanceMultiplier = 1.15;
+    } else if (distanceKm < 2000) {
+      // Medium flights: moderate deviation
+      flightDistanceMultiplier = 1.10;
+    } else {
+      // Long flights: more direct routes, less deviation
+      flightDistanceMultiplier = 1.05;
+    }
+    
+    const flightDistanceKm = distanceKm * flightDistanceMultiplier;
+    
+    // Average speeds vary by flight length
+    let avgPlaneSpeedKmh;
+    if (distanceKm < 500) {
+      // Short flights: more time climbing/descending, lower average speed
+      avgPlaneSpeedKmh = 600;
+    } else if (distanceKm < 1500) {
+      // Medium flights: mix of climb, cruise, descent
+      avgPlaneSpeedKmh = 750;
+    } else {
+      // Long flights: mostly cruising at high speed
+      avgPlaneSpeedKmh = 850;
+    }
+    
+    const flightTimeMinutes = (flightDistanceKm / avgPlaneSpeedKmh) * 60;
+    
+    // Airport time varies by flight length
+    // Shorter flights: relatively more airport time (2-3 hours)
+    // Longer flights: relatively less airport time (1.5-2 hours)
+    let airportTimeMinutes;
+    if (distanceKm < 500) {
+      airportTimeMinutes = 180; // 3 hours for short flights
+    } else if (distanceKm < 2000) {
+      airportTimeMinutes = 150; // 2.5 hours for medium flights
+    } else {
+      airportTimeMinutes = 120; // 2 hours for long flights
+    }
+    
+    const totalPlaneTimeMinutes = flightTimeMinutes + airportTimeMinutes;
+
+    // Use adjusted road distance for display (more accurate than straight-line)
+    // Round to nearest 50 (miles/km) for cleaner display
+    const roundToNearest50 = (value) => Math.round(value / 50) * 50;
+    const adjustedDistanceMiles = adjustedDistanceKm * 0.621371;
+    const roundedDistanceMiles = roundToNearest50(adjustedDistanceMiles);
+    const roundedDistanceKm = roundToNearest50(adjustedDistanceKm);
 
     res.json({
       success: true,
       data: {
         distance: {
-          kilometers: Math.round(distanceKm * 10) / 10,
-          miles: Math.round(distanceMiles * 10) / 10,
+          kilometers: roundedDistanceKm,
+          miles: roundedDistanceMiles,
         },
         drivingTime: {
           minutes: Math.round(drivingTimeMinutes),
