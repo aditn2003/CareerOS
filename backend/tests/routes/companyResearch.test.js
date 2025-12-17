@@ -29,15 +29,13 @@ const { mockHttpInstance, mockAxiosPost, mockAxiosGet } = vi.hoisted(() => {
   };
 });
 
-vi.mock('axios', () => {
-  return {
-    default: {
-      get: mockAxiosGet,
-      post: mockAxiosPost,
-      create: vi.fn(() => mockHttpInstance),
-    },
-  };
-});
+vi.mock('axios', () => ({
+  default: {
+    create: vi.fn(() => mockHttpInstance),
+    post: mockAxiosPost,
+    get: mockAxiosGet,
+  },
+}));
 
 describe('Company Research Routes', () => {
   let app;

@@ -217,14 +217,19 @@ Weights:
     if (!job)
       return res.status(404).json({ success: false, message: "Job not found" });
 
-    const userId = req.body.userId ? parseInt(req.body.userId, 10) : null;
-    const ai = await analyzeMatch(job, profile, w, userId);
+    // Handle case where profile might be empty or queries failed
+    if (!profile) {
+      return res.status(400).json({ success: false, message: "User profile not found" });
+    }
+
+    const userIdForTracking = req.body.userId ? parseInt(req.body.userId, 10) : null;
+    const ai = await analyzeMatch(job, profile, w, userIdForTracking);
 
     const analysis = {
       jobId,
       jobTitle: job.title,
       company: job.company,
-      userId,
+      userId: userIdForTracking,
       matchScore: ai.matchScore,
       breakdown: {
         skills: ai.skillsScore,
@@ -240,14 +245,14 @@ Weights:
 
     // Save history
     // Save history
-// Save history safely (prevent "null" string errors)
+    // Save history safely (prevent "null" string errors)
 await pool.query(
     `INSERT INTO match_history
      (user_id, job_id, match_score, skills_score, experience_score, education_score,
       strengths, gaps, improvements, weights, details)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
     [
-      userId,
+      userIdForTracking,
       jobId,
   
       // 🔥 Convert EVERYTHING to numbers safely (even "null")
@@ -271,7 +276,9 @@ await pool.query(
     res.json({ success: true, analysis });
   } catch (err) {
     console.error("❌ MATCH ERROR:", err);
-    res.status(500).json({ success: false, message: "Match error" });
+    // Provide more specific error messages
+    const errorMessage = err.message || "Match error";
+    res.status(500).json({ success: false, message: errorMessage, error: errorMessage });
     console.log("RECEIVED IDS:", userId, jobId);
   }
   });

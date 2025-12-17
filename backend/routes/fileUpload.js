@@ -55,33 +55,51 @@ function auth(req, res, next) {
   }
 }
 
+// Storage helper functions (exported for testing)
+function resumeDestination(req, file, cb) {
+  cb(null, resumeUploadDir);
+}
+
+function resumeFilename(req, file, cb) {
+  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  cb(null, uniqueName);
+}
+
+function coverLetterDestination(req, file, cb) {
+  cb(null, coverLetterUploadDir);
+}
+
+function coverLetterFilename(req, file, cb) {
+  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  cb(null, uniqueName);
+}
+
 // Multer configuration for resumes
 const resumeStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, resumeUploadDir),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-    cb(null, uniqueName);
-  },
+  destination: resumeDestination,
+  filename: resumeFilename,
 });
 
 // Multer configuration for cover letters
 const coverLetterStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, coverLetterUploadDir),
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-    cb(null, uniqueName);
-  },
+  destination: coverLetterDestination,
+  filename: coverLetterFilename,
 });
 
-const fileFilter = (req, file, cb) => {
+// File filter function (exported for testing)
+function fileFilter(req, file, cb) {
   const allowed = /pdf|doc|docx|txt/i;
   const ext = path.extname(file.originalname).toLowerCase();
   if (allowed.test(ext.replace(".", ""))) {
     cb(null, true);
   } else {
-    cb(new Error("Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed."));
+    cb(
+      new Error(
+        "Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed."
+      )
+    );
   }
-};
+}
 
 const resumeUpload = multer({
   storage: resumeStorage,
@@ -222,53 +240,66 @@ router.post("/resume", auth, resumeUpload.single("file"), async (req, res) => {
 // ============================================
 // COVER LETTER UPLOAD
 // ============================================
-router.post("/cover-letter", auth, coverLetterUpload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No file uploaded" });
-    }
+router.post(
+  "/cover-letter",
+  auth,
+  coverLetterUpload.single("file"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
 
-    const { title } = req.body;
-    const filePath = req.file.path;
-    const fileName = req.file.filename;
-    const ext = path.extname(req.file.originalname).toLowerCase();
-    const fileUrl = `/uploads/cover-letters/${fileName}`;
+      const { title } = req.body;
+      const filePath = req.file.path;
+      const fileName = req.file.filename;
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      const fileUrl = `/uploads/cover-letters/${fileName}`;
 
-    // Extract text content based on file type
-    let textContent = "";
-    if (ext === ".pdf") {
-      const buffer = fs.readFileSync(filePath);
-      textContent = await extractPdfText(buffer);
-    } else if (ext === ".docx" || ext === ".doc") {
-      textContent = await extractDocxText(filePath);
-    } else if (ext === ".txt") {
-      textContent = extractTxtText(filePath);
-    }
+      // Extract text content based on file type
+      let textContent = "";
+      if (ext === ".pdf") {
+        const buffer = fs.readFileSync(filePath);
+        textContent = await extractPdfText(buffer);
+      } else if (ext === ".docx" || ext === ".doc") {
+        textContent = await extractDocxText(filePath);
+      } else if (ext === ".txt") {
+        textContent = extractTxtText(filePath);
+      }
 
-    // Determine format
-    const format = ext.replace(".", "").toLowerCase();
+      // Determine format
+      const format = ext.replace(".", "").toLowerCase();
 
-    // Save to uploaded_cover_letters table (new dedicated table for uploads)
-    const result = await pool.query(
-      `INSERT INTO uploaded_cover_letters (user_id, title, format, file_url, content)
+      // Save to uploaded_cover_letters table (new dedicated table for uploads)
+      const result = await pool.query(
+        `INSERT INTO uploaded_cover_letters (user_id, title, format, file_url, content)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, title, format, file_url, content, created_at`,
-      [req.userId, title || req.file.originalname, format, fileUrl, textContent]
-    );
+        [
+          req.userId,
+          title || req.file.originalname,
+          format,
+          fileUrl,
+          textContent,
+        ]
+      );
 
-    res.json({
-      message: "✅ Cover letter uploaded successfully",
-      cover_letter: result.rows[0],
-    });
-  } catch (err) {
-    console.error("❌ Cover letter upload error:", err);
-    // Clean up file if database insert failed
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+      res.json({
+        message: "✅ Cover letter uploaded successfully",
+        cover_letter: result.rows[0],
+      });
+    } catch (err) {
+      console.error("❌ Cover letter upload error:", err);
+      // Clean up file if database insert failed
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      res
+        .status(500)
+        .json({ error: err.message || "Failed to upload cover letter" });
     }
-    res.status(500).json({ error: err.message || "Failed to upload cover letter" });
   }
-});
+);
 
 // ============================================
 // FILE VIEWING/DOWNLOADING
@@ -287,11 +318,15 @@ router.get("/resume/:filename", auth, (req, res) => {
     const contentTypes = {
       ".pdf": "application/pdf",
       ".doc": "application/msword",
-      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".docx":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ".txt": "text/plain",
     };
 
-    res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+    res.setHeader(
+      "Content-Type",
+      contentTypes[ext] || "application/octet-stream"
+    );
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
     res.sendFile(filePath);
   } catch (err) {
@@ -314,11 +349,15 @@ router.get("/cover-letter/:filename", auth, (req, res) => {
     const contentTypes = {
       ".pdf": "application/pdf",
       ".doc": "application/msword",
-      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".docx":
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ".txt": "text/plain",
     };
 
-    res.setHeader("Content-Type", contentTypes[ext] || "application/octet-stream");
+    res.setHeader(
+      "Content-Type",
+      contentTypes[ext] || "application/octet-stream"
+    );
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
     res.sendFile(filePath);
   } catch (err) {
@@ -327,5 +366,16 @@ router.get("/cover-letter/:filename", auth, (req, res) => {
   }
 });
 
-export default router;
+// Export helper functions for testing
+export {
+  extractPdfText,
+  extractDocxText,
+  extractTxtText,
+  fileFilter,
+  resumeDestination,
+  resumeFilename,
+  coverLetterDestination,
+  coverLetterFilename,
+};
 
+export default router;

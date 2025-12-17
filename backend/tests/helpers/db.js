@@ -27,11 +27,17 @@ export async function setupTestDatabase() {
 
   const poolConfig = {
     connectionString: dbUrl,
-    max: 5, // Smaller pool for tests
-    min: 0,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-    allowExitOnIdle: true,
+    max: 1, // OPTIMIZED: Single connection for transaction-based tests
+    min: 0, // OPTIMIZED: No minimum - create on demand
+    idleTimeoutMillis: 30000, // OPTIMIZED: 30s idle timeout
+    connectionTimeoutMillis: 5000, // OPTIMIZED: 5s for faster failure
+    allowExitOnIdle: false, // OPTIMIZED: Keep pool alive during test run
+    // Performance optimizations for faster connection reuse
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 5000, // OPTIMIZED: Faster keepalive
+    // Disable statement timeout for long-running test setup
+    statement_timeout: 0,
+    query_timeout: 0,
   };
 
   // Force SSL for Supabase connections
@@ -49,9 +55,38 @@ export async function setupTestDatabase() {
   });
 
   // Verify connection and set search path to test schema
+  // OPTIMIZED: Single retry with fast timeout for immediate failure detection
+  let client = null;
+  let retries = 1;
+  let lastError = null;
+  
+  while (retries >= 0) {
+    try {
+      client = await Promise.race([
+        testPool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 5000) // OPTIMIZED: 5s timeout
+        )
+      ]);
+      await client.query('SET search_path TO test, public');
+      lastError = null;
+      break; // Success, exit retry loop
+    } catch (error) {
+      lastError = error;
+      retries--;
+      if (retries >= 0) {
+        // OPTIMIZED: No retry delay - fail fast
+        console.warn(`⚠️ Database connection failed, retrying immediately... (${retries} attempts remaining)`);
+      }
+    }
+  }
+  
+  if (lastError) {
+    // If all retries failed, throw the last error
+    throw lastError;
+  }
+  
   try {
-    const client = await testPool.connect();
-    await client.query('SET search_path TO test, public');
     
     // Add missing columns to jobs table if they don't exist
     try {
@@ -224,6 +259,21 @@ export async function queryTestDb(query, params = []) {
       const result = await global.transactionClient.query(query, params);
       return result;
     } catch (error) {
+      // Check if transaction is aborted - PostgreSQL aborts transactions on error
+      if (error.message && error.message.includes('current transaction is aborted')) {
+        // Rollback the aborted transaction immediately
+        try {
+          await global.transactionClient.query('ROLLBACK');
+          // Release the client
+          global.transactionClient.release();
+        } catch (rollbackError) {
+          // Ignore rollback errors - client might already be released
+        }
+        // Clear the aborted transaction client - vitest-setup will start new one
+        global.transactionClient = null;
+        // Throw original error so test fails appropriately
+        throw error;
+      }
       // If transaction client fails, fall back to regular connection
       if (error.message.includes('connection') || error.message.includes('closed')) {
         global.transactionClient = null;

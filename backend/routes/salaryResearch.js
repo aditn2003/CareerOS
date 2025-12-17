@@ -503,17 +503,26 @@ Based on current market data, give 5 concise bullet-point salary negotiation rec
 `;
     let recommendations = "No recommendations available.";
     try {
-      if (openai && process.env.OPENAI_API_KEY) {
-        const aiRes = await openai.chat.completions.create({
+      const aiRes = await trackApiCall(
+        'openai',
+        () => openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
-        });
-        recommendations = aiRes.choices[0]?.message?.content || "No recommendations available.";
-      }
+        }),
+        {
+          endpoint: '/v1/chat/completions',
+          method: 'POST',
+          userId,
+          requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_recommendations', jobTitle: title, company, location },
+          estimateCost: 0.0005
+        }
+      );
+      recommendations = aiRes.choices[0]?.message?.content || "No recommendations available.";
     } catch (aiErr) {
       console.warn("⚠️ OpenAI recommendations failed, using default:", aiErr.message);
       // Use default recommendations
     }
+
     const aiRes = await trackApiCall(
       'openai',
       () => openai.chat.completions.create({
