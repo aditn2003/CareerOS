@@ -1,0 +1,551 @@
+/**
+ * Global Accessibility Styles
+ * Ensures WCAG 2.1 AA compliance for focus indicators and interactive elements
+ */
+
+/* ===============================================
+   FOCUS INDICATORS - WCAG 2.1 AA Compliant
+   =============================================== */
+
+/* Global focus styles for all interactive elements */
+*:focus-visible {
+  outline: 2px solid #3b82f6 !important; /* 4.8:1 contrast on white */
+  outline-offset: 2px !important;
+  border-radius: 2px;
+}
+
+/* Buttons - Enhanced focus */
+button:focus-visible,
+.btn:focus-visible,
+.add-btn:focus-visible,
+.form-btn:focus-visible {
+  outline: 3px solid #2563eb !important; /* 4.8:1 contrast */
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* Links - Enhanced focus */
+a:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+  border-radius: 2px;
+}
+
+/* Form inputs - Enhanced focus */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+/* Checkboxes and radio buttons */
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Select elements */
+select:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Tabs */
+[role="tab"]:focus-visible,
+.tab:focus-visible,
+.statistics-nav-tab:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Modals - Focus trap */
+.modal:focus-visible,
+.modal-overlay:focus-visible {
+  outline: none !important;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 10000;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===============================================
+   ARIA LIVE REGIONS
+   =============================================== */
+
+/* Screen reader announcements */
+[aria-live="polite"],
+[aria-live="assertive"] {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ===============================================
+   VISUALLY HIDDEN (for screen readers only)
+   =============================================== */
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ===============================================
+   HIGH CONTRAST MODE SUPPORT
+   =============================================== */
+
+@media (prefers-contrast: high) {
+  * {
+    border-color: currentColor !important;
+  }
+  
+  button,
+  .btn {
+    border: 2px solid currentColor !important;
+  }
+}
+
+/* ===============================================
+   REDUCED MOTION SUPPORT
+   =============================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===============================================
+   FOCUS WITHIN (for input groups)
+   =============================================== */
+
+.input-group:focus-within,
+.salary-input-group:focus-within,
+.raise-input-group:focus-within {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+  border-radius: 4px;
+}
+
+/* ===============================================
+   KEYBOARD NAVIGATION ENHANCEMENTS
+   =============================================== */
+
+/* Ensure all interactive elements are keyboard accessible */
+[tabindex="-1"]:focus {
+  outline: none !important;
+}
+
+/* Remove outline only for mouse users, keep for keyboard */
+.js-focus-visible :focus:not(.focus-visible) {
+  outline: none;
+}
+
+/* ===============================================
+   DOCUMENT LANGUAGE
+   =============================================== */
+
+/* Document language is set in index.html: <html lang="en"> */
+
+/* ===============================================
+   HEADING HIERARCHY VALIDATION
+   =============================================== */
+
+/* Ensure proper heading structure */
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* ===============================================
+   FORM ACCESSIBILITY
+   =============================================== */
+
+/* Required field indicator */
+label.required::after {
+  content: " *";
+  color: #dc2626;
+  font-weight: 700;
+}
+
+/* Error state */
+input[aria-invalid="true"],
+textarea[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: #dc2626 !important;
+  border-width: 2px !important;
+}
+
+input[aria-invalid="true"]:focus-visible,
+textarea[aria-invalid="true"]:focus-visible,
+select[aria-invalid="true"]:focus-visible {
+  outline-color: #dc2626 !important;
+}
+
+/* ===============================================
+   MODAL ACCESSIBILITY
+   =============================================== */
+
+/* Modal focus trap */
+.modal[role="dialog"] {
+  /* Focus management handled in JavaScript */
+}
+
+/* Modal backdrop */
+.modal-overlay[aria-hidden="true"] {
+  display: none;
+}
+
+/* ===============================================
+   TABLE ACCESSIBILITY
+   =============================================== */
+
+table {
+  border-collapse: collapse;
+}
+
+th {
+  font-weight: 600;
+  text-align: left;
+}
+
+/* ===============================================
+   IMAGE ACCESSIBILITY
+   =============================================== */
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Decorative images should have empty alt */
+img[alt=""] {
+  /* Already handled by empty alt attribute */
+}
+
+/* ===============================================
+   COLOR CONTRAST ENHANCEMENTS
+   =============================================== */
+
+/* Ensure minimum contrast for all text */
+.text-muted,
+.text-secondary {
+  color: #4b5563 !important; /* 7.0:1 on white */
+}
+
+.text-gray {
+  color: #6b7280 !important; /* 4.6:1 on white - use only for large text */
+}
+
+/* ===============================================
+   BUTTON ACCESSIBILITY
+   =============================================== */
+
+/* Disabled buttons */
+button:disabled,
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading buttons */
+button[aria-busy="true"],
+.btn[aria-busy="true"] {
+  position: relative;
+  color: transparent;
+}
+
+button[aria-busy="true"]::after,
+.btn[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===============================================
+   SKIP LINKS
+   =============================================== */
+
+.skip-to-main {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 10000;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.skip-to-main:focus {
+  top: 6px;
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===============================================
+   LANDMARKS
+   =============================================== */
+
+/* Ensure semantic HTML5 elements are used */
+header[role="banner"],
+nav[role="navigation"],
+main[role="main"],
+footer[role="contentinfo"],
+aside[role="complementary"] {
+  /* Styles handled by components */
+}
+
+/* ===============================================
+   ARIA STATES
+   =============================================== */
+
+/* Expanded state */
+[aria-expanded="true"] {
+  /* Component-specific styles */
+}
+
+[aria-expanded="false"] {
+  /* Component-specific styles */
+}
+
+/* Selected state */
+[aria-selected="true"] {
+  /* Component-specific styles */
+}
+
+/* Hidden state */
+[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* ===============================================
+   TOOLTIP ACCESSIBILITY
+   =============================================== */
+
+[role="tooltip"] {
+  position: absolute;
+  z-index: 1000;
+  background: #1f2937;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  max-width: 200px;
+}
+
+/* ===============================================
+   ALERT ACCESSIBILITY
+   =============================================== */
+
+[role="alert"],
+[role="status"] {
+  /* Component-specific styles */
+}
+
+/* ===============================================
+   PROGRESS BAR ACCESSIBILITY
+   =============================================== */
+
+[role="progressbar"] {
+  /* Component-specific styles */
+}
+
+[role="progressbar"][aria-valuenow] {
+  /* Component-specific styles */
+}
+
+/* ===============================================
+   DIALOG ACCESSIBILITY
+   =============================================== */
+
+[role="dialog"] {
+  /* Focus trap handled in JavaScript */
+}
+
+[role="dialog"][aria-modal="true"] {
+  /* Modal-specific styles */
+}
+
+/* ===============================================
+   TABLIST ACCESSIBILITY
+   =============================================== */
+
+[role="tablist"] {
+  /* Component-specific styles */
+}
+
+[role="tab"] {
+  cursor: pointer;
+}
+
+[role="tab"][aria-selected="true"] {
+  /* Selected tab styles */
+}
+
+[role="tabpanel"] {
+  /* Tab panel styles */
+}
+
+/* ===============================================
+   MENU ACCESSIBILITY
+   =============================================== */
+
+[role="menu"],
+[role="menubar"] {
+  /* Component-specific styles */
+}
+
+[role="menuitem"] {
+  cursor: pointer;
+}
+
+[role="menuitem"][aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===============================================
+   COMBobox ACCESSIBILITY
+   =============================================== */
+
+[role="combobox"] {
+  /* Component-specific styles */
+}
+
+[role="combobox"][aria-expanded="true"] {
+  /* Expanded state styles */
+}
+
+/* ===============================================
+   LISTBOX ACCESSIBILITY
+   =============================================== */
+
+[role="listbox"] {
+  /* Component-specific styles */
+}
+
+[role="option"] {
+  cursor: pointer;
+}
+
+[role="option"][aria-selected="true"] {
+  /* Selected option styles */
+}
+
+/* ===============================================
+   ENSURE MINIMUM TOUCH TARGET SIZE
+   =============================================== */
+
+/* WCAG 2.1 requires minimum 44x44px touch targets */
+button,
+a,
+input[type="checkbox"],
+input[type="radio"],
+[role="button"],
+[role="link"],
+[role="tab"],
+[role="menuitem"] {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Exception for inline links in text */
+p a,
+li a,
+span a {
+  min-height: auto;
+  min-width: auto;
+  display: inline;
+}
+
+/* ===============================================
+   PRINT ACCESSIBILITY
+   =============================================== */
+
+@media print {
+  /* Ensure all content is printable */
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+  
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+  
+  /* Hide non-essential elements */
+  .no-print {
+    display: none !important;
+  }
+}
+

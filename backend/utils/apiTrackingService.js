@@ -151,6 +151,56 @@ export async function logApiError({
 }
 
 /**
+ * Check if a service has reached its quota limit
+ * Returns true if quota is reached or exceeded, false otherwise
+ */
+async function checkQuotaLimit(serviceName) {
+  try {
+    const now = new Date();
+    const periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // First day of current month
+    
+    const { rows } = await pool.query(
+      `SELECT s.quota_limit, s.quota_period,
+              COALESCE((
+                SELECT COUNT(*)::INTEGER
+                FROM api_usage_logs l
+                WHERE l.service_name = s.service_name
+                  AND l.created_at >= $1
+              ), 0) as usage_count
+       FROM api_services s
+       WHERE s.service_name = $2 AND s.enabled = TRUE`,
+      [periodStart, serviceName]
+    );
+
+    if (rows.length === 0) {
+      // Service not found or disabled - allow the call (might be a new service)
+      return false;
+    }
+
+    const service = rows[0];
+    const quotaLimit = service.quota_limit;
+    const usageCount = service.usage_count || 0;
+
+    // If no quota limit is set, allow the call
+    if (quotaLimit === null || quotaLimit === 0) {
+      return false;
+    }
+
+    // Check if usage has reached or exceeded the limit
+    if (usageCount >= quotaLimit) {
+      console.warn(`⚠️ Quota limit reached for ${serviceName}: ${usageCount}/${quotaLimit}`);
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error(`❌ Error checking quota limit for ${serviceName}:`, error);
+    // If quota check fails, allow the call (fail open to avoid breaking the app)
+    return false;
+  }
+}
+
+/**
  * Update quota usage for a service
  */
 async function updateQuotaUsage(serviceId, serviceName, tokensUsed = null, costEstimate = null) {
@@ -251,6 +301,28 @@ export async function trackApiCall(
     estimateTokens = null,
     estimateCost = null,
   } = options;
+
+  // Check quota limit before making the API call
+  const quotaExceeded = await checkQuotaLimit(serviceName);
+  if (quotaExceeded) {
+    const error = new Error(`Quota limit reached for ${serviceName}. Please try again next month.`);
+    error.statusCode = 429;
+    error.errorType = 'quota_limit';
+    
+    // Log the quota limit error
+    await logApiError({
+      serviceName,
+      endpoint,
+      userId,
+      errorType: 'quota_limit',
+      errorMessage: `Quota limit reached: Service ${serviceName} has exceeded its monthly quota limit`,
+      errorCode: 'QUOTA_EXCEEDED',
+      statusCode: 429,
+      requestPayload,
+    });
+
+    throw error;
+  }
 
   const startTime = Date.now();
   let responseStatus = null;

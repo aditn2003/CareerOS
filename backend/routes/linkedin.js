@@ -125,16 +125,16 @@ router.get("/callback", async (req, res) => {
     const tokenRes = await trackApiCall(
       'linkedin',
       () => axios.post(
-        "https://www.linkedin.com/oauth/v2/accessToken",
-        new URLSearchParams({
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: redirectUri,
-          client_id: process.env.LINKEDIN_CLIENT_ID,
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET,
-        }),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      "https://www.linkedin.com/oauth/v2/accessToken",
+      new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: process.env.LINKEDIN_CLIENT_ID,
+        client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+      }),
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
         }
       ),
       {
@@ -154,11 +154,11 @@ router.get("/callback", async (req, res) => {
     const profileRes = await trackApiCall(
       'linkedin',
       () => axios.get(
-        "https://api.linkedin.com/v2/userinfo",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         }
       ),
       {
@@ -424,11 +424,11 @@ router.get("/fetch-profile", authMiddleware, async (req, res) => {
     const profileRes = await trackApiCall(
       'linkedin',
       () => axios.get(
-        "https://api.linkedin.com/v2/userinfo",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      "https://api.linkedin.com/v2/userinfo",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         }
       ),
       {

@@ -384,10 +384,12 @@ const CareerGrowthCalculator = () => {
                   <div className="projection-header">
                     <h3>{offer.company}</h3>
                     <div className="scenario-selector">
-                      <label>Scenario:</label>
+                      <label htmlFor={`scenario-select-${offer.id}`}>Scenario:</label>
                       <select
+                        id={`scenario-select-${offer.id}`}
                         value={scenario}
                         onChange={(e) => handleScenarioChange(offer.id, e.target.value)}
+                        aria-label={`Select scenario for ${offer.company} career growth projection`}
                       >
                         <option value="conservative">Conservative ({annualRaises[offer.id]?.conservative || 3}%)</option>
                         <option value="expected">Expected ({annualRaises[offer.id]?.expected || 5}%)</option>
@@ -398,7 +400,7 @@ const CareerGrowthCalculator = () => {
 
                   {/* Starting Salary Input */}
                   <div className="starting-salary-section">
-                    <label className="input-label">
+                    <label htmlFor={`starting-salary-${offer.id}`} className="input-label">
                       <DollarSign size={16} />
                       Starting Salary
                     </label>
@@ -406,6 +408,7 @@ const CareerGrowthCalculator = () => {
                       <span className="currency-symbol">$</span>
                       <input
                         type="number"
+                        id={`starting-salary-${offer.id}`}
                         value={startingSalaries[offer.id] || offer.base_salary || offer.compensation?.base || 0}
                         onChange={(e) => setStartingSalaries({
                           ...startingSalaries,
@@ -414,6 +417,7 @@ const CareerGrowthCalculator = () => {
                         className="salary-input"
                         min="0"
                         step="1000"
+                        aria-label={`Starting salary for ${offer.company} career growth projection`}
                       />
                     </div>
                   </div>
@@ -426,10 +430,11 @@ const CareerGrowthCalculator = () => {
                     </label>
                     <div className="raise-inputs-grid">
                       <div className="raise-input-item">
-                        <label>Conservative:</label>
+                        <label htmlFor={`raise-conservative-${offer.id}`}>Conservative:</label>
                         <div className="raise-input-group">
                           <input
                             type="number"
+                            id={`raise-conservative-${offer.id}`}
                             value={annualRaises[offer.id]?.conservative || 3}
                             onChange={(e) => setAnnualRaises({
                               ...annualRaises,
@@ -442,15 +447,17 @@ const CareerGrowthCalculator = () => {
                             min="0"
                             max="20"
                             step="0.1"
+                            aria-label={`Conservative annual raise percentage for ${offer.company}`}
                           />
                           <span className="percent-symbol">%</span>
                         </div>
                       </div>
                       <div className="raise-input-item">
-                        <label>Expected:</label>
+                        <label htmlFor={`raise-expected-${offer.id}`}>Expected:</label>
                         <div className="raise-input-group">
                           <input
                             type="number"
+                            id={`raise-expected-${offer.id}`}
                             value={annualRaises[offer.id]?.expected || 5}
                             onChange={(e) => setAnnualRaises({
                               ...annualRaises,
@@ -463,15 +470,17 @@ const CareerGrowthCalculator = () => {
                             min="0"
                             max="20"
                             step="0.1"
+                            aria-label={`Expected annual raise percentage for ${offer.company}`}
                           />
                           <span className="percent-symbol">%</span>
                         </div>
                       </div>
                       <div className="raise-input-item">
-                        <label>Optimistic:</label>
+                        <label htmlFor={`raise-optimistic-${offer.id}`}>Optimistic:</label>
                         <div className="raise-input-group">
                           <input
                             type="number"
+                            id={`raise-optimistic-${offer.id}`}
                             value={annualRaises[offer.id]?.optimistic || 7}
                             onChange={(e) => setAnnualRaises({
                               ...annualRaises,
@@ -484,6 +493,7 @@ const CareerGrowthCalculator = () => {
                             min="0"
                             max="20"
                             step="0.1"
+                            aria-label={`Optimistic annual raise percentage for ${offer.company}`}
                           />
                           <span className="percent-symbol">%</span>
                         </div>

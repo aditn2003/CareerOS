@@ -181,6 +181,7 @@ export default function ResumeTemplateChooser({ onSelectTemplate }) {
               <img
                 src={t.preview_url || "/assets/resume-placeholder.png"}
                 alt={t.name}
+                loading="lazy"
               />
               <div className="template-hover">
                 <button
@@ -265,6 +266,7 @@ export default function ResumeTemplateChooser({ onSelectTemplate }) {
               src={preview.preview_url}
               alt={`${preview.name} Preview`}
               className="preview-image"
+              loading="lazy"
             />
           </div>
         </div>

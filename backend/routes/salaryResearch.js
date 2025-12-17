@@ -523,6 +523,21 @@ Based on current market data, give 5 concise bullet-point salary negotiation rec
       // Use default recommendations
     }
 
+    const aiRes = await trackApiCall(
+      'openai',
+      () => openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+      }),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'salary_negotiation_recommendations', jobTitle: title, company, location },
+        estimateCost: 0.0005
+      }
+    );
+  
     // 7. Compare user vs market
     const marketDiff = userSalary
       ? Math.round(((range.avg - userSalary) / userSalary) * 100)

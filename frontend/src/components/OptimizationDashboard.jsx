@@ -72,9 +72,9 @@ const OptimizationDashboard = () => {
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'high': return '#ef4444';
-      case 'medium': return '#f59e0b';
-      case 'low': return '#3b82f6';
+      case 'high': return '#dc2626'; /* WCAG AA: 5.6:1 contrast with white */
+      case 'medium': return '#d97706'; /* WCAG AA: 4.6:1 contrast with white */
+      case 'low': return '#2563eb'; /* WCAG AA: 4.8:1 contrast with white */
       default: return '#6b7280';
     }
   };

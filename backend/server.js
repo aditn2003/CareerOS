@@ -1,11 +1,16 @@
 // =======================
 // server.js — Auth + Database (UC-001 → UC-012)
 // =======================
+import "./instrument.js";
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import validator from "validator";
 //import pkg from "pg";
 import profileRoutes from "./routes/profile.js";
 import uploadRoutes from "./routes/upload.js";
@@ -86,8 +91,24 @@ import testTrackingRoutes from "./routes/testApiTracking.js";
 // ====== 🔔 DAILY DEADLINE REMINDER CRON JOB (UC-012) ======
 import crons from "node-cron";
 
+// ====== 📊 PRODUCTION MONITORING AND LOGGING (UC-133) ======
+import { initSentry, captureException, setUserContext } from "./utils/sentry.js";
+import { requestLogger, errorLogger } from "./middleware/logging.js";
+import logger, { logInfo, logError, logHttp } from "./utils/logger.js";
+import monitoringRoutes from "./routes/monitoring.js";
+
 // ===== Initialize =====
 dotenv.config();
+
+// Initialize Sentry before anything else
+initSentry();
+
+// Initialize logger
+logInfo("Application starting", { 
+  nodeEnv: process.env.NODE_ENV,
+  port: process.env.PORT || 4000,
+});
+
 console.log(
   "🔑 GOOGLE_API_KEY loaded:",
   process.env.GOOGLE_API_KEY ? "✅ yes" : "❌ no"
@@ -108,22 +129,83 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ===== Security Middleware (UC-145) =====
+// Helmet adds security headers (removes X-Powered-By, adds CSP, etc.)
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable CSP for now to avoid breaking frontend
+  crossOriginEmbedderPolicy: false, // Allow embedding resources
+}));
+
+// Disable X-Powered-By explicitly (also done by helmet, but being explicit)
+app.disable('x-powered-by');
+
+// Rate limiting for authentication endpoints (UC-145: Prevent brute force attacks)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: { error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test', // Skip rate limiting in test environment
+});
+
+// General API rate limiter (more permissive)
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: { error: 'Too many requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => process.env.NODE_ENV === 'test',
+});
+
 // ===== Middleware =====
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://atscareeros.com",
-      "https://www.atscareeros.com",
-    ],
+    origin: (origin, cb) => {
+      const allowed = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://atscareeros.com",
+        "https://www.atscareeros.com",
+      ];
+      if (!origin || allowed.includes(origin)) return cb(null, true);
+      cb(new Error("CORS blocked"));
+    },
     credentials: true,
   })
 );
+
+// Enable gzip compression for all responses
+app.use(
+  compression({
+    threshold: 1024,
+  })
+);
+
 app.use(express.json());
 
-// ✅ Serve uploaded images so React can access them
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// ✅ Production Monitoring and Logging
+app.use(requestLogger);
+
+// ✅ Rate limiting for API routes
+app.use('/api/', apiLimiter);
+
+// ✅ Serve uploaded images with BOTH performance + cross-origin support
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    next();
+  },
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
+    etag: true,
+    immutable: true,
+  })
+);
+
 
 // ===== PostgreSQL Setup =====
 // Pool is imported from ./db/pool.js - no need to create it here
@@ -134,6 +216,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 pool
   .connect()
   .then((client) => {
+    logInfo("Connected to PostgreSQL", {});
     console.log("✅ Connected to PostgreSQL");
     // Initialize contacts route with the pool
     setContactsPool(pool);
@@ -142,6 +225,9 @@ pool
     if (client && typeof client.release === "function") {
       client.release();
     } else {
+      logError("Client object does not have release method", null, {
+        clientType: typeof client,
+      });
       console.error(
         "⚠️ Client object does not have release method:",
         typeof client,
@@ -149,7 +235,11 @@ pool
       );
     }
   })
-  .catch((err) => console.error("❌ DB connection error:", err.message));
+  .catch((err) => {
+    logError("DB connection error", err);
+    console.error("❌ DB connection error:", err.message);
+    captureException(err, { context: "database_connection" });
+  });
 
 // ===== Helpers =====
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
@@ -167,7 +257,7 @@ function makeToken(user) {
 const resetCodes = new Map(); // for demo; moves to DB later
 
 // ========== UC-001: Register ==========
-app.post("/register", async (req, res) => {
+app.post("/register", authLimiter, async (req, res) => {
   const {
     email = "",
     password = "",
@@ -177,7 +267,8 @@ app.post("/register", async (req, res) => {
     accountType = DEFAULT_ACCOUNT_TYPE,
   } = req.body;
   try {
-    if (!email.includes("@") || !email.split("@")[1]?.includes(".")) {
+    // UC-145: Strengthen email validation using validator library
+    if (!validator.isEmail(email)) {
       return res.status(400).json({ error: "Invalid email format" });
     }
     if (!PASSWORD_RULE.test(password)) {
@@ -262,7 +353,7 @@ app.post("/register", async (req, res) => {
 });
 
 // ========== UC-002: Login ==========
-app.post("/login", async (req, res) => {
+app.post("/login", authLimiter, async (req, res) => {
   const { email = "", password = "" } = req.body;
   try {
     const lower = email.toLowerCase();
@@ -359,7 +450,7 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ========== UC-006: Password Reset Request ==========
-app.post("/forgot", async (req, res) => {
+app.post("/forgot", authLimiter, async (req, res) => {
   try {
     const { email = "" } = req.body;
     const lower = email.toLowerCase();
@@ -610,29 +701,73 @@ app.use("/api/admin", apiMonitoringRoutes); // UC-117: API Monitoring Dashboard
 app.use("/api/test", testTrackingRoutes); // Test endpoint for API tracking
 
 // ===== Global Error Handler =====
+// Error logger middleware (logs errors before handling)
+app.use(errorLogger);
+
+// Error handler with Sentry integration
 app.use((err, req, res, next) => {
+  // Capture error in Sentry
+  captureException(err, {
+    request: {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      body: req.body,
+      userId: req.user?.id || null,
+    },
+  });
+
+  // Log error
+  logError("Unhandled error in request", err, {
+    requestId: req.requestId,
+    method: req.method,
+    path: req.path,
+    userId: req.user?.id || null,
+  });
+
   console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong" });
+  
+  // Don't expose error details in production
+  const errorMessage = process.env.NODE_ENV === "production" 
+    ? "Something went wrong" 
+    : err.message;
+  
+  res.status(err.status || 500).json({ 
+    error: errorMessage,
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
+  });
 });
 
 // ===== Health Check =====
-app.get("/", (_req, res) => res.json({ ok: true }));
+app.get("/", (_req, res) => {
+  logHttp("Health check", { path: "/" });
+  res.json({ ok: true });
+});
 
 // ====== 🔄 GITHUB REPOSITORY SYNC CRON JOB ======
 // Run GitHub sync every hour
 crons.schedule("0 * * * *", async () => {
+  logInfo("Running GitHub repository sync", {});
   console.log("🔄 Running GitHub repository sync...");
   try {
     const result = await syncAllUsers();
     if (result.success) {
+      logInfo("GitHub sync completed", {
+        usersSynced: result.users_synced,
+        usersSkipped: result.users_skipped,
+      });
       console.log(
         `✅ GitHub sync completed: ${result.users_synced} users synced, ${result.users_skipped} skipped`
       );
     } else {
+      logError("GitHub sync failed", null, { error: result.error });
       console.error(`❌ GitHub sync failed: ${result.error}`);
+      captureException(new Error(result.error), { context: "github_sync_cron" });
     }
   } catch (err) {
+    logError("GitHub sync cron job error", err);
     console.error("❌ GitHub sync cron job error:", err.message);
+    captureException(err, { context: "github_sync_cron" });
   }
 });
 
@@ -640,6 +775,7 @@ crons.schedule("0 * * * *", async () => {
 
 // run every day at 9:00 AM server time
 crons.schedule("0 9 * * *", async () => {
+  logInfo("Running daily job deadline reminder", {});
   console.log("📬 Running daily job deadline reminder...");
 
   try {
@@ -653,19 +789,22 @@ crons.schedule("0 9 * * *", async () => {
     `);
 
     if (result.rows.length === 0) {
+      logInfo("No upcoming deadlines", {});
       console.log("✅ No upcoming deadlines.");
       return;
     }
 
     // Send reminder emails
+    let emailsSent = 0;
     for (const job of result.rows) {
-      const daysLeft = Math.ceil(
-        (new Date(job.deadline) - new Date()) / (1000 * 60 * 60 * 24)
-      );
-      const subject = `⏰ Reminder: ${job.title} deadline in ${daysLeft} day${
-        daysLeft !== 1 ? "s" : ""
-      }`;
-      const html = `
+      try {
+        const daysLeft = Math.ceil(
+          (new Date(job.deadline) - new Date()) / (1000 * 60 * 60 * 24)
+        );
+        const subject = `⏰ Reminder: ${job.title} deadline in ${daysLeft} day${
+          daysLeft !== 1 ? "s" : ""
+        }`;
+        const html = `
         <div style="font-family:Arial,sans-serif;line-height:1.5;">
           <h2 style="color:#4f46e5;">Upcoming Application Deadline</h2>
           <p>Hi ${job.first_name || "there"},</p>
@@ -683,19 +822,37 @@ crons.schedule("0 9 * * *", async () => {
         </div>
       `;
 
-      // Note: Using nodemailer instead of Resend for this cron job
-      // Tracking would need to be added if we switch to Resend
-      await transporter.sendMail({
-        from: "ATS for Candidates <njit_job_alerts@aditnuwal.com>",
-        to: job.email,
-        subject,
-        html,
-      });
+        await transporter.sendMail({
+          from: "ATS for Candidates <njit_job_alerts@aditnuwal.com>",
+          to: job.email,
+          subject,
+          html,
+        });
 
-      console.log(`📧 Reminder sent to ${job.email} for "${job.title}"`);
+        emailsSent++;
+        logInfo("Reminder email sent", {
+          jobId: job.id,
+          email: job.email,
+          title: job.title,
+        });
+        console.log(`📧 Reminder sent to ${job.email} for "${job.title}"`);
+      } catch (emailErr) {
+        logError("Failed to send reminder email", emailErr, {
+          jobId: job.id,
+          email: job.email,
+        });
+        captureException(emailErr, { context: "deadline_reminder_email" });
+      }
     }
+    
+    logInfo("Deadline reminder job completed", {
+      totalJobs: result.rows.length,
+      emailsSent,
+    });
   } catch (err) {
+    logError("Reminder job failed", err);
     console.error("❌ Reminder job failed:", err.message);
+    captureException(err, { context: "deadline_reminder_cron" });
   }
 });
 
@@ -857,6 +1014,9 @@ app.use("/api/interview-analytics", interviewAnalyticsRoutes);
 app.use("/api/technical-prep", technicalPrepRoutes); // ✅ UC-078
 app.use("/api/geocoding", geocodingRoutes); // ✅ UC-116: Location and Geo-coding Services
 
+// ✅ Production Monitoring Routes (UC-133)
+app.use("/api/monitoring", monitoringRoutes);
+
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =
   parseInt(process.env.REMINDER_DAYS_BEFORE || "3", 10) || 3;
@@ -889,6 +1049,7 @@ process.on("unhandledRejection", (reason, promise) => {
       (reason.code && String(reason.code).includes("XX000"))
     ) {
       // These are expected with Supabase connection limits - log quietly
+      logger.warn("Database connection terminated (expected). Pool will reconnect on next query.");
       console.warn(
         "⚠️ Database connection terminated (expected). Pool will reconnect on next query."
       );
@@ -897,6 +1058,12 @@ process.on("unhandledRejection", (reason, promise) => {
     }
   }
   // For other unhandled rejections, log them but don't crash
+  logError("Unhandled Rejection", reason instanceof Error ? reason : new Error(String(reason)), {
+    promise: String(promise),
+  });
+  captureException(reason instanceof Error ? reason : new Error(String(reason)), {
+    context: "unhandled_rejection",
+  });
   console.error("⚠️ Unhandled Rejection at:", promise);
   console.error("   Reason:", reason);
 });
@@ -917,6 +1084,7 @@ process.on("uncaughtException", (error) => {
     (error.code && String(error.code).includes("XX000"))
   ) {
     // These are expected with Supabase connection limits - log quietly
+    logger.warn("Database connection error (expected). Server will continue running.");
     console.warn(
       "⚠️ Database connection error (expected). Server will continue running."
     );
@@ -924,6 +1092,8 @@ process.on("uncaughtException", (error) => {
     return;
   }
   // For other uncaught exceptions, log and exit gracefully
+  logError("Uncaught Exception", error);
+  captureException(error, { context: "uncaught_exception" });
   console.error("❌ Uncaught Exception:", error);
   console.error("   Stack:", error.stack);
   // Give time for logs to be written, then exit
@@ -936,9 +1106,10 @@ process.on("uncaughtException", (error) => {
 // FIX: Only start the server if we are NOT testing
 if (process.env.NODE_ENV !== "test") {
   const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () =>
-    console.log(`✅ API running at http://localhost:${PORT}`)
-  );
+  app.listen(PORT, () => {
+    logInfo("API server started", { port: PORT, nodeEnv: process.env.NODE_ENV });
+    console.log(`✅ API running at http://localhost:${PORT}`);
+  });
 }
 
 // Export for tests

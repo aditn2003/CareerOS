@@ -70,6 +70,13 @@
   z-index: 2;
 }
 
+/* Ensure title is always visible */
+.navbar-title-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 .navbar-expanded {
   padding-bottom: 2.5rem;
   overflow: visible;
@@ -762,10 +769,9 @@ body.dark .navbar-right button.active {
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.3);
   color: #5b21b6;
-  font-size: 1.5rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -776,6 +782,16 @@ body.dark .navbar-right button.active {
     0 4px 15px rgba(0, 0, 0, 0.2),
     0 0 20px rgba(255, 255, 255, 0.3);
   font-weight: 700;
+  padding: 0;
+}
+
+.navbar-menu-toggle svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  font-size: 20px !important;
+  display: block !important;
 }
 
 .navbar-menu-toggle:hover {
@@ -807,14 +823,13 @@ body.dark .navbar-right button.active {
 
 /* Navigation Cards */
 .navbar-overlay-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.25rem;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1rem;
   padding: 0;
-  margin: 0;
-  max-width: 100%;
   margin: 0 auto;
-  align-items: start;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .navbar-overlay-cards .electric-border:nth-child(1) { animation-delay: 0.25s; }
@@ -827,15 +842,47 @@ body.dark .navbar-right button.active {
 }
 
 .navbar-overlay-card {
+  position: relative;
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(12px);
   border: none;
-  border-radius: 14px;
-  padding: 1.5rem;
-  box-shadow: 
+  border-radius: 12px;
+  padding: 1rem 0.75rem;
+  box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 140px;
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Spotlight hover effect on cards */
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 60%);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.35),
+    0 0 30px rgba(167, 139, 250, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 @keyframes cardSlideIn {
@@ -859,13 +906,14 @@ body.dark .navbar-right button.active {
 
 .navbar-overlay-card-title {
   color: #ffffff;
-  font-size: 0.95rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  margin: 0 0 1.25rem 0;
+  margin: 0 0 0.75rem 0;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   opacity: 0.9;
-  font-size: 0.85rem;
+  text-align: center;
+  width: 100%;
 }
 
 .navbar-overlay-card-links {
@@ -874,19 +922,27 @@ body.dark .navbar-right button.active {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.navbar-overlay-card-links li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .navbar-overlay-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
-  padding: 0.65rem 1rem;
-  border-radius: 10px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 500;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -894,8 +950,11 @@ body.dark .navbar-right button.active {
   overflow: hidden;
   cursor: pointer;
   width: 100%;
-  text-align: left;
+  max-width: 100%;
+  text-align: center;
   font-family: inherit;
+  gap: 0.4rem;
+  white-space: nowrap;
 }
 
 .navbar-overlay-link button {
@@ -905,11 +964,12 @@ body.dark .navbar-right button.active {
   font: inherit;
   cursor: pointer;
   width: 100%;
-  text-align: left;
+  text-align: center;
   padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .navbar-overlay-link::before {
@@ -930,7 +990,7 @@ body.dark .navbar-right button.active {
 
 .navbar-overlay-link:hover {
   background: rgba(255, 255, 255, 0.12);
-  transform: translateX(3px);
+  transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
@@ -943,7 +1003,7 @@ body.dark .navbar-right button.active {
   font-size: 0.75rem;
   opacity: 0.6;
   transition: all 0.25s ease;
-  margin-left: 0.5rem;
+  flex-shrink: 0;
 }
 
 .navbar-overlay-link:hover .navbar-overlay-link-icon {
@@ -991,12 +1051,13 @@ body.dark .navbar-right button.active {
 /* Responsive Menu */
 @media (max-width: 1200px) {
   .navbar-overlay-cards {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
 
   .navbar-overlay-card {
-    padding: 1.25rem;
+    padding: 0.875rem 1rem;
+    min-width: 120px;
   }
 }
 
@@ -1007,23 +1068,25 @@ body.dark .navbar-right button.active {
   }
 
   .navbar-overlay-cards {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    max-width: 100%;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
   }
 
   .navbar-overlay-card {
-    padding: 1.25rem;
+    padding: 1rem;
+    min-width: calc(50% - 0.5rem);
+    flex: 1 1 calc(50% - 0.5rem);
   }
 
   .navbar-overlay-card-title {
-    font-size: 0.8rem;
-    margin-bottom: 1rem;
+    font-size: 0.7rem;
+    margin-bottom: 0.6rem;
   }
 
   .navbar-overlay-link {
-    padding: 0.6rem 0.9rem;
-    font-size: 0.85rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
   }
 
   .navbar-expanded {

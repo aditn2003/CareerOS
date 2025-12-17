@@ -1,0 +1,231 @@
+/* ===============================================
+   SKILLS FORM - MODERN DESIGN
+   =============================================== */
+
+.skills-form {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(250, 245, 255, 0.95) 100%);
+  border-radius: 20px;
+  padding: 2.5rem;
+  margin: 0;
+  box-shadow: 
+    0 20px 60px rgba(99, 102, 241, 0.12),
+    0 0 0 1px rgba(99, 102, 241, 0.1);
+  position: relative;
+  overflow: hidden;
+  animation: slideDown 0.4s ease-out;
+  border: 2px solid rgba(99, 102, 241, 0.15);
+  height: fit-content;
+}
+
+.skills-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #7c3aed, #a78bfa, #ec4899, #a78bfa, #7c3aed);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skills-form-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+}
+
+.skills-form-header-icon {
+  font-size: 1.5rem;
+  color: #6366f1;
+}
+
+.skills-form-header h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.skills-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.skills-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.skills-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.skills-form-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.skills-form-label svg {
+  font-size: 0.85rem;
+  color: #6366f1;
+}
+
+.skills-form-label .required {
+  color: #ef4444;
+  margin-left: 0.25rem;
+}
+
+.skills-form-input,
+.skills-form-select {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  background: #ffffff;
+  color: #1f2937;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.skills-form-input:focus,
+.skills-form-select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1),
+              0 4px 12px rgba(99, 102, 241, 0.15);
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.skills-form-input:hover,
+.skills-form-select:hover {
+  border-color: #c4b5fd;
+}
+
+.skills-form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid rgba(99, 102, 241, 0.1);
+  justify-content: center;
+}
+
+.skills-form-btn-secondary {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px rgba(107, 114, 128, 0.35);
+}
+
+.skills-form-btn-secondary:hover {
+  background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+.skills-form-btn {
+  flex: 1;
+  padding: 0.875rem 1.75rem;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.skills-form-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.skills-form-btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.skills-form-btn-primary:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.skills-form-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.skills-form-btn:active {
+  transform: translateY(0);
+}
+
+.skills-form-btn svg {
+  font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .skills-form {
+    padding: 1.5rem;
+  }
+
+  .skills-form-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .skills-form-actions {
+    flex-direction: column;
+  }
+
+  .skills-form-btn {
+    width: 100%;
+  }
+}
+
