@@ -160,73 +160,7 @@ vi.mock('@supabase/supabase-js', () => {
   };
 });
 
-vi.mock('axios', () => ({
-  default: {
-    create: vi.fn(() => ({
-      get: vi.fn().mockResolvedValue({ data: { organic_results: [] } }),
-    })),
-    post: vi.fn().mockImplementation((url, data) => {
-      // Check if this is a follow-up template generation request
-      if (url === 'https://api.openai.com/v1/chat/completions' && 
-          data?.messages?.some(m => m.content?.includes('follow-up email template'))) {
-        return Promise.resolve({
-          data: {
-            choices: [{
-              message: {
-                content: JSON.stringify({
-                  subjectLine: 'Thank You for Your Time - Software Engineer Position',
-                  emailBody: 'Dear [INTERVIEWER_NAME],\n\nThank you for taking the time to speak with me about the [ROLE] position at [COMPANY].\n\nI enjoyed learning about...',
-                  suggestedTiming: {
-                    sendDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    timeOfDay: 'Morning (9-11 AM)',
-                    reasoning: 'Sending within 24-48 hours shows promptness and enthusiasm'
-                  },
-                  personalizationTips: [
-                    'Reference a specific conversation point',
-                    'Mention something unique you learned'
-                  ],
-                  dosList: ['Be concise', 'Show enthusiasm'],
-                  dontsList: ['Don\'t be too casual', 'Don\'t ask about salary'],
-                }),
-              },
-            }],
-          },
-        });
-      }
-      // Default response for other OpenAI calls
-      return Promise.resolve({
-        data: {
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                company: 'Test Company',
-                role: 'Software Engineer',
-                process: 'Multi-stage interview',
-                stages: ['Phone screen', 'Technical', 'On-site'],
-                questions: ['Tell me about yourself', 'Why this company?'],
-                interviewers: ['Hiring Manager', 'Tech Lead'],
-                format: 'Virtual',
-                recommendations: ['Prepare STAR examples', 'Review company values'],
-                timeline: '2-3 weeks',
-                tips: ['Research the company', 'Practice coding'],
-                checklist: {
-                  research: ['Verify company mission', 'Research team'],
-                  technical: ['Review algorithms', 'Practice coding'],
-                  logistics: ['Test video call', 'Prepare quiet space'],
-                  attire: 'Business casual',
-                  portfolio: ['Prepare GitHub links', 'Review projects'],
-                  confidence: ['Practice breathing', 'Visualize success'],
-                  questions: ['Ask about team culture', 'Inquire about growth'],
-                  followUp: ['Send thank-you within 24h', 'Follow up on LinkedIn'],
-                },
-              }),
-            },
-          }],
-        },
-      });
-    }),
-  },
-}));
+// Mock OpenAI - removed, using global mock
 
 vi.mock('cheerio', () => ({
   load: vi.fn(() => ({
@@ -235,49 +169,7 @@ vi.mock('cheerio', () => ({
   })),
 }));
 
-vi.mock('resend', () => {
-  const mockInstance = {
-    emails: {
-      send: vi.fn().mockResolvedValue({ data: { id: 'email-123' } }),
-    },
-  };
-  
-  return {
-    Resend: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(() => ({
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: vi.fn(() => 'Mocked AI response'),
-        },
-      }),
-    })),
-  })),
-}));
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{
-            message: {
-              content: JSON.stringify({ result: 'success' }),
-            },
-          }],
-        }),
-      },
-    },
-  })),
-}));
+// Mock Resend - removed, using global mock
 
 describe('Interview Insights Routes', () => {
   let app;

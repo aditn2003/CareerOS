@@ -1,454 +1,1032 @@
 /**
  * Contacts Routes Tests
- * Tests routes/contacts.js - contact management
+ * Tests routes/contacts.js
+ * Target: 90%+ coverage, 100% functions
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import request from 'supertest';
-import express from 'express';
-import contactsRoutes, { setContactsPool } from '../../routes/contacts.js';
-import { createTestUser } from '../helpers/auth.js';
-import pool from '../../db/pool.js';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import request from "supertest";
+import express from "express";
 
-// Mock auth middleware - must be set up before route import
-let mockUserId = 1;
-
-vi.mock('../../auth.js', () => ({
-  auth: vi.fn((req, res, next) => {
-    req.user = { id: mockUserId };
+// Mock auth middleware
+vi.mock("../../auth.js", () => ({
+  auth: (req, res, next) => {
+    req.user = { id: 1 };
     next();
-  }),
-}));
-
-// Mock pool
-vi.mock('../../db/pool.js', () => ({
-  default: {
-    query: vi.fn(),
   },
 }));
 
-describe('Contacts Routes', () => {
-  let app;
-  let user;
-  let userId; // Store the decoded user ID from JWT token
+// Mock database pool
+const mockQuery = vi.fn();
+vi.mock("../../db/pool.js", () => ({
+  default: {
+    query: (...args) => mockQuery(...args),
+  },
+}));
 
-  beforeEach(async () => {
-    // Ensure JWT_SECRET matches what the route expects
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
-    
+import contactsRouter, { setContactsPool } from "../../routes/contacts.js";
+import pool from "../../db/pool.js";
+
+describe("Contacts Routes", () => {
+  let app;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
     app = express();
     app.use(express.json());
-    
-    user = await createTestUser();
-    mockUserId = user.id; // Update mock user ID
-    
-    // Decode JWT token to get the user ID that will be in req.user.id
-    const jwtModule = await import('jsonwebtoken');
-    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'test-secret-key');
-    userId = Number(decoded.id); // Store for use in tests
-    
-    // Set pool on router before using routes
     setContactsPool(pool);
-    
-    app.use('/api', contactsRoutes);
-    
-    vi.clearAllMocks();
-    
-    // Reset pool.query mock to default implementation
-    pool.query.mockReset();
-    
-    // Update auth mock implementation to verify JWT tokens
-    const { auth } = await import('../../auth.js');
-    vi.mocked(auth).mockImplementation((req, res, next) => {
-      const h = req.headers.authorization || "";
-      const token = h.startsWith("Bearer ") ? h.split(" ")[1] : null;
-      if (!token) {
-        return res.status(401).json({ error: "NO_TOKEN" });
-      }
-      try {
-        const decoded = jwtModule.verify(token, process.env.JWT_SECRET || 'test-secret-key');
-        // Ensure id is a number to match database type
-        req.user = { id: Number(decoded.id), email: decoded.email };
-        next();
-      } catch (err) {
-        return res.status(401).json({ error: "INVALID_TOKEN" });
-      }
-    });
-    
-    // Default mock for GET requests that don't have specific mocks
-    pool.query.mockImplementation((query, params) => {
-      // If it's a SELECT query for contacts list, return empty array
-      if (query.includes('SELECT * FROM professional_contacts') && query.includes('WHERE user_id')) {
-        return Promise.resolve({ rows: [] });
-      }
-      // For other queries, return empty result
-      return Promise.resolve({ rows: [] });
-    });
+    app.use("/api", contactsRouter);
   });
 
-  describe('GET /api/contacts', () => {
-    it('should get all contacts for user', async () => {
-      const response = await request(app)
-        .get('/api/contacts')
-        .set('Authorization', `Bearer ${user.token}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
-    });
-
-    it('should filter contacts by industry', async () => {
-      const response = await request(app)
-        .get('/api/contacts')
-        .query({ industry: 'Technology' })
-        .set('Authorization', `Bearer ${user.token}`);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should filter contacts by relationship type', async () => {
-      const response = await request(app)
-        .get('/api/contacts')
-        .query({ relationshipType: 'Colleague' })
-        .set('Authorization', `Bearer ${user.token}`);
-
-      expect(response.status).toBe(200);
-    });
-
-    it('should search contacts by name or email', async () => {
-      const response = await request(app)
-        .get('/api/contacts')
-        .query({ search: 'John' })
-        .set('Authorization', `Bearer ${user.token}`);
-
-      expect(response.status).toBe(200);
-    });
-  });
-
-  describe('GET /api/contacts/:id', () => {
-    it('should get single contact with details', async () => {
-      pool.query
-        .mockResolvedValueOnce({
-          rows: [{
+  describe("GET /api/contacts", () => {
+    it("should return all contacts for user", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
             id: 1,
-            user_id: user.id,
-            first_name: 'John',
-            last_name: 'Doe',
-            email: 'john@example.com',
-          }],
-        })
-        .mockResolvedValueOnce({ rows: [] }) // interactions
-        .mockResolvedValueOnce({ rows: [] }) // reminders
-        .mockResolvedValueOnce({ rows: [] }) // links
-        .mockResolvedValueOnce({ rows: [] }); // groups
+            first_name: "John",
+            last_name: "Doe",
+            email: "john@test.com",
+          },
+        ],
+      });
 
-      const response = await request(app)
-        .get('/api/contacts/1')
-        .set('Authorization', `Bearer ${user.token}`);
+      const response = await request(app).get("/api/contacts");
 
       expect(response.status).toBe(200);
-      expect(response.body.first_name).toBe('John');
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].first_name).toBe("John");
+    });
+
+    it("should filter contacts by industry", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get("/api/contacts")
+        .query({ industry: "Tech" });
+
+      expect(response.status).toBe(200);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("industry = $"),
+        expect.arrayContaining([1, "Tech"])
+      );
+    });
+
+    it("should filter contacts by relationshipType", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get("/api/contacts")
+        .query({ relationshipType: "Mentor" });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should filter contacts by company", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get("/api/contacts")
+        .query({ company: "Google" });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should filter contacts by search term", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get("/api/contacts")
+        .query({ search: "john" });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should filter with multiple parameters", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).get("/api/contacts").query({
+        industry: "Tech",
+        relationshipType: "Mentor",
+        company: "Google",
+        search: "john",
+      });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).get("/api/contacts");
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBe("Failed to fetch contacts");
+    });
+  });
+
+  describe("GET /api/contacts/:id", () => {
+    it("should return contact with details", async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, first_name: "John", last_name: "Doe", user_id: 1 }],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: 1, interaction_type: "Email" }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, reminder_type: "Follow-up" }],
+        })
+        .mockResolvedValueOnce({ rows: [{ id: 1, link_type: "Job" }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, name: "Tech Group" }] });
+
+      const response = await request(app).get("/api/contacts/1");
+
+      expect(response.status).toBe(200);
+      expect(response.body.first_name).toBe("John");
       expect(response.body.interactions).toBeDefined();
       expect(response.body.reminders).toBeDefined();
+      expect(response.body.links).toBeDefined();
+      expect(response.body.groups).toBeDefined();
     });
 
-    it('should return 404 if contact not found', async () => {
-      pool.query.mockResolvedValueOnce({ rows: [] });
+    it("should return 404 if contact not found", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      const response = await request(app)
-        .get('/api/contacts/999')
-        .set('Authorization', `Bearer ${user.token}`);
+      const response = await request(app).get("/api/contacts/999");
 
       expect(response.status).toBe(404);
     });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).get("/api/contacts/1");
+
+      expect(response.status).toBe(500);
+    });
   });
 
-  describe('POST /api/contacts', () => {
-    it('should create a new contact', async () => {
-      pool.query
-        .mockResolvedValueOnce({
-          rows: [{
-            id: 1,
-            user_id: user.id,
-            first_name: 'Jane',
-            last_name: 'Smith',
-            email: 'jane@example.com',
-          }],
-        })
-        .mockResolvedValueOnce({ rows: [] }); // group mapping
+  describe("POST /api/contacts", () => {
+    it("should create a new contact", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, first_name: "John", last_name: "Doe" }],
+      });
 
       const response = await request(app)
-        .post('/api/contacts')
-        .set('Authorization', `Bearer ${user.token}`)
+        .post("/api/contacts")
+        .send({ firstName: "John", lastName: "Doe", email: "john@test.com" });
+
+      expect(response.status).toBe(201);
+      expect(response.body.first_name).toBe("John");
+    });
+
+    it("should create contact with all fields", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, first_name: "John", last_name: "Doe" }],
+      });
+
+      const response = await request(app).post("/api/contacts").send({
+        firstName: "John",
+        lastName: "Doe",
+        email: "john@test.com",
+        phone: "123-456-7890",
+        title: "Engineer",
+        company: "Tech Corp",
+        industry: "Technology",
+        relationshipType: "Colleague",
+        relationshipStrength: 5,
+        location: "San Francisco",
+        linkedinProfile: "https://linkedin.com/in/john",
+        notes: "Met at conference",
+        personalInterests: "Hiking",
+        professionalInterests: "AI",
+        mutualConnections: "Jane Doe",
+      });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should add contact to groups", async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, first_name: "John", last_name: "Doe" }],
+        })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts")
         .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'jane@example.com',
-          company: 'Tech Corp',
+          firstName: "John",
+          lastName: "Doe",
+          groups: [1, 2],
         });
 
       expect(response.status).toBe(201);
-      expect(response.body.first_name).toBe('Jane');
     });
 
-    it('should return 400 if firstName or lastName is missing', async () => {
+    it("should return 400 if firstName is missing", async () => {
       const response = await request(app)
-        .post('/api/contacts')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          email: 'jane@example.com',
-        });
+        .post("/api/contacts")
+        .send({ lastName: "Doe" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain("First and last name are required");
+    });
+
+    it("should return 400 if lastName is missing", async () => {
+      const response = await request(app)
+        .post("/api/contacts")
+        .send({ firstName: "John" });
 
       expect(response.status).toBe(400);
     });
 
-    it('should return 409 if contact with email already exists', async () => {
-      const error = new Error('Duplicate key');
-      error.code = '23505';
-      pool.query.mockImplementation((query, params) => {
-        // First call is the INSERT, which should fail with duplicate key
-        if (query.includes('INSERT INTO professional_contacts')) {
-          return Promise.reject(error);
-        }
-        return Promise.resolve({ rows: [] });
-      });
+    it("should handle duplicate email error", async () => {
+      mockQuery.mockRejectedValueOnce({ code: "23505" });
 
       const response = await request(app)
-        .post('/api/contacts')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'existing@example.com',
-        });
+        .post("/api/contacts")
+        .send({ firstName: "John", lastName: "Doe", email: "john@test.com" });
 
-      expect([409, 500]).toContain(response.status);
+      expect(response.status).toBe(409);
+      expect(response.body.error).toContain("already exists");
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .post("/api/contacts")
+        .send({ firstName: "John", lastName: "Doe" });
+
+      expect(response.status).toBe(500);
     });
   });
 
-  describe('PUT /api/contacts/:id', () => {
-    it('should update an existing contact', async () => {
-      // Mock the ownership check query
-      pool.query.mockImplementation((query, params) => {
-        if (query.includes('SELECT user_id FROM professional_contacts WHERE id')) {
-          return Promise.resolve({
-            rows: [{ user_id: userId }], // Ownership check - must match JWT token id
-          });
-        }
-        if (query.includes('UPDATE professional_contacts')) {
-          return Promise.resolve({
-            rows: [{
-              id: 1,
-              user_id: userId,
-              first_name: 'Jane',
-              last_name: 'Smith',
-              email: 'jane@example.com',
-            }],
-          });
-        }
-        return Promise.resolve({ rows: [] });
-      });
-
-      const response = await request(app)
-        .put('/api/contacts/1')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
-          email: 'jane@example.com',
+  describe("PUT /api/contacts/:id", () => {
+    it("should update a contact", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, first_name: "Jane", last_name: "Doe" }],
         });
 
-      expect(response.status).toBe(200);
-      expect(response.body.first_name).toBe('Jane');
-    });
-
-    it('should return 403 if user does not own contact', async () => {
-      pool.query.mockResolvedValueOnce({
-        rows: [{ user_id: 999 }], // Different user owns it
+      const response = await request(app).put("/api/contacts/1").send({
+        firstName: "Jane",
+        lastName: "Doe",
+        relationshipType: "Friend",
+        relationshipStrength: 5,
       });
 
+      expect(response.status).toBe(200);
+      expect(response.body.first_name).toBe("Jane");
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 999 }] });
+
+      const response = await request(app).put("/api/contacts/1").send({
+        firstName: "Jane",
+        lastName: "Doe",
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 if contact not found", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).put("/api/contacts/999").send({
+        firstName: "Jane",
+        lastName: "Doe",
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 404 if update returns no rows", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).put("/api/contacts/1").send({
+        firstName: "Jane",
+        lastName: "Doe",
+      });
+
+      expect(response.status).toBe(404);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).put("/api/contacts/1").send({
+        firstName: "Jane",
+        lastName: "Doe",
+      });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("DELETE /api/contacts/:id", () => {
+    it("should delete a contact", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).delete("/api/contacts/1");
+
+      expect(response.status).toBe(200);
+      expect(response.body.message).toContain("deleted");
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 999 }] });
+
+      const response = await request(app).delete("/api/contacts/1");
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).delete("/api/contacts/1");
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("POST /api/contacts/:id/interactions", () => {
+    it("should add an interaction", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({
+          rows: [
+            { id: 1, interaction_type: "Email", notes: "Discussed project" },
+          ],
+        });
+
       const response = await request(app)
-        .put('/api/contacts/1')
-        .set('Authorization', `Bearer ${user.token}`)
+        .post("/api/contacts/1/interactions")
         .send({
-          firstName: 'Jane',
-          lastName: 'Smith',
+          interactionType: "Email",
+          interactionDate: "2024-01-01",
+          notes: "Discussed project",
+          outcome: "Positive",
+        });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 999 }] });
+
+      const response = await request(app)
+        .post("/api/contacts/1/interactions")
+        .send({
+          interactionType: "Email",
+          interactionDate: "2024-01-01",
         });
 
       expect(response.status).toBe(403);
     });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .post("/api/contacts/1/interactions")
+        .send({
+          interactionType: "Email",
+          interactionDate: "2024-01-01",
+        });
+
+      expect(response.status).toBe(500);
+    });
   });
 
-  describe('DELETE /api/contacts/:id', () => {
-    it('should delete a contact', async () => {
-      pool.query.mockImplementation((query, params) => {
-        if (query.includes('SELECT user_id FROM professional_contacts WHERE id')) {
-          return Promise.resolve({
-            rows: [{ user_id: userId }], // Ownership check - must match JWT token id
-          });
-        }
-        if (query.includes('DELETE FROM professional_contacts')) {
-          return Promise.resolve({ rows: [] }); // Delete result
-        }
-        return Promise.resolve({ rows: [] });
-      });
+  describe("GET /api/contacts/:id/interactions", () => {
+    it("should get interactions for a contact", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, interaction_type: "Email" }],
+        });
 
-      const response = await request(app)
-        .delete('/api/contacts/1')
-        .set('Authorization', `Bearer ${user.token}`);
+      const response = await request(app).get("/api/contacts/1/interactions");
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('deleted');
+      expect(response.body).toHaveLength(1);
     });
 
-    it('should return 403 if user does not own contact', async () => {
-      pool.query.mockResolvedValueOnce({
-        rows: [{ user_id: 999 }], // Different user owns it
-      });
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
-      const response = await request(app)
-        .delete('/api/contacts/1')
-        .set('Authorization', `Bearer ${user.token}`);
+      const response = await request(app).get("/api/contacts/1/interactions");
 
       expect(response.status).toBe(403);
     });
-  });
 
-  describe('POST /api/contacts/:id/interactions', () => {
-    it('should add an interaction to a contact', async () => {
-      pool.query.mockImplementation((query, params) => {
-        if (query.includes('SELECT user_id FROM professional_contacts WHERE id')) {
-          return Promise.resolve({
-            rows: [{ user_id: userId }], // Ownership check - must match JWT token id
-          });
-        }
-        if (query.includes('INSERT INTO contact_interactions')) {
-          return Promise.resolve({
-            rows: [{
-              id: 1,
-              contact_id: 1,
-              interaction_type: 'email',
-              interaction_date: new Date().toISOString(),
-            }],
-          });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
 
-      const response = await request(app)
-        .post('/api/contacts/1/interactions')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          interactionType: 'email',
-          notes: 'Followed up on job opportunity',
-        });
+      const response = await request(app).get("/api/contacts/1/interactions");
 
-      expect([200, 201]).toContain(response.status);
+      expect(response.status).toBe(500);
     });
   });
 
-  describe('GET /api/contacts/:id/interactions', () => {
-    it('should get all interactions for a contact', async () => {
-      pool.query.mockImplementation((query, params) => {
-        if (query.includes('SELECT user_id FROM professional_contacts WHERE id')) {
-          return Promise.resolve({
-            rows: [{ user_id: userId }], // Ownership check - must match JWT token id
-          });
-        }
-        if (query.includes('SELECT * FROM contact_interactions')) {
-          return Promise.resolve({
-            rows: [{
-              id: 1,
-              contact_id: 1,
-              interaction_type: 'email',
-            }],
-          });
-        }
-        return Promise.resolve({ rows: [] });
-      });
+  describe("POST /api/contacts/:id/reminders", () => {
+    it("should set a reminder", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, reminder_type: "Follow-up" }],
+        });
 
       const response = await request(app)
-        .get('/api/contacts/1/interactions')
-        .set('Authorization', `Bearer ${user.token}`);
+        .post("/api/contacts/1/reminders")
+        .send({
+          reminderType: "Follow-up",
+          reminderDate: "2024-02-01",
+          description: "Check in after interview",
+        });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ user_id: 999 }] });
+
+      const response = await request(app)
+        .post("/api/contacts/1/reminders")
+        .send({
+          reminderType: "Follow-up",
+          reminderDate: "2024-02-01",
+        });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .post("/api/contacts/1/reminders")
+        .send({
+          reminderType: "Follow-up",
+          reminderDate: "2024-02-01",
+        });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("GET /api/contacts/:id/reminders", () => {
+    it("should get reminders for a contact", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({
+          rows: [{ id: 1, reminder_type: "Follow-up" }],
+        });
+
+      const response = await request(app).get("/api/contacts/1/reminders");
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).get("/api/contacts/1/reminders");
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).get("/api/contacts/1/reminders");
+
+      expect(response.status).toBe(500);
     });
   });
 
-  describe('POST /api/contacts/:id/reminders', () => {
-    it('should create a reminder for a contact', async () => {
-      pool.query.mockImplementation((query, params) => {
-        if (query.includes('SELECT user_id FROM professional_contacts WHERE id')) {
-          return Promise.resolve({
-            rows: [{ user_id: userId }], // Ownership check - must match JWT token id
-          });
-        }
-        if (query.includes('INSERT INTO contact_reminders')) {
-          return Promise.resolve({
-            rows: [{
-              id: 1,
-              contact_id: 1,
-              reminder_type: 'follow_up',
-              reminder_date: new Date().toISOString(),
-              description: 'Follow up',
-            }],
-          });
+  describe("PUT /api/contacts/reminders/:reminderId", () => {
+    it("should update reminder status", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, completed: true }] });
+
+      const response = await request(app)
+        .put("/api/contacts/reminders/1")
+        .send({ completed: true });
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .put("/api/contacts/reminders/1")
+        .send({ completed: true });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .put("/api/contacts/reminders/1")
+        .send({ completed: true });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("POST /api/contact-groups", () => {
+    it("should create a new group", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, name: "Tech Contacts" }],
+      });
+
+      const response = await request(app).post("/api/contact-groups").send({
+        name: "Tech Contacts",
+        description: "People in tech industry",
+      });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 400 if name is missing", async () => {
+      const response = await request(app)
+        .post("/api/contact-groups")
+        .send({ description: "Some group" });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should handle duplicate group error", async () => {
+      mockQuery.mockRejectedValueOnce({ code: "23505" });
+
+      const response = await request(app)
+        .post("/api/contact-groups")
+        .send({ name: "Tech Contacts" });
+
+      expect(response.status).toBe(409);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .post("/api/contact-groups")
+        .send({ name: "Tech Contacts" });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("GET /api/contact-groups", () => {
+    it("should get all groups", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, name: "Tech Contacts" }],
+      });
+
+      const response = await request(app).get("/api/contact-groups");
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).get("/api/contact-groups");
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("POST /api/contact-groups/:groupId/contacts/:contactId", () => {
+    it("should add contact to group", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).post(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 403 if group not owned", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).post(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 403 if contact not owned", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).post(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle duplicate mapping error", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockRejectedValueOnce({ code: "23505" });
+
+      const response = await request(app).post(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(409);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).post(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("DELETE /api/contact-groups/:groupId/contacts/:contactId", () => {
+    it("should remove contact from group", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).delete(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should return 403 if group not owned", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).delete(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).delete(
+        "/api/contact-groups/1/contacts/1"
+      );
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("POST /api/contacts/:id/links", () => {
+    it("should create a contact link", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ user_id: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ id: 1, link_type: "Job" }] });
+
+      const response = await request(app).post("/api/contacts/1/links").send({
+        linkType: "Job",
+        linkId: 123,
+        linkDescription: "Referred me for position",
+      });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 403 if not authorized", async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app).post("/api/contacts/1/links").send({
+        linkType: "Job",
+      });
+
+      expect(response.status).toBe(403);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).post("/api/contacts/1/links").send({
+        linkType: "Job",
+      });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("GET /api/contacts/strength/:strength", () => {
+    it("should get contacts by strength", async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, relationship_strength: 5 }],
+      });
+
+      const response = await request(app).get("/api/contacts/strength/4");
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should handle database errors", async () => {
+      mockQuery.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app).get("/api/contacts/strength/4");
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("POST /api/contacts/import/csv", () => {
+    it("should import contacts from CSV", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({
+          contacts: [
+            { firstName: "John", lastName: "Doe", email: "john@test.com" },
+          ],
+          importSource: "CSV",
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.contacts).toHaveLength(1);
+    });
+
+    it("should import contacts without email", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({
+          contacts: [{ firstName: "John", lastName: "Doe" }],
+        });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should skip contacts without names", async () => {
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({
+          contacts: [{ email: "john@test.com" }],
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.contacts).toHaveLength(0);
+    });
+
+    it("should return 400 if no contacts provided", async () => {
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({ contacts: [] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should handle individual contact import errors", async () => {
+      mockQuery
+        .mockRejectedValueOnce(new Error("Contact error"))
+        .mockResolvedValueOnce({ rows: [{ id: 2, first_name: "Jane" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({
+          contacts: [
+            { firstName: "John", lastName: "Doe", email: "john@test.com" },
+            { firstName: "Jane", lastName: "Smith", email: "jane@test.com" },
+          ],
+        });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should continue importing when individual contacts fail", async () => {
+      // The import route handles individual contact errors gracefully
+      // First contact fails, second succeeds
+      mockQuery
+        .mockRejectedValueOnce(new Error("First contact failed"))
+        .mockResolvedValueOnce({ rows: [{ id: 2, first_name: "Jane" }] })
+        .mockResolvedValueOnce({ rows: [] }); // Log import
+
+      const response = await request(app)
+        .post("/api/contacts/import/csv")
+        .send({
+          contacts: [
+            { firstName: "John", lastName: "Doe", email: "john@test.com" },
+            { firstName: "Jane", lastName: "Smith", email: "jane@test.com" },
+          ],
+        });
+
+      // Route returns 201 because it handles errors gracefully
+      expect(response.status).toBe(201);
+      // Only the successful contact is in the result
+      expect(response.body.contacts.length).toBeLessThanOrEqual(2);
+    });
+  });
+
+  describe("POST /api/contacts/import/google", () => {
+    it("should import contacts from Google vCard", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+N:Doe;John;;;
+FN:John Doe
+EMAIL:john@example.com
+TEL:123-456-7890
+TITLE:Engineer
+ORG:Tech Corp
+END:VCARD`;
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should import contact without email", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+N:Doe;John;;;
+FN:John Doe
+TEL:123-456-7890
+END:VCARD`;
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should parse URL and NOTE fields", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+N:Doe;John;;;
+FN:John Doe
+URL;type=linkedin:https://linkedin.com/in/johndoe
+NOTE:Met at conference
+END:VCARD`;
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should handle multiple vCards", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+N:Doe;John;;;
+FN:John Doe
+END:VCARD
+BEGIN:VCARD
+VERSION:3.0
+N:Smith;Jane;;;
+FN:Jane Smith
+END:VCARD`;
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, first_name: "John" }] })
+        .mockResolvedValueOnce({ rows: [{ id: 2, first_name: "Jane" }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+    });
+
+    it("should return 400 if no vCard data provided", async () => {
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({});
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 if vCard data is not a string", async () => {
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData: 123 });
+
+      expect(response.status).toBe(400);
+    });
+
+    it("should skip invalid vCards without names", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+EMAIL:john@test.com
+END:VCARD`;
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+      expect(response.body.contacts).toHaveLength(0);
+    });
+
+    it("should handle contact import errors gracefully", async () => {
+      const vCardData = `BEGIN:VCARD
+VERSION:3.0
+N:Doe;John;;;
+FN:John Doe
+EMAIL:john@test.com
+END:VCARD`;
+
+      mockQuery.mockRejectedValueOnce(new Error("Contact error"));
+
+      const response = await request(app)
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
+
+      expect(response.status).toBe(201);
+      expect(response.body.contacts).toHaveLength(0);
+    });
+
+    it("should handle overall database errors", async () => {
+      // The import route has a top-level try-catch that should catch this
+      // But individual contact errors are caught separately
+      // This tests the outer error handler
+      const vCardData = `BEGIN:VCARD
+N:Doe;John;;;
+EMAIL:john@test.com
+END:VCARD`;
+
+      // Set up mock to throw synchronously (simulating connection error)
+      let callCount = 0;
+      mockQuery.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First call succeeds (or we could throw)
+          throw new Error("Connection failed immediately");
         }
         return Promise.resolve({ rows: [] });
       });
 
       const response = await request(app)
-        .post('/api/contacts/1/reminders')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          reminderType: 'follow_up',
-          reminderDate: new Date().toISOString(),
-          description: 'Follow up',
-        });
+        .post("/api/contacts/import/google")
+        .send({ vCardData });
 
-      expect([200, 201]).toContain(response.status);
+      // The route catches individual errors and continues
+      // So it returns 201 even with some failures
+      expect(response.status).toBe(201);
+
+      // Reset mock
+      mockQuery.mockReset();
     });
   });
 
-  describe('POST /api/contact-groups', () => {
-    it('should create a contact group', async () => {
-      pool.query.mockResolvedValueOnce({
-        rows: [{
-          id: 1,
-          user_id: user.id,
-          name: 'Tech Industry',
-          description: null,
-        }],
-      });
-
-      const response = await request(app)
-        .post('/api/contact-groups')
-        .set('Authorization', `Bearer ${user.token}`)
-        .send({
-          name: 'Tech Industry',
-        });
-
-      expect([200, 201]).toContain(response.status);
-    });
-  });
-
-  describe('GET /api/contact-groups', () => {
-    it('should get all contact groups', async () => {
-      pool.query.mockResolvedValueOnce({
-        rows: [{
-          id: 1,
-          user_id: user.id,
-          group_name: 'Tech Industry',
-        }],
-      });
-
-      const response = await request(app)
-        .get('/api/contact-groups')
-        .set('Authorization', `Bearer ${user.token}`);
-
-      expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+  describe("setContactsPool", () => {
+    it("should set the pool", () => {
+      const mockPool = { query: vi.fn() };
+      setContactsPool(mockPool);
+      // No error means success
+      expect(true).toBe(true);
     });
   });
 });
-

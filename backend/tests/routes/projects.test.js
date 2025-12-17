@@ -11,35 +11,6 @@ import projectsRoutes from '../../routes/projects.js';
 import { createTestUser, queryTestDb } from '../helpers/index.js';
 
 // Mock external services
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(() => ({
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: { text: vi.fn(() => 'Mocked AI response') }
-      })
-    }))
-  }))
-}));
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{ message: { content: 'Mocked OpenAI response' } }]
-        })
-      }
-    }
-  }))
-}));
-
-vi.mock('resend', () => ({
-  Resend: vi.fn(() => ({
-    emails: {
-      send: vi.fn().mockResolvedValue({ id: 'mock-email-id' })
-    }
-  }))
-}));
 
 describe('Projects Routes', () => {
   let app;

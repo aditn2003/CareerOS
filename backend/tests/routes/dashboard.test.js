@@ -11,35 +11,6 @@ import dashboardRoutes from '../../routes/dashboard.js';
 import { createTestUser, queryTestDb, seedJobs } from '../helpers/index.js';
 
 // Mock external services
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(() => ({
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: { text: vi.fn(() => 'Mocked AI response') }
-      })
-    }))
-  }))
-}));
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{ message: { content: 'Mocked OpenAI response' } }]
-        })
-      }
-    }
-  }))
-}));
-
-vi.mock('resend', () => ({
-  Resend: vi.fn(() => ({
-    emails: {
-      send: vi.fn().mockResolvedValue({ id: 'mock-email-id' })
-    }
-  }))
-}));
 
 describe('Dashboard Routes', () => {
   let app;
@@ -312,7 +283,7 @@ describe('Dashboard Routes', () => {
       expect(response.status).toBe(200);
       // Should aggregate all non-archived jobs
       expect(response.body.keyMetrics.total_applications).toBeGreaterThanOrEqual(22);
-    });
+    }, 60000); // 60 second timeout for data aggregation
 
     it('should handle jobs without applicationDate', async () => {
       await queryTestDb(

@@ -11,7 +11,6 @@ import { createTestUser } from '../helpers/auth.js';
 import axios from 'axios';
 
 // Mock axios for OpenAI API calls
-vi.mock('axios');
 
 // Create mock Supabase client factory
 function createMockSupabaseClient() {

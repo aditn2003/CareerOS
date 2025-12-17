@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import geocodingRoutes from '../../routes/geocoding.js';
-import { createTestUser } from '../helpers/auth.js';
 import pool from '../../db/pool.js';
 import axios from 'axios';
 
@@ -24,23 +23,35 @@ vi.mock('axios', () => ({
   },
 }));
 
+vi.mock('../../utils/apiTrackingService.js', () => ({
+  trackApiCall: vi.fn((name, fn) => fn()),
+}));
+
+vi.mock('jsonwebtoken', () => ({
+  default: {
+    verify: vi.fn((token, secret) => {
+      if (token && secret) {
+        return { id: 1 };
+      }
+      throw new Error('Invalid token');
+    }),
+  },
+}));
+
 describe('Geocoding Routes', () => {
   let app;
-  let user;
-  let userId;
+  let token;
+  let userId = 1;
 
   beforeEach(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
     
+    // Create a test token (any string will work since jwt.verify is mocked)
+    token = 'test-token';
+    
     app = express();
     app.use(express.json());
     app.use('/api/geocoding', geocodingRoutes);
-    
-    user = await createTestUser();
-    
-    const jwtModule = await import('jsonwebtoken');
-    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'test-secret-key');
-    userId = Number(decoded.id);
     
     vi.clearAllMocks();
   });
@@ -88,7 +99,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/geocode')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ location: 'New York, NY' });
 
       expect(response.status).toBe(200);
@@ -109,7 +120,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/geocode')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ location: 'New York, NY' });
 
       expect(response.status).toBe(200);
@@ -120,7 +131,7 @@ describe('Geocoding Routes', () => {
     it('should return 400 if location is missing', async () => {
       const response = await request(app)
         .post('/api/geocoding/geocode')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({});
 
       expect(response.status).toBe(400);
@@ -132,7 +143,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/geocode')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ location: 'InvalidLocation12345' });
 
       expect(response.status).toBe(404);
@@ -169,7 +180,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/geocode/batch')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ locations: ['New York, NY', 'Los Angeles, CA'] });
 
       expect(response.status).toBe(200);
@@ -181,7 +192,7 @@ describe('Geocoding Routes', () => {
     it('should return 400 if locations is not an array', async () => {
       const response = await request(app)
         .post('/api/geocoding/geocode/batch')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ locations: 'not-an-array' });
 
       expect(response.status).toBe(400);
@@ -225,7 +236,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/commute')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ jobId: 1 });
 
       expect(response.status).toBe(200);
@@ -295,7 +306,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/commute')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ jobId: 1 });
 
       expect(response.status).toBe(200);
@@ -306,10 +317,290 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/commute')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ jobId: 999 });
 
       expect(response.status).toBe(404);
+    });
+
+    it('should geocode profile location when coordinates missing', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'New York, NY',
+              latitude: 40.7128,
+              longitude: -74.0060,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        // Match the profile query - no coordinates, but has location
+        if (query.includes('SELECT home_latitude, home_longitude, location') && 
+            query.includes('FROM profiles') && 
+            query.includes('WHERE user_id = $1') &&
+            params && params[0] === userId) {
+          return Promise.resolve({
+            rows: [{
+              home_latitude: null,
+              home_longitude: null,
+              location: 'Los Angeles, CA',
+            }],
+          });
+        }
+        // Match geocoding cache queries
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Match UPDATE profiles query for home location
+        if (query.includes('UPDATE profiles SET home_latitude')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '34.0522',
+          lon: '-118.2437',
+          display_name: 'Los Angeles, CA, USA',
+          address: { city: 'Los Angeles', country_code: 'us' },
+        }],
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'OK', zoneName: 'America/Los_Angeles', gmtOffset: -28800 },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should return 400 when home location is not set', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'New York, NY',
+              latitude: 40.7128,
+              longitude: -74.0060,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        // Match the profile query - no coordinates and no location
+        if (query.includes('SELECT home_latitude, home_longitude, location') && 
+            query.includes('FROM profiles') && 
+            query.includes('WHERE user_id = $1') &&
+            params && params[0] === userId) {
+          return Promise.resolve({
+            rows: [{
+              home_latitude: null,
+              home_longitude: null,
+              location: null,
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Home location not set');
+    });
+
+    it('should handle errors in commute calculation', async () => {
+      pool.query.mockImplementation(() => {
+        throw new Error('Database error');
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBeDefined();
+    });
+
+    it('should return 400 when job location is not available', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query - no location and no coordinates
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: null,
+              latitude: null,
+              longitude: null,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Job location not available');
+    });
+
+    it('should return 404 when job location cannot be geocoded', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query - has location but no coordinates
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'InvalidLocation12345',
+              latitude: null,
+              longitude: null,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        // Match geocoding cache queries
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({ data: [] });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('Could not geocode job location');
+    });
+
+    it('should return 404 when provided homeLocation cannot be geocoded', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'New York, NY',
+              latitude: 40.7128,
+              longitude: -74.0060,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        // Match geocoding cache queries for home location
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({ data: [] });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1, homeLocation: 'InvalidLocation12345' });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('Could not geocode home location');
+    });
+
+    it('should use provided homeLocation parameter', async () => {
+      pool.query.mockImplementation((query, params) => {
+        // Match the job query
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'New York, NY',
+              latitude: 40.7128,
+              longitude: -74.0060,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        // Match geocoding cache queries for home location
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '34.0522',
+          lon: '-118.2437',
+          display_name: 'Los Angeles, CA, USA',
+          address: { city: 'Los Angeles', country_code: 'us' },
+        }],
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'OK', zoneName: 'America/Los_Angeles', gmtOffset: -28800 },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1, homeLocation: 'Los Angeles, CA' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
     });
   });
 
@@ -343,7 +634,7 @@ describe('Geocoding Routes', () => {
 
       const response = await request(app)
         .post('/api/geocoding/home-location')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({ location: 'New York, NY' });
 
       expect(response.status).toBe(200);
@@ -354,10 +645,56 @@ describe('Geocoding Routes', () => {
     it('should return 400 if location is missing', async () => {
       const response = await request(app)
         .post('/api/geocoding/home-location')
-        .set('Authorization', `Bearer ${user.token}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({});
 
       expect(response.status).toBe(400);
+    });
+
+    it('should return 404 if location cannot be geocoded', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT latitude, longitude FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({ data: [] });
+
+      const response = await request(app)
+        .post('/api/geocoding/home-location')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'InvalidLocation12345' });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('Location not found');
+    });
+
+    it('should handle errors when setting home location', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT latitude, longitude FROM geocoding_cache') ||
+            query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('UPDATE profiles SET location')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      // Make axios throw an error to trigger the catch block
+      axios.get.mockRejectedValueOnce(new Error('Network error'));
+
+      const response = await request(app)
+        .post('/api/geocoding/home-location')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toBeDefined();
     });
   });
 });

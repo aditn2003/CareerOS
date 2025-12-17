@@ -42,23 +42,30 @@ export const openaiMock = {
   },
 };
 
-// Google Generative AI mock - needs to be a constructor
-export const GoogleGenerativeAIMock = vi.fn().mockImplementation(() => ({
-  getGenerativeModel: vi.fn(() => ({
-    generateContent: vi.fn().mockResolvedValue({
+// Google Generative AI mock - proper constructor function
+export function GoogleGenerativeAIMock(apiKey) {
+  this.apiKey = apiKey;
+}
+GoogleGenerativeAIMock.prototype.getGenerativeModel = function(config) {
+  return {
+    generateContent: function() {
+      return Promise.resolve({
       response: {
-        text: vi.fn(() => 'Mock Google AI response'),
-      },
-    }),
-  })),
-}));
+          text: function() { return 'Mock Google AI response'; }
+        }
+      });
+    }
+  };
+};
 
 export const googleGenAIMock = {
-  generateContent: vi.fn().mockResolvedValue({
+  generateContent: function() {
+    return Promise.resolve({
     response: {
-      text: vi.fn(() => 'Mock Google AI response'),
-    },
-  }),
+        text: function() { return 'Mock Google AI response'; }
+      }
+    });
+  }
 };
 
 // Supabase mock
@@ -136,8 +143,8 @@ export function resetMocks() {
   // Reset OpenAI
   openaiMock.chat.completions.create.mockClear();
   
-  // Reset Google Gen AI
-  googleGenAIMock.generateContent.mockClear();
+  // Note: googleGenAIMock.generateContent is no longer a vi.fn() - global mocks use plain functions
+  // The global mocks in vitest-setup.js handle this now
   
   // Reset Supabase
   supabaseMock.from.mockClear();
@@ -161,68 +168,8 @@ export function resetMocks() {
   fsMocks.readdirSync.mockClear();
 }
 
-/**
- * Sets up all mocks for a test
- */
-export function setupMocks() {
-  // Mock nodemailer
-  vi.mock('nodemailer', () => ({
-    default: nodemailerMock,
-  }));
-  
-  // Mock resend
-  vi.mock('resend', () => ({
-    Resend: vi.fn(() => resendMock),
-  }));
-  
-  // Mock OpenAI
-  vi.mock('openai', () => ({
-    default: vi.fn(() => openaiMock),
-  }));
-  
-  // Mock Google Generative AI
-  vi.mock('@google/generative-ai', () => ({
-    GoogleGenerativeAI: GoogleGenerativeAIMock,
-  }));
-  
-  // Mock Supabase
-  vi.mock('@supabase/supabase-js', () => ({
-    createClient: vi.fn(() => supabaseMock),
-  }));
-  
-  // Mock axios
-  vi.mock('axios', () => ({
-    default: axiosMock,
-  }));
-  
-  // Mock puppeteer
-  vi.mock('puppeteer', () => ({
-    default: puppeteerMock,
-  }));
-  
-  // Mock fs
-  vi.mock('fs', () => ({
-    default: fsMocks,
-    readFileSync: fsMocks.readFileSync,
-    writeFileSync: fsMocks.writeFileSync,
-    existsSync: fsMocks.existsSync,
-    mkdirSync: fsMocks.mkdirSync,
-    unlinkSync: fsMocks.unlinkSync,
-    readdirSync: fsMocks.readdirSync,
-  }));
-  
-  // Mock fs-extra
-  vi.mock('fs-extra', () => ({
-    default: fsMocks,
-    ...fsMocks,
-  }));
-  
-  // Mock path
-  vi.mock('path', () => ({
-    default: pathMocks,
-    ...pathMocks,
-  }));
-}
+// NOTE: setupMocks() has been removed - global mocks are now defined in vitest-setup.js
+// This prevents conflicts between mock definitions
 
 export default {
   emailMocks,
@@ -236,6 +183,5 @@ export default {
   fsMocks,
   pathMocks,
   resetMocks,
-  setupMocks,
 };
 
