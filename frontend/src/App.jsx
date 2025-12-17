@@ -74,6 +74,18 @@ const LinkedInCallback = lazy(
 ); // LinkedIn OAuth callback (new)
 const DocsManagement = lazy(() => import("./pages/DocsManagement"));
 
+// ---------- Help & Legal Pages (Lazy) ----------
+const GettingStarted = lazy(() => import("./pages/Help/GettingStarted"));
+const FAQ = lazy(() => import("./pages/Help/FAQ"));
+const TermsOfService = lazy(() => import("./pages/Help/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("./pages/Help/PrivacyPolicy"));
+
+// ---------- Components (Lazy) ----------
+const FollowUpReminders = lazy(() => import("./components/FollowUpReminders"));
+
+// ---------- Admin Pages (Lazy) ----------
+const ApiMonitoringDashboard = lazy(() => import("./pages/Admin/ApiMonitoringDashboard"));
+
 const Networking = lazy(
   () => import("./pages/Networking/Networking")
 ); // Professional Networking Management
