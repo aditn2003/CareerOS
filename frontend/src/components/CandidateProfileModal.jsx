@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { api } from "../api";
+import { api, baseURL } from "../api";
 import "./CandidateProfileModal.css";
 
 export default function CandidateProfileModal({
@@ -150,7 +150,7 @@ export default function CandidateProfileModal({
               <img
                 src={profile.profile.pictureUrl.startsWith('http') 
                   ? profile.profile.pictureUrl 
-                  : `http://localhost:4000/${profile.profile.pictureUrl.replace(/^\/+/, '')}`}
+                  : `${baseURL}/${profile.profile.pictureUrl.replace(/^\/+/, '')}`}
                 alt={candidateName}
                 className="profile-picture"
                 onError={(e) => {

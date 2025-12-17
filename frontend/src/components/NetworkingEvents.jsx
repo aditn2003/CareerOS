@@ -19,9 +19,10 @@ import {
   FileText,
   ChevronDown,
 } from 'lucide-react';
+import { baseURL } from '../api';
 import './NetworkingEvents.css';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = `${baseURL}/api`;
 
 // Helper function to convert date string to EST timezone (YYYY-MM-DD format)
 const convertToEST = (dateString) => {

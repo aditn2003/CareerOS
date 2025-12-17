@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const baseURL =
+export const baseURL =
   import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === "localhost"
     ? "http://localhost:4000"

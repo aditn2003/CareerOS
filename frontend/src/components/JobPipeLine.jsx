@@ -7,7 +7,7 @@ import JobSearchFilter from "./JobSearchFilter";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import CompanyDetailsModal from "./CompanyDetailsModal";
 import { FaArchive } from "react-icons/fa"; // <-- ADDED
-import { api } from "../api"; // <-- ADDED
+import { api, baseURL } from "../api"; // <-- ADDED
 
 // 🟡 highlight helper
 function highlight(text, term) {
@@ -56,7 +56,7 @@ export default function JobPipeline({ token, onApply }) {
         const res = await api.get(`/api/companies/${job.company}`);
         if (res.status === 200) {
           if (res.data.logo_url) {
-            logos[job.company] = `http://localhost:4000${res.data.logo_url}`;
+            logos[job.company] = `${baseURL}${res.data.logo_url}`;
           }
         }
       } catch (err) {

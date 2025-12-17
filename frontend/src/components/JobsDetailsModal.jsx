@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./JobDetails.css";
-import { api, createOffer, getOffers, updateOffer } from "../api";
+import { api, baseURL, createOffer, getOffers, updateOffer } from "../api";
 import FileUpload from "./FileUpload";
 import QualityScoreCard from "./QualityScoreCard";
 import ScoreBreakdown from "./ScoreBreakdown";
@@ -169,7 +169,7 @@ export default function JobDetailsModal({
   useEffect(() => {
     async function loadJob() {
       try {
-        const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch job details");
@@ -244,7 +244,7 @@ export default function JobDetailsModal({
       async function loadCoverLetter() {
         try {
           const res = await fetch(
-            `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
+            `${baseURL}/api/cover-letters/${job.cover_letter_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -301,7 +301,7 @@ export default function JobDetailsModal({
 
       try {
         const res = await fetch(
-          `http://localhost:4000/api/resumes/${job.resume_id}`,
+          `${baseURL}/api/resumes/${job.resume_id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -333,7 +333,7 @@ export default function JobDetailsModal({
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/resumes/${job.resume_id}/download`,
+        `${baseURL}/api/resumes/${job.resume_id}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -363,7 +363,7 @@ export default function JobDetailsModal({
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/cover-letters/${job.cover_letter_id}/download`,
+        `${baseURL}/api/cover-letters/${job.cover_letter_id}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -409,7 +409,7 @@ export default function JobDetailsModal({
       if (updatedJob.resume_id) {
         try {
           const resumeRes = await fetch(
-            `http://localhost:4000/api/resumes/${updatedJob.resume_id}`,
+            `${baseURL}/api/resumes/${updatedJob.resume_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -428,7 +428,7 @@ export default function JobDetailsModal({
       if (updatedJob.cover_letter_id) {
         try {
           const coverRes = await fetch(
-            `http://localhost:4000/api/cover-letters/${updatedJob.cover_letter_id}`,
+            `${baseURL}/api/cover-letters/${updatedJob.cover_letter_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -471,7 +471,7 @@ export default function JobDetailsModal({
         alert("✅ Cover letter generated and linked successfully!");
         
         // Reload job to get updated cover_letter_id
-        const jobRes = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const jobRes = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (jobRes.ok) {
@@ -482,7 +482,7 @@ export default function JobDetailsModal({
           if (jobData.job.cover_letter_id) {
             try {
               const clRes = await fetch(
-                `http://localhost:4000/api/cover-letter/${jobData.job.cover_letter_id}`,
+                `${baseURL}/api/cover-letter/${jobData.job.cover_letter_id}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                 }
@@ -527,7 +527,7 @@ export default function JobDetailsModal({
 
     try {
       setSaving(true);
-      const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+      const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
