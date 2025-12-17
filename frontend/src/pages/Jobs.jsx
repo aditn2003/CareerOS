@@ -14,6 +14,7 @@ import OfferComparison from "../components/OfferComparison";
 import CareerGrowthCalculator from "../components/CareerGrowthCalculator";
 import JobTimeline from "../components/JobTimeline";
 import { useAuth } from "../contexts/AuthContext";
+import { api } from "../api";
 import "./Jobs.css";
 import "./StatisticsLayout.css";
 
@@ -45,20 +46,9 @@ export default function Jobs() {
     // Fetch forwarding email address
     const fetchForwardingEmail = async () => {
       try {
-        const response = await fetch("/api/jobs/forwarding-email", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          console.log("📧 Forwarding email fetched:", data);
-          setForwardingEmail(data.forwarding_email);
-        } else {
-          console.error("Failed to fetch forwarding email - response not ok:", response.status, response.statusText);
-          // Set a fallback email if API fails
-          setForwardingEmail("forward@jobs.atscareeros.com");
-        }
+        const response = await api.get("/api/jobs/forwarding-email");
+        console.log("📧 Forwarding email fetched:", response.data);
+        setForwardingEmail(response.data.forwarding_email);
       } catch (error) {
         console.error("Failed to fetch forwarding email:", error);
         // Set a fallback email if API fails
@@ -85,15 +75,8 @@ export default function Jobs() {
   useEffect(() => {
     const fetchGapData = async () => {
       try {
-        const response = await fetch("/api/jobs/application-gaps", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setGapData(data);
-        }
+        const response = await api.get("/api/jobs/application-gaps");
+        setGapData(response.data);
       } catch (error) {
         console.error("Failed to fetch gap data:", error);
       }
@@ -107,18 +90,11 @@ export default function Jobs() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await fetch("/api/jobs/email-notifications", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.notifications && data.notifications.length > 0) {
-            setEmailNotifications(data.notifications);
-            // Refresh job list when new notifications arrive
-            setRefreshKey(Date.now());
-          }
+        const response = await api.get("/api/jobs/email-notifications");
+        if (response.data.notifications && response.data.notifications.length > 0) {
+          setEmailNotifications(response.data.notifications);
+          // Refresh job list when new notifications arrive
+          setRefreshKey(Date.now());
         }
       } catch (error) {
         // Silently fail - table might not exist
@@ -136,12 +112,7 @@ export default function Jobs() {
   // Dismiss a notification
   const dismissNotification = async (id) => {
     try {
-      await fetch(`/api/jobs/email-notifications/${id}/read`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await api.post(`/api/jobs/email-notifications/${id}/read`);
       setEmailNotifications(prev => prev.filter(n => n.id !== id));
     } catch (error) {
       console.error("Failed to dismiss notification:", error);
@@ -151,12 +122,7 @@ export default function Jobs() {
   // Dismiss all notifications
   const dismissAllNotifications = async () => {
     try {
-      await fetch("/api/jobs/email-notifications/read-all", {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await api.post("/api/jobs/email-notifications/read-all");
       setEmailNotifications([]);
     } catch (error) {
       console.error("Failed to dismiss notifications:", error);
@@ -167,22 +133,18 @@ export default function Jobs() {
   const handleExport = async (format = 'csv') => {
     setExporting(true);
     try {
-      const response = await fetch(`/api/jobs/export?format=${format}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await api.get(`/api/jobs/export?format=${format}`, {
+        responseType: 'blob'
       });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = format === 'csv' ? 'job_applications.csv' : 'job_applications.json';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = format === 'csv' ? 'job_applications.csv' : 'job_applications.json';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (error) {
       console.error("Failed to export:", error);
     } finally {
