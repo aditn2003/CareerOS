@@ -878,6 +878,107 @@ router.get("/history", auth, async (req, res) => {
   }
 });
 
+// ==================================================================
+//               UC-125 ROUTES (Must come BEFORE /:id route!)
+// ==================================================================
+
+// Get forwarding email address
+router.get("/forwarding-email", auth, async (req, res) => {
+  try {
+    const forwardingEmail = process.env.EMAIL_FORWARDING_ADDRESS || 'forward@jobs.atscareeros.com';
+    res.json({
+      forwarding_email: forwardingEmail,
+      instructions: "Forward job application confirmation emails to this address to automatically import them into your job tracker."
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get application gaps
+router.get("/application-gaps", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const jobsResult = await pool.query(
+      `SELECT id, title, company, platform, "applicationDate", created_at, is_imported
+       FROM jobs WHERE user_id = $1 AND ("isArchived" = false OR "isArchived" IS NULL)
+       ORDER BY COALESCE("applicationDate", created_at) ASC`,
+      [userId]
+    );
+    
+    const jobs = jobsResult.rows;
+    const gaps = [];
+    
+    for (let i = 1; i < jobs.length; i++) {
+      const prevDate = new Date(jobs[i-1].applicationDate || jobs[i-1].created_at);
+      const currDate = new Date(jobs[i].applicationDate || jobs[i].created_at);
+      const diffDays = Math.floor((currDate - prevDate) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 14) {
+        gaps.push({
+          start_date: prevDate.toISOString(),
+          end_date: currDate.toISOString(),
+          days: diffDays,
+          suggestion: `No applications for ${diffDays} days between ${jobs[i-1].company} and ${jobs[i].company}`
+        });
+      }
+    }
+    
+    res.json({
+      gaps,
+      has_gaps: gaps.length > 0,
+      total_jobs: jobs.length,
+      recommendation: gaps.length > 0 ? "Consider applying more consistently to maintain momentum." : "Great job staying consistent!"
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Export job applications
+router.get("/export", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const format = req.query.format || 'csv';
+    
+    const result = await pool.query(
+      `SELECT title, company, location, status, platform, is_imported, 
+              "applicationDate" as application_date, deadline, salary_min, salary_max, url, description, created_at
+       FROM jobs WHERE user_id = $1 AND ("isArchived" = false OR "isArchived" IS NULL)
+       ORDER BY COALESCE("applicationDate", created_at) DESC`,
+      [userId]
+    );
+    
+    const jobs = result.rows;
+    
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="job_applications.json"');
+      return res.json({ exported_at: new Date().toISOString(), total: jobs.length, applications: jobs });
+    }
+    
+    const csvHeaders = ['Title','Company','Location','Status','Platform','Imported','Application Date','Deadline','Salary Min','Salary Max','URL'];
+    const csvRows = jobs.map(j => [
+      `"${(j.title||'').replace(/"/g,'""')}"`,
+      `"${(j.company||'').replace(/"/g,'""')}"`,
+      `"${(j.location||'').replace(/"/g,'""')}"`,
+      `"${(j.status||'').replace(/"/g,'""')}"`,
+      `"${(j.platform||'manual')}"`,
+      j.is_imported?'Yes':'No',
+      j.application_date?new Date(j.application_date).toISOString().split('T')[0]:'',
+      j.deadline?new Date(j.deadline).toISOString().split('T')[0]:'',
+      j.salary_min||'',j.salary_max||'',
+      `"${(j.url||'').replace(/"/g,'""')}"`
+    ].join(','));
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="job_applications.csv"');
+    res.send([csvHeaders.join(','), ...csvRows].join('\n'));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---------- GET JOB BY ID ----------
 // UC-145: Added validateIdParam to prevent SQL injection and return proper 400 error
 router.get("/:id", auth, validateIdParam, async (req, res) => {
