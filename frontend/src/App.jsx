@@ -90,16 +90,6 @@ const Networking = lazy(
   () => import("./pages/Networking/Networking")
 ); // Professional Networking Management
 
-// ---------- Help & Legal Pages (Lazy) ----------
-const GettingStarted = lazy(() => import("./pages/Help/GettingStarted"));
-const FAQ = lazy(() => import("./pages/Help/FAQ"));
-const TermsOfService = lazy(() => import("./pages/Help/TermsOfService"));
-const PrivacyPolicy = lazy(() => import("./pages/Help/PrivacyPolicy"));
-
-// ---------- Other Components (Lazy) ----------
-const FollowUpReminders = lazy(() => import("./components/FollowUpReminders"));
-const ApiMonitoringDashboard = lazy(() => import("./pages/Admin/ApiMonitoringDashboard"));
-
 // ---------- Resume Flow (Lazy) ----------
 const ResumeBuilder = lazy(() => import("./pages/Profile/ResumeBuilder"));
 const ResumeSetup = lazy(() => import("./pages/Profile/ResumeSetup"));
@@ -156,7 +146,7 @@ function MainLayout() {
         {loading && <Spinner />}
 
         <Suspense fallback={<Spinner />}>
-          <Routes>
+        <Routes>
           {/* --- Public Routes --- */}
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
@@ -431,9 +421,9 @@ function MainLayout() {
             }
           />
 
-            {/* --- Fallback --- */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          {/* --- Fallback --- */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
         </Suspense>
       </main>
     </div>
