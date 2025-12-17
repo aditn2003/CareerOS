@@ -581,7 +581,7 @@ function generateImprovementRecommendations(predictions, jobs, skills, networkin
 // GET /api/performance-prediction
 // ------------------------------
 router.get("/", auth, async (req, res) => {
-  const userId = req.userId;
+  const userId = req.user.id;
   const { activityLevel = 'normal', marketConditions = {} } = req.query;
 
   try {

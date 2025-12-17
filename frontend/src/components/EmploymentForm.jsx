@@ -1,5 +1,15 @@
 import { useState } from "react";
-import  { api }  from "../api";
+import { api } from "../api";
+import { 
+  FaBriefcase, 
+  FaBuilding, 
+  FaMapMarkerAlt, 
+  FaCalendarAlt, 
+  FaFileAlt,
+  FaCheck,
+  FaTimes
+} from "react-icons/fa";
+import "./EmploymentForm.css";
 
 export default function EmploymentForm({ job = {}, token, onCancel, onSaved }) {
   const [form, setForm] = useState({
@@ -39,95 +49,147 @@ export default function EmploymentForm({ job = {}, token, onCancel, onSaved }) {
     }
   }
 
+  const charCount = form.description.length;
+  const charCountClass = charCount > 900 ? "danger" : charCount > 750 ? "warning" : "";
+
   return (
-    <div
-      style={{
-        background: "#f5f5f5",
-        padding: "1rem",
-        borderRadius: "10px",
-        marginBottom: "1rem",
-      }}
-    >
-      <h4>{job.id ? "Edit Employment" : "Add Employment"}</h4>
+    <div className="employment-form">
+      <div className="employment-form-header">
+        <FaBriefcase className="employment-form-header-icon" />
+        <h4>{job.id ? "Edit Employment" : "Add Employment"}</h4>
+      </div>
 
-      <label htmlFor="emp-title">Job Title *</label>
-      <input
-        id="emp-title"
-        value={form.title}
-        onChange={(e) => setForm({ ...form, title: e.target.value })}
-        aria-label="Job title"
-        aria-required="true"
-      />
+      <div className="employment-form-grid">
+        <div className="employment-form-group">
+          <label htmlFor="emp-title" className="employment-form-label">
+            <FaBriefcase />
+            <span>Job Title <span className="required">*</span></span>
+          </label>
+          <input
+            id="emp-title"
+            className="employment-form-input"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="e.g., Software Engineer"
+            aria-label="Job title"
+            aria-required="true"
+          />
+        </div>
 
-      <label htmlFor="emp-company">Company Name *</label>
-      <input
-        id="emp-company"
-        value={form.company}
-        onChange={(e) => setForm({ ...form, company: e.target.value })}
-        aria-label="Company name"
-        aria-required="true"
-      />
+        <div className="employment-form-group">
+          <label htmlFor="emp-company" className="employment-form-label">
+            <FaBuilding />
+            <span>Company Name <span className="required">*</span></span>
+          </label>
+          <input
+            id="emp-company"
+            className="employment-form-input"
+            value={form.company}
+            onChange={(e) => setForm({ ...form, company: e.target.value })}
+            placeholder="e.g., Tech Corp"
+            aria-label="Company name"
+            aria-required="true"
+          />
+        </div>
 
-      <label htmlFor="emp-location">Location</label>
-      <input
-        id="emp-location"
-        value={form.location}
-        onChange={(e) => setForm({ ...form, location: e.target.value })}
-        aria-label="Job location"
-      />
+        <div className="employment-form-group">
+          <label htmlFor="emp-location" className="employment-form-label">
+            <FaMapMarkerAlt />
+            <span>Location</span>
+          </label>
+          <input
+            id="emp-location"
+            className="employment-form-input"
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            placeholder="e.g., New York, NY"
+            aria-label="Job location"
+          />
+        </div>
 
-      <label htmlFor="emp-start-date">Start Date *</label>
-      <input
-        type="date"
-        id="emp-start-date"
-        value={form.start_date}
-        onChange={(e) => setForm({ ...form, start_date: e.target.value })}
-        aria-label="Employment start date"
-        aria-required="true"
-      />
-
-      {!form.current && (
-        <>
-          <label htmlFor="emp-end-date">End Date</label>
+        <div className="employment-form-group">
+          <label htmlFor="emp-start-date" className="employment-form-label">
+            <FaCalendarAlt />
+            <span>Start Date <span className="required">*</span></span>
+          </label>
           <input
             type="date"
-            id="emp-end-date"
-            value={form.end_date}
-            onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-            aria-label="Employment end date"
+            id="emp-start-date"
+            className="employment-form-input"
+            value={form.start_date}
+            onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+            aria-label="Employment start date"
+            aria-required="true"
           />
-        </>
-      )}
+        </div>
 
-      <label>
+        {!form.current && (
+          <div className="employment-form-group">
+            <label htmlFor="emp-end-date" className="employment-form-label">
+              <FaCalendarAlt />
+              <span>End Date</span>
+            </label>
+            <input
+              type="date"
+              id="emp-end-date"
+              className="employment-form-input"
+              value={form.end_date}
+              onChange={(e) => setForm({ ...form, end_date: e.target.value })}
+              aria-label="Employment end date"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="employment-form-checkbox-group" onClick={() => setForm({ ...form, current: !form.current })}>
         <input
           type="checkbox"
           id="emp-current"
+          className="employment-form-checkbox"
           checked={form.current}
           onChange={(e) => setForm({ ...form, current: e.target.checked })}
           aria-label="Current position"
         />
-        Current Position
-      </label>
+        <label htmlFor="emp-current" className="employment-form-checkbox-label">
+          This is my current position
+        </label>
+      </div>
 
-      <label htmlFor="emp-description">Job Description</label>
-      <textarea
-        id="emp-description"
-        maxLength={1000}
-        value={form.description}
-        onChange={(e) => setForm({ ...form, description: e.target.value })}
-        aria-label="Job description"
-        aria-describedby="emp-description-hint"
-      />
-      <span id="emp-description-hint" className="visually-hidden">Maximum 1000 characters</span>
-      <p style={{ textAlign: "right", fontSize: 12 }}>
-        {form.description.length}/1000
-      </p>
+      <div className="employment-form-group full-width">
+        <label htmlFor="emp-description" className="employment-form-label">
+          <FaFileAlt />
+          <span>Job Description & Responsibilities</span>
+        </label>
+        <textarea
+          id="emp-description"
+          className="employment-form-textarea"
+          maxLength={1000}
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="Describe your role, responsibilities, and achievements..."
+          aria-label="Job description"
+          aria-describedby="emp-description-hint"
+        />
+        <span id="emp-description-hint" className="visually-hidden">Maximum 1000 characters</span>
+        <div className={`employment-form-char-count ${charCountClass}`}>
+          {charCount}/1000 characters
+        </div>
+      </div>
 
-      <div style={{ display: "flex", gap: "1rem" }}>
-        <button onClick={save}>{job.id ? "Save Changes" : "Add"}</button>
-        <button onClick={onCancel} style={{ background: "gray" }}>
-          Cancel
+      <div className="employment-form-actions">
+        <button 
+          className="employment-form-btn employment-form-btn-primary" 
+          onClick={save}
+        >
+          <FaCheck />
+          <span>{job.id ? "Save Changes" : "Add Employment"}</span>
+        </button>
+        <button 
+          className="employment-form-btn employment-form-btn-secondary" 
+          onClick={onCancel}
+        >
+          <FaTimes />
+          <span>Cancel</span>
         </button>
       </div>
     </div>

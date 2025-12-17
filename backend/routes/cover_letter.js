@@ -22,7 +22,8 @@ let mammoth;
 dotenv.config();
 
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
+const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
 
 // ✅ Get all cover letters for a user (including global templates)
 router.get("/", auth, async (req, res) => {
@@ -63,7 +64,7 @@ router.get("/", auth, async (req, res) => {
         `
         SELECT 
           id,
-          name AS title,
+          title,
           'pdf' AS format,
           NULL AS file_url,
           content,
@@ -149,42 +150,20 @@ router.post("/", auth, async (req, res) => {
     const coverLetterName = name || title;
     if (!coverLetterName) return res.status(400).json({ error: "Name/Title is required" });
 
-    // Try with file_url column first
-    try {
-      const { rows } = await pool.query(
-        `
-        INSERT INTO cover_letters (user_id, name, content, file_url)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, name, content, file_url, created_at;
-        `,
-        [userId, coverLetterName, content || "", file_url || null]
-      );
-      // Map 'name' to 'title' for frontend compatibility
-      const coverLetter = rows[0];
-      coverLetter.title = coverLetter.name;
-      coverLetter.format = format;
-      res.json({ message: "✅ Cover letter saved", cover_letter: coverLetter });
-    } catch (fileUrlErr) {
-      // If file_url column doesn't exist, try without it
-      if (fileUrlErr.code === '42703') { // Column does not exist
+    // Insert cover letter - schema should have title and file_url columns
     const { rows } = await pool.query(
       `
-          INSERT INTO cover_letters (user_id, name, content)
-          VALUES ($1, $2, $3)
-          RETURNING id, name, content, created_at;
+      INSERT INTO cover_letters (user_id, title, content, file_url)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, title, content, file_url, created_at;
       `,
-          [userId, coverLetterName, content || ""]
-        );
-        // Map 'name' to 'title' for frontend compatibility
-        const coverLetter = rows[0];
-        coverLetter.title = coverLetter.name;
-        coverLetter.format = format;
-        if (file_url) coverLetter.file_url = file_url;
-        res.json({ message: "✅ Cover letter saved", cover_letter: coverLetter });
-      } else {
-        throw fileUrlErr;
-      }
-    }
+      [userId, coverLetterName, content || "", file_url || null]
+    );
+    // Map 'title' to 'name' for backward compatibility
+    const coverLetter = rows[0];
+    coverLetter.name = coverLetter.title;
+    coverLetter.format = format;
+    res.json({ message: "✅ Cover letter saved", cover_letter: coverLetter });
   } catch (err) {
     // Handle case where table doesn't exist yet
     if (err.code === '42P01' || err.message.includes('does not exist')) {
@@ -281,7 +260,7 @@ router.get("/:id", auth, async (req, res) => {
         result = await pool.query(
           `SELECT 
             id,
-            name AS title,
+            title,
             'pdf' AS format,
             NULL AS file_url,
             content,
@@ -302,9 +281,9 @@ router.get("/:id", auth, async (req, res) => {
     }
     
     const coverLetter = result.rows[0];
-    // Ensure title field exists (use name if title doesn't exist)
-    if (!coverLetter.title && coverLetter.name) {
-      coverLetter.title = coverLetter.name;
+    // Ensure name field exists for backward compatibility (use title if name doesn't exist)
+    if (!coverLetter.name && coverLetter.title) {
+      coverLetter.name = coverLetter.title;
     }
     
     res.json({ cover_letter: coverLetter });
@@ -343,7 +322,7 @@ router.get("/:id/download", auth, async (req, res) => {
     if (coverLetterResult.rows.length === 0) {
       try {
         coverLetterResult = await pool.query(
-          `SELECT id, name AS title, 'pdf' AS format, NULL AS file_url, content, user_id
+          `SELECT id, title, 'pdf' AS format, NULL AS file_url, content, user_id
            FROM cover_letters
            WHERE id = $1 AND user_id = $2`,
           [idNum, userId]

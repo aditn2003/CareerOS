@@ -26,14 +26,14 @@ async function getTimezoneFromCoordinates(latitude, longitude, userId = null) {
     const response = await trackApiCall(
       'google_geocoding', // Using google_geocoding service for timezone lookup
       () => axios.get("http://api.timezonedb.com/v2.1/get-time-zone", {
-        params: {
-          key: process.env.TIMEZONEDB_API_KEY || "demo",
-          format: "json",
-          by: "position",
-          lat: latitude,
-          lng: longitude,
-        },
-        timeout: 5000,
+      params: {
+        key: process.env.TIMEZONEDB_API_KEY || "demo",
+        format: "json",
+        by: "position",
+        lat: latitude,
+        lng: longitude,
+      },
+      timeout: 5000,
       }),
       {
         endpoint: '/v2.1/get-time-zone',
@@ -78,15 +78,73 @@ function auth(req, res, next) {
   }
 }
 
+// ---------- HELPER: Ensure geocoding_cache table has timezone columns ----------
+async function ensureTimezoneColumns() {
+  try {
+    // Check if timezone column exists
+    const checkTimezone = await pool.query(
+      `SELECT column_name 
+       FROM information_schema.columns 
+       WHERE table_name = 'geocoding_cache' AND column_name = 'timezone'`
+    );
+    
+    if (checkTimezone.rows.length === 0) {
+      // Add timezone columns if they don't exist
+      await pool.query(`
+        ALTER TABLE geocoding_cache 
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS utc_offset INTEGER
+      `);
+      console.log('✅ Added timezone columns to geocoding_cache table');
+    }
+  } catch (error) {
+    // If check fails, try to add columns anyway (they might already exist)
+    try {
+      await pool.query(`
+        ALTER TABLE geocoding_cache 
+        ADD COLUMN IF NOT EXISTS timezone VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS utc_offset INTEGER
+      `);
+    } catch (addError) {
+      // Columns might already exist, ignore error
+      console.log('⚠️ Could not add timezone columns (they may already exist):', addError.message);
+    }
+  }
+}
+
 // ---------- HELPER: Rate-limited geocoding request ----------
 async function geocodeWithRateLimit(locationString, userId = null) {
-  // Check cache first
-  const cacheResult = await pool.query(
-    `SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset 
-     FROM geocoding_cache 
-     WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
-    [locationString]
-  );
+  // Ensure timezone columns exist
+  await ensureTimezoneColumns();
+  
+  // Check cache first - use defensive query that handles missing columns
+  let cacheResult;
+  try {
+    cacheResult = await pool.query(
+      `SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset 
+       FROM geocoding_cache 
+       WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+      [locationString]
+    );
+  } catch (error) {
+    // If timezone columns still don't exist, try without them
+    if (error.code === '42703' && error.message.includes('timezone')) {
+      console.log('⚠️ Timezone columns not available, using fallback query');
+      cacheResult = await pool.query(
+        `SELECT latitude, longitude, display_name, location_type, country_code 
+         FROM geocoding_cache 
+         WHERE LOWER(TRIM(location_string)) = LOWER(TRIM($1))`,
+        [locationString]
+      );
+      // Add null timezone values to result
+      if (cacheResult.rows.length > 0) {
+        cacheResult.rows[0].timezone = null;
+        cacheResult.rows[0].utc_offset = null;
+      }
+    } else {
+      throw error;
+    }
+  }
 
   if (cacheResult.rows.length > 0) {
     console.log(`✅ Cache hit for: ${locationString}`);
@@ -108,16 +166,16 @@ async function geocodeWithRateLimit(locationString, userId = null) {
     const response = await trackApiCall(
       'google_geocoding', // Using google_geocoding service (Nominatim is free geocoding)
       () => axios.get("https://nominatim.openstreetmap.org/search", {
-        params: {
-          q: locationString,
-          format: "json",
-          limit: 10, // Get more results to find city/town level
-          addressdetails: 1,
-          "accept-language": "en",
-        },
-        headers: {
-          "User-Agent": "ATS-Job-Tracker/1.0", // Required by Nominatim
-        },
+      params: {
+        q: locationString,
+        format: "json",
+        limit: 10, // Get more results to find city/town level
+        addressdetails: 1,
+        "accept-language": "en",
+      },
+      headers: {
+        "User-Agent": "ATS-Job-Tracker/1.0", // Required by Nominatim
+      },
       }),
       {
         endpoint: '/search',
@@ -193,30 +251,58 @@ async function geocodeWithRateLimit(locationString, userId = null) {
         }
       }
 
-      // Cache the result
-      await pool.query(
-        `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code, timezone, utc_offset)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT (location_string) DO UPDATE SET
-           latitude = EXCLUDED.latitude,
-           longitude = EXCLUDED.longitude,
-           display_name = EXCLUDED.display_name,
-           location_type = EXCLUDED.location_type,
-           country_code = EXCLUDED.country_code,
-           timezone = EXCLUDED.timezone,
-           utc_offset = EXCLUDED.utc_offset,
-           updated_at = NOW()`,
-        [
-          locationString,
-          lat,
-          lon,
-          result.display_name,
-          locationType,
-          address.country_code?.toUpperCase() || null,
-          timezoneInfo?.timezone || null,
-          timezoneInfo?.utcOffset || null,
-        ]
-      );
+      // Cache the result - with defensive handling for missing timezone columns
+      try {
+        await pool.query(
+          `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code, timezone, utc_offset)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (location_string) DO UPDATE SET
+             latitude = EXCLUDED.latitude,
+             longitude = EXCLUDED.longitude,
+             display_name = EXCLUDED.display_name,
+             location_type = EXCLUDED.location_type,
+             country_code = EXCLUDED.country_code,
+             timezone = EXCLUDED.timezone,
+             utc_offset = EXCLUDED.utc_offset,
+             updated_at = NOW()`,
+          [
+            locationString,
+            lat,
+            lon,
+            result.display_name,
+            locationType,
+            address.country_code?.toUpperCase() || null,
+            timezoneInfo?.timezone || null,
+            timezoneInfo?.utcOffset || null,
+          ]
+        );
+      } catch (insertError) {
+        // If timezone columns don't exist, insert without them
+        if (insertError.code === '42703' && insertError.message.includes('timezone')) {
+          console.log('⚠️ Timezone columns not available, inserting without timezone data');
+          await pool.query(
+            `INSERT INTO geocoding_cache (location_string, latitude, longitude, display_name, location_type, country_code)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (location_string) DO UPDATE SET
+               latitude = EXCLUDED.latitude,
+               longitude = EXCLUDED.longitude,
+               display_name = EXCLUDED.display_name,
+               location_type = EXCLUDED.location_type,
+               country_code = EXCLUDED.country_code,
+               updated_at = NOW()`,
+            [
+              locationString,
+              lat,
+              lon,
+              result.display_name,
+              locationType,
+              address.country_code?.toUpperCase() || null,
+            ]
+          );
+        } else {
+          throw insertError;
+        }
+      }
 
       return {
         latitude: lat,
@@ -422,29 +508,112 @@ router.post("/commute", auth, async (req, res) => {
       });
     }
 
-    // Calculate distance
+    // Calculate distance using Haversine formula (straight-line distance)
     const distanceKm = calculateDistance(homeLat, homeLon, jobLat, jobLon);
     const distanceMiles = distanceKm * 0.621371;
 
-    // Estimate travel time for driving (assuming average speed)
-    // For driving: ~50 km/h average in cities, ~100 km/h on highways
-    // Using conservative 60 km/h average
-    const avgSpeedKmh = 60;
-    const drivingTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
+    // Improved time estimation based on distance
+    // Accounts for the fact that longer trips are mostly highway driving (faster)
+    // while shorter trips involve more city driving (slower)
+    // Also accounts for the fact that actual road distance varies by trip length
+    let roadDistanceMultiplier;
+    if (distanceKm < 50) {
+      // Short distances: road distance is ~1.4x straight-line (more winding city roads)
+      roadDistanceMultiplier = 1.4;
+    } else if (distanceKm < 200) {
+      // Medium distances: road distance is ~1.3x straight-line
+      roadDistanceMultiplier = 1.3;
+    } else if (distanceKm < 1000) {
+      // Medium-long distances: road distance is ~1.2x straight-line (more direct highways)
+      roadDistanceMultiplier = 1.2;
+    } else {
+      // Very long distances: road distance is ~1.15x straight-line (interstate highways are more direct)
+      roadDistanceMultiplier = 1.15;
+    }
+    
+    const adjustedDistanceKm = distanceKm * roadDistanceMultiplier;
+    
+    let avgSpeedKmh;
+    if (distanceKm < 50) {
+      // Short distances: mostly city driving
+      avgSpeedKmh = 40;
+    } else if (distanceKm < 200) {
+      // Medium distances: mix of city and highway
+      avgSpeedKmh = 65;
+    } else if (distanceKm < 500) {
+      // Medium-long distances: mostly highway
+      avgSpeedKmh = 80;
+    } else if (distanceKm < 1500) {
+      // Long distances: mostly interstate highway driving
+      avgSpeedKmh = 95;
+    } else {
+      // Very long distances: interstate highways, higher sustained speeds
+      avgSpeedKmh = 100;
+    }
+    
+    // Calculate time in minutes
+    const drivingTimeMinutes = (adjustedDistanceKm / avgSpeedKmh) * 60;
 
     // Estimate travel time for plane
-    // Average commercial plane speed: ~800 km/h (cruising speed)
-    // Add 2 hours for airport time (check-in, security, boarding, etc.)
-    const planeSpeedKmh = 800;
-    const flightTimeMinutes = (distanceKm / planeSpeedKmh) * 60;
-    const totalPlaneTimeMinutes = flightTimeMinutes + 120; // Add 2 hours for airport time
+    // Flight paths are typically 1.05-1.15x longer than straight-line due to air traffic routes
+    // Shorter flights spend more time climbing/descending (slower average speed)
+    // Longer flights spend more time at cruising altitude (faster average speed)
+    let flightDistanceMultiplier;
+    if (distanceKm < 500) {
+      // Short flights: more deviation from straight line, more climb/descent time
+      flightDistanceMultiplier = 1.15;
+    } else if (distanceKm < 2000) {
+      // Medium flights: moderate deviation
+      flightDistanceMultiplier = 1.10;
+    } else {
+      // Long flights: more direct routes, less deviation
+      flightDistanceMultiplier = 1.05;
+    }
+    
+    const flightDistanceKm = distanceKm * flightDistanceMultiplier;
+    
+    // Average speeds vary by flight length
+    let avgPlaneSpeedKmh;
+    if (distanceKm < 500) {
+      // Short flights: more time climbing/descending, lower average speed
+      avgPlaneSpeedKmh = 600;
+    } else if (distanceKm < 1500) {
+      // Medium flights: mix of climb, cruise, descent
+      avgPlaneSpeedKmh = 750;
+    } else {
+      // Long flights: mostly cruising at high speed
+      avgPlaneSpeedKmh = 850;
+    }
+    
+    const flightTimeMinutes = (flightDistanceKm / avgPlaneSpeedKmh) * 60;
+    
+    // Airport time varies by flight length
+    // Shorter flights: relatively more airport time (2-3 hours)
+    // Longer flights: relatively less airport time (1.5-2 hours)
+    let airportTimeMinutes;
+    if (distanceKm < 500) {
+      airportTimeMinutes = 180; // 3 hours for short flights
+    } else if (distanceKm < 2000) {
+      airportTimeMinutes = 150; // 2.5 hours for medium flights
+    } else {
+      airportTimeMinutes = 120; // 2 hours for long flights
+    }
+    
+    const totalPlaneTimeMinutes = flightTimeMinutes + airportTimeMinutes;
+
+    // Use adjusted road distance for display (more accurate than straight-line)
+    // Round to nearest 50 (miles/km) for cleaner display
+    const roundToNearest50 = (value) => Math.round(value / 50) * 50;
+    const adjustedDistanceMiles = adjustedDistanceKm * 0.621371;
+    const roundedDistanceMiles = roundToNearest50(adjustedDistanceMiles);
+    const roundedDistanceKm = roundToNearest50(adjustedDistanceKm);
 
     res.json({
       success: true,
       data: {
         distance: {
-          kilometers: Math.round(distanceKm * 10) / 10,
-          miles: Math.round(distanceMiles * 10) / 10,
+          kilometers: roundedDistanceKm,
+          miles: roundedDistanceMiles,
         },
         drivingTime: {
           minutes: Math.round(drivingTimeMinutes),

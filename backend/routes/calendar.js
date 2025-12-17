@@ -78,7 +78,7 @@ router.get("/callback", async (req, res) => {
     // Get calendar info
     const calendar = google.calendar({ version: "v3", auth: oauth2Client });
     const calendarList = await calendar.calendarList.list();
-    const primaryCalendar = calendarList.data.items?.find(cal => cal.primary);
+    const primaryCalendar = calendarList.data?.items?.find(cal => cal.primary);
 
     // Store tokens in database
     const { error } = await supabase

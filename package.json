@@ -1,7 +1,11 @@
 {
   "dependencies": {
+    "@vitest/coverage-v8": "^4.0.15",
+    "@sentry/node": "^10.30.0",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
-    "node-fetch": "^3.3.2"
+    "express-rate-limit": "^8.2.1",
+    "node-fetch": "^3.3.2",
+    "winston": "^3.19.0"
   }
 }

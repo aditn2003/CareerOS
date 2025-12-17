@@ -55,6 +55,7 @@ function MapBoundsUpdater({ jobs, homeLocation, shouldUpdateBounds, onBoundsUpda
 
 export default function JobMapView({ token }) {
   const [jobs, setJobs] = useState([]);
+  const [jobsWithoutLocation, setJobsWithoutLocation] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({
@@ -106,6 +107,7 @@ export default function JobMapView({ token }) {
         }
         
         setJobs(filteredJobs);
+        setJobsWithoutLocation(res.data.jobsWithoutLocation || []);
         // Only update bounds if we have jobs and it's requested
         if (filteredJobs.length > 0) {
           setShouldUpdateBounds(updateBounds);
@@ -161,7 +163,7 @@ export default function JobMapView({ token }) {
       const res = await api.post("/api/geocoding/geocode/batch", { locations });
 
       if (res.data.success) {
-        // Update jobs with geocoded coordinates
+        // Update jobs with geocoded coordinates and persist to database
         const updatedJobs = jobs.map((job) => {
           if (job.latitude && job.longitude) return job;
 
@@ -170,11 +172,24 @@ export default function JobMapView({ token }) {
           );
 
           if (geocodeResult?.data) {
+            // Persist coordinates to database
+            api.put(`/api/jobs/${job.id}/coordinates`, {
+              latitude: geocodeResult.data.latitude,
+              longitude: geocodeResult.data.longitude,
+              location_type: geocodeResult.data.location_type || null,
+              timezone: geocodeResult.data.timezone || null,
+              utc_offset: geocodeResult.data.utc_offset || null,
+            }).catch(err => {
+              console.error(`Failed to update coordinates for job ${job.id}:`, err);
+            });
+
             return {
               ...job,
               latitude: geocodeResult.data.latitude,
               longitude: geocodeResult.data.longitude,
               location_type: geocodeResult.data.location_type || job.location_type,
+              timezone: geocodeResult.data.timezone || null,
+              utc_offset: geocodeResult.data.utc_offset || null,
             };
           }
 
@@ -182,9 +197,6 @@ export default function JobMapView({ token }) {
         });
 
         setJobs(updatedJobs);
-
-        // Update jobs in database (trigger backend to update)
-        // This will happen automatically when we fetch jobs next time
       }
     } catch (err) {
       console.error("Error geocoding jobs:", err);
@@ -633,6 +645,22 @@ export default function JobMapView({ token }) {
             Jobs without location data (
             {jobs.filter((j) => !j.latitude || !j.longitude).length})
           </h4>
+          <button
+            onClick={geocodeJobs}
+            disabled={geocodingInProgress}
+            style={{
+              marginBottom: "10px",
+              padding: "8px 16px",
+              backgroundColor: "#6366f1",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: geocodingInProgress ? "not-allowed" : "pointer",
+              opacity: geocodingInProgress ? 0.6 : 1,
+            }}
+          >
+            {geocodingInProgress ? "Geocoding..." : "Re-geocode Jobs"}
+          </button>
           <ul>
             {jobs
               .filter((j) => !j.latitude || !j.longitude)
@@ -641,6 +669,25 @@ export default function JobMapView({ token }) {
                   {job.company} - {job.title} ({job.location || "No location"})
                 </li>
               ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Jobs without location listed */}
+      {jobsWithoutLocation.length > 0 && (
+        <div className="no-location-jobs">
+          <h4>
+            Jobs without location listed ({jobsWithoutLocation.length})
+          </h4>
+          <ul>
+            {jobsWithoutLocation.map((job) => (
+              <li key={job.id}>
+                <strong>{job.company}</strong> - {job.title}
+                {job.status && (
+                  <span className="job-status-badge"> ({job.status})</span>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       )}

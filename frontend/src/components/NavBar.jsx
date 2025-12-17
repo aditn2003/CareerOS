@@ -4,7 +4,6 @@ import "./navbar.css";
 import Logo from "./Logo";
 import DecryptedText from "./DecryptedText";
 import LightPillar from "./LightPillar";
-import ElectricBorder from "./ElectricBorder";
 import {
   FaHome,
   FaUser,
@@ -25,6 +24,8 @@ import {
   FaBars,
   FaTimes,
   FaExternalLinkAlt,
+  FaQuestionCircle, // ✅ Icon for Help/FAQ
+  FaRocket, // ✅ Icon for Getting Started
 } from "react-icons/fa";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -51,7 +52,8 @@ export default function NavBar() {
   // 🔥 Custom logout handler to block Back button returning to protected pages
   const handleLogout = () => {
     logout(); // Removes token + clears auth context
-    window.location.replace("/login"); // Prevents back button access
+    // Use navigate with replace to prevent back button access
+    navigate("/login", { replace: true });
   };
 
   const toggleMenu = () => {
@@ -110,6 +112,13 @@ export default function NavBar() {
               },
             ]
           : []),
+        {
+          title: "Help",
+          links: [
+            { to: "/getting-started", label: "Getting Started", icon: FaRocket },
+            { to: "/faq", label: "FAQ", icon: FaQuestionCircle },
+          ],
+        },
       ]
     : [
         {
@@ -117,6 +126,13 @@ export default function NavBar() {
           links: [
             { to: "/login", label: "Login", icon: FaSignInAlt },
             { to: "/register", label: "Register", icon: FaUserPlus },
+          ],
+        },
+        {
+          title: "Help",
+          links: [
+            { to: "/getting-started", label: "Getting Started", icon: FaRocket },
+            { to: "/faq", label: "FAQ", icon: FaQuestionCircle },
           ],
         },
       ];
@@ -147,31 +163,16 @@ export default function NavBar() {
 
         <div className="navbar-title-container">
           <h1 className="navbar-title">
-            <DecryptedText
-              text="CareerOS"
-              animateOn="view"
-              revealDirection="center"
-              speed={80}
-              maxIterations={15}
-              sequential={true}
-            />
+            CareerOS
           </h1>
           <p className="navbar-subtitle">
-            <DecryptedText
-              text="YOUR CAREER OPERATING SYSTEM"
-              animateOn="view"
-              revealDirection="start"
-              speed={60}
-              maxIterations={12}
-              sequential={true}
-              delay={800}
-            />
+            YOUR CAREER OPERATING SYSTEM
           </p>
         </div>
 
         {/* Menu Toggle Button */}
         <button className="navbar-menu-toggle" onClick={toggleMenu} aria-label="Toggle menu">
-          {isMenuOpen ? <FaTimes /> : <FaBars />}
+          {isMenuOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
         </button>
 
         {/* Expandable Menu Inside Navbar */}
@@ -180,52 +181,43 @@ export default function NavBar() {
             {/* Navigation Cards */}
             <div className="navbar-overlay-cards">
               {navSections.map((section, index) => (
-                <ElectricBorder
-                  key={index}
-                  color="#a78bfa"
-                  speed={1}
-                  chaos={0.5}
-                  thickness={2}
-                  style={{ borderRadius: 14 }}
-                >
-                  <div className="navbar-overlay-card">
-                    <h2 className="navbar-overlay-card-title">{section.title}</h2>
-                    <ul className="navbar-overlay-card-links">
-                      {section.links.map((link, linkIndex) => {
-                        const Icon = link.icon;
-                        return (
-                          <li key={linkIndex}>
-                            <NavLink
-                              to={link.to}
-                              onClick={closeMenu}
-                              className={({ isActive }) => 
-                                `navbar-overlay-link ${isActive ? 'active' : ''}`
-                              }
-                              end={link.to === '/'}
-                            >
-                              <span>{link.label}</span>
-                              <FaExternalLinkAlt className="navbar-overlay-link-icon" />
-                            </NavLink>
-                          </li>
-                        );
-                      })}
-                      {section.isAccount && (
-                        <li>
-                          <button
-                            onClick={() => {
-                              closeMenu();
-                              handleLogout();
-                            }}
-                            className="navbar-overlay-link navbar-overlay-logout"
+                <div key={index} className="navbar-overlay-card spotlight-card">
+                  <h2 className="navbar-overlay-card-title">{section.title}</h2>
+                  <ul className="navbar-overlay-card-links">
+                    {section.links.map((link, linkIndex) => {
+                      const Icon = link.icon;
+                      return (
+                        <li key={linkIndex}>
+                          <NavLink
+                            to={link.to}
+                            onClick={closeMenu}
+                            className={({ isActive }) =>
+                              `navbar-overlay-link ${isActive ? "active" : ""}`
+                            }
+                            end={link.to === "/"}
                           >
-                            <span>Logout</span>
+                            <span>{link.label}</span>
                             <FaExternalLinkAlt className="navbar-overlay-link-icon" />
-                          </button>
+                          </NavLink>
                         </li>
-                      )}
-                    </ul>
-                  </div>
-                </ElectricBorder>
+                      );
+                    })}
+                    {section.isAccount && (
+                      <li>
+                        <button
+                          onClick={() => {
+                            closeMenu();
+                            handleLogout();
+                          }}
+                          className="navbar-overlay-link navbar-overlay-logout"
+                        >
+                          <span>Logout</span>
+                          <FaExternalLinkAlt className="navbar-overlay-link-icon" />
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
               ))}
             </div>
           </div>

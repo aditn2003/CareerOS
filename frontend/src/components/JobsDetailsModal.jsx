@@ -691,6 +691,126 @@ export default function JobDetailsModal({
           <option value="flexible">Flexible</option>
         </select>
 
+        {/* PLATFORM ACTIVITY SECTION (UC-125) */}
+        {(job.is_imported || job.platform || (job.platform_activity && job.platform_activity.length > 0)) && (
+          <div style={{
+            marginTop: "16px",
+            marginBottom: "16px",
+            padding: "12px 16px",
+            backgroundColor: "#f0f9ff",
+            borderRadius: "8px",
+            border: "1px solid #bae6fd"
+          }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px",
+              marginBottom: "12px",
+              color: "#0369a1",
+              fontWeight: 600,
+              fontSize: "0.9rem"
+            }}>
+              📧 Platform Activity
+              {job.platform === 'linkedin' && (
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "2px 8px",
+                  backgroundColor: "#0077b5",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                  LinkedIn
+                </span>
+              )}
+              {job.platform === 'indeed' && (
+                <span style={{
+                  padding: "2px 8px",
+                  backgroundColor: "#2164f3",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  Indeed
+                </span>
+              )}
+              {job.platform === 'glassdoor' && (
+                <span style={{
+                  padding: "2px 8px",
+                  backgroundColor: "#0caa41",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  Glassdoor
+                </span>
+              )}
+            </div>
+            
+            {job.is_imported && (
+              <div style={{ 
+                fontSize: "0.8rem", 
+                color: "#075985",
+                marginBottom: "8px"
+              }}>
+                ✅ Imported from email on {job.imported_at ? new Date(job.imported_at).toLocaleDateString() : new Date(job.created_at).toLocaleDateString()}
+              </div>
+            )}
+            
+            {job.platform_activity && job.platform_activity.length > 0 && (
+              <div style={{ borderTop: "1px solid #bae6fd", paddingTop: "8px", marginTop: "8px" }}>
+                {job.platform_activity.map((activity, idx) => (
+                  <div key={idx} style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "6px 0",
+                    fontSize: "0.8rem",
+                    color: "#0369a1",
+                    borderBottom: idx < job.platform_activity.length - 1 ? "1px dashed #bae6fd" : "none"
+                  }}>
+                    <span style={{ color: "#0077b5" }}>•</span>
+                    <div>
+                      <div style={{ fontWeight: 500 }}>
+                        {activity.platform.charAt(0).toUpperCase() + activity.platform.slice(1)}
+                        {activity.applied_at && (
+                          <span style={{ fontWeight: 400, marginLeft: "8px" }}>
+                            — {new Date(activity.applied_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      {activity.metadata?.email_subject && (
+                        <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                          "{activity.metadata.email_subject}"
+                        </div>
+                      )}
+                      {activity.status && activity.status !== job.status && (
+                        <div style={{ fontSize: "0.75rem", color: "#059669", marginTop: "2px" }}>
+                          Platform status: {activity.status}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {(!job.platform_activity || job.platform_activity.length === 0) && !job.is_imported && (
+              <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                No additional platform updates
+              </div>
+            )}
+          </div>
+        )}
+
         {/* STAGE */}
         <label>Status</label>
         <select
