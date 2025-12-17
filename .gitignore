@@ -16,3 +16,9 @@ frontend/public/.DS_Store
 frontend/.env
 backend/.env
 backend/.env.test
+
+# Logs (DO NOT COMMIT)
+logs/
+*.log
+backend/logs/
+frontend/logs/
