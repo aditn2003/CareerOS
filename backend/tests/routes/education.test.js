@@ -18,77 +18,8 @@ import {
   queryTestDb,
 } from '../helpers/index.js';
 
-// Mock external services before importing server
-vi.mock('@google/generative-ai', () => {
-  const mockInstance = {
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: vi.fn(() => 'Mock response'),
-        },
-      }),
-    })),
-  };
-  
-  return {
-    GoogleGenerativeAI: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-vi.mock('openai', () => {
-  const mockCreate = vi.fn().mockResolvedValue({
-    choices: [{
-      message: {
-        content: 'Mock AI response',
-      },
-    }],
-  });
-
-  const mockCompletions = {
-    create: mockCreate,
-  };
-
-  const mockChat = {
-    completions: mockCompletions,
-  };
-
-  const mockInstance = {
-    chat: mockChat,
-  };
-  
-  const MockOpenAI = class {
-    constructor() {
-      return mockInstance;
-    }
-  };
-  
-  MockOpenAI.prototype.chat = mockChat;
-  
-  return {
-    default: MockOpenAI,
-    OpenAI: MockOpenAI,
-  };
-});
-
-vi.mock('resend', () => {
-  const mockInstance = {
-    emails: {
-      send: vi.fn().mockResolvedValue({ success: true }),
-    },
-  };
-  
-  return {
-    Resend: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
+// Mock OpenAI - removed, using global mock
+// Mock Resend - removed, using global mock
 
 let app;
 

@@ -75,7 +75,12 @@ export default function Login() {
     return () => window.removeEventListener('message', handleMessage);
   }, [navigate, setToken]);
 
-  async function handleLogin() {
+  async function handleLogin(e) {
+    if (e) {
+      e.preventDefault();
+    }
+    if (isLoading) return; // Prevent double submission
+    
     setIsLoading(true);
     try {
       const { data } = await api.post("/login", form);
@@ -133,50 +138,57 @@ export default function Login() {
           <Link to="/getting-started">New here? Get Started →</Link>
         </div>
 
-        <label htmlFor="login-email">Email</label>
-        <div className="input-with-icon">
-          <FaEnvelope className="input-icon" />
-          <input
-            type="email"
-            id="login-email"
-            placeholder="you@example.com"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            aria-label="Email address"
-            aria-required="true"
-          />
-        </div>
+        <form onSubmit={handleLogin}>
+          <label htmlFor="login-email">Email</label>
+          <div className="input-with-icon">
+            <FaEnvelope className="input-icon" />
+            <input
+              type="email"
+              id="login-email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              aria-label="Email address"
+              aria-required="true"
+            />
+          </div>
 
-        <label htmlFor="login-password">Password</label>
-        <div className="input-with-icon">
-          <FaLock className="input-icon" />
-          <input
-            type={showPassword ? "text" : "password"}
-            id="login-password"
-            placeholder="••••••••"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            aria-label="Password"
-            aria-required="true"
-          />
-          <button 
-            type="button" 
-            className="password-toggle"
-            onClick={() => setShowPassword(!showPassword)}
-            aria-label={showPassword ? "Hide password" : "Show password"}
-          >
-            {showPassword ? <FaEyeSlash /> : <FaEye />}
-          </button>
-        </div>
+          <label htmlFor="login-password">Password</label>
+          <div className="input-with-icon">
+            <FaLock className="input-icon" />
+            <input
+              type={showPassword ? "text" : "password"}
+              id="login-password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isLoading) {
+                  handleLogin(e);
+                }
+              }}
+              aria-label="Password"
+              aria-required="true"
+            />
+            <button 
+              type="button" 
+              className="password-toggle"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
+          </div>
 
-        <div className="auth-buttons">
-          <button className="auth-btn-primary" onClick={handleLogin} disabled={isLoading}>
-            {isLoading ? <span className="btn-spinner"></span> : "Sign In"}
-          </button>
-          <button className="auth-btn-secondary" onClick={() => navigate("/register")}>
-            Register
-          </button>
-        </div>
+          <div className="auth-buttons">
+            <button type="submit" className="auth-btn-primary" disabled={isLoading}>
+              {isLoading ? <span className="btn-spinner"></span> : "Sign In"}
+            </button>
+            <button type="button" className="auth-btn-secondary" onClick={() => navigate("/register")}>
+              Register
+            </button>
+          </div>
+        </form>
 
         <div className="auth-forgot-link">
           <Link to="/forgot">Forgot password?</Link>

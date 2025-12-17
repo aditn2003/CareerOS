@@ -1,7 +1,15 @@
 import React, { useState } from "react";
 import { api } from "../api";
+import { 
+  FaCode, 
+  FaTag, 
+  FaChartLine,
+  FaCheck,
+  FaPlus
+} from "react-icons/fa";
+import "./SkillsForm.css";
 
-export default function SkillsForm({ token, onAdded }) {
+export default function SkillsForm({ token, onAdded, onCancel }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("Technical");
   const [proficiency, setProficiency] = useState("Beginner");
@@ -49,53 +57,87 @@ export default function SkillsForm({ token, onAdded }) {
   }
 
   return (
-    <div className="card-container" style={{ marginBottom: "1.5rem" }}>
-      <h3>Add Skill</h3>
+    <div className="skills-form">
+      <div className="skills-form-header">
+        <FaPlus className="skills-form-header-icon" />
+        <h3>Add New Skill</h3>
+      </div>
 
-      {/* Skill Name */}
-      <input
-        list="common-skills"
-        placeholder="Enter skill name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <datalist id="common-skills">
-        {commonSkills.map((s, i) => (
-          <option key={i} value={s} />
-        ))}
-      </datalist>
+      <div className="skills-form-grid">
+        <div className="skills-form-group full-width">
+          <label htmlFor="skill-name" className="skills-form-label">
+            <FaCode />
+            <span>Skill Name <span className="required">*</span></span>
+          </label>
+          <input
+            id="skill-name"
+            list="common-skills"
+            className="skills-form-input"
+            placeholder="e.g., JavaScript, Python, Leadership..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <datalist id="common-skills">
+            {commonSkills.map((s, i) => (
+              <option key={i} value={s} />
+            ))}
+          </datalist>
+        </div>
 
-      {/* Skill Category */}
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        style={{ marginTop: "0.8rem", width: "100%" }}
-      >
-        <option>Technical</option>
-        <option>Soft Skills</option>
-        <option>Languages</option>
-        <option>Industry-Specific</option>
-      </select>
+        <div className="skills-form-group">
+          <label htmlFor="skill-category" className="skills-form-label">
+            <FaTag />
+            <span>Category</span>
+          </label>
+          <select
+            id="skill-category"
+            className="skills-form-select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option>Technical</option>
+            <option>Soft Skills</option>
+            <option>Languages</option>
+            <option>Industry-Specific</option>
+          </select>
+        </div>
 
-      {/* Skill Proficiency */}
-      <select
-        value={proficiency}
-        onChange={(e) => setProficiency(e.target.value)}
-        style={{ marginTop: "0.8rem", width: "100%" }}
-      >
-        <option>Beginner</option>
-        <option>Intermediate</option>
-        <option>Advanced</option>
-        <option>Expert</option>
-      </select>
+        <div className="skills-form-group">
+          <label htmlFor="skill-proficiency" className="skills-form-label">
+            <FaChartLine />
+            <span>Proficiency Level</span>
+          </label>
+          <select
+            id="skill-proficiency"
+            className="skills-form-select"
+            value={proficiency}
+            onChange={(e) => setProficiency(e.target.value)}
+          >
+            <option>Beginner</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+            <option>Expert</option>
+          </select>
+        </div>
+      </div>
 
-      <button
-        className="btn-success"
-        style={{ marginTop: "1rem" }}
-        onClick={addSkill}
-      >
-        ➕ Add Skill
-      </button>
+      <div className="skills-form-actions">
+        <button
+          className="skills-form-btn skills-form-btn-primary"
+          onClick={addSkill}
+        >
+          <FaCheck />
+          <span>Add Skill</span>
+        </button>
+        {onCancel && (
+          <button
+            className="skills-form-btn skills-form-btn-secondary"
+            onClick={onCancel}
+          >
+            <span>Cancel</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

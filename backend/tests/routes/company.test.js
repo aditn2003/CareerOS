@@ -18,69 +18,8 @@ import {
   queryTestDb,
 } from '../helpers/index.js';
 
-// Mock external services before importing server
-// Mock Google Generative AI (used by resume routes imported by server)
-vi.mock('@google/generative-ai', () => {
-  const mockInstance = {
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: vi.fn(() => 'Mock response'),
-        },
-      }),
-    })),
-  };
-  
-  return {
-    GoogleGenerativeAI: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-// Mock OpenAI (used by resume routes)
-vi.mock('openai', () => {
-  const mockInstance = {
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'Mock AI response',
-            },
-          }],
-        }),
-      },
-    },
-  };
-  
-  return {
-    default: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-// Mock Resend (used by other routes)
-vi.mock('resend', () => {
-  const mockInstance = {
-    emails: {
-      send: vi.fn().mockResolvedValue({ success: true }),
-    },
-  };
-  
-  return {
-    Resend: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
+// Mock OpenAI (used by resume routes) - removed, using global mock
+// Mock Resend - removed, using global mock
 vi.mock('multer', () => {
   const mockSingle = vi.fn((fieldName) => (req, res, next) => {
     req.file = {

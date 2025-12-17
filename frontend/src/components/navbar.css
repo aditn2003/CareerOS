@@ -769,10 +769,9 @@ body.dark .navbar-right button.active {
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.3);
   color: #5b21b6;
-  font-size: 1.5rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -783,6 +782,16 @@ body.dark .navbar-right button.active {
     0 4px 15px rgba(0, 0, 0, 0.2),
     0 0 20px rgba(255, 255, 255, 0.3);
   font-weight: 700;
+  padding: 0;
+}
+
+.navbar-menu-toggle svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  font-size: 20px !important;
+  display: block !important;
 }
 
 .navbar-menu-toggle:hover {
@@ -838,7 +847,7 @@ body.dark .navbar-right button.active {
   backdrop-filter: blur(12px);
   border: none;
   border-radius: 12px;
-  padding: 1rem 1.25rem;
+  padding: 1rem 0.75rem;
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -846,6 +855,9 @@ body.dark .navbar-right button.active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 140px;
   flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* Spotlight hover effect on cards */
@@ -900,6 +912,8 @@ body.dark .navbar-right button.active {
   letter-spacing: 0.5px;
   text-transform: uppercase;
   opacity: 0.9;
+  text-align: center;
+  width: 100%;
 }
 
 .navbar-overlay-card-links {
@@ -909,12 +923,20 @@ body.dark .navbar-right button.active {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.navbar-overlay-card-links li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .navbar-overlay-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
   padding: 0.5rem 0.75rem;
@@ -928,8 +950,11 @@ body.dark .navbar-right button.active {
   overflow: hidden;
   cursor: pointer;
   width: 100%;
-  text-align: left;
+  max-width: 100%;
+  text-align: center;
   font-family: inherit;
+  gap: 0.4rem;
+  white-space: nowrap;
 }
 
 .navbar-overlay-link button {
@@ -939,11 +964,12 @@ body.dark .navbar-right button.active {
   font: inherit;
   cursor: pointer;
   width: 100%;
-  text-align: left;
+  text-align: center;
   padding: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .navbar-overlay-link::before {
@@ -964,7 +990,7 @@ body.dark .navbar-right button.active {
 
 .navbar-overlay-link:hover {
   background: rgba(255, 255, 255, 0.12);
-  transform: translateX(3px);
+  transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
@@ -977,7 +1003,7 @@ body.dark .navbar-right button.active {
   font-size: 0.75rem;
   opacity: 0.6;
   transition: all 0.25s ease;
-  margin-left: 0.5rem;
+  flex-shrink: 0;
 }
 
 .navbar-overlay-link:hover .navbar-overlay-link-icon {

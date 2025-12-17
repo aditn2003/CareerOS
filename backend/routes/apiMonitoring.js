@@ -140,14 +140,17 @@ router.get("/api-quotas", async (req, res) => {
         s.quota_period,
         s.rate_limit_per_minute,
         s.enabled,
-        -- Calculate usage_count from actual logs using the same date range as usage stats
-        COALESCE((
-          SELECT COUNT(*)::INTEGER
-          FROM api_usage_logs l
-          WHERE l.service_name = s.service_name
-            AND l.created_at >= $1::date
-            AND l.created_at <= $2::date + INTERVAL '1 day'
-        ), 0) as usage_count,
+        -- Calculate usage_count from actual logs, capped at quota_limit
+        LEAST(
+          COALESCE((
+            SELECT COUNT(*)::INTEGER
+            FROM api_usage_logs l
+            WHERE l.service_name = s.service_name
+              AND l.created_at >= $1::date
+              AND l.created_at <= $2::date + INTERVAL '1 day'
+          ), 0),
+          COALESCE(s.quota_limit, 999999999)
+        ) as usage_count,
         -- Calculate tokens_used from logs to match usage stats
         COALESCE((
           SELECT SUM(COALESCE(tokens_used, 0))::BIGINT
@@ -167,15 +170,18 @@ router.get("/api-quotas", async (req, res) => {
         CASE 
           WHEN s.quota_limit IS NULL THEN NULL
           WHEN s.quota_limit = 0 THEN 100
-          ELSE ROUND(
-            COALESCE((
-              SELECT COUNT(*)::INTEGER
-              FROM api_usage_logs l
-              WHERE l.service_name = s.service_name
-                AND l.created_at >= $1::date
-                AND l.created_at <= $2::date + INTERVAL '1 day'
-            ), 0)::DECIMAL / s.quota_limit * 100,
-            2
+          ELSE LEAST(
+            ROUND(
+              COALESCE((
+                SELECT COUNT(*)::INTEGER
+                FROM api_usage_logs l
+                WHERE l.service_name = s.service_name
+                  AND l.created_at >= $1::date
+                  AND l.created_at <= $2::date + INTERVAL '1 day'
+              ), 0)::DECIMAL / s.quota_limit * 100,
+              2
+            ),
+            100.0
           )
         END as usage_percentage,
         CASE 

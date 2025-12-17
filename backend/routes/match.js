@@ -297,82 +297,80 @@ Education: ${JSON.stringify(profile.education || [])}
       console.error("BAD IDS:", { userId, jobId });
       return res.status(400).json({ success: false, message: "Invalid userId or jobId" });
     }
-    
 
-  if (!userId || !jobId)
-    return res.status(400).json({ success: false, message: "Missing IDs" });
-
-  const w = {
-    skillsWeight: weights?.skillsWeight ?? 50,
-    experienceWeight: weights?.experienceWeight ?? 30,
-    educationWeight: weights?.educationWeight ?? 20,
-  };
-
-  try {
-    const [job, profile] = await Promise.all([
-      getJobObject(jobId),
-      getUserProfileObject(userId),
-    ]);
-
-    if (!job)
-      return res.status(404).json({ success: false, message: "Job not found" });
-
-    const ai = await analyzeMatch(job, profile, w, userId);
-
-    const analysis = {
-      jobId,
-      jobTitle: job.title,
-      company: job.company,
-      userId,
-      matchScore: ai.matchScore,
-      breakdown: {
-        skills: ai.skillsScore,
-        experience: ai.experienceScore,
-        education: ai.educationScore,
-      },
-      strengths: ai.strengths,
-      gaps: ai.gaps,
-      improvements: ai.improvements,
-      weights: w,
-      createdAt: new Date().toISOString(),
+    const w = {
+      skillsWeight: weights?.skillsWeight ?? 50,
+      experienceWeight: weights?.experienceWeight ?? 30,
+      educationWeight: weights?.educationWeight ?? 20,
     };
 
-    // Save history
-    // Save history
-// Save history safely (prevent "null" string errors)
-await pool.query(
-    `INSERT INTO match_history
-     (user_id, job_id, match_score, skills_score, experience_score, education_score,
-      strengths, gaps, improvements, weights, details)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-    [
-      userId,
-      jobId,
-  
-      // 🔥 Convert EVERYTHING to numbers safely (even "null")
-      Number(analysis.matchScore) || 0,
-      Number(analysis.breakdown?.skills) || 0,
-      Number(analysis.breakdown?.experience) || 0,
-      Number(analysis.breakdown?.education) || 0,
-  
-      // 🔥 Store JSON, NOT raw strings
-      JSON.stringify(analysis.strengths || []),
-      JSON.stringify(analysis.gaps || []),
-      JSON.stringify(analysis.improvements || []),
-  
-      JSON.stringify(w),          // weights
-      JSON.stringify(analysis),   // details
-    ]
-  );
-  
-  
+    try {
+      const [job, profile] = await Promise.all([
+        getJobObject(jobId),
+        getUserProfileObject(userId),
+      ]);
 
-    res.json({ success: true, analysis });
-  } catch (err) {
-    console.error("❌ MATCH ERROR:", err);
-    res.status(500).json({ success: false, message: "Match error" });
-    console.log("RECEIVED IDS:", userId, jobId);
-  }
+      if (!job)
+        return res.status(404).json({ success: false, message: "Job not found" });
+
+      // Handle case where profile might be empty or queries failed
+      if (!profile) {
+        return res.status(400).json({ success: false, message: "User profile not found" });
+      }
+
+      const ai = await analyzeMatch(job, profile, w, userId);
+
+      const analysis = {
+        jobId,
+        jobTitle: job.title,
+        company: job.company,
+        userId: userId,
+        matchScore: ai.matchScore,
+        breakdown: {
+          skills: ai.skillsScore,
+          experience: ai.experienceScore,
+          education: ai.educationScore,
+        },
+        strengths: ai.strengths,
+        gaps: ai.gaps,
+        improvements: ai.improvements,
+        weights: w,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Save history safely (prevent "null" string errors)
+      await pool.query(
+        `INSERT INTO match_history
+         (user_id, job_id, match_score, skills_score, experience_score, education_score,
+          strengths, gaps, improvements, weights, details)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          userId,
+          jobId,
+      
+          // 🔥 Convert EVERYTHING to numbers safely (even "null")
+          Number(analysis.matchScore) || 0,
+          Number(analysis.breakdown?.skills) || 0,
+          Number(analysis.breakdown?.experience) || 0,
+          Number(analysis.breakdown?.education) || 0,
+      
+          // 🔥 Store JSON, NOT raw strings
+          JSON.stringify(analysis.strengths || []),
+          JSON.stringify(analysis.gaps || []),
+          JSON.stringify(analysis.improvements || []),
+      
+          JSON.stringify(w),          // weights
+          JSON.stringify(analysis),   // details
+        ]
+      );
+
+      res.json({ success: true, analysis });
+    } catch (err) {
+      console.error("❌ MATCH ERROR:", err);
+      // Provide more specific error messages
+      const errorMessage = err.message || "Match error";
+      res.status(500).json({ success: false, message: errorMessage, error: errorMessage });
+    }
   });
 
   /* ==========================================================
