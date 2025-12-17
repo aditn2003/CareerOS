@@ -6,8 +6,12 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import pdfParse from "pdf-parse";
+import { createRequire } from "module";
 import puppeteer from "puppeteer";
+
+// pdf-parse is CommonJS, use createRequire for ESM compatibility
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

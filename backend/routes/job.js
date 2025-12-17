@@ -2080,6 +2080,19 @@ router.post("/inbound-email", async (req, res) => {
       
       console.log(`✅ Job consolidated: ${parsedJob.title} at ${parsedJob.company} for user ${userId}`);
       
+      // Store notification for user
+      try {
+        await pool.query(
+          `INSERT INTO email_notifications (user_id, type, title, company, message, created_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())`,
+          [userId, 'consolidation', parsedJob.title, parsedJob.company, 
+           `Duplicate detected - consolidated with existing ${parsedJob.company} application`]
+        );
+      } catch (notifErr) {
+        // Table might not exist, that's okay
+        console.warn("⚠️ email_notifications table might not exist:", notifErr.message);
+      }
+      
       return res.status(200).json({ 
         success: true, 
         message: "Job consolidated with existing application",
@@ -2163,6 +2176,19 @@ router.post("/inbound-email", async (req, res) => {
     
     console.log(`✅ Job imported: ${parsedJob.title} at ${parsedJob.company} for user ${userId} (job_id: ${newJob.id})`);
     
+    // Store notification for user
+    try {
+      await pool.query(
+        `INSERT INTO email_notifications (user_id, type, title, company, message, created_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [userId, 'import', parsedJob.title, parsedJob.company, 
+         `New job imported from ${parsedJob.platform}: ${parsedJob.title} at ${parsedJob.company}`]
+      );
+    } catch (notifErr) {
+      // Table might not exist, that's okay
+      console.warn("⚠️ email_notifications table might not exist:", notifErr.message);
+    }
+    
     // Always return 200 so SendGrid doesn't retry
     res.status(200).json({ 
       success: true, 
@@ -2199,6 +2225,66 @@ router.get("/forwarding-email", auth, async (req, res) => {
       forwarding_email: forwardingEmail,
       instructions: "Forward job application confirmation emails to this address to automatically import them into your job tracker."
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//
+// ==================================================================
+//               EMAIL NOTIFICATIONS (UC-125)
+// ==================================================================
+//
+router.get("/email-notifications", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Get unread notifications from last 24 hours
+    const result = await pool.query(
+      `SELECT id, type, title, company, message, created_at
+       FROM email_notifications 
+       WHERE user_id = $1 AND read = false AND created_at > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC
+       LIMIT 10`,
+      [userId]
+    );
+    
+    res.json({ notifications: result.rows });
+  } catch (error) {
+    // Table might not exist
+    if (error.message && error.message.includes('does not exist')) {
+      return res.json({ notifications: [] });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/email-notifications/:id/read", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
+    
+    await pool.query(
+      `UPDATE email_notifications SET read = true WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/email-notifications/read-all", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    await pool.query(
+      `UPDATE email_notifications SET read = true WHERE user_id = $1`,
+      [userId]
+    );
+    
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

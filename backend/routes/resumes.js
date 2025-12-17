@@ -6,11 +6,15 @@ import sharedPool from "../db/pool.js"; // Import shared pool for default use
 import multer from "multer";
 import fs, { readFileSync } from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "module";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import OpenAI from "openai";
 import { trackApiCall } from "../utils/apiTrackingService.js";
-import pdfParse from "pdf-parse";
+
+// pdf-parse is CommonJS, use createRequire for ESM compatibility
+const require = createRequire(import.meta.url);
+const pdf = require("pdf-parse");
 import PDFDocument from "pdfkit";
 import {
   Document,
@@ -62,7 +66,7 @@ function escapeHtml(text) {
 
 async function extractPdfText(buffer) {
   try {
-    const data = await pdfParse(buffer);
+    const data = await pdf(buffer);
     return data.text.trim();
   } catch (err) {
     console.error("PDF extraction error:", err);

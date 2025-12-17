@@ -34,3 +34,18 @@ CREATE TABLE IF NOT EXISTS job_platforms (
 
 CREATE INDEX IF NOT EXISTS idx_job_platforms_job_id ON job_platforms(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_platforms_platform ON job_platforms(platform);
+
+-- Create table for email import notifications (UC-125)
+CREATE TABLE IF NOT EXISTS email_notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL, -- 'import', 'consolidation', 'error'
+    title TEXT, -- Job title
+    company TEXT, -- Company name
+    message TEXT NOT NULL,
+    read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_notifications_user_id ON email_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_notifications_read ON email_notifications(read);

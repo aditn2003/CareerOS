@@ -29,6 +29,7 @@ export default function Jobs() {
   const [gapData, setGapData] = useState(null);
   const [showGaps, setShowGaps] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState([]);
 
   const handleApply = (jobId) => {
     if (!jobId) return;
@@ -102,6 +103,66 @@ export default function Jobs() {
     }
   }, [token, refreshKey]);
 
+  // Poll for email notifications (consolidations/imports)
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch("/api/jobs/email-notifications", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.notifications && data.notifications.length > 0) {
+            setEmailNotifications(data.notifications);
+            // Refresh job list when new notifications arrive
+            setRefreshKey(Date.now());
+          }
+        }
+      } catch (error) {
+        // Silently fail - table might not exist
+      }
+    };
+
+    if (token) {
+      fetchNotifications();
+      // Poll every 10 seconds
+      const interval = setInterval(fetchNotifications, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
+
+  // Dismiss a notification
+  const dismissNotification = async (id) => {
+    try {
+      await fetch(`/api/jobs/email-notifications/${id}/read`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setEmailNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (error) {
+      console.error("Failed to dismiss notification:", error);
+    }
+  };
+
+  // Dismiss all notifications
+  const dismissAllNotifications = async () => {
+    try {
+      await fetch("/api/jobs/email-notifications/read-all", {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setEmailNotifications([]);
+    } catch (error) {
+      console.error("Failed to dismiss notifications:", error);
+    }
+  };
+
   // Export application history
   const handleExport = async (format = 'csv') => {
     setExporting(true);
@@ -131,6 +192,79 @@ export default function Jobs() {
 
   return (
     <div className="jobs-layout">
+      {/* Email Notifications Toast (UC-125) */}
+      {emailNotifications.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          zIndex: 1000,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          maxWidth: '400px'
+        }}>
+          {emailNotifications.map((notification) => (
+            <div
+              key={notification.id}
+              style={{
+                backgroundColor: notification.type === 'consolidation' ? '#fef3c7' : '#dcfce7',
+                border: `1px solid ${notification.type === 'consolidation' ? '#f59e0b' : '#22c55e'}`,
+                borderRadius: '8px',
+                padding: '12px 16px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '12px',
+                animation: 'slideIn 0.3s ease-out'
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>
+                {notification.type === 'consolidation' ? '🔄' : '📧'}
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1f2937' }}>
+                  {notification.type === 'consolidation' ? 'Duplicate Detected' : 'Job Imported'}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#4b5563', marginTop: '4px' }}>
+                  {notification.message}
+                </div>
+              </div>
+              <button
+                onClick={() => dismissNotification(notification.id)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  color: '#9ca3af',
+                  padding: '0'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {emailNotifications.length > 1 && (
+            <button
+              onClick={dismissAllNotifications}
+              style={{
+                alignSelf: 'flex-end',
+                padding: '6px 12px',
+                fontSize: '0.75rem',
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Dismiss All
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Tab Navigation - Matching Statistics Page Style */}
       <div className="statistics-nav-container">
         <div className="statistics-nav-group">
