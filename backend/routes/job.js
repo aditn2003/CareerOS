@@ -584,7 +584,7 @@ router.get("/map", auth, async (req, res) => {
         for (const job of jobs) {
           if (!job.latitude || !job.longitude) continue;
 
-          // Calculate distance (Haversine formula)
+          // Calculate distance (Haversine formula - straight-line)
           const R = 6371; // Earth's radius in km
           const dLat = ((job.latitude - profile.home_latitude) * Math.PI) / 180;
           const dLon = ((job.longitude - profile.home_longitude) * Math.PI) / 180;
@@ -595,13 +595,39 @@ router.get("/map", auth, async (req, res) => {
               Math.sin(dLon / 2) *
               Math.sin(dLon / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          const distanceKm = R * c;
+          const straightLineDistanceKm = R * c;
+          
+          // Adjust for actual road distance (more accurate)
+          let roadDistanceMultiplier;
+          if (straightLineDistanceKm < 50) {
+            roadDistanceMultiplier = 1.4;
+          } else if (straightLineDistanceKm < 200) {
+            roadDistanceMultiplier = 1.3;
+          } else if (straightLineDistanceKm < 1000) {
+            roadDistanceMultiplier = 1.2;
+          } else {
+            roadDistanceMultiplier = 1.15;
+          }
+          
+          const distanceKm = straightLineDistanceKm * roadDistanceMultiplier;
           const distanceMiles = distanceKm * 0.621371;
 
-          // Estimate time (60 km/h average)
-          const estimatedTimeMinutes = (distanceKm / 60) * 60;
+          // Improved time estimation based on distance
+          let avgSpeedKmh;
+          if (straightLineDistanceKm < 50) {
+            avgSpeedKmh = 40; // City driving
+          } else if (straightLineDistanceKm < 200) {
+            avgSpeedKmh = 65; // Mixed city/highway
+          } else if (straightLineDistanceKm < 500) {
+            avgSpeedKmh = 80; // Mostly highway
+          } else if (straightLineDistanceKm < 1500) {
+            avgSpeedKmh = 95; // Interstate highway
+          } else {
+            avgSpeedKmh = 100; // Very long distances
+          }
+          const estimatedTimeMinutes = (distanceKm / avgSpeedKmh) * 60;
 
-          // Apply filters
+          // Apply filters using adjusted road distance
           if (maxDistance) {
             const maxDist = parseFloat(maxDistance);
             if (distanceMiles > maxDist) continue;
@@ -612,11 +638,16 @@ router.get("/map", auth, async (req, res) => {
             if (estimatedTimeMinutes > maxTimeMinutes) continue;
           }
 
+          // Round distances to nearest 50 (miles/km) for cleaner display
+          const roundToNearest50 = (value) => Math.round(value / 50) * 50;
+          const roundedDistanceMiles = roundToNearest50(distanceMiles);
+          const roundedDistanceKm = roundToNearest50(distanceKm);
+
           filteredJobs.push({
             ...job,
             commuteDistance: {
-              kilometers: Math.round(distanceKm * 10) / 10,
-              miles: Math.round(distanceMiles * 10) / 10,
+              kilometers: roundedDistanceKm,
+              miles: roundedDistanceMiles,
             },
             commuteTime: {
               minutes: Math.round(estimatedTimeMinutes),
@@ -629,9 +660,48 @@ router.get("/map", auth, async (req, res) => {
       }
     }
 
+    // Also fetch jobs without locations (for display below map)
+    const noLocationParams = [req.userId];
+    const noLocationWhereClauses = [
+      "j.user_id = $1",
+      `(j."isArchived" = false OR j."isArchived" IS NULL)`,
+      "(j.location IS NULL OR j.location = '')"
+    ];
+    let noLocationI = 2;
+
+    // Apply status filter to jobs without locations if provided
+    if (status && STAGES.includes(status)) {
+      noLocationWhereClauses.push(`LOWER(j.status) = LOWER($${noLocationI})`);
+      noLocationParams.push(status.trim());
+      noLocationI++;
+    }
+
+    const noLocationResult = await pool.query(
+      `
+      SELECT 
+        j.id,
+        j.title,
+        j.company,
+        j.location,
+        j.status,
+        j.salary_min,
+        j.salary_max,
+        j.url,
+        j.deadline,
+        j.created_at
+      FROM jobs j
+      WHERE ${noLocationWhereClauses.join(" AND ")}
+      ORDER BY j.created_at DESC
+    `,
+      noLocationParams
+    );
+
+    const jobsWithoutLocation = noLocationResult.rows;
+
     res.json({ 
       success: true,
       jobs,
+      jobsWithoutLocation,
       count: jobs.length 
     });
   } catch (err) {

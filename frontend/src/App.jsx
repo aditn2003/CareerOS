@@ -90,16 +90,6 @@ const Networking = lazy(
   () => import("./pages/Networking/Networking")
 ); // Professional Networking Management
 
-// ---------- Help & Legal Pages (Lazy) ----------
-const GettingStarted = lazy(() => import("./pages/Help/GettingStarted"));
-const FAQ = lazy(() => import("./pages/Help/FAQ"));
-const TermsOfService = lazy(() => import("./pages/Help/TermsOfService"));
-const PrivacyPolicy = lazy(() => import("./pages/Help/PrivacyPolicy"));
-
-// ---------- Other Components (Lazy) ----------
-const FollowUpReminders = lazy(() => import("./components/FollowUpReminders"));
-const ApiMonitoringDashboard = lazy(() => import("./pages/Admin/ApiMonitoringDashboard"));
-
 // ---------- Resume Flow (Lazy) ----------
 const ResumeBuilder = lazy(() => import("./pages/Profile/ResumeBuilder"));
 const ResumeSetup = lazy(() => import("./pages/Profile/ResumeSetup"));
@@ -370,9 +360,6 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
-          {/* --- Cover Letter (UC-055)  --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
-          {/* ✅ NEW */}
           {/* --- Consolidated Network & Relationships (UC-10x, UC-087, UC-088) --- */}
           <Route
             path="/network"
