@@ -37,16 +37,15 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
     "openai": "^6.9.0",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "pdf2json": "^4.0.0",
-    "pdfjs-dist": "^5.4.394",
     "pdfkit": "^0.17.2",
     "pg": "^8.16.3",
     "puppeteer": "^24.29.1",
     "resend": "^6.5.2",
     "svix": "^1.82.0",
-    "winston": "^3.19.0",
-    "validator": "^13.15.23"
+    "validator": "^13.15.23",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.15",
