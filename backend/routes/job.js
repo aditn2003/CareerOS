@@ -470,6 +470,38 @@ router.get("/", auth, async (req, res) => {
 
 //
 // ==================================================================
+//               UPDATE JOB COORDINATES (for geocoding)
+// ==================================================================
+//
+router.put("/:id/coordinates", auth, validateIdParam, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude, location_type, timezone, utc_offset } = req.body;
+
+    if (latitude === undefined || longitude === undefined) {
+      return res.status(400).json({ error: "Latitude and longitude are required" });
+    }
+
+    await pool.query(
+      `UPDATE jobs 
+       SET latitude = $1, longitude = $2, 
+           location_type = COALESCE($3, location_type),
+           timezone = COALESCE($4, timezone),
+           utc_offset = COALESCE($5, utc_offset),
+           geocoded_at = NOW(), geocoding_error = NULL
+       WHERE id = $6 AND user_id = $7`,
+      [latitude, longitude, location_type || null, timezone || null, utc_offset || null, id, req.userId]
+    );
+
+    res.json({ success: true, message: "Job coordinates updated" });
+  } catch (error) {
+    console.error("❌ Error updating job coordinates:", error);
+    res.status(500).json({ error: "Failed to update coordinates", details: error.message });
+  }
+});
+
+//
+// ==================================================================
 //               JOBS WITH GEOCODING DATA FOR MAP VIEW (UC-116)
 // ==================================================================
 //

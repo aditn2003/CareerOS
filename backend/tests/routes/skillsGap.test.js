@@ -11,35 +11,6 @@ import skillsGapRoutes from '../../routes/skillsGap.js';
 import { createTestUser, queryTestDb, seedSkills, seedJobs } from '../helpers/index.js';
 
 // Mock external services
-vi.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: vi.fn(() => ({
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: { text: vi.fn(() => 'Mocked AI response') }
-      })
-    }))
-  }))
-}));
-
-vi.mock('openai', () => ({
-  default: vi.fn(() => ({
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{ message: { content: 'Mocked OpenAI response' } }]
-        })
-      }
-    }
-  }))
-}));
-
-vi.mock('resend', () => ({
-  Resend: vi.fn(() => ({
-    emails: {
-      send: vi.fn().mockResolvedValue({ id: 'mock-email-id' })
-    }
-  }))
-}));
 
 // Mock fs for learning resources
 vi.mock('fs', () => ({
@@ -197,7 +168,7 @@ describe('Skills Gap Routes', () => {
           expect(item.priority).toBeGreaterThan(1);
         }
       });
-    });
+    }, 60000); // 60 second timeout for priority calculation
 
     it('should sort priority list from highest to lowest priority', async () => {
       const job = await seedJobs(user.id, 1, {

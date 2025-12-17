@@ -132,6 +132,12 @@
   color: #155724;
 }
 
+.alert.error {
+  background: #f8d7da;
+  border: 1px solid #dc3545;
+  color: #721c24;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -170,11 +176,59 @@
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
+  overflow: visible;
 }
 
 .chart-container h3 {
   margin: 0 0 1rem 0;
   color: #333;
+}
+
+.performance-content {
+  overflow: visible;
+}
+
+/* Ensure Recharts tooltips are visible */
+.recharts-tooltip-wrapper {
+  z-index: 10000 !important;
+  pointer-events: none !important;
+}
+
+.recharts-default-tooltip {
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
+.recharts-tooltip-cursor {
+  pointer-events: none !important;
+}
+
+.custom-tooltip {
+  z-index: 10000 !important;
+  position: relative !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure chart containers don't clip tooltips */
+.chart-container,
+.performance-content {
+  position: relative;
+  overflow: visible !important;
+}
+
+.chart-container > div,
+.performance-content > div {
+  overflow: visible !important;
+}
+
+.api-monitoring-dashboard {
+  position: relative;
+  z-index: 1;
+}
+
+.api-monitoring-dashboard * {
+  position: relative;
 }
 
 .recent-errors {

@@ -30,79 +30,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Mock external services before importing server
-vi.mock('@google/generative-ai', () => {
-  const mockInstance = {
-    getGenerativeModel: vi.fn(() => ({
-      generateContent: vi.fn().mockResolvedValue({
-        response: {
-          text: vi.fn(() => JSON.stringify({
-            summary_recommendation: 'Optimized summary',
-            optimized_experience: [],
-            optimized_skills: [],
-            ats_keywords: [],
-            variation_options: []
-          })),
-        },
-      }),
-    })),
-  };
-  
-  return {
-    GoogleGenerativeAI: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-vi.mock('openai', () => {
-  const mockInstance = {
-    chat: {
-      completions: {
-        create: vi.fn().mockResolvedValue({
-          choices: [{
-            message: {
-              content: JSON.stringify({
-                summary_recommendation: 'Optimized summary',
-                optimized_experience: [],
-                optimized_skills: [],
-                ats_keywords: [],
-                variation_options: []
-              })
-            }
-          }]
-        })
-      }
-    }
-  };
-  
-  return {
-    default: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
-
-// Mock Resend
-vi.mock('resend', () => {
-  const mockInstance = {
-    emails: {
-      send: vi.fn().mockResolvedValue({ success: true }),
-    },
-  };
-  
-  return {
-    Resend: class {
-      constructor() {
-        return mockInstance;
-      }
-    },
-  };
-});
+// Note: AI/API mocking (Google Generative AI, OpenAI, Resend, Axios, Puppeteer) 
+// is now handled globally in vitest-setup.js
 
 vi.mock('mammoth', () => ({
   default: {
@@ -111,17 +40,7 @@ vi.mock('mammoth', () => ({
   },
 }));
 
-vi.mock('puppeteer', () => ({
-  default: {
-    launch: vi.fn().mockResolvedValue({
-      newPage: vi.fn().mockResolvedValue({
-        setContent: vi.fn().mockResolvedValue(),
-        pdf: vi.fn().mockResolvedValue(),
-      }),
-      close: vi.fn().mockResolvedValue(),
-    }),
-  },
-}));
+
 
 vi.mock('html-docx-js', () => ({
   asBlob: vi.fn().mockResolvedValue({
@@ -569,7 +488,7 @@ describe('Resume Routes', () => {
         .set('Authorization', `Bearer ${user.token}`);
 
       expect(response.status).toBe(200);
-    });
+    }, 180000); // 3 minute timeout for cleanup operation
   });
 
   describe('GET /api/resumes/:id/download', () => {

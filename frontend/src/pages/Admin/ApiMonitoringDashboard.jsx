@@ -22,6 +22,38 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+// Custom Tooltip Component
+const CustomTooltip = ({ active, payload, label, formatter, labelFormatter }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="custom-tooltip" style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        padding: '10px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        zIndex: 10000,
+        pointerEvents: 'auto'
+      }}>
+        <p style={{ margin: '0 0 5px 0', fontWeight: 'bold', color: '#333' }}>
+          {labelFormatter ? labelFormatter(label) : label}
+        </p>
+        {payload.map((entry, index) => (
+          <p key={index} style={{ margin: '2px 0', color: entry.color }}>
+            <span style={{ fontWeight: 500 }}>{entry.name}:</span>{' '}
+            {formatter 
+              ? formatter(entry.value, entry.name, entry, index, payload)
+              : typeof entry.value === 'number' 
+                ? entry.value.toLocaleString() 
+                : entry.value}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 // Services that use tokens (AI/LLM APIs)
@@ -268,9 +300,60 @@ export default function ApiMonitoringDashboard() {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  // Calculate next quota reset date based on quota period
+  const getNextResetDate = (quotaPeriod = 'monthly') => {
+    const now = new Date();
+    
+    switch (quotaPeriod.toLowerCase()) {
+      case 'daily':
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        return tomorrow;
+      
+      case 'weekly':
+        const nextMonday = new Date(now);
+        const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+        nextMonday.setDate(now.getDate() + daysUntilMonday);
+        nextMonday.setHours(0, 0, 0, 0);
+        return nextMonday;
+      
+      case 'monthly':
+      default:
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        return nextMonth;
+    }
+  };
+
+  // Get the most common quota period from services (default to monthly)
+  const getMostCommonQuotaPeriod = () => {
+    if (quotas.length === 0) return 'monthly';
+    const periods = quotas.map(q => q.quota_period || 'monthly').filter(p => p);
+    if (periods.length === 0) return 'monthly';
+    
+    // Count occurrences
+    const periodCounts = periods.reduce((acc, period) => {
+      acc[period] = (acc[period] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Return the most common period
+    return Object.keys(periodCounts).reduce((a, b) => 
+      periodCounts[a] > periodCounts[b] ? a : b
+    );
+  };
+
   // Show empty state if no data and not loading
   const hasUsageData = usageStats.length > 0;
   const hasQuotaData = quotas.length > 0;
+  
+  // Calculate next reset date based on quota period
+  const nextResetDate = getNextResetDate(getMostCommonQuotaPeriod());
+  const nextResetDateFormatted = nextResetDate.toLocaleDateString('en-US', { 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric' 
+  });
   
   if (loading) {
     return (
@@ -385,16 +468,32 @@ export default function ApiMonitoringDashboard() {
         <div className="overview-content">
           {/* Quota Alerts */}
           <div className="quota-alerts">
-            <h2>Quota Status</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>Quota Status</h2>
+              <div className="quota-reset-info">
+                <span style={{ fontSize: '0.9rem', color: '#666', fontWeight: 500 }}>
+                  Next Reset: <strong style={{ color: '#2563eb' }}>{nextResetDateFormatted}</strong>
+                </span>
+              </div>
+            </div>
             {quotas
-              .filter((q) => q.approaching_limit)
-              .map((q) => (
-                <div key={q.service_name} className="alert warning">
-                  ⚠️ {q.display_name || q.service_name} is approaching limit (
-                  {q.usage_percentage}% used)
-                </div>
-              ))}
-            {quotas.filter((q) => q.approaching_limit).length === 0 && (
+              .filter((q) => {
+                const usagePercent = q.usage_percentage != null ? Number(q.usage_percentage) : 0;
+                return usagePercent >= 100;
+              })
+              .map((q) => {
+                const usagePercent = q.usage_percentage != null ? Number(q.usage_percentage) : 0;
+                return (
+                  <div key={q.service_name} className="alert error">
+                    🚨 {q.display_name || q.service_name} - Limit Reached (
+                    {usagePercent.toFixed(1)}% used)
+                  </div>
+                );
+              })}
+            {quotas.filter((q) => {
+              const usagePercent = q.usage_percentage != null ? Number(q.usage_percentage) : 0;
+              return usagePercent >= 100;
+            }).length === 0 && (
               <div className="alert success">✅ All services within quota limits</div>
             )}
           </div>
@@ -436,12 +535,28 @@ export default function ApiMonitoringDashboard() {
           {usageStats.length > 0 && (
             <div className="chart-container">
               <h3>API Usage by Service</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={usageStats}>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart 
+                  data={usageStats}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="service_name" />
+                  <XAxis 
+                    dataKey="service_name" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={100}
+                    interval={0}
+                    tick={{ fontSize: 12 }}
+                  />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip 
+                    content={<CustomTooltip 
+                      formatter={(value) => value === null || value === undefined ? 'N/A' : `${Number(value).toLocaleString()}`}
+                      labelFormatter={(label) => `Service: ${label}`}
+                    />}
+                    cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                  />
                   <Legend />
                   <Bar dataKey="total_requests" fill="#0088FE" name="Total Requests" />
                   <Bar dataKey="successful_requests" fill="#00C49F" name="Successful" />
@@ -517,7 +632,12 @@ export default function ApiMonitoringDashboard() {
             </tbody>
           </table>
 
-          <h2 style={{ marginTop: "2rem" }}>Quota Status</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: "2rem", marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Quota Status</h2>
+            <div style={{ fontSize: '0.9rem', color: '#666', fontWeight: 500 }}>
+              <span>Next Reset: <strong style={{ color: '#2563eb' }}>{nextResetDateFormatted}</strong></span>
+            </div>
+          </div>
           <table>
             <thead>
               <tr>
@@ -552,11 +672,14 @@ export default function ApiMonitoringDashboard() {
                   <td>{formatTokens(quota.tokens_used, quota.service_name)}</td>
                   <td>${Number(quota.cost_total || 0).toFixed(2)}</td>
                   <td>
-                    {quota.approaching_limit ? (
-                      <span className="badge warning">⚠️ Approaching Limit</span>
-                    ) : (
-                      <span className="badge success">✅ OK</span>
-                    )}
+                    {(() => {
+                      const usagePercent = quota.usage_percentage != null ? Number(quota.usage_percentage) : 0;
+                      if (usagePercent >= 100) {
+                        return <span className="badge error">🚨 Limit Reached</span>;
+                      } else {
+                        return <span className="badge success">✅ OK</span>;
+                      }
+                    })()}
                   </td>
                 </tr>
               ))}
@@ -622,61 +745,84 @@ export default function ApiMonitoringDashboard() {
       {/* Performance Tab */}
       {activeTab === "performance" && (
         <div className="performance-content">
-          <h2>API Response Time Performance</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ margin: 0 }}>API Response Time Performance</h2>
+            <div style={{ fontSize: '0.9rem', color: '#666' }}>
+              <strong>Next Reset:</strong> {nextResetDateFormatted}
+            </div>
+          </div>
           {responseTimes.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart 
-                data={responseTimes}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="time_period" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis 
-                  label={{ value: "Response Time (ms)", angle: -90, position: "insideLeft" }}
-                  domain={[0, 'dataMax + 1000']}
-                />
-                <Tooltip 
-                  formatter={(value) => value ? `${value.toLocaleString()} ms` : 'N/A'}
-                  labelStyle={{ color: '#333' }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="avg_response_time_ms"
-                  stroke="#0088FE"
-                  strokeWidth={2}
-                  dot={{ fill: '#0088FE', r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="Average"
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="p95_response_time_ms"
-                  stroke="#FF8042"
-                  strokeWidth={2}
-                  dot={{ fill: '#FF8042', r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="95th Percentile"
-                  connectNulls={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="p99_response_time_ms"
-                  stroke="#FF0000"
-                  strokeWidth={2}
-                  dot={{ fill: '#FF0000', r: 4 }}
-                  activeDot={{ r: 6 }}
-                  name="99th Percentile"
-                  connectNulls={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={450}>
+                <LineChart 
+                  data={responseTimes}
+                  margin={{ top: 20, right: 40, left: 70, bottom: 120 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                  <XAxis 
+                    dataKey="time_period" 
+                    angle={-45}
+                    textAnchor="end"
+                    height={120}
+                    interval={Math.max(0, Math.floor(responseTimes.length / 15))}
+                    tick={{ fontSize: 11, fill: '#666' }}
+                    label={{ value: 'Date', position: 'insideBottom', offset: -10, style: { textAnchor: 'middle', fill: '#333', fontSize: '14px', fontWeight: 600 } }}
+                  />
+                  <YAxis 
+                    label={{ value: "Response Time (ms)", angle: -90, position: "insideLeft", style: { textAnchor: 'middle', fill: '#333', fontSize: '14px', fontWeight: 600 } }}
+                    domain={[0, 'dataMax + 500']}
+                    tick={{ fontSize: 12, fill: '#666' }}
+                    tickFormatter={(value) => `${value.toLocaleString()}`}
+                  />
+                  <Tooltip 
+                    content={<CustomTooltip 
+                      formatter={(value) => value === null || value === undefined ? 'N/A' : `${Number(value).toLocaleString()} ms`}
+                      labelFormatter={(label) => `📅 ${label}`}
+                    />}
+                    cursor={{ stroke: '#888', strokeWidth: 1, strokeDasharray: '3 3' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
+                    formatter={(value) => <span style={{ fontSize: '13px', fontWeight: 500 }}>{value}</span>}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="avg_response_time_ms"
+                    stroke="#3b82f6"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#3b82f6', r: 3, strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2, fill: '#fff' }}
+                    name="Average Response Time"
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="p95_response_time_ms"
+                    stroke="#f59e0b"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#f59e0b', r: 3, strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6, stroke: '#f59e0b', strokeWidth: 2, fill: '#fff' }}
+                    name="95th Percentile"
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="p99_response_time_ms"
+                    stroke="#ef4444"
+                    strokeWidth={2.5}
+                    dot={{ fill: '#ef4444', r: 3, strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2, fill: '#fff' }}
+                    name="99th Percentile"
+                    connectNulls={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8f9fa', borderRadius: '8px', fontSize: '0.85rem', color: '#666' }}>
+                <strong>Legend:</strong> This graph shows API response time trends over time. 
+                <strong> Average</strong> represents typical response times, while <strong>95th</strong> and <strong>99th Percentile</strong> show slower responses that affect a small percentage of requests.
+              </div>
+            </div>
           ) : (
             <p>No response time data available for the selected period.</p>
           )}

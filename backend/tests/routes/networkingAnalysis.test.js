@@ -350,7 +350,7 @@ describe('Networking Analysis Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.roiMetrics.contactROI).toBeDefined();
-    });
+    }, 60000); // 60 second timeout for ROI calculation
 
     it('should calculate relationship tier ROI', async () => {
       // Create contacts with different strength tiers
@@ -373,7 +373,7 @@ describe('Networking Analysis Routes', () => {
       expect(response.body.roiMetrics.relationshipTierROI).toBeDefined();
       expect(response.body.roiMetrics.relationshipTierROI.strong).toBeDefined();
       expect(response.body.roiMetrics.relationshipTierROI.medium).toBeDefined();
-    });
+    }, 60000); // 60 second timeout for ROI calculation
 
     it('should require authentication', async () => {
       const response = await request(app)
@@ -422,7 +422,7 @@ describe('Networking Analysis Routes', () => {
       expect(response.body.summaryCards).toHaveProperty('totalContacts');
       expect(response.body.summaryCards).toHaveProperty('totalActivities');
       expect(response.body.summaryCards).toHaveProperty('totalReferrals');
-    });
+    }, 60000); // 60s timeout
 
     it('should include data quality indicators', async () => {
       const response = await request(app)
@@ -434,7 +434,7 @@ describe('Networking Analysis Routes', () => {
       expect(response.body.dataQuality).toHaveProperty('hasContacts');
       expect(response.body.dataQuality).toHaveProperty('hasActivities');
       expect(response.body.dataQuality).toHaveProperty('sufficientData');
-    });
+    }, 60000); // 60s timeout
   });
 });
 

@@ -22,7 +22,11 @@ function createGitHubRoutes(dbPool = null) {
       const { github_username } = req.body;
       const userId = req.user.id;
 
-      if (!github_username || typeof github_username !== "string" || github_username.trim() === "") {
+      if (
+        !github_username ||
+        typeof github_username !== "string" ||
+        github_username.trim() === ""
+      ) {
         return res.status(400).json({ error: "GitHub username is required" });
       }
 
@@ -34,7 +38,8 @@ function createGitHubRoutes(dbPool = null) {
         [userId]
       );
 
-      const isReconnectingSameAccount = existing.rows.length > 0 && 
+      const isReconnectingSameAccount =
+        existing.rows.length > 0 &&
         existing.rows[0].github_username?.toLowerCase() === username;
 
       // Always clear contribution data when connecting/reconnecting
@@ -44,7 +49,9 @@ function createGitHubRoutes(dbPool = null) {
         "DELETE FROM github_contributions WHERE user_id = $1",
         [userId]
       );
-      console.log(`🗑️ Deleted ${contributionsDeleted.rowCount} old contribution records`);
+      console.log(
+        `🗑️ Deleted ${contributionsDeleted.rowCount} old contribution records`
+      );
 
       if (existing.rows.length > 0) {
         // Update existing settings
@@ -54,7 +61,7 @@ function createGitHubRoutes(dbPool = null) {
            WHERE user_id = $2`,
           [username, userId]
         );
-        
+
         if (isReconnectingSameAccount) {
           // Check if repositories already exist for this username
           const reposCheck = await databasePool.query(
@@ -62,9 +69,11 @@ function createGitHubRoutes(dbPool = null) {
             [userId, username]
           );
           const repoCount = parseInt(reposCheck.rows[0]?.count || 0);
-          
-          console.log(`✅ Reconnecting same GitHub account (${username}). Existing repos: ${repoCount}`);
-          
+
+          console.log(
+            `✅ Reconnecting same GitHub account (${username}). Existing repos: ${repoCount}`
+          );
+
           res.json({
             message: "GitHub account reconnected successfully",
             github_username: username,
@@ -104,13 +113,16 @@ function createGitHubRoutes(dbPool = null) {
       try {
         return await queryFn();
       } catch (error) {
-        const isConnectionError = error.message?.includes('Connection terminated') || 
-                                  error.message?.includes('timeout') ||
-                                  error.code === 'XX000';
-        
+        const isConnectionError =
+          error.message?.includes("Connection terminated") ||
+          error.message?.includes("timeout") ||
+          error.code === "XX000";
+
         if (isConnectionError && i < maxRetries - 1) {
-          console.warn(`⚠️ Database connection error (attempt ${i + 1}/${maxRetries}), retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+          console.warn(
+            `⚠️ Database connection error (attempt ${i + 1}/${maxRetries}), retrying...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
           continue;
         }
         throw error;
@@ -119,6 +131,11 @@ function createGitHubRoutes(dbPool = null) {
   }
 
   router.post("/sync", auth, async (req, res) => {
+    // Initialize tracking variables early to ensure they're available in catch block
+    let added = 0;
+    let updated = 0;
+    let errors = [];
+
     try {
       const userId = req.user.id;
 
@@ -130,19 +147,29 @@ function createGitHubRoutes(dbPool = null) {
         );
       });
 
-      if (settingsResult.rows.length === 0 || !settingsResult.rows[0].github_username) {
-        return res.status(400).json({ error: "GitHub account not connected. Please connect your GitHub account first." });
+      if (
+        settingsResult.rows.length === 0 ||
+        !settingsResult.rows[0].github_username
+      ) {
+        return res
+          .status(400)
+          .json({
+            error:
+              "GitHub account not connected. Please connect your GitHub account first.",
+          });
       }
 
-      const { github_username, github_token, include_private_repos } = settingsResult.rows[0];
-      
+      const { github_username, github_token, include_private_repos } =
+        settingsResult.rows[0];
+
       // Decrypt token if it exists
       const decryptedToken = github_token ? decryptToken(github_token) : null;
 
       // Validate: if user wants private repos but has no token, return error
       if (include_private_repos && !decryptedToken) {
-        return res.status(400).json({ 
-          error: "A GitHub personal access token is required to sync private repositories. Please add a token in your settings first." 
+        return res.status(400).json({
+          error:
+            "A GitHub personal access token is required to sync private repositories. Please add a token in your settings first.",
         });
       }
 
@@ -166,13 +193,17 @@ function createGitHubRoutes(dbPool = null) {
 
       // Filter repositories based on user preference
       // If include_private_repos is false, filter out private repos
-      const privateReposCount = repositories.filter(repo => repo.private === true).length;
-      const publicReposCount = repositories.filter(repo => repo.private === false).length;
-      
-      const filteredRepositories = include_private_repos 
+      const privateReposCount = repositories.filter(
+        (repo) => repo.private === true
+      ).length;
+      const publicReposCount = repositories.filter(
+        (repo) => repo.private === false
+      ).length;
+
+      const filteredRepositories = include_private_repos
         ? repositories // Include all repos (public + private)
-        : repositories.filter(repo => !repo.private); // Only public repos
-      
+        : repositories.filter((repo) => !repo.private); // Only public repos
+
       console.log(`📊 Sync for user ${userId}:`);
       console.log(`  - Total fetched: ${repositories.length} repos`);
       console.log(`  - Public repos: ${publicReposCount}`);
@@ -180,10 +211,6 @@ function createGitHubRoutes(dbPool = null) {
       console.log(`  - Include private setting: ${include_private_repos}`);
       console.log(`  - After filtering: ${filteredRepositories.length} repos`);
       console.log(`  - Token provided: ${!!decryptedToken}`);
-
-      let added = 0;
-      let updated = 0;
-      let errors = [];
 
       // Process each repository
       for (const repo of filteredRepositories) {
@@ -196,9 +223,14 @@ function createGitHubRoutes(dbPool = null) {
             userId
           );
 
-          const normalized = githubService.normalizeRepositoryData(repoDetails, github_username);
+          const normalized = githubService.normalizeRepositoryData(
+            repoDetails,
+            github_username
+          );
 
-          console.log(`📦 Processing repo: ${normalized.name} (private: ${normalized.is_private})`);
+          console.log(
+            `📦 Processing repo: ${normalized.name} (private: ${normalized.is_private})`
+          );
 
           // Check if repository already exists with retry
           const existing = await retryQuery(async () => {
@@ -244,7 +276,9 @@ function createGitHubRoutes(dbPool = null) {
               );
             });
             updated++;
-            console.log(`✅ Updated repo: ${normalized.name} (private: ${normalized.is_private})`);
+            console.log(
+              `✅ Updated repo: ${normalized.name} (private: ${normalized.is_private})`
+            );
           } else {
             // Insert new repository with retry
             await retryQuery(async () => {
@@ -280,7 +314,9 @@ function createGitHubRoutes(dbPool = null) {
               );
             });
             added++;
-            console.log(`✅ Added repo: ${normalized.name} (private: ${normalized.is_private})`);
+            console.log(
+              `✅ Added repo: ${normalized.name} (private: ${normalized.is_private})`
+            );
           }
 
           // Fetch and store contribution data for this repository
@@ -294,28 +330,39 @@ function createGitHubRoutes(dbPool = null) {
                 [userId, normalized.repository_id]
               );
             });
-            
+
             // Add small delay before contribution fetch to avoid rate limits
-            await new Promise(resolve => setTimeout(resolve, 200));
-            
-            console.log(`🔄 Fetching contributions for ${github_username}/${repo.name}...`);
-            
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            console.log(
+              `🔄 Fetching contributions for ${github_username}/${repo.name}...`
+            );
+
             // Set a shorter timeout for contribution fetch (10 seconds per repo)
-            const contributionPromise = githubService.fetchRepositoryContributions(
-              github_username,
-              repo.name,
-              decryptedToken || null,
-              365, // Last 365 days
-              userId
+            const contributionPromise =
+              githubService.fetchRepositoryContributions(
+                github_username,
+                repo.name,
+                decryptedToken || null,
+                365, // Last 365 days
+                userId
+              );
+
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(
+                () => reject(new Error("Contribution fetch timeout after 10s")),
+                10000
+              )
             );
-            
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Contribution fetch timeout after 10s')), 10000)
+
+            const contributions = await Promise.race([
+              contributionPromise,
+              timeoutPromise,
+            ]);
+
+            console.log(
+              `📊 Received ${contributions?.length || 0} contribution records for ${repo.name}`
             );
-            
-            const contributions = await Promise.race([contributionPromise, timeoutPromise]);
-            
-            console.log(`📊 Received ${contributions?.length || 0} contribution records for ${repo.name}`);
 
             // Store contribution data in database with retry logic and batching
             if (contributions && contributions.length > 0) {
@@ -327,10 +374,12 @@ function createGitHubRoutes(dbPool = null) {
                 for (const contribution of batch) {
                   try {
                     // Log December 9th contributions specifically for debugging
-                    if (contribution.date === '2024-12-09') {
-                      console.log(`🔍 Storing Dec 9 contribution: repo=${repo.name}, commits=${contribution.commit_count}`);
+                    if (contribution.date === "2024-12-09") {
+                      console.log(
+                        `🔍 Storing Dec 9 contribution: repo=${repo.name}, commits=${contribution.commit_count}`
+                      );
                     }
-                    
+
                     await retryQuery(async () => {
                       return await databasePool.query(
                         `INSERT INTO github_contributions 
@@ -353,32 +402,54 @@ function createGitHubRoutes(dbPool = null) {
                     });
                     storedCount++;
                   } catch (dbError) {
-                    console.error(`❌ Error storing contribution for ${repo.name} on ${contribution.date}:`, dbError.message);
+                    console.error(
+                      `❌ Error storing contribution for ${repo.name} on ${contribution.date}:`,
+                      dbError.message
+                    );
                   }
                 }
                 // Small delay between batches to avoid overwhelming the database
                 if (i + batchSize < contributions.length) {
-                  await new Promise(resolve => setTimeout(resolve, 100));
+                  await new Promise((resolve) => setTimeout(resolve, 100));
                 }
               }
-              console.log(`✅ Stored ${storedCount}/${contributions.length} days of contribution data for ${repo.name}`);
+              console.log(
+                `✅ Stored ${storedCount}/${contributions.length} days of contribution data for ${repo.name}`
+              );
             } else {
-              console.log(`ℹ️ No contribution data to store for ${repo.name} (may have no commits in last 365 days)`);
+              console.log(
+                `ℹ️ No contribution data to store for ${repo.name} (may have no commits in last 365 days)`
+              );
             }
           } catch (contribError) {
             // Don't fail the entire sync if contribution fetch fails
-            if (contribError.message && contribError.message.includes('timeout')) {
-              console.warn(`⚠️ Contribution fetch timeout for ${repo.name}. Skipping contributions.`);
+            if (
+              contribError.message &&
+              contribError.message.includes("timeout")
+            ) {
+              console.warn(
+                `⚠️ Contribution fetch timeout for ${repo.name}. Skipping contributions.`
+              );
             } else if (contribError.response?.status === 403) {
-              console.warn(`⚠️ Access denied for contributions in ${repo.name} (403). Skipping.`);
+              console.warn(
+                `⚠️ Access denied for contributions in ${repo.name} (403). Skipping.`
+              );
             } else if (contribError.response?.status === 404) {
-              console.warn(`⚠️ Repository ${repo.name} not found for contributions (404). Skipping.`);
+              console.warn(
+                `⚠️ Repository ${repo.name} not found for contributions (404). Skipping.`
+              );
             } else {
-              console.warn(`⚠️ Could not fetch contributions for ${repo.name}:`, contribError.message);
+              console.warn(
+                `⚠️ Could not fetch contributions for ${repo.name}:`,
+                contribError.message
+              );
             }
           }
         } catch (repoError) {
-          console.error(`❌ Error processing repository ${repo.name}:`, repoError.message);
+          console.error(
+            `❌ Error processing repository ${repo.name}:`,
+            repoError.message
+          );
           errors.push({ repository: repo.name, error: repoError.message });
         }
       }
@@ -407,30 +478,40 @@ function createGitHubRoutes(dbPool = null) {
       });
     } catch (err) {
       console.error("❌ Error syncing repositories:", err);
-      
-      // Try to update sync status to failed with retry
-      try {
-        await retryQuery(async () => {
-          return await databasePool.query(
-            `UPDATE github_user_settings 
-             SET sync_status = 'failed', sync_error = $1, updated_at = NOW()
-             WHERE user_id = $2`,
-            [err.message.substring(0, 500), userId] // Limit error message length
+
+      // Get userId from req (should always be available from auth middleware)
+      const userIdForError = req.user?.id;
+
+      // Try to update sync status to failed with retry (only if userId is available)
+      if (userIdForError) {
+        try {
+          await retryQuery(async () => {
+            return await databasePool.query(
+              `UPDATE github_user_settings 
+               SET sync_status = 'failed', sync_error = $1, updated_at = NOW()
+               WHERE user_id = $2`,
+              [err.message.substring(0, 500), userIdForError] // Limit error message length
+            );
+          });
+        } catch (updateError) {
+          console.error(
+            "❌ Failed to update sync status:",
+            updateError.message
           );
-        });
-      } catch (updateError) {
-        console.error("❌ Failed to update sync status:", updateError.message);
+        }
       }
-      
+
       // Check if it's a connection timeout error
-      const isConnectionError = err.message?.includes('Connection terminated') || 
-                                err.message?.includes('timeout') ||
-                                err.cause?.message?.includes('Connection terminated');
-      
+      const isConnectionError =
+        err.message?.includes("Connection terminated") ||
+        err.message?.includes("timeout") ||
+        err.cause?.message?.includes("Connection terminated");
+
       if (isConnectionError) {
         res.status(500).json({
           error: "Database connection timeout during sync",
-          message: "The sync took too long and the database connection timed out. Some repositories may have been synced. Please try syncing again.",
+          message:
+            "The sync took too long and the database connection timed out. Some repositories may have been synced. Please try syncing again.",
           partial_success: true,
           summary: {
             added,
@@ -454,17 +535,25 @@ function createGitHubRoutes(dbPool = null) {
   router.get("/repositories", auth, async (req, res) => {
     try {
       const userId = req.user.id;
-      const { featured, language, sort = "updated", include_private } = req.query;
+      const {
+        featured,
+        language,
+        sort = "updated",
+        include_private,
+      } = req.query;
 
       // Get user's private repo preference and token status
       const settingsResult = await databasePool.query(
         "SELECT include_private_repos, github_token FROM github_user_settings WHERE user_id = $1",
         [userId]
       );
-      const userPrefersPrivate = settingsResult.rows[0]?.include_private_repos || false;
+      const userPrefersPrivate =
+        settingsResult.rows[0]?.include_private_repos || false;
       const hasToken = !!settingsResult.rows[0]?.github_token;
 
-      console.log(`📋 Fetching repos for user ${userId}: include_private_repos=${userPrefersPrivate}, hasToken=${hasToken}, query_param=${include_private}`);
+      console.log(
+        `📋 Fetching repos for user ${userId}: include_private_repos=${userPrefersPrivate}, hasToken=${hasToken}, query_param=${include_private}`
+      );
 
       let query = `
         SELECT * FROM github_repositories 
@@ -476,15 +565,19 @@ function createGitHubRoutes(dbPool = null) {
       // Filter private repos based on query param or user preference
       // If user has include_private_repos enabled, show all repos (public + private)
       // Otherwise, only show public repos
-      if (include_private === "false" || (!userPrefersPrivate && include_private !== "true")) {
+      if (
+        include_private === "false" ||
+        (!userPrefersPrivate && include_private !== "true")
+      ) {
         query += ` AND is_private = false`;
         console.log(`🔍 Filtering: Only showing public repos`);
       } else if (include_private === "true" && !hasToken) {
         // If user explicitly requests private but has no token, return empty with warning
         console.log(`⚠️ User requested private repos but has no token`);
-        return res.json({ 
+        return res.json({
           repositories: [],
-          warning: "Private repositories require a GitHub personal access token. Please add a token in your settings."
+          warning:
+            "Private repositories require a GitHub personal access token. Please add a token in your settings.",
         });
       } else {
         console.log(`🔍 Filtering: Showing all repos (public + private)`);
@@ -505,18 +598,29 @@ function createGitHubRoutes(dbPool = null) {
       // Sort order
       const validSorts = ["stars", "updated", "created", "pushed"];
       const sortField = validSorts.includes(sort) ? sort : "updated";
-      const sortColumn = sortField === "stars" ? "stars_count" : 
-                        sortField === "updated" ? "updated_at" :
-                        sortField === "created" ? "created_at" : "pushed_at";
-      
+      const sortColumn =
+        sortField === "stars"
+          ? "stars_count"
+          : sortField === "updated"
+            ? "updated_at"
+            : sortField === "created"
+              ? "created_at"
+              : "pushed_at";
+
       query += ` ORDER BY ${sortColumn} DESC`;
 
       const result = await databasePool.query(query, params);
 
       // Log repository counts
-      const privateCount = result.rows.filter(r => r.is_private === true).length;
-      const publicCount = result.rows.filter(r => r.is_private === false).length;
-      console.log(`📦 Query returned ${result.rows.length} repos: ${publicCount} public, ${privateCount} private`);
+      const privateCount = result.rows.filter(
+        (r) => r.is_private === true
+      ).length;
+      const publicCount = result.rows.filter(
+        (r) => r.is_private === false
+      ).length;
+      console.log(
+        `📦 Query returned ${result.rows.length} repos: ${publicCount} public, ${privateCount} private`
+      );
 
       // Parse languages JSONB and fetch linked skills for each repository
       const repositories = await Promise.all(
@@ -532,13 +636,18 @@ function createGitHubRoutes(dbPool = null) {
 
           return {
             ...repo,
-            languages: typeof repo.languages === "string" ? JSON.parse(repo.languages) : repo.languages,
+            languages:
+              typeof repo.languages === "string"
+                ? JSON.parse(repo.languages)
+                : repo.languages,
             linked_skills: skillsResult.rows || [],
           };
         })
       );
 
-      console.log(`✅ Returning ${repositories.length} repositories to frontend`);
+      console.log(
+        `✅ Returning ${repositories.length} repositories to frontend`
+      );
       res.json({ repositories });
     } catch (err) {
       console.error("❌ Error fetching repositories:", err);
@@ -570,7 +679,10 @@ function createGitHubRoutes(dbPool = null) {
       }
 
       const repo = result.rows[0];
-      repo.languages = typeof repo.languages === "string" ? JSON.parse(repo.languages) : repo.languages;
+      repo.languages =
+        typeof repo.languages === "string"
+          ? JSON.parse(repo.languages)
+          : repo.languages;
 
       // Fetch linked skills
       const skillsResult = await databasePool.query(
@@ -621,7 +733,10 @@ function createGitHubRoutes(dbPool = null) {
       }
 
       const repo = result.rows[0];
-      repo.languages = typeof repo.languages === "string" ? JSON.parse(repo.languages) : repo.languages;
+      repo.languages =
+        typeof repo.languages === "string"
+          ? JSON.parse(repo.languages)
+          : repo.languages;
 
       res.json({
         message: `Repository ${is_featured ? "featured" : "unfeatured"} successfully`,
@@ -666,8 +781,10 @@ function createGitHubRoutes(dbPool = null) {
 
       const result = await databasePool.query(query, params);
 
-      console.log(`📊 Returning ${result.rows.length} contribution records for user ${userId}`);
-      
+      console.log(
+        `📊 Returning ${result.rows.length} contribution records for user ${userId}`
+      );
+
       // Debug: Check December 9th specifically
       const dec9Check = await databasePool.query(
         `SELECT date, SUM(commit_count) as total_commits, COUNT(DISTINCT repository_id) as repo_count
@@ -677,7 +794,9 @@ function createGitHubRoutes(dbPool = null) {
         [userId]
       );
       if (dec9Check.rows.length > 0) {
-        console.log(`🔍 Dec 9 Debug: Found ${dec9Check.rows[0].total_commits} commits across ${dec9Check.rows[0].repo_count} repos`);
+        console.log(
+          `🔍 Dec 9 Debug: Found ${dec9Check.rows[0].total_commits} commits across ${dec9Check.rows[0].repo_count} repos`
+        );
         // Get detailed breakdown by repository
         const dec9Details = await databasePool.query(
           `SELECT repository_id, date, commit_count 
@@ -688,7 +807,7 @@ function createGitHubRoutes(dbPool = null) {
         );
         console.log(`🔍 Dec 9 Details:`, dec9Details.rows);
       }
-      
+
       // Debug: Check if any data exists at all
       if (result.rows.length === 0) {
         const debugQuery = await databasePool.query(
@@ -696,20 +815,27 @@ function createGitHubRoutes(dbPool = null) {
            FROM github_contributions WHERE user_id = $1`,
           [userId]
         );
-        console.log(`🔍 Debug: Total contributions in DB for user ${userId}:`, debugQuery.rows[0]);
-        
+        console.log(
+          `🔍 Debug: Total contributions in DB for user ${userId}:`,
+          debugQuery.rows[0]
+        );
+
         // Also check if repositories exist but no contributions
         const reposCheck = await databasePool.query(
           `SELECT COUNT(*) as repo_count FROM github_repositories WHERE user_id = $1`,
           [userId]
         );
-        console.log(`🔍 Debug: User has ${reposCheck.rows[0]?.repo_count || 0} repositories`);
+        console.log(
+          `🔍 Debug: User has ${reposCheck.rows[0]?.repo_count || 0} repositories`
+        );
       }
-      
+
       res.json({ contributions: result.rows });
     } catch (err) {
       console.error("❌ Error fetching contributions:", err);
-      res.status(500).json({ error: "Failed to fetch contributions", details: err.message });
+      res
+        .status(500)
+        .json({ error: "Failed to fetch contributions", details: err.message });
     }
   });
 
@@ -756,13 +882,17 @@ function createGitHubRoutes(dbPool = null) {
         );
 
         if (skillCheck.rows.length !== skill_ids.length) {
-          return res.status(400).json({ error: "One or more skills not found or don't belong to user" });
+          return res
+            .status(400)
+            .json({
+              error: "One or more skills not found or don't belong to user",
+            });
         }
 
         // Insert new links
-        const values = skill_ids.map((skillId, index) => 
-          `($1, $2, $${index + 3})`
-        ).join(", ");
+        const values = skill_ids
+          .map((skillId, index) => `($1, $2, $${index + 3})`)
+          .join(", ");
 
         await databasePool.query(
           `INSERT INTO github_repository_skills (repository_id, user_id, skill_id)
@@ -793,33 +923,39 @@ function createGitHubRoutes(dbPool = null) {
      DELETE /api/github/repositories/:repoId/skills/:skillId
      Unlink skill from repository
   ============================================================ */
-  router.delete("/repositories/:repoId/skills/:skillId", auth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const repoId = parseInt(req.params.repoId);
-      const skillId = parseInt(req.params.skillId);
+  router.delete(
+    "/repositories/:repoId/skills/:skillId",
+    auth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const repoId = parseInt(req.params.repoId);
+        const skillId = parseInt(req.params.skillId);
 
-      if (isNaN(repoId) || isNaN(skillId)) {
-        return res.status(400).json({ error: "Invalid repository ID or skill ID" });
-      }
+        if (isNaN(repoId) || isNaN(skillId)) {
+          return res
+            .status(400)
+            .json({ error: "Invalid repository ID or skill ID" });
+        }
 
-      const result = await databasePool.query(
-        `DELETE FROM github_repository_skills 
+        const result = await databasePool.query(
+          `DELETE FROM github_repository_skills 
          WHERE repository_id = $1 AND skill_id = $2 AND user_id = $3
          RETURNING id`,
-        [repoId, skillId, userId]
-      );
+          [repoId, skillId, userId]
+        );
 
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: "Skill link not found" });
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: "Skill link not found" });
+        }
+
+        res.json({ message: "Skill unlinked successfully" });
+      } catch (err) {
+        console.error("❌ Error unlinking skill:", err);
+        res.status(500).json({ error: "Failed to unlink skill" });
       }
-
-      res.json({ message: "Skill unlinked successfully" });
-    } catch (err) {
-      console.error("❌ Error unlinking skill:", err);
-      res.status(500).json({ error: "Failed to unlink skill" });
     }
-  });
+  );
 
   /* ============================================================
      GET /api/github/stats
@@ -882,22 +1018,30 @@ function createGitHubRoutes(dbPool = null) {
           total_stars: parseInt(repoStats.rows[0]?.total_stars || 0),
           total_forks: parseInt(repoStats.rows[0]?.total_forks || 0),
         },
-        languages: languageStats.rows.map(row => ({
+        languages: languageStats.rows.map((row) => ({
           language: row.language,
           repository_count: parseInt(row.repo_count),
           total_stars: parseInt(row.total_stars),
         })),
         contributions: {
-          total_commits: parseInt(contributionStats.rows[0]?.total_commits || 0),
+          total_commits: parseInt(
+            contributionStats.rows[0]?.total_commits || 0
+          ),
           active_days: parseInt(contributionStats.rows[0]?.active_days || 0),
-          active_repositories: parseInt(contributionStats.rows[0]?.active_repositories || 0),
+          active_repositories: parseInt(
+            contributionStats.rows[0]?.active_repositories || 0
+          ),
         },
-        most_active_repository: mostActiveRepo.rows.length > 0 ? {
-          ...mostActiveRepo.rows[0],
-          languages: typeof mostActiveRepo.rows[0].languages === "string" 
-            ? JSON.parse(mostActiveRepo.rows[0].languages) 
-            : mostActiveRepo.rows[0].languages,
-        } : null,
+        most_active_repository:
+          mostActiveRepo.rows.length > 0
+            ? {
+                ...mostActiveRepo.rows[0],
+                languages:
+                  typeof mostActiveRepo.rows[0].languages === "string"
+                    ? JSON.parse(mostActiveRepo.rows[0].languages)
+                    : mostActiveRepo.rows[0].languages,
+              }
+            : null,
       };
 
       res.json({ stats });
@@ -943,7 +1087,8 @@ function createGitHubRoutes(dbPool = null) {
   router.put("/settings", auth, async (req, res) => {
     try {
       const userId = req.user.id;
-      const { auto_sync_enabled, sync_frequency, include_private_repos } = req.body;
+      const { auto_sync_enabled, sync_frequency, include_private_repos } =
+        req.body;
 
       const updates = [];
       const params = [];
@@ -955,7 +1100,10 @@ function createGitHubRoutes(dbPool = null) {
         paramIndex++;
       }
 
-      if (sync_frequency && ["hourly", "daily", "weekly"].includes(sync_frequency)) {
+      if (
+        sync_frequency &&
+        ["hourly", "daily", "weekly"].includes(sync_frequency)
+      ) {
         updates.push(`sync_frequency = $${paramIndex}`);
         params.push(sync_frequency);
         paramIndex++;
@@ -971,8 +1119,10 @@ function createGitHubRoutes(dbPool = null) {
           "SELECT include_private_repos FROM github_user_settings WHERE user_id = $1",
           [userId]
         );
-        previousSetting = currentSettings.rows[0]?.include_private_repos || false;
-        disablingPrivateRepos = previousSetting === true && include_private_repos === false;
+        previousSetting =
+          currentSettings.rows[0]?.include_private_repos || false;
+        disablingPrivateRepos =
+          previousSetting === true && include_private_repos === false;
 
         updates.push(`include_private_repos = $${paramIndex}`);
         params.push(include_private_repos);
@@ -999,30 +1149,36 @@ function createGitHubRoutes(dbPool = null) {
           "SELECT repository_id FROM github_repositories WHERE user_id = $1 AND is_private = true",
           [userId]
         );
-        const privateRepoIds = privateReposResult.rows.map(r => r.repository_id);
-        
+        const privateRepoIds = privateReposResult.rows.map(
+          (r) => r.repository_id
+        );
+
         if (privateRepoIds.length > 0) {
           // Delete related contribution data
           await databasePool.query(
             "DELETE FROM github_contributions WHERE user_id = $1 AND repository_id = ANY($2)",
             [userId, privateRepoIds]
           );
-          
+
           // Delete repository-skill links
           await databasePool.query(
             "DELETE FROM github_repository_skills WHERE user_id = $1 AND repository_id = ANY($2)",
             [userId, privateRepoIds]
           );
-          
+
           // Finally, delete the repositories themselves
           const deleteResult = await databasePool.query(
             "DELETE FROM github_repositories WHERE user_id = $1 AND is_private = true RETURNING id",
             [userId]
           );
-          
-          console.log(`🗑️ Deleted ${deleteResult.rowCount} private repositories and related data for user ${userId}`);
+
+          console.log(
+            `🗑️ Deleted ${deleteResult.rowCount} private repositories and related data for user ${userId}`
+          );
         } else {
-          console.log(`ℹ️ No private repositories to delete for user ${userId}`);
+          console.log(
+            `ℹ️ No private repositories to delete for user ${userId}`
+          );
         }
       }
 
@@ -1054,7 +1210,11 @@ function createGitHubRoutes(dbPool = null) {
       const userId = req.user.id;
       const { github_token } = req.body;
 
-      if (!github_token || typeof github_token !== "string" || github_token.trim() === "") {
+      if (
+        !github_token ||
+        typeof github_token !== "string" ||
+        github_token.trim() === ""
+      ) {
         return res.status(400).json({ error: "GitHub token is required" });
       }
 
@@ -1065,7 +1225,12 @@ function createGitHubRoutes(dbPool = null) {
       );
 
       if (settingsCheck.rows.length === 0) {
-        return res.status(400).json({ error: "GitHub account not connected. Please connect your GitHub account first." });
+        return res
+          .status(400)
+          .json({
+            error:
+              "GitHub account not connected. Please connect your GitHub account first.",
+          });
       }
 
       // Encrypt the token before storing
@@ -1118,27 +1283,33 @@ function createGitHubRoutes(dbPool = null) {
       }
 
       // Delete all GitHub-related data in the correct order (respecting foreign keys)
-      
+
       // 1. Delete repository-skill links (delete all, not just for specific repos)
       const skillsDeleted = await databasePool.query(
         "DELETE FROM github_repository_skills WHERE user_id = $1",
         [userId]
       );
-      console.log(`🗑️ Deleted ${skillsDeleted.rowCount} repository-skill links for user ${userId}`);
+      console.log(
+        `🗑️ Deleted ${skillsDeleted.rowCount} repository-skill links for user ${userId}`
+      );
 
       // 2. Delete contribution data (delete all, not just for specific repos)
       const contributionsDeleted = await databasePool.query(
         "DELETE FROM github_contributions WHERE user_id = $1",
         [userId]
       );
-      console.log(`🗑️ Deleted ${contributionsDeleted.rowCount} contribution records for user ${userId}`);
+      console.log(
+        `🗑️ Deleted ${contributionsDeleted.rowCount} contribution records for user ${userId}`
+      );
 
       // 3. Delete repositories
       const reposDeleted = await databasePool.query(
         "DELETE FROM github_repositories WHERE user_id = $1",
         [userId]
       );
-      console.log(`🗑️ Deleted ${reposDeleted.rowCount} repositories for user ${userId}`);
+      console.log(
+        `🗑️ Deleted ${reposDeleted.rowCount} repositories for user ${userId}`
+      );
 
       // 4. Finally, delete GitHub settings
       await databasePool.query(
@@ -1148,7 +1319,8 @@ function createGitHubRoutes(dbPool = null) {
       console.log(`🗑️ Deleted GitHub settings for user ${userId}`);
 
       res.json({
-        message: "GitHub account disconnected successfully. All data has been removed.",
+        message:
+          "GitHub account disconnected successfully. All data has been removed.",
         success: true,
         deleted: {
           repositories: reposDeleted.rowCount,
@@ -1168,4 +1340,3 @@ function createGitHubRoutes(dbPool = null) {
 // Export default router (production use)
 const router = createGitHubRoutes();
 export default router;
-
