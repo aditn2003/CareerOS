@@ -9,7 +9,7 @@ import fs from "fs";
 import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfParse from "pdf-parse";
 
 // Load mammoth dynamically (may not be installed)
 let mammoth;
@@ -61,7 +61,10 @@ function resumeDestination(req, file, cb) {
 }
 
 function resumeFilename(req, file, cb) {
-  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(
+    /[^a-zA-Z0-9.-]/g,
+    "_"
+  )}`;
   cb(null, uniqueName);
 }
 
@@ -70,7 +73,10 @@ function coverLetterDestination(req, file, cb) {
 }
 
 function coverLetterFilename(req, file, cb) {
-  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
+  const uniqueName = `${Date.now()}-${req.userId}-${file.originalname.replace(
+    /[^a-zA-Z0-9.-]/g,
+    "_"
+  )}`;
   cb(null, uniqueName);
 }
 
@@ -113,19 +119,11 @@ const coverLetterUpload = multer({
   fileFilter,
 });
 
-// Extract text from PDF
+// Extract text from PDF using pdf-parse (pure JS, no native binaries)
 async function extractPdfText(buffer) {
   try {
-    const uint8Array = new Uint8Array(buffer);
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
-    const pdfDoc = await loadingTask.promise;
-    let textContent = "";
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const content = await page.getTextContent();
-      textContent += content.items.map((t) => t.str).join(" ") + "\n";
-    }
-    return textContent.trim();
+    const data = await pdfParse(buffer);
+    return data.text.trim();
   } catch (err) {
     console.error("PDF extraction error:", err);
     return "";
