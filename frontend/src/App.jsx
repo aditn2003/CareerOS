@@ -8,7 +8,7 @@ import {
 } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import Spinner from "./components/Spinner";
-import "./App.css";
+// App.css is imported in main.jsx to avoid duplicate loading
 
 // ---------- Pages (Lazy Loaded for Code Splitting) ----------
 const Home = lazy(() => import("./pages/Home"));
@@ -107,11 +107,36 @@ const ResumeFinalReview = lazy(
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProfileProvider } from "./contexts/ProfileContext";
 import { TeamProvider } from "./contexts/TeamContext";
+import { useLocation } from "react-router-dom";
+// Lazy load Google OAuth Provider - only needed on auth pages
+const GoogleOAuthProvider = React.lazy(() => 
+  import("@react-oauth/google").then(module => ({
+    default: module.GoogleOAuthProvider
+  }))
+);
 
 // 🔐 Protected Route Wrapper
 function ProtectedRoute({ children }) {
   const authed = !!localStorage.getItem("token");
   return authed ? children : <Navigate to="/login" replace />;
+}
+
+// Google OAuth Wrapper - only loads on auth pages
+function GoogleOAuthWrapper({ children }) {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+
+  if (!isAuthPage) {
+    return <>{children}</>;
+  }
+
+  return (
+    <React.Suspense fallback={null}>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+        {children}
+      </GoogleOAuthProvider>
+    </React.Suspense>
+  );
 }
 
 // ---------- Root App ----------
@@ -121,7 +146,9 @@ export default function App() {
       <TeamProvider>
       <ProfileProvider>
         <Router>
-          <MainLayout />
+          <GoogleOAuthWrapper>
+            <MainLayout />
+          </GoogleOAuthWrapper>
         </Router>
       </ProfileProvider>
       </TeamProvider>

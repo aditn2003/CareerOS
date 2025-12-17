@@ -412,6 +412,10 @@ async function loadJobs(currentFilters = filters) {
             }
             alt={`${job.company} Logo`}
             className="company-logo-right"
+            width="40"
+            height="40"
+            loading="lazy"
+            decoding="async"
             onClick={(e) => {
               e.stopPropagation();
               setSelectedCompany(job.company);
@@ -572,6 +576,10 @@ async function loadJobs(currentFilters = filters) {
                               }
                               alt={`${job.company} Logo`}
                               className="company-logo-right"
+                              width="40"
+                              height="40"
+                              loading="lazy"
+                              decoding="async"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setSelectedCompany(job.company);

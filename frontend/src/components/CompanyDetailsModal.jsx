@@ -131,6 +131,11 @@ export default function CompanyDetailsModal({ token, companyName, onClose }) {
             src={resolvedLogo}
             alt={`${companyName} logo`}
             className="company-logo-large"
+            width="200"
+            height="200"
+            loading="lazy"
+            decoding="async"
+            style={{ objectFit: "contain" }}
           />
           <label htmlFor="logoUpload" className="upload-btn">
             Change Logo

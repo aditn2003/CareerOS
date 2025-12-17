@@ -4,6 +4,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
+// Leaflet CSS will be code-split by Vite since component is lazy-loaded
 import "leaflet/dist/leaflet.css";
 import { api } from "../api";
 import "./JobMapView.css";

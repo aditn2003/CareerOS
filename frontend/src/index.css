@@ -16,6 +16,9 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   
+  /* Font display optimization for better performance */
+  font-display: swap;
+  
   /* CSS Variables for Theme */
   --primary-purple: #7c3aed;
   --primary-purple-light: #a78bfa;
@@ -71,6 +74,8 @@ h1 {
   font-size: 2.8em;
   line-height: 1.2;
   font-weight: 800;
+  /* Prevent layout shifts during font loading */
+  min-height: 1.2em;
 }
 
 /* ===============================================

@@ -1,10 +1,11 @@
 // src/pages/Jobs.jsx
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import { FaBriefcase, FaChartLine, FaPlus, FaBell, FaRocket, FaBalanceScale, FaChartBar, FaMapMarkedAlt, FaTh } from "react-icons/fa";
 import JobEntryForm from "../components/JobEntryForm";
 import JobPipeline from "../components/JobPipeLine";
-import JobMapView from "../components/JobMapView";
+// Lazy load JobMapView (contains leaflet/maps - only load when map tab is active)
+const JobMapView = lazy(() => import("../components/JobMapView"));
 import UpcomingDeadlinesWidget from "../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../components/JobsCalendar";
 import StatisticsDashboard from "../components/stats";
@@ -14,6 +15,7 @@ import OfferComparison from "../components/OfferComparison";
 import CareerGrowthCalculator from "../components/CareerGrowthCalculator";
 import JobTimeline from "../components/JobTimeline";
 import { useAuth } from "../contexts/AuthContext";
+import Spinner from "../components/Spinner";
 import "./Jobs.css";
 import "./StatisticsLayout.css";
 
@@ -151,7 +153,9 @@ export default function Jobs() {
               <FaMapMarkedAlt style={{ marginRight: "0.5rem", display: "inline-block" }} />
               Job Locations Map
             </h3>
-            <JobMapView key={refreshKey} token={token} />
+            <Suspense fallback={<Spinner />}>
+              <JobMapView key={refreshKey} token={token} />
+            </Suspense>
           </div>
         </div>
       )}

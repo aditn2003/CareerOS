@@ -11,7 +11,7 @@ body {
   color: #e0e7ff;
 }
 
-/* Fixed Background Layer with Floating Orbs */
+/* Fixed Background Layer with Floating Orbs - Optimized for performance */
 body::before {
   content: '';
   position: fixed;
@@ -25,6 +25,11 @@ body::before {
     radial-gradient(circle at 40% 70%, rgba(91, 33, 182, 0.06) 0%, transparent 30%);
   pointer-events: none;
   z-index: 0;
+  /* Performance optimization - use GPU acceleration */
+  will-change: transform;
+  transform: translateZ(0);
+  /* Reduce repaints */
+  backface-visibility: hidden;
 }
 
 /* Ensure content is above background */
@@ -40,6 +45,9 @@ body::before {
   min-height: 80vh;
   position: relative;
   z-index: 1;
+  /* Performance optimization */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
 }
 
 /* ===============================================
@@ -61,6 +69,9 @@ section,
   color: #1f2937;
   border: 1px solid rgba(124, 58, 237, 0.1);
   transition: all 0.3s ease;
+  /* Performance optimization */
+  will-change: transform;
+  transform: translateZ(0); /* Force GPU acceleration */
 }
 
 .card-container:hover,
@@ -84,6 +95,10 @@ h1 {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 1rem;
+  /* Prevent layout shifts during font loading */
+  min-height: 1.2em;
+  line-height: 1.2;
+  font-display: swap;
 }
 
 h2 {
@@ -91,6 +106,9 @@ h2 {
   color: #1f2937;
   font-weight: 700;
   margin-bottom: 1rem;
+  /* Prevent layout shifts during font loading */
+  min-height: 1.5em;
+  line-height: 1.3;
 }
 
 h3 {
@@ -582,6 +600,11 @@ input[type="checkbox"].small-checkbox {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  
+  /* Prevent layout shifts */
+  contain: layout style paint;
+  /* Reserve space to prevent CLS */
+  min-height: 400px;
 }
 
 .home-section::before {
@@ -619,6 +642,16 @@ input[type="checkbox"].small-checkbox {
   color: #6b7280;
   font-size: 1.1rem;
   line-height: 1.6;
+}
+
+.home-content {
+  width: 100%;
+  max-width: 600px;
+  /* Prevent layout shifts - reserve space for content */
+  min-height: 200px;
+  contain: layout;
+  /* Ensure stable layout */
+  will-change: auto;
 }
 
 .employment-meta {

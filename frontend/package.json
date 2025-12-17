@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:optimize": "node scripts/optimize-images.js && vite build",
+    "optimize:images": "node scripts/optimize-images.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:a11y": "axe http://localhost:4000 --tags wcag2a,wcag2aa --save accessibility-results.json",
@@ -58,7 +60,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
     "globals": "^16.4.0",
+    "sharp": "^0.34.5",
+    "terser": "^5.44.1",
     "typescript": "^5.9.3",
-    "vite": "^7.1.7"
+    "vite": "^7.1.7",
+    "vite-imagetools": "^9.0.2"
   }
 }

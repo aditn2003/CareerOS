@@ -23,28 +23,32 @@ export default function ResumeTemplateChooser({ onSelectTemplate }) {
         name: "ATS Optimized",
         layout_type: "ats",
         color_scheme: "#000000ff",
-        preview_url: "/assets/templates/ats.png",
+        preview_url: "/assets/templates/ats.webp",
+        preview_url_fallback: "/assets/templates/ats.png",
       },
       {
         id: 2,
         name: "Creative",
         layout_type: "creative",
         color_scheme: "#000000ff",
-        preview_url: "/assets/templates/creative.png",
+        preview_url: "/assets/templates/creative.webp",
+        preview_url_fallback: "/assets/templates/creative.png",
       },
       {
         id: 3,
         name: "Two Column",
         layout_type: "two-column",
         color_scheme: "#246bdeff",
-        preview_url: "/assets/templates/two-column.png",
+        preview_url: "/assets/templates/two-column.webp",
+        preview_url_fallback: "/assets/templates/two-column.png",
       },
       {
         id: 4,
         name: "Professional",
         layout_type: "professional",
         color_scheme: "#000000ff",
-        preview_url: "/assets/templates/professional.png",
+        preview_url: "/assets/templates/professional.webp",
+        preview_url_fallback: "/assets/templates/professional.png",
       },
     ];
 
@@ -178,11 +182,21 @@ export default function ResumeTemplateChooser({ onSelectTemplate }) {
             }`}
           >
             <div className="template-image" onClick={() => setPreview(t)}>
-              <img
-                src={t.preview_url || "/assets/resume-placeholder.png"}
-                alt={t.name}
-                loading="lazy"
-              />
+              <picture>
+                <source 
+                  srcSet={t.preview_url || "/assets/resume-placeholder.webp"} 
+                  type="image/webp" 
+                />
+                <img
+                  src={t.preview_url_fallback || t.preview_url || "/assets/resume-placeholder.png"}
+                  alt={t.name}
+                  loading="lazy"
+                  decoding="async"
+                  width="300"
+                  height="400"
+                  style={{ objectFit: "cover", width: "100%", height: "auto" }}
+                />
+              </picture>
               <div className="template-hover">
                 <button
                   className="use-template-btn"

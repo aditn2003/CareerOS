@@ -1,23 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="CareerOS - Your complete career operating system. Track applications, prepare for interviews, negotiate salaries, and manage your entire job search in one powerful platform." />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="color-scheme" content="dark" />
   <title>CareerOS - Your Career Operating System</title>
 
   <!-- ✅ Unified favicon/logo -->
   <link rel="icon" type="image/png" href="/logo.png" />
+  
+  <!-- Preload critical above-the-fold image (logo) - Use smaller size for navbar (80px) -->
+  <link rel="preload" as="image" href="/logo-100.webp" fetchpriority="high" />
+  
+  <!-- Resource hints for better performance - Only most critical -->
+  <link rel="dns-prefetch" href="http://localhost:4000" />
+  <link rel="preconnect" href="http://localhost:4000" />
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-BZ5H5v1L.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/vendor-react-DpZ4wNFw.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-B9ngW4Ru.css">
+  <!-- Fonts - Combined preconnect (reduced from 4 to 2) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Fonts with display=swap - Load asynchronously to prevent render blocking -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet" /></noscript>
+  <script type="module" crossorigin src="/assets/js/index-XYTt_9sf.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-maps-C-WKv3dq.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-three-D34SSa7r.js">
+  <link rel="stylesheet" crossorigin href="/assets/css/vendor-maps-CIGW-MKW.css">
+  <link rel="stylesheet" crossorigin href="/assets/css/index-D306gMnv.css">
 </head>
   <body>
-    <div id="root"></div>
-
+    <div id="root"></div>
   </body>
 </html>

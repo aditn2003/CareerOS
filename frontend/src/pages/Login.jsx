@@ -1,8 +1,13 @@
 // src/pages/Login.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { GoogleLogin } from "@react-oauth/google";
+// Lazy load GoogleLogin - only load when component mounts
+const GoogleLogin = lazy(() => 
+  import("@react-oauth/google").then(module => ({
+    default: module.GoogleLogin
+  }))
+);
 import { api } from "../api";
 import LegalModal from "../components/LegalModal";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
@@ -199,11 +204,13 @@ export default function Login() {
         </div>
 
         <div className="auth-social-buttons">
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={handleGoogleError}
-            shape="pill"
-          />
+          <Suspense fallback={<div style={{ minHeight: '40px' }}>Loading Google Sign-In...</div>}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={handleGoogleError}
+              shape="pill"
+            />
+          </Suspense>
           
           <button
             onClick={handleLinkedInLogin}
