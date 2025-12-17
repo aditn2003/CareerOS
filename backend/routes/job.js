@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
 import { validateIdParam, validateIdParams } from "../utils/inputValidation.js";
+import { parseJobEmail } from "../services/emailParserService.js";
 
 dotenv.config();
 const router = express.Router();
@@ -970,6 +971,30 @@ router.get("/:id", auth, validateIdParam, async (req, res) => {
       job.cover_letter_id = null;
     }
 
+    // Fetch platform activity from job_platforms table (UC-125)
+    try {
+      const platformsResult = await pool.query(
+        `SELECT platform, source_url, applied_at, status, platform_metadata, created_at, updated_at
+         FROM job_platforms 
+         WHERE job_id = $1
+         ORDER BY created_at DESC`,
+        [id]
+      );
+      job.platform_activity = platformsResult.rows.map(p => ({
+        platform: p.platform,
+        source_url: p.source_url,
+        applied_at: p.applied_at,
+        status: p.status,
+        metadata: p.platform_metadata || {},
+        created_at: p.created_at,
+        updated_at: p.updated_at
+      }));
+    } catch (platformErr) {
+      // Table might not exist yet, that's okay
+      console.warn(`⚠️ [GET JOB ${id}] Error fetching platform activity:`, platformErr.message);
+      job.platform_activity = [];
+    }
+
     console.log(
       `📤 [GET JOB ${id}] Returning job with resume_id=${job.resume_id}, cover_letter_id=${job.cover_letter_id}`
     );
@@ -1918,6 +1943,451 @@ router.put("/:id/restore", auth, validateIdParam, async (req, res) => {
   } catch (err) {
     console.error("❌ Restore job error:", err.message);
     res.status(500).json({ error: "Database error" });
+  }
+});
+
+//
+// ==================================================================
+//               INBOUND EMAIL ENDPOINT (UC-125)
+//               Receives forwarded emails from SendGrid
+// ==================================================================
+//
+// This endpoint needs to handle raw email content from SendGrid
+// SendGrid sends raw email when "POST the raw, full MIME message" is checked
+// The express.text() middleware in server.js handles the raw body parsing
+router.post("/inbound-email", async (req, res) => {
+  console.log("📧 Inbound email endpoint called");
+  console.log("📧 Request headers:", JSON.stringify(req.headers, null, 2));
+  console.log("📧 Body type:", typeof req.body);
+  console.log("📧 Body length:", req.body?.length || 0);
+  
+  try {
+    // SendGrid sends the raw email in req.body as a string
+    // when "POST the raw, full MIME message" is checked
+    // Handle raw string body
+    let rawEmail = req.body;
+    
+    // Extract boundary from Content-Type header if available
+    const contentType = req.headers['content-type'] || '';
+    let boundary = null;
+    const boundaryMatch = contentType.match(/boundary=([^\s;]+)/i);
+    if (boundaryMatch) {
+      boundary = boundaryMatch[1].replace(/["']/g, "");
+      console.log("📧 Extracted boundary from Content-Type:", boundary);
+    }
+    
+    // Convert to string if it's a Buffer
+    if (Buffer.isBuffer(rawEmail)) {
+      rawEmail = rawEmail.toString('utf-8');
+    }
+    
+    // If body is already a string (from express.text() or raw), use it
+    if (typeof rawEmail !== 'string') {
+      // Try to get as string from body
+      rawEmail = String(rawEmail || '');
+    }
+    
+    if (!rawEmail || rawEmail.trim().length === 0) {
+      console.error("❌ Empty or invalid email received. Body type:", typeof req.body);
+      // Always return 200 so SendGrid doesn't retry
+      return res.status(200).json({ 
+        success: false, 
+        error: "Empty email body" 
+      });
+    }
+    
+    console.log("📧 Email received, length:", rawEmail.length);
+    console.log("📧 First 500 chars:", rawEmail.substring(0, 500));
+    
+    // Parse email to extract job details
+    let parsedJob;
+    try {
+      // Pass boundary hint if we extracted it from headers
+      const contentType = req.headers['content-type'] || '';
+      let boundaryHint = null;
+      const boundaryMatch = contentType.match(/boundary=([^\s;]+)/i);
+      if (boundaryMatch) {
+        boundaryHint = boundaryMatch[1].replace(/["']/g, "");
+      }
+      parsedJob = await parseJobEmail(rawEmail, boundaryHint);
+      console.log("📧 Parsed job:", JSON.stringify(parsedJob, null, 2));
+    } catch (parseError) {
+      console.error("❌ Email parsing error:", parseError);
+      return res.status(200).json({ 
+        success: false, 
+        error: `Email parsing failed: ${parseError.message}` 
+      });
+    }
+    
+    // Find user by email address (from the "From" field of forwarded email)
+    console.log("📧 Looking for user with email:", parsedJob.emailFrom);
+    const userResult = await pool.query(
+      `SELECT id, email FROM users WHERE LOWER(email) = LOWER($1)`,
+      [parsedJob.emailFrom]
+    );
+    
+    if (userResult.rows.length === 0) {
+      console.log(`⚠️ Email from unknown user: ${parsedJob.emailFrom}`);
+      console.log("📧 Available users (first 5):", 
+        (await pool.query(`SELECT email FROM users LIMIT 5`)).rows.map(r => r.email)
+      );
+      // Return 200 so SendGrid doesn't retry, but don't process
+      return res.status(200).json({ 
+        success: false, 
+        message: `User not found: ${parsedJob.emailFrom}` 
+      });
+    }
+    
+    const userId = userResult.rows[0].id;
+    console.log(`📧 Processing email from user ${userId} (${parsedJob.emailFrom})`);
+    
+    // Check for duplicates (same company + title within last 30 days)
+    const duplicateCheck = await pool.query(
+      `SELECT id FROM jobs 
+       WHERE user_id = $1 
+       AND LOWER(company) = LOWER($2)
+       AND LOWER(title) = LOWER($3)
+       AND created_at > NOW() - INTERVAL '30 days'
+       AND ("isArchived" = false OR "isArchived" IS NULL)`,
+      [userId, parsedJob.company, parsedJob.title]
+    );
+    
+    if (duplicateCheck.rows.length > 0) {
+      // Update existing job - add platform tracking
+      const existingJobId = duplicateCheck.rows[0].id;
+      
+      // Try to insert into job_platforms table (might not exist yet)
+      try {
+        await pool.query(
+          `INSERT INTO job_platforms (job_id, platform, source_url, applied_at, platform_metadata)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (job_id, platform) DO UPDATE SET updated_at = NOW()`,
+          [
+            existingJobId,
+            parsedJob.platform,
+            parsedJob.source_url || null,
+            parsedJob.date || new Date(),
+            JSON.stringify({ 
+              email_subject: parsedJob.rawEmail.subject,
+              imported_from_email: true
+            })
+          ]
+        );
+      } catch (platformErr) {
+        // Table might not exist, that's okay - just log it
+        console.warn("⚠️ job_platforms table might not exist:", platformErr.message);
+      }
+      
+      console.log(`✅ Job consolidated: ${parsedJob.title} at ${parsedJob.company} for user ${userId}`);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Job consolidated with existing application",
+        consolidated: true
+      });
+    }
+    
+    // Create new job
+    // Note: platform, source_url, is_imported, imported_at columns must exist
+    // Run backend/db/add_platform_tracking.sql migration if you get column errors
+    let result;
+    try {
+      result = await pool.query(
+        `INSERT INTO jobs (
+          user_id, title, company, location, description,
+          status, platform, source_url, is_imported, imported_at,
+          "applicationDate", status_updated_at, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+        RETURNING *`,
+        [
+          userId,
+          parsedJob.title,
+          parsedJob.company,
+          parsedJob.location || null,
+          parsedJob.description || '',
+          parsedJob.status || 'Applied',
+          parsedJob.platform,
+          parsedJob.source_url || null,
+          true, // is_imported
+          new Date(), // imported_at
+          parsedJob.date || new Date() // applicationDate
+        ]
+      );
+    } catch (dbError) {
+      if (dbError.message && dbError.message.includes('column') && dbError.message.includes('does not exist')) {
+        console.error("❌ Database columns missing! Please run: backend/db/add_platform_tracking.sql");
+        return res.status(200).json({ 
+          success: false, 
+          error: "Database migration required. Please run add_platform_tracking.sql" 
+        });
+      }
+      throw dbError; // Re-throw other errors
+    }
+    
+    const newJob = result.rows[0];
+    
+    // Add to job_platforms table (if it exists)
+    try {
+      await pool.query(
+        `INSERT INTO job_platforms (job_id, platform, source_url, applied_at, platform_metadata)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          newJob.id,
+          parsedJob.platform,
+          parsedJob.source_url || null,
+          parsedJob.date || new Date(),
+          JSON.stringify({ 
+            email_subject: parsedJob.rawEmail.subject,
+            email_from: parsedJob.rawEmail.from,
+            imported_from_email: true
+          })
+        ]
+      );
+    } catch (platformErr) {
+      // Table might not exist, that's okay - just log it
+      console.warn("⚠️ job_platforms table might not exist:", platformErr.message);
+    }
+    
+    // Log to application history (if table exists)
+    try {
+      await pool.query(
+        `INSERT INTO application_history (job_id, user_id, event, from_status, to_status, timestamp)
+         VALUES ($1, $2, $3, NULL, $4, NOW())`,
+        [newJob.id, userId, `Application imported from ${parsedJob.platform} email`, newJob.status]
+      );
+    } catch (historyError) {
+      // Table might not exist, that's okay - just log it
+      console.warn("⚠️ Could not insert into application_history:", historyError.message);
+    }
+    
+    console.log(`✅ Job imported: ${parsedJob.title} at ${parsedJob.company} for user ${userId} (job_id: ${newJob.id})`);
+    
+    // Always return 200 so SendGrid doesn't retry
+    res.status(200).json({ 
+      success: true, 
+      message: "Job imported successfully",
+      job_id: newJob.id,
+      job_title: parsedJob.title,
+      company: parsedJob.company
+    });
+    
+  } catch (error) {
+    console.error("❌ Email import error:", error);
+    console.error("❌ Error stack:", error.stack);
+    // Always return 200 so SendGrid doesn't retry failed emails
+    res.status(200).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+//
+// ==================================================================
+//               GET FORWARDING EMAIL ADDRESS (UC-125)
+// ==================================================================
+//
+router.get("/forwarding-email", auth, async (req, res) => {
+  try {
+    // Use environment variable or default to SendGrid subdomain
+    // The correct forwarding email is forward@jobs.atscareeros.com
+    const forwardingEmail = process.env.EMAIL_FORWARDING_ADDRESS || 'forward@jobs.atscareeros.com';
+    
+    res.json({
+      forwarding_email: forwardingEmail,
+      instructions: "Forward job application confirmation emails to this address to automatically import them into your job tracker."
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//
+// ==================================================================
+//               GAP DETECTION - Identify missing applications (UC-125)
+// ==================================================================
+//
+router.get("/application-gaps", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Get all jobs with their application dates
+    const jobsResult = await pool.query(
+      `SELECT id, title, company, platform, "applicationDate", created_at, is_imported
+       FROM jobs 
+       WHERE user_id = $1 
+       AND ("isArchived" = false OR "isArchived" IS NULL)
+       ORDER BY COALESCE("applicationDate", created_at) ASC`,
+      [userId]
+    );
+    
+    const jobs = jobsResult.rows;
+    const gaps = [];
+    
+    // Analyze gaps between applications
+    for (let i = 1; i < jobs.length; i++) {
+      const prevJob = jobs[i - 1];
+      const currJob = jobs[i];
+      
+      const prevDate = new Date(prevJob.applicationDate || prevJob.created_at);
+      const currDate = new Date(currJob.applicationDate || currJob.created_at);
+      const daysDiff = Math.floor((currDate - prevDate) / (1000 * 60 * 60 * 24));
+      
+      // If there's a gap of more than 14 days, flag it
+      if (daysDiff > 14) {
+        gaps.push({
+          gap_days: daysDiff,
+          start_date: prevDate.toISOString().split('T')[0],
+          end_date: currDate.toISOString().split('T')[0],
+          job_before: { id: prevJob.id, title: prevJob.title, company: prevJob.company },
+          job_after: { id: currJob.id, title: currJob.title, company: currJob.company },
+          suggestion: `You had a ${daysDiff}-day gap between applications. Did you apply to any jobs during this period that weren't logged?`
+        });
+      }
+    }
+    
+    // Check for recent inactivity (no applications in last 7 days)
+    const lastJob = jobs[jobs.length - 1];
+    if (lastJob) {
+      const lastDate = new Date(lastJob.applicationDate || lastJob.created_at);
+      const daysSinceLast = Math.floor((new Date() - lastDate) / (1000 * 60 * 60 * 24));
+      
+      if (daysSinceLast > 7) {
+        gaps.push({
+          gap_days: daysSinceLast,
+          start_date: lastDate.toISOString().split('T')[0],
+          end_date: new Date().toISOString().split('T')[0],
+          job_before: { id: lastJob.id, title: lastJob.title, company: lastJob.company },
+          job_after: null,
+          suggestion: `You haven't logged any applications in ${daysSinceLast} days. Have you applied to any jobs recently?`,
+          is_recent: true
+        });
+      }
+    }
+    
+    // Count imported vs manual entries
+    const importedCount = jobs.filter(j => j.is_imported).length;
+    const manualCount = jobs.filter(j => !j.is_imported).length;
+    
+    res.json({
+      total_jobs: jobs.length,
+      imported_jobs: importedCount,
+      manual_jobs: manualCount,
+      gaps: gaps,
+      has_gaps: gaps.length > 0,
+      recommendation: gaps.length > 0 
+        ? "We detected potential gaps in your application history. Consider forwarding any missing application emails or adding them manually."
+        : "Your application history looks complete! Keep up the good work."
+    });
+  } catch (error) {
+    console.error("Gap detection error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+//
+// ==================================================================
+//               EXPORT APPLICATION HISTORY (UC-125)
+// ==================================================================
+//
+router.get("/export", auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const format = req.query.format || 'csv'; // csv or json
+    
+    // Get all jobs with platform info
+    const result = await pool.query(
+      `SELECT 
+        j.id,
+        j.title,
+        j.company,
+        j.location,
+        j.status,
+        j.platform,
+        j.is_imported,
+        j."applicationDate" as application_date,
+        j.deadline,
+        j.salary_min,
+        j.salary_max,
+        j.url as job_url,
+        j.description,
+        j.created_at,
+        j.status_updated_at
+       FROM jobs j
+       WHERE j.user_id = $1 
+       AND (j."isArchived" = false OR j."isArchived" IS NULL)
+       ORDER BY COALESCE(j."applicationDate", j.created_at) DESC`,
+      [userId]
+    );
+    
+    const jobs = result.rows;
+    
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="job_applications.json"');
+      return res.json({
+        exported_at: new Date().toISOString(),
+        total_applications: jobs.length,
+        applications: jobs.map(job => ({
+          title: job.title,
+          company: job.company,
+          location: job.location || '',
+          status: job.status,
+          platform: job.platform || 'manual',
+          imported: job.is_imported || false,
+          application_date: job.application_date || job.created_at,
+          deadline: job.deadline || '',
+          salary_range: job.salary_min && job.salary_max 
+            ? `$${job.salary_min.toLocaleString()} - $${job.salary_max.toLocaleString()}`
+            : '',
+          job_url: job.job_url || '',
+          notes: job.description || ''
+        }))
+      });
+    }
+    
+    // CSV format
+    const csvHeaders = [
+      'Title',
+      'Company',
+      'Location',
+      'Status',
+      'Platform',
+      'Imported',
+      'Application Date',
+      'Deadline',
+      'Salary Min',
+      'Salary Max',
+      'Job URL',
+      'Notes'
+    ];
+    
+    const csvRows = jobs.map(job => [
+      `"${(job.title || '').replace(/"/g, '""')}"`,
+      `"${(job.company || '').replace(/"/g, '""')}"`,
+      `"${(job.location || '').replace(/"/g, '""')}"`,
+      `"${(job.status || '').replace(/"/g, '""')}"`,
+      `"${(job.platform || 'manual').replace(/"/g, '""')}"`,
+      job.is_imported ? 'Yes' : 'No',
+      job.application_date ? new Date(job.application_date).toISOString().split('T')[0] : '',
+      job.deadline ? new Date(job.deadline).toISOString().split('T')[0] : '',
+      job.salary_min || '',
+      job.salary_max || '',
+      `"${(job.job_url || '').replace(/"/g, '""')}"`,
+      `"${(job.description || '').replace(/"/g, '""').substring(0, 200)}"`
+    ].join(','));
+    
+    const csvContent = [csvHeaders.join(','), ...csvRows].join('\n');
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="job_applications.csv"');
+    res.send(csvContent);
+    
+  } catch (error) {
+    console.error("Export error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 
