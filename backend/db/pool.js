@@ -24,8 +24,9 @@ if (isSupabase) {
 }
 
 // Supabase Session mode has strict connection limits (typically 4-5 concurrent connections)
-// Use very small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
-const poolSize = isSupabase ? 2 : 20; // Very conservative: 2 connections max for Supabase
+// For local performance testing we can safely use up to 4 connections; in production
+// you may want to tune this based on your Supabase plan/limits.
+const poolSize = isSupabase ? 4 : 20;
 const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase
 
 const pool = new Pool({

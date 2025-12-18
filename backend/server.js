@@ -142,9 +142,11 @@ import {
 } from './middleware/security.js';
 
 // Helmet adds security headers (removes X-Powered-By, adds CSP, HSTS, etc.)
+// For demo and local development we enable CSP and HSTS as well so headers
+// are always visible in browser dev tools.
 app.use(helmet({
   // Content Security Policy
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com"],
@@ -156,14 +158,15 @@ app.use(helmet({
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
-  } : false, // Disable CSP in development to avoid breaking hot reload
+  },
   
-  // HTTP Strict Transport Security (only in production)
-  hsts: process.env.NODE_ENV === 'production' ? {
+  // HTTP Strict Transport Security
+  // (Browsers only enforce this over HTTPS, but the header is still sent in dev)
+  hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
-    preload: true
-  } : false,
+    preload: true,
+  },
   
   // Prevent MIME type sniffing
   noSniff: true,
@@ -202,10 +205,13 @@ const authLimiter = rateLimit({
   skip: (req) => process.env.NODE_ENV === 'test', // Skip rate limiting in test environment
 });
 
-// General API rate limiter (more permissive)
+// General API rate limiter (more permissive).
+// In production we keep a conservative limit; in dev/local we allow
+// a much higher ceiling so that load tests (50–100 concurrent users)
+// don't get dominated by 429 responses.
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute (increased for company logo fetching)
+  max: process.env.NODE_ENV === 'production' ? 300 : 5000,
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -271,6 +277,11 @@ app.use(metricsMiddleware);
 
 // ✅ Rate limiting for API routes
 app.use('/api/', apiLimiter);
+
+// Lightweight health/root endpoint used by load testing script and uptime checks
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "ATS backend is running" });
+});
 
 // ✅ Serve uploaded images with BOTH performance + cross-origin support
 app.use(
