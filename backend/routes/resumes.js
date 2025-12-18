@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import dotenv from "dotenv";
 import { auth } from "../auth.js";
 import sharedPool from "../db/pool.js"; // Import shared pool for default use
+import { cacheService, CACHE_KEYS } from "../utils/cache.js";
 import multer from "multer";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -798,6 +799,16 @@ ${textContent}
 
   router.get("/", auth, async (req, res) => {
     try {
+      // Try cache first to avoid repeated heavy DB work under load
+      const cacheKey = CACHE_KEYS.userResumes(req.user.id);
+      const cached = await cacheService.get(cacheKey);
+      if (cached) {
+        console.log(
+          `📦 Returning resumes for user ${req.user.id} from cache (${cached.resumes.length} resumes)`
+        );
+        return res.json(cached);
+      }
+
       const { rows } = await pool.query(
         `SELECT 
         id, title, template_name, preview_url, file_url, created_at, format,
@@ -844,7 +855,19 @@ ${textContent}
         }
       });
 
-      res.json({ resumes: filteredResumes });
+      const payload = { resumes: filteredResumes };
+
+      // Cache the result for a short TTL to improve performance under load
+      try {
+        await cacheService.set(cacheKey, payload, 60); // 60 seconds TTL
+      } catch (cacheErr) {
+        console.warn(
+          "⚠️ [RESUMES] Failed to cache resumes list:",
+          cacheErr.message
+        );
+      }
+
+      res.json(payload);
     } catch (err) {
       console.error("❌ Fetch resumes error:", err);
       res
