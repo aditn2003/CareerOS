@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { api } from "../../api";
+import { api, baseURL } from "../../api";
 import "./SavedResumes.css";
 
 export default function SavedResumes() {
@@ -49,7 +49,7 @@ export default function SavedResumes() {
             {/* ✅ PDF Preview or Placeholder */}
             {(resume.preview_url || resume.file_url) ? (
               <iframe
-                src={`http://localhost:4000${resume.file_url || resume.preview_url}`}
+                src={`${baseURL}${resume.file_url || resume.preview_url}`}
                 title={resume.title}
                 className="saved-preview"
               />
@@ -81,7 +81,7 @@ export default function SavedResumes() {
                 </button>
 
                 <a
-                  href={`http://localhost:4000${resume.file_url || resume.preview_url}`}
+                  href={`${baseURL}${resume.file_url || resume.preview_url}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-primary"

@@ -5,11 +5,15 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
 import fs from "fs";
 import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import pdfParse from "pdf-parse";
+
+// pdf-parse is CommonJS, use createRequire for ESM compatibility
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 // Load mammoth dynamically (may not be installed)
 let mammoth;

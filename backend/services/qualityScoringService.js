@@ -6,8 +6,12 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import pdfParse from "pdf-parse";
+import { createRequire } from "module";
 import puppeteer from "puppeteer";
+
+// pdf-parse is CommonJS, use createRequire for ESM compatibility
+const require = createRequire(import.meta.url);
+const pdfParse = require("pdf-parse");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -493,7 +497,7 @@ export function createQualityScoringService(
         );
 
         // Try uploaded_cover_letters table first (newer table structure)
-        let coverLetterResult;
+        let coverLetterResult = { rows: [] };
         try {
           coverLetterResult = await pool.query(
             `SELECT id, title, content, format, file_url 
@@ -501,51 +505,39 @@ export function createQualityScoringService(
              WHERE id = $1 AND user_id = $2`,
             [materials.cover_letter_id, userId]
           );
-          console.log(
-            `✅ [QUALITY SCORING] Found cover letter in uploaded_cover_letters table`
-          );
-        } catch (err) {
-          // If uploaded_cover_letters doesn't exist or fails, try cover_letters table
-          if (
-            err.code === "42P01" ||
-            err.code === "42703" ||
-            err.message?.includes("does not exist")
-          ) {
+          if (coverLetterResult.rows.length > 0) {
             console.log(
-              `⚠️ [QUALITY SCORING] uploaded_cover_letters query failed, trying cover_letters table...`
+              `✅ [QUALITY SCORING] Found cover letter in uploaded_cover_letters table`
             );
-            try {
-              // Try with title column first
-              coverLetterResult = await pool.query(
-                `SELECT id, title, content, format, file_url 
-                 FROM cover_letters 
-                 WHERE id = $1 AND user_id = $2`,
-                [materials.cover_letter_id, userId]
-              );
+          }
+        } catch (err) {
+          console.log(
+            `⚠️ [QUALITY SCORING] uploaded_cover_letters query failed: ${err.message}`
+          );
+        }
+
+        // If not found in uploaded_cover_letters, try cover_letters table (AI-generated cover letters)
+        if (coverLetterResult.rows.length === 0) {
+          console.log(
+            `⚠️ [QUALITY SCORING] Not found in uploaded_cover_letters, trying cover_letters table...`
+          );
+          try {
+            // Try with name column (cover_letters table uses 'name' not 'title')
+            coverLetterResult = await pool.query(
+              `SELECT id, name as title, content, 'pdf' as format, NULL as file_url 
+               FROM cover_letters 
+               WHERE id = $1 AND user_id = $2`,
+              [materials.cover_letter_id, userId]
+            );
+            if (coverLetterResult.rows.length > 0) {
               console.log(
-                `✅ [QUALITY SCORING] Found cover letter in cover_letters table (with title)`
+                `✅ [QUALITY SCORING] Found cover letter in cover_letters table (AI-generated)`
               );
-            } catch (err2) {
-              // If title doesn't exist, try with name column
-              if (err2.code === "42703") {
-                console.log(
-                  `⚠️ [QUALITY SCORING] title column not found, trying with name column...`
-                );
-                coverLetterResult = await pool.query(
-                  `SELECT id, name as title, content, format, file_url 
-                   FROM cover_letters 
-                   WHERE id = $1 AND user_id = $2`,
-                  [materials.cover_letter_id, userId]
-                );
-                console.log(
-                  `✅ [QUALITY SCORING] Found cover letter in cover_letters table (with name)`
-                );
-              } else {
-                throw err2;
-              }
             }
-          } else {
-            throw err;
+          } catch (err2) {
+            console.log(
+              `⚠️ [QUALITY SCORING] cover_letters query failed: ${err2.message}`
+            );
           }
         }
 

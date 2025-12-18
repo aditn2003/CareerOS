@@ -328,3 +328,149 @@
 2025-12-18 06:24:31 [ERROR]: Request completed with error {"requestId":"1766057071322-sx3l1d0oo","method":"POST","path":"/education","route":"/education","statusCode":500,"responseTime":"101ms","userId":null,"error":null}
 2025-12-18 06:24:32 [INFO]: Application starting {"nodeEnv":"test","port":4000}
 2025-12-18 06:24:33 [INFO]: Connected to PostgreSQL
+2025-12-16 21:50:00 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 21:50:00 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 21:50:00 [INFO]: Connected to PostgreSQL
+2025-12-16 22:28:08 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:28:08 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:28:08 [INFO]: Connected to PostgreSQL
+2025-12-16 22:34:17 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:34:17 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:34:18 [INFO]: Connected to PostgreSQL
+2025-12-16 22:36:06 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:36:06 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:36:06 [INFO]: Connected to PostgreSQL
+2025-12-16 22:41:23 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:41:23 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:41:24 [INFO]: Connected to PostgreSQL
+2025-12-16 22:42:57 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:42:57 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:42:57 [INFO]: Connected to PostgreSQL
+2025-12-16 22:49:09 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 22:49:09 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 22:49:10 [INFO]: Connected to PostgreSQL
+2025-12-16 23:16:10 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 23:16:10 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 23:16:10 [INFO]: Connected to PostgreSQL
+2025-12-16 23:17:06 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-16 23:17:06 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-16 23:17:07 [INFO]: Connected to PostgreSQL
+2025-12-16 23:47:08 [INFO]: Application starting {"nodeEnv":"test","port":4000}
+2025-12-16 23:47:09 [INFO]: Connected to PostgreSQL
+2025-12-16 23:47:13 [ERROR]: Unhandled error in request {"method":"OPTIONS","path":"/api/jobs","route":"/api/jobs","userId":null,"query":{},"headers":{},"error":{"message":"CORS blocked","stack":"Error: CORS blocked\n    at origin (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/server.js:186:10)\n    at /Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:219:13\n    at optionsCallback (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:199:9)\n    at corsMiddleware (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:204:7)\n    at Layer.handle [as handle_request] (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:328:13)\n    at /Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:286:9\n    at router.process_params (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:346:12)\n    at next (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:280:10)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:527:6)\n    at xXssProtectionMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:307:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)\n    at xPoweredByMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:300:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)\n    at xPermittedCrossDomainPoliciesMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:293:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)","name":"Error"}}
+2025-12-16 23:47:13 [ERROR]: Unhandled error in request {"method":"OPTIONS","path":"/api/jobs","userId":null,"error":{"message":"CORS blocked","stack":"Error: CORS blocked\n    at origin (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/server.js:186:10)\n    at /Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:219:13\n    at optionsCallback (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:199:9)\n    at corsMiddleware (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/cors/lib/index.js:204:7)\n    at Layer.handle [as handle_request] (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/layer.js:95:5)\n    at trim_prefix (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:328:13)\n    at /Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:286:9\n    at router.process_params (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:346:12)\n    at next (/Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/express/lib/router/index.js:280:10)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:527:6)\n    at xXssProtectionMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:307:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)\n    at xPoweredByMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:300:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)\n    at xPermittedCrossDomainPoliciesMiddleware (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:293:3)\n    at internalNext (file:///Users/digantraval/ATSNew/Aandsz-Forces-ATS-CS490/backend/node_modules/helmet/index.mjs:525:6)","name":"Error"}}
+2025-12-17 00:45:18 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 00:45:18 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 00:45:18 [INFO]: Connected to PostgreSQL
+2025-12-17 01:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 01:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 01:22:26 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 01:22:26 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 01:22:26 [INFO]: Connected to PostgreSQL
+2025-12-17 01:38:40 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 01:38:40 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 01:38:40 [INFO]: Connected to PostgreSQL
+2025-12-17 01:51:09 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 01:51:09 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 01:51:10 [INFO]: Connected to PostgreSQL
+2025-12-17 02:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 02:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 02:07:00 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 02:07:00 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 02:07:00 [INFO]: Connected to PostgreSQL
+2025-12-17 09:18:15 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:18:15 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:18:15 [INFO]: Connected to PostgreSQL
+2025-12-17 09:37:19 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:37:20 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:37:20 [INFO]: Connected to PostgreSQL
+2025-12-17 09:40:40 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:40:40 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:40:41 [INFO]: Connected to PostgreSQL
+2025-12-17 09:45:32 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:45:32 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:45:33 [INFO]: Connected to PostgreSQL
+2025-12-17 09:49:57 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:49:57 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:49:57 [INFO]: Connected to PostgreSQL
+2025-12-17 09:58:57 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 09:58:57 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 09:58:57 [INFO]: Connected to PostgreSQL
+2025-12-17 10:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 10:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 10:13:04 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:13:04 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:13:05 [INFO]: Connected to PostgreSQL
+2025-12-17 10:16:02 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:16:02 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:16:03 [INFO]: Connected to PostgreSQL
+2025-12-17 10:19:17 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:19:17 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:19:17 [INFO]: Connected to PostgreSQL
+2025-12-17 10:23:59 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:23:59 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:24:00 [INFO]: Connected to PostgreSQL
+2025-12-17 10:30:11 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:30:11 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:30:11 [INFO]: Connected to PostgreSQL
+2025-12-17 10:31:08 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:31:08 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:31:08 [INFO]: Connected to PostgreSQL
+2025-12-17 10:36:37 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 10:36:37 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 10:36:38 [INFO]: Connected to PostgreSQL
+2025-12-17 11:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 11:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 11:07:44 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 11:07:44 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 11:07:44 [INFO]: Connected to PostgreSQL
+2025-12-17 11:16:07 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 11:16:07 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 11:16:08 [INFO]: Connected to PostgreSQL
+2025-12-17 11:55:38 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 11:55:38 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 11:55:39 [INFO]: Connected to PostgreSQL
+2025-12-17 12:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 12:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 17:47:15 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 17:47:15 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 17:47:16 [INFO]: Connected to PostgreSQL
+2025-12-17 19:18:11 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 19:18:11 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 19:18:12 [INFO]: Connected to PostgreSQL
+2025-12-18 00:59:10 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 00:59:11 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 00:59:11 [INFO]: Connected to PostgreSQL
+2025-12-18 00:59:50 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 00:59:50 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 00:59:51 [INFO]: Connected to PostgreSQL
+2025-12-18 01:00:00 [INFO]: Running GitHub repository sync
+2025-12-18 01:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-18 01:12:58 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:12:58 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:12:59 [INFO]: Connected to PostgreSQL
+2025-12-18 01:15:19 [ERROR]: Request completed with error {"requestId":"1766038519129-c8kefjelp","method":"POST","path":"/1321/analyze","route":"/:jobId/analyze","statusCode":500,"responseTime":"151ms","userId":3,"error":null}
+2025-12-18 01:15:49 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:15:49 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:15:50 [INFO]: Connected to PostgreSQL
+2025-12-18 01:16:13 [ERROR]: Request completed with error {"requestId":"1766038573377-mon6kxocz","method":"POST","path":"/1321/analyze","route":"/:jobId/analyze","statusCode":500,"responseTime":"138ms","userId":3,"error":null}
+2025-12-18 01:22:56 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:22:56 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:22:56 [INFO]: Connected to PostgreSQL
+2025-12-18 01:29:03 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:29:03 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:29:04 [INFO]: Connected to PostgreSQL
+2025-12-18 01:30:56 [ERROR]: Request completed with error {"requestId":"1766039456435-y2ctflarf","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"450ms","userId":3,"error":null}
+2025-12-18 01:31:04 [ERROR]: Request completed with error {"requestId":"1766039463821-6vxxgq2n4","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"426ms","userId":3,"error":null}
+2025-12-18 01:31:05 [ERROR]: Request completed with error {"requestId":"1766039465295-76bt0tj0q","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"414ms","userId":3,"error":null}
+2025-12-18 01:32:00 [ERROR]: Request completed with error {"requestId":"1766039520164-eygqv3cs8","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"142ms","userId":3,"error":null}
+2025-12-18 01:33:25 [ERROR]: Request completed with error {"requestId":"1766039605480-1l6d5v8g7","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"143ms","userId":3,"error":null}
+2025-12-18 01:33:29 [ERROR]: Request completed with error {"requestId":"1766039609191-pzaf8ze5r","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"147ms","userId":3,"error":null}
+2025-12-18 02:00:00 [INFO]: Running GitHub repository sync
+2025-12-18 02:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-18 02:03:40 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 02:03:40 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 02:03:40 [INFO]: Connected to PostgreSQL
+2025-12-18 02:13:30 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 02:13:30 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 02:13:30 [INFO]: Connected to PostgreSQL

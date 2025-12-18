@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GoogleLogin } from "@react-oauth/google";
-import { api } from "../api";
+import { api, baseURL } from "../api";
 import LegalModal from "../components/LegalModal";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import "./Auth.css";
@@ -119,7 +119,7 @@ export default function Login() {
     const left = window.innerWidth / 2 - width / 2;
     const top = window.innerHeight / 2 - height / 2;
     window.open(
-      "http://localhost:4000/api/linkedin/auth",
+      `${baseURL}/api/linkedin/auth`,
       "linkedin_login",
       `width=${width},height=${height},left=${left},top=${top}`
     );

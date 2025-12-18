@@ -97,6 +97,10 @@ import { requestLogger, errorLogger } from "./middleware/logging.js";
 import logger, { logInfo, logError, logHttp } from "./utils/logger.js";
 import monitoringRoutes from "./routes/monitoring.js";
 
+// ====== 📈 SCALABILITY AND RESOURCE MANAGEMENT (UC-136) ======
+import scalabilityRoutes from "./routes/scalability.js";
+import { metricsMiddleware } from "./utils/resourceMonitor.js";
+
 // ===== Initialize =====
 dotenv.config();
 
@@ -129,15 +133,65 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// ===== Security Middleware (UC-145) =====
-// Helmet adds security headers (removes X-Powered-By, adds CSP, etc.)
+// ===== Security Middleware (UC-135 & UC-145) =====
+import { 
+  inputSanitizer, 
+  validateContentType, 
+  additionalSecurityHeaders, 
+  securityAuditLog,
+  validateRequestSize 
+} from './middleware/security.js';
+
+// Helmet adds security headers (removes X-Powered-By, adds CSP, HSTS, etc.)
 app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP for now to avoid breaking frontend
+  // Content Security Policy
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://api.openai.com", "https://generativelanguage.googleapis.com", "https://*.supabase.co"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  } : false, // Disable CSP in development to avoid breaking hot reload
+  
+  // HTTP Strict Transport Security (only in production)
+  hsts: process.env.NODE_ENV === 'production' ? {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  } : false,
+  
+  // Prevent MIME type sniffing
+  noSniff: true,
+  
+  // X-Frame-Options - prevent clickjacking
+  frameguard: { action: 'deny' },
+  
+  // Hide X-Powered-By header
+  hidePoweredBy: true,
+  
+  // IE no open
+  ieNoOpen: true,
+  
+  // Disable DNS prefetching
+  dnsPrefetchControl: { allow: false },
+  
+  // Cross-Origin settings
   crossOriginEmbedderPolicy: false, // Allow embedding resources
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 // Disable X-Powered-By explicitly (also done by helmet, but being explicit)
 app.disable('x-powered-by');
+
+// Additional security headers
+app.use(additionalSecurityHeaders);
 
 // Rate limiting for authentication endpoints (UC-145: Prevent brute force attacks)
 const authLimiter = rateLimit({
@@ -152,7 +206,7 @@ const authLimiter = rateLimit({
 // General API rate limiter (more permissive)
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 300, // 300 requests per minute (increased for company logo fetching)
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -196,10 +250,25 @@ app.use(
   })
 );
 
-app.use(express.json());
+// Behind ngrok/Render, trust proxy so rate limiter & logging
+// can safely use X-Forwarded-For (avoids ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set("trust proxy", 1);
 
+// Special middleware for SendGrid inbound email (needs raw text)
+// MUST be BEFORE express.json() so it can handle raw email body
+app.use("/api/jobs/inbound-email", express.text({ type: "*/*", limit: "10mb" }));
+
+app.use(express.json({ limit: '10mb' })); // Limit body size
+
+// ✅ UC-135: Security middleware - input sanitization and audit logging
+app.use(inputSanitizer); // Sanitize all inputs to prevent XSS
+app.use(validateContentType); // Validate Content-Type headers
+app.use(securityAuditLog); // Log suspicious patterns
 // ✅ Production Monitoring and Logging
 app.use(requestLogger);
+
+// ✅ UC-136: Resource metrics tracking
+app.use(metricsMiddleware);
 
 // ✅ Rate limiting for API routes
 app.use('/api/', apiLimiter);
@@ -260,10 +329,34 @@ const PASSWORD_RULE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const ACCOUNT_TYPES = new Set(["candidate", "mentor"]);
 const DEFAULT_ACCOUNT_TYPE = "candidate";
 
+// UC-135: Warn if using default secret in production
+if (process.env.NODE_ENV === 'production' && JWT_SECRET === 'dev_secret_change_me') {
+  console.error('⚠️ WARNING: Using default JWT_SECRET in production! This is a critical security risk.');
+  logError('Security warning: Using default JWT_SECRET in production', null, {});
+}
+
+/**
+ * UC-135: Generate secure JWT token
+ * - Uses HS256 algorithm (default, secure for symmetric keys)
+ * - Includes essential claims (sub, iat, exp)
+ * - Token expires in 2 hours for security
+ */
 function makeToken(user) {
-  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
-    expiresIn: "2h",
-  });
+  return jwt.sign(
+    { 
+      sub: user.id,  // Subject - standard claim
+      id: user.id,   // Keep for backward compatibility
+      email: user.email,
+      iat: Math.floor(Date.now() / 1000), // Issued at
+    }, 
+    JWT_SECRET, 
+    {
+      expiresIn: "2h",
+      algorithm: 'HS256',
+      issuer: 'ats-career-os',
+      audience: 'ats-users'
+    }
+  );
 }
 
 // ===== In-memory password reset store (email -> { code, expires }) =====
@@ -869,6 +962,29 @@ crons.schedule("0 9 * * *", async () => {
   }
 });
 
+// ====== 📅 SCHEDULED SUBMISSION REMINDER CRON JOB ======
+// Run every 5 minutes to check for upcoming scheduled submissions
+crons.schedule("*/5 * * * *", async () => {
+  console.log("⏰ Checking for scheduled submission reminders...");
+  try {
+    const port = process.env.PORT || 4000;
+    // Make internal API call to process reminders
+    const response = await fetch(`http://localhost:${port}/api/timing/process-reminders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.processed > 0) {
+        console.log(`📧 Processed ${result.processed} scheduled submission reminder(s)`);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Scheduled submission reminder check failed:", err.message);
+  }
+});
+
 async function sendDeadlineReminders() {
   console.log("📬 Running job deadline reminder (manual/cron)...");
 
@@ -1029,6 +1145,9 @@ app.use("/api/geocoding", geocodingRoutes); // ✅ UC-116: Location and Geo-codi
 
 // ✅ Production Monitoring Routes (UC-133)
 app.use("/api/monitoring", monitoringRoutes);
+
+// ✅ Scalability and Resource Management Routes (UC-136)
+app.use("/api/scalability", scalabilityRoutes);
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =

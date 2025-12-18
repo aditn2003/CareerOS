@@ -1,13 +1,7 @@
 // frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { api } from "../api";
-
-// Get API base URL for direct fetch calls
-const getApiBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 
-    (window.location.hostname === "localhost" ? "http://localhost:4000" : "http://backend:4000");
-};
+import { api, baseURL } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
 import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown, FaMagic, FaCodeBranch, FaCopy, FaExchangeAlt, FaStar, FaArchive, FaTimes, FaCheck, FaPlus, FaExternalLinkAlt } from "react-icons/fa";
@@ -323,7 +317,7 @@ export default function DocsManagement() {
       let viewerUrl = null;
       let title = doc.title || doc.name || "Document";
       
-      const apiBaseUrl = getApiBaseUrl();
+      const apiBaseUrl = baseURL;
       
       if (type === "resume") {
         viewerUrl = `${apiBaseUrl}/api/resumes/${doc.id}/download`;
@@ -355,7 +349,7 @@ export default function DocsManagement() {
         // If singular route fails, try plural route for cover letters
         if (!response.ok && type === "coverLetter") {
           console.log('⚠️ Singular route failed, trying plural route...');
-          const apiBaseUrl = getApiBaseUrl();
+          const apiBaseUrl = baseURL;
           const pluralUrl = `${apiBaseUrl}/api/cover-letters/${doc.id}/download?view=true`;
           response = await fetch(pluralUrl, {
             headers: {
@@ -672,7 +666,7 @@ export default function DocsManagement() {
     try {
       if (docType === "coverLetter") {
         // For cover letters, use the version view endpoint
-        const viewerUrl = `${getApiBaseUrl()}/api/versions/cover-letters/${docId}/versions/${versionNumber}/view`;
+        const viewerUrl = `${baseURL}/api/versions/cover-letters/${docId}/versions/${versionNumber}/view`;
         const response = await fetch(viewerUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -717,7 +711,7 @@ export default function DocsManagement() {
 
       if (versionResume) {
         // Use the resume download endpoint
-        const apiBaseUrl = getApiBaseUrl();
+        const apiBaseUrl = baseURL;
         const viewerUrl = `${apiBaseUrl}/api/resumes/${versionResume.id}/download?format=pdf`;
         
         const response = await fetch(viewerUrl, {
@@ -743,7 +737,7 @@ export default function DocsManagement() {
         });
       } else {
         // Fallback to version endpoint if not found as resume
-        const apiBaseUrl = getApiBaseUrl();
+        const apiBaseUrl = baseURL;
         const viewerUrl = `${apiBaseUrl}/api/versions/resumes/${docId}/versions/${versionNumber}/view`;
         const response = await fetch(viewerUrl, {
           headers: { Authorization: `Bearer ${token}` },
@@ -759,7 +753,7 @@ export default function DocsManagement() {
           // Backend returned redirect info, use the redirect URL
           const data = await response.json();
           if (data.redirect) {
-            const apiBaseUrl = getApiBaseUrl();
+            const apiBaseUrl = baseURL;
             const redirectResponse = await fetch(`${apiBaseUrl}${data.redirect}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
@@ -1041,7 +1035,7 @@ export default function DocsManagement() {
 
   const handleDownload = async (resumeId, format) => {
     try {
-      const downloadUrl = `http://localhost:4000/api/resumes/${resumeId}/download?format=${format}`;
+      const downloadUrl = `${baseURL}/api/resumes/${resumeId}/download?format=${format}`;
       
       // Fetch the file with authentication
       const response = await fetch(downloadUrl, {
@@ -1658,7 +1652,7 @@ export default function DocsManagement() {
                               handleView(resumes.find(r => r.id === version.resume_id), "resume");
                             } else if (docType === "coverLetter") {
                               // For cover letters, use the version view endpoint
-                              const viewerUrl = `${getApiBaseUrl()}/api/versions/cover-letters/${versionControlModal.docId}/versions/${version.version_number}/view`;
+                              const viewerUrl = `${baseURL}/api/versions/cover-letters/${versionControlModal.docId}/versions/${version.version_number}/view`;
                               fetch(viewerUrl, {
                                 headers: { Authorization: `Bearer ${token}` },
                               })
