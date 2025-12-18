@@ -153,17 +153,7 @@ jobs:
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
 
   # ============================================
-  # JOB 3: Backend deploys automatically via Render
-  # ============================================
-  # NOTE: Render auto-deploys when you push to main!
-  # No action needed here - Render watches your repo.
-  # 
-  # If tests pass → GitHub shows green check → Render deploys
-  # If tests fail → GitHub shows red X → You can configure Render 
-  #                                       to only deploy on green checks
-
-  # ============================================
-  # JOB 4: Health Check & Notify
+  # JOB 3: Verify & Notify
   # ============================================
   verify-and-notify:
     name: Verify & Notify
@@ -190,22 +180,25 @@ jobs:
           fi
 
       - name: Check Backend (Render)
-        if: secrets.PROD_API_URL != ''
+        env:
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
         run: |
-          echo "🔍 Checking backend..."
-          
-          # Try health endpoint
-          RESPONSE=$(curl -s "${{ secrets.PROD_API_URL }}/api/health" 2>/dev/null || echo '{}')
-          echo "Health response: $RESPONSE"
-          
-          # Also try root endpoint
-          ROOT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_API_URL }}/" || echo "000")
-          echo "Root endpoint status: $ROOT_STATUS"
-          
-          if [ "$ROOT_STATUS" == "200" ]; then
-            echo "✅ Backend is responding!"
+          if [ -n "$PROD_API_URL" ]; then
+            echo "🔍 Checking backend at $PROD_API_URL..."
+            
+            RESPONSE=$(curl -s "$PROD_API_URL/api/health" 2>/dev/null || echo '{}')
+            echo "Health response: $RESPONSE"
+            
+            ROOT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_API_URL/" || echo "000")
+            echo "Root endpoint status: $ROOT_STATUS"
+            
+            if [ "$ROOT_STATUS" == "200" ]; then
+              echo "✅ Backend is responding!"
+            else
+              echo "⚠️ Backend might still be deploying (Render can take 2-5 min)"
+            fi
           else
-            echo "⚠️ Backend might still be deploying (Render can take 2-5 min)"
+            echo "ℹ️ PROD_API_URL not configured, skipping backend health check"
           fi
 
       - name: Deployment Summary
@@ -222,39 +215,54 @@ jobs:
           echo "- Frontend: ${{ needs.test.outputs.frontend-coverage }}%" >> $GITHUB_STEP_SUMMARY
 
       - name: Send Slack notification
-        if: secrets.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: |
-            {
-              "text": "✅ Deployed to Production",
-              "attachments": [
-                {
-                  "color": "good",
-                  "fields": [
-                    {"title": "Frontend", "value": "https://atsos.com", "short": true},
-                    {"title": "Backend", "value": "Render (auto-deployed)", "short": true},
-                    {"title": "Commit", "value": "${{ github.sha }}", "short": true},
-                    {"title": "Author", "value": "${{ github.actor }}", "short": true}
-                  ]
-                }
-              ]
-            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "✅ Deployed to Production",
+                "attachments": [
+                  {
+                    "color": "good",
+                    "fields": [
+                      {"title": "Frontend", "value": "https://atsos.com", "short": true},
+                      {"title": "Backend", "value": "Render (auto-deployed)", "short": true},
+                      {"title": "Commit", "value": "${{ github.sha }}", "short": true},
+                      {"title": "Author", "value": "${{ github.actor }}", "short": true}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Slack notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi
 
       - name: Send Discord notification
-        if: secrets.DISCORD_WEBHOOK_URL != ''
-        uses: sarisia/actions-status-discord@v1
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          status: success
-          title: "Production Deployed!"
-          description: |
-            ✅ Frontend: https://atsos.com
-            ✅ Backend: Auto-deployed via Render
-          url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "content": "✅ **Production Deployed!**",
+                "embeds": [{
+                  "title": "Deployment Successful",
+                  "color": 65280,
+                  "fields": [
+                    {"name": "Frontend", "value": "https://atsos.com", "inline": true},
+                    {"name": "Backend", "value": "Auto-deployed", "inline": true},
+                    {"name": "Author", "value": "${{ github.actor }}", "inline": true}
+                  ]
+                }]
+              }' \
+              "$DISCORD_WEBHOOK_URL"
+            echo "✅ Discord notification sent"
+          else
+            echo "ℹ️ Discord webhook not configured, skipping notification"
+          fi
 
   # ============================================
   # Notify on Test Failure
@@ -267,30 +275,26 @@ jobs:
 
     steps:
       - name: Send failure notification
-        if: secrets.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: |
-            {
-              "text": "❌ Tests Failed - Deployment Blocked",
-              "attachments": [
-                {
-                  "color": "danger",
-                  "fields": [
-                    {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
-                    {"title": "Author", "value": "${{ github.actor }}", "short": true},
-                    {"title": "Commit", "value": "${{ github.sha }}", "short": false}
-                  ],
-                  "actions": [
-                    {
-                      "type": "button",
-                      "text": "View Logs",
-                      "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                    }
-                  ]
-                }
-              ]
-            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "❌ Tests Failed - Deployment Blocked",
+                "attachments": [
+                  {
+                    "color": "danger",
+                    "fields": [
+                      {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                      {"title": "Author", "value": "${{ github.actor }}", "short": true},
+                      {"title": "View Logs", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Failure notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi
