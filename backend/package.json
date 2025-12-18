@@ -9,7 +9,7 @@
     "test": "cross-env NODE_OPTIONS=--max-old-space-size=16384 vitest run --coverage",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=html",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=html --coverage.reporter=json-summary",
     "test:jest": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand --forceExit --testTimeout=30000",
     "security:audit": "node scripts/security-audit.js",
     "audit": "npm audit && npm run security:audit",

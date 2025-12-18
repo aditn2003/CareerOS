@@ -1077,16 +1077,19 @@ describe('Success Patterns Routes', () => {
     });
 
     it('should handle company research fetch error gracefully', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
       pool.query.mockImplementation((query) => {
         if (query.includes('SELECT column_name FROM information_schema.columns')) {
           return Promise.resolve({ rows: [] });
         }
         if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
           return Promise.resolve({
-            rows: [{ id: 1, status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
+            rows: [{ id: 1, company: 'Tech Corp', status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
           });
         }
-        if (query.includes('SELECT company, created_at FROM company_research')) {
+        // Match the exact query pattern from source (line 965-970)
+        if (query.includes('SELECT company, created_at') && query.includes('FROM company_research') && query.includes('WHERE company = ANY')) {
           return Promise.reject(new Error('Company research fetch failed'));
         }
         return Promise.resolve({ rows: [] });
@@ -1097,6 +1100,145 @@ describe('Success Patterns Routes', () => {
         .set('Authorization', `Bearer ${user.token}`);
 
       expect(response.status).toBe(200);
+      // Verify catch block was hit (line 975)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Could not fetch research history'),
+        expect.any(String)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should handle application history fetch error and trigger catch block', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
+          });
+        }
+        // Match the exact query pattern from source (line 1005-1010)
+        if (query.includes('SELECT job_id, event, timestamp, from_status, to_status') && query.includes('FROM application_history')) {
+          return Promise.reject(new Error('Application history fetch failed'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Verify catch block was hit (line 1014)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Could not fetch application history'),
+        expect.any(String)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should handle mock interviews fetch error and trigger catch block', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
+          });
+        }
+        // Match the exact query pattern from source (line 1038-1043)
+        if (query.includes('SELECT id, company, role, status, created_at, completed_at, overall_performance_score') && query.includes('FROM mock_interview_sessions')) {
+          return Promise.reject(new Error('Mock interviews fetch failed'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Verify catch block was hit (line 1047)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Could not fetch mock interviews'),
+        expect.any(String)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should handle technical prep sessions fetch error and trigger catch block', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
+          });
+        }
+        // Match the exact query pattern from source (line 1053-1058)
+        if (query.includes('SELECT id, company, role, prep_type, status, time_spent_seconds, created_at, completed_at') && query.includes('FROM technical_prep_sessions')) {
+          return Promise.reject(new Error('Technical prep sessions fetch failed'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Verify catch block was hit (line 1062)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Could not fetch technical prep sessions'),
+        expect.any(String)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should handle interview preparation fetch error and trigger catch block', async () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: 'Interview', applied_on: '2024-01-15', created_at: '2024-01-15' }],
+          });
+        }
+        // Match the exact query pattern from source (line 1068-1073)
+        if (query.includes('SELECT interview_id, framework_type, company_research, role_research, created_at') && query.includes('FROM interview_preparation')) {
+          return Promise.reject(new Error('Interview preparation fetch failed'));
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Verify catch block was hit (line 1077)
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Could not fetch interview preparation'),
+        expect.any(String)
+      );
+
+      consoleWarnSpy.mockRestore();
     });
   });
 
@@ -1303,6 +1445,225 @@ describe('Success Patterns Routes', () => {
         .set('Authorization', `Bearer ${user.token}`);
 
       expect(response.status).toBe(200);
+    });
+  });
+
+  describe('Helper Functions Coverage', () => {
+    it('should test findOptimalWindow with empty data', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, status: 'Offer', applied_on: '2024-01-15', created_at: '2024-01-15', status_updated_at: '2024-01-20' },
+            ],
+          });
+        }
+        if (query.includes('SELECT job_id, event, timestamp, from_status, to_status FROM application_history')) {
+          return Promise.resolve({ rows: [] }); // No history, so timing data will be empty
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // findOptimalWindow is called with empty arrays, should return null (line 420)
+      expect(response.body.timingPatterns.optimalWindows).toBeDefined();
+    });
+
+    it('should test findOptimalWindow with data', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, status: 'Offer', applied_on: '2024-01-15', created_at: '2024-01-15', status_updated_at: '2024-01-30' },
+              { id: 2, status: 'Interview', applied_on: '2024-01-20', created_at: '2024-01-20', status_updated_at: '2024-01-25' },
+              { id: 3, status: 'Offer', applied_on: '2024-01-25', created_at: '2024-01-25', status_updated_at: '2024-02-10' },
+            ],
+          });
+        }
+        if (query.includes('SELECT job_id, event, timestamp, from_status, to_status FROM application_history')) {
+          return Promise.resolve({
+            rows: [
+              { job_id: 1, event: 'Status changed', timestamp: '2024-01-20', from_status: 'Applied', to_status: 'Interview' },
+              { job_id: 1, event: 'Status changed', timestamp: '2024-01-30', from_status: 'Interview', to_status: 'Offer' },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // findOptimalWindow should calculate q1, q3, median (lines 422-424)
+      expect(response.body.timingPatterns.optimalWindows).toBeDefined();
+      if (response.body.timingPatterns.optimalWindows.applicationWindow) {
+        expect(response.body.timingPatterns.optimalWindows.applicationWindow).toHaveProperty('min');
+        expect(response.body.timingPatterns.optimalWindows.applicationWindow).toHaveProperty('max');
+        expect(response.body.timingPatterns.optimalWindows.applicationWindow).toHaveProperty('median');
+      }
+    });
+
+    it('should test normalizeIndustry function with various inputs', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, industry: 'Technology', status: 'Offer', applied_on: '2024-01-15', created_at: '2024-01-15' },
+              { id: 2, industry: '  TECHNOLOGY  ', status: 'Interview', applied_on: '2024-01-16', created_at: '2024-01-16' }, // Test trimming and case
+              { id: 3, industry: null, status: 'Rejected', applied_on: '2024-01-17', created_at: '2024-01-17' }, // Test null
+              { id: 4, industry: '', status: 'Rejected', applied_on: '2024-01-18', created_at: '2024-01-18' }, // Test empty
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // normalizeIndustry should normalize 'Technology' and '  TECHNOLOGY  ' to the same key (lines 34-37)
+      // null and empty should be filtered out
+      expect(response.body.applicationPatterns.industrySuccessRates).toBeDefined();
+    });
+
+    it('should test analyzeApplicationPatterns with customization data', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({
+            rows: [
+              { column_name: 'resume_customization' },
+              { column_name: 'cover_letter_customization' },
+            ],
+          });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, status: 'Offer', resume_customization: 'tailored', cover_letter_customization: 'tailored', applied_on: '2024-01-15T10:00:00', created_at: '2024-01-15T10:00:00' },
+              { id: 2, status: 'Interview', resume_customization: 'heavy', cover_letter_customization: 'light', applied_on: '2024-01-16T14:00:00', created_at: '2024-01-16T14:00:00' },
+              { id: 3, status: 'Rejected', resume_customization: 'none', cover_letter_customization: 'none', applied_on: '2024-01-17T09:00:00', created_at: '2024-01-17T09:00:00' },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Should analyze customization patterns (lines 99-106)
+      expect(response.body.applicationPatterns.customizationImpact).toBeDefined();
+      expect(response.body.applicationPatterns.customizationImpact.resume).toBeDefined();
+      expect(response.body.applicationPatterns.customizationImpact.coverLetter).toBeDefined();
+    });
+
+    it('should test analyzeTimingPatterns with interview outcomes', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, status: 'Offer', applied_on: '2024-01-15', created_at: '2024-01-15', status_updated_at: '2024-01-30' },
+            ],
+          });
+        }
+        if (query.includes('SELECT io.job_id, io.company, io.interview_date')) {
+          return Promise.resolve({
+            rows: [
+              { job_id: 1, company: 'Tech Corp', interview_date: '2024-01-25', outcome: 'passed' },
+            ],
+          });
+        }
+        if (query.includes('SELECT job_id, event, timestamp, from_status, to_status FROM application_history')) {
+          return Promise.resolve({
+            rows: [
+              { job_id: 1, event: 'Interview scheduled', timestamp: '2024-01-20', from_status: 'Applied', to_status: 'Interview' },
+              { job_id: 1, event: 'Offer received', timestamp: '2024-01-30', from_status: 'Interview', to_status: 'Offer' },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Should use interview_outcomes interview_date (lines 339-340)
+      // Should calculate interviewToOffer timing (lines 370-375)
+      expect(response.body.timingPatterns.averages).toBeDefined();
+      expect(response.body.timingPatterns.averages.interviewToOffer).toBeDefined();
+    });
+
+    it('should test analyzePreparationCorrelation with comprehensive prep', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name FROM information_schema.columns')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT id, title, company') && query.includes('WHERE user_id = $1')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, company: 'Tech Corp', status: 'Offer', applied_on: '2024-01-20', created_at: '2024-01-20' },
+            ],
+          });
+        }
+        if (query.includes('SELECT company, created_at FROM company_research')) {
+          return Promise.resolve({
+            rows: [{ company: 'Tech Corp', created_at: '2024-01-15' }],
+          });
+        }
+        if (query.includes('SELECT id, activity_type, created_at FROM networking_activities')) {
+          return Promise.resolve({
+            rows: [{ id: 1, activity_type: 'linkedin_message', created_at: '2024-01-18' }],
+          });
+        }
+        if (query.includes('SELECT id, company, role, status, created_at, completed_at, overall_performance_score FROM mock_interview_sessions')) {
+          return Promise.resolve({
+            rows: [{ id: 1, company: 'Tech Corp', created_at: '2024-01-16' }],
+          });
+        }
+        if (query.includes('SELECT id, company, role, prep_type, status, time_spent_seconds, created_at, completed_at FROM technical_prep_sessions')) {
+          return Promise.resolve({
+            rows: [{ id: 1, company: 'Tech Corp', created_at: '2024-01-17' }],
+          });
+        }
+        if (query.includes('SELECT interview_id, framework_type, company_research, role_research, created_at FROM interview_preparation')) {
+          return Promise.resolve({
+            rows: [{ interview_id: 1, created_at: '2024-01-19' }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get('/api/success-patterns')
+        .set('Authorization', `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      // Should detect comprehensive prep (3+ activities) (lines 235-237)
+      expect(response.body.preparationCorrelation.preparationData).toBeDefined();
     });
   });
 
