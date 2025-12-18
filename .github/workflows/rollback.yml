@@ -32,28 +32,32 @@ jobs:
 
       - name: Rollback Render Backend
         if: contains(github.event.inputs.service, 'backend')
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID_PROD: ${{ secrets.RENDER_SERVICE_ID_PROD }}
+          RENDER_SERVICE_ID_STAGING: ${{ secrets.RENDER_SERVICE_ID_STAGING }}
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           
           if [[ "$SERVICE" == *"production"* ]]; then
-            SERVICE_ID="${{ secrets.RENDER_SERVICE_ID_PROD }}"
+            SERVICE_ID="$RENDER_SERVICE_ID_PROD"
           else
-            SERVICE_ID="${{ secrets.RENDER_SERVICE_ID_STAGING }}"
+            SERVICE_ID="$RENDER_SERVICE_ID_STAGING"
           fi
           
-          if [ -z "$SERVICE_ID" ] || [ -z "${{ secrets.RENDER_API_KEY }}" ]; then
-            echo "❌ Missing Render API key or Service ID"
+          if [ -z "$SERVICE_ID" ] || [ -z "$RENDER_API_KEY" ]; then
+            echo "ℹ️ Render API credentials not configured"
             echo ""
             echo "To rollback Render manually:"
             echo "1. Go to https://dashboard.render.com"
             echo "2. Select your service"
             echo "3. Go to 'Events' tab"
             echo "4. Click 'Rollback' on a previous successful deploy"
-            exit 1
+            exit 0
           fi
           
           echo "📋 Getting recent deployments..."
-          DEPLOYS=$(curl -s -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+          DEPLOYS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
             "https://api.render.com/v1/services/$SERVICE_ID/deploys?limit=5")
           
           echo "Recent deployments:"
@@ -69,7 +73,7 @@ jobs:
           
           echo "🔄 Rolling back to deployment: $PREV_DEPLOY"
           
-          curl -X POST -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+          curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
             "https://api.render.com/v1/services/$SERVICE_ID/deploys/$PREV_DEPLOY/rollback"
           
           echo "✅ Rollback initiated!"
@@ -98,23 +102,26 @@ jobs:
           echo "- **Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
 
       - name: Notify team
-        if: secrets.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: |
-            {
-              "text": "⚠️ Manual Rollback Initiated",
-              "attachments": [
-                {
-                  "color": "warning",
-                  "fields": [
-                    {"title": "Service", "value": "${{ github.event.inputs.service }}", "short": true},
-                    {"title": "Initiated by", "value": "${{ github.actor }}", "short": true},
-                    {"title": "Reason", "value": "${{ github.event.inputs.reason }}", "short": false}
-                  ]
-                }
-              ]
-            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "⚠️ Manual Rollback Initiated",
+                "attachments": [
+                  {
+                    "color": "warning",
+                    "fields": [
+                      {"title": "Service", "value": "${{ github.event.inputs.service }}", "short": true},
+                      {"title": "Initiated by", "value": "${{ github.actor }}", "short": true},
+                      {"title": "Reason", "value": "${{ github.event.inputs.reason }}", "short": false}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Slack notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi
