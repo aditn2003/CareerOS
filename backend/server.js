@@ -283,6 +283,32 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", message: "ATS backend is running" });
 });
 
+// Health check endpoint for CI/CD and monitoring
+app.get("/api/health", async (req, res) => {
+  const health = {
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+    version: process.env.npm_package_version || "1.0.0",
+    services: {
+      database: "unknown",
+    },
+  };
+
+  try {
+    // Check database connection
+    const dbResult = await pool.query("SELECT 1");
+    health.services.database = dbResult ? "connected" : "disconnected";
+  } catch (err) {
+    health.services.database = "error";
+    health.status = "degraded";
+  }
+
+  const statusCode = health.status === "healthy" ? 200 : 503;
+  res.status(statusCode).json(health);
+});
+
 // ✅ Serve uploaded images with BOTH performance + cross-origin support
 app.use(
   "/uploads",

@@ -1,0 +1,188 @@
+name: Deployment Metrics
+
+on:
+  # Run weekly on Mondays
+  schedule:
+    - cron: '0 9 * * 1'
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  generate-metrics:
+    name: Generate Deployment Metrics
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Generate metrics report
+        uses: actions/github-script@v7
+        id: metrics
+        with:
+          script: |
+            const { data: workflows } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'ci-cd.yml',
+              per_page: 100,
+              status: 'completed'
+            });
+            
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+            
+            const recentRuns = workflows.workflow_runs.filter(run => 
+              new Date(run.created_at) > thirtyDaysAgo
+            );
+            
+            // Calculate metrics
+            const totalDeployments = recentRuns.length;
+            const successfulDeployments = recentRuns.filter(run => run.conclusion === 'success').length;
+            const failedDeployments = recentRuns.filter(run => run.conclusion === 'failure').length;
+            const successRate = totalDeployments > 0 ? ((successfulDeployments / totalDeployments) * 100).toFixed(1) : 0;
+            
+            // Calculate average deployment time
+            const completedRuns = recentRuns.filter(run => run.conclusion === 'success');
+            const avgDuration = completedRuns.length > 0 
+              ? completedRuns.reduce((sum, run) => {
+                  const start = new Date(run.run_started_at);
+                  const end = new Date(run.updated_at);
+                  return sum + (end - start) / 1000 / 60; // minutes
+                }, 0) / completedRuns.length
+              : 0;
+            
+            // Deployments by branch
+            const mainDeployments = recentRuns.filter(run => run.head_branch === 'main').length;
+            const developDeployments = recentRuns.filter(run => run.head_branch === 'develop').length;
+            
+            // Most active contributors
+            const contributors = {};
+            recentRuns.forEach(run => {
+              contributors[run.actor.login] = (contributors[run.actor.login] || 0) + 1;
+            });
+            const topContributors = Object.entries(contributors)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5);
+            
+            const report = {
+              period: '30 days',
+              generatedAt: now.toISOString(),
+              summary: {
+                totalDeployments,
+                successfulDeployments,
+                failedDeployments,
+                successRate: `${successRate}%`,
+                avgDurationMinutes: avgDuration.toFixed(1)
+              },
+              byBranch: {
+                main: mainDeployments,
+                develop: developDeployments
+              },
+              topContributors
+            };
+            
+            core.setOutput('report', JSON.stringify(report, null, 2));
+            core.setOutput('success_rate', successRate);
+            core.setOutput('total_deployments', totalDeployments);
+            
+            return report;
+
+      - name: Create metrics report file
+        run: |
+          cat > deployment-metrics.json << 'EOF'
+          ${{ steps.metrics.outputs.report }}
+          EOF
+          
+          echo "# 📊 Deployment Metrics Report" > deployment-metrics.md
+          echo "" >> deployment-metrics.md
+          echo "Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> deployment-metrics.md
+          echo "" >> deployment-metrics.md
+          echo "## Summary (Last 30 Days)" >> deployment-metrics.md
+          echo "" >> deployment-metrics.md
+          echo "| Metric | Value |" >> deployment-metrics.md
+          echo "|--------|-------|" >> deployment-metrics.md
+          echo "| Total Deployments | ${{ steps.metrics.outputs.total_deployments }} |" >> deployment-metrics.md
+          echo "| Success Rate | ${{ steps.metrics.outputs.success_rate }}% |" >> deployment-metrics.md
+          echo "" >> deployment-metrics.md
+          echo "## Detailed Report" >> deployment-metrics.md
+          echo '```json' >> deployment-metrics.md
+          cat deployment-metrics.json >> deployment-metrics.md
+          echo '```' >> deployment-metrics.md
+
+      - name: Upload metrics report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-metrics-${{ github.run_number }}
+          path: |
+            deployment-metrics.json
+            deployment-metrics.md
+          retention-days: 365
+
+      - name: Post metrics to PR/Issue
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = ${{ steps.metrics.outputs.report }};
+            
+            const body = `## 📊 Deployment Metrics Report
+            
+            **Period:** Last 30 days
+            **Generated:** ${new Date().toISOString()}
+            
+            ### Summary
+            | Metric | Value |
+            |--------|-------|
+            | Total Deployments | ${report.summary.totalDeployments} |
+            | Successful | ${report.summary.successfulDeployments} |
+            | Failed | ${report.summary.failedDeployments} |
+            | Success Rate | ${report.summary.successRate} |
+            | Avg Duration | ${report.summary.avgDurationMinutes} min |
+            
+            ### By Branch
+            | Branch | Deployments |
+            |--------|-------------|
+            | main (production) | ${report.byBranch.main} |
+            | develop (staging) | ${report.byBranch.develop} |
+            
+            ### Top Contributors
+            ${report.topContributors.map(([name, count]) => `- **${name}**: ${count} deployments`).join('\n')}
+            `;
+            
+            // Create an issue with the report
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `📊 Weekly Deployment Metrics - ${new Date().toISOString().split('T')[0]}`,
+              body,
+              labels: ['metrics', 'automated']
+            });
+
+      - name: Send Slack metrics summary
+        if: secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "📊 Weekly Deployment Metrics",
+              "attachments": [
+                {
+                  "color": "${{ steps.metrics.outputs.success_rate >= 90 && 'good' || steps.metrics.outputs.success_rate >= 70 && 'warning' || 'danger' }}",
+                  "fields": [
+                    {"title": "Total Deployments", "value": "${{ steps.metrics.outputs.total_deployments }}", "short": true},
+                    {"title": "Success Rate", "value": "${{ steps.metrics.outputs.success_rate }}%", "short": true}
+                  ],
+                  "footer": "Last 30 days | ${{ github.repository }}"
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
