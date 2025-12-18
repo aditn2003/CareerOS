@@ -383,4 +383,450 @@ describe("OfferForm", () => {
       screen.getByText(/Negotiated \+10.0% improvement/i)
     ).toBeInTheDocument();
   });
+
+  it("auto-populates form when job_id is selected", async () => {
+    const mockJobs = [
+      {
+        id: 1,
+        company: "Tech Co",
+        title: "Software Engineer",
+        location: "SF",
+        industry: "Tech",
+        salary_min: 100000,
+        salary_max: 150000,
+        status: "Applied",
+      },
+    ];
+    api.getJobs.mockResolvedValueOnce({ data: { jobs: mockJobs } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(api.getJobs).toHaveBeenCalled();
+    });
+
+    // Find the job select dropdown by finding select element
+    const jobSelect = document.querySelector('select[name="job_id"]');
+    expect(jobSelect).toBeInTheDocument();
+    fireEvent.change(jobSelect, { target: { value: "1" } });
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("Company *")).toHaveValue("Tech Co");
+      expect(screen.getByPlaceholderText("Role Title *")).toHaveValue(
+        "Software Engineer"
+      );
+    });
+  });
+
+  it("handles error loading jobs", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    api.getJobs.mockRejectedValueOnce(new Error("Network error"));
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Error loading jobs:",
+        expect.any(Error)
+      );
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it("records negotiation when updating offer with negotiation notes", async () => {
+    api.updateOffer.mockResolvedValueOnce({ data: { offer: { id: 1 } } });
+    api.recordNegotiation.mockResolvedValueOnce({});
+
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 100000,
+      initial_base_salary: 90000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Fill negotiation notes
+    const notesButton = screen.getByText("Add Negotiation Notes");
+    fireEvent.click(notesButton);
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Record your negotiation strategy/i
+      );
+      fireEvent.change(textarea, {
+        target: { value: "Asked for 10% increase, got 11%" },
+      });
+    });
+
+    // Update salary (placeholder is always "Base Salary *", label changes to "Negotiated Base Salary")
+    const salaryInput = screen.getByPlaceholderText("Base Salary *");
+    fireEvent.change(salaryInput, { target: { value: "110000" } });
+
+    // Submit
+    fireEvent.click(screen.getByRole("button", { name: /Update Offer/i }));
+
+    await waitFor(() => {
+      expect(api.updateOffer).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(api.recordNegotiation).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          negotiation_notes: "Asked for 10% increase, got 11%",
+        })
+      );
+    });
+  });
+
+  it("marks negotiation as successful when salary increases", async () => {
+    api.updateOffer.mockResolvedValueOnce({ data: { offer: { id: 1 } } });
+
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 100000,
+      initial_base_salary: 90000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Update salary to be higher than initial (placeholder is always "Base Salary *")
+    const salaryInput = screen.getByPlaceholderText("Base Salary *");
+    fireEvent.change(salaryInput, { target: { value: "110000" } });
+
+    // Submit
+    fireEvent.click(screen.getByRole("button", { name: /Update Offer/i }));
+
+    await waitFor(() => {
+      expect(api.updateOffer).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          negotiation_successful: true,
+          negotiated_base_salary: 110000,
+        })
+      );
+    });
+  });
+
+  it("shows salary hint buttons when job with salary range is selected", async () => {
+    const mockJobs = [
+      {
+        id: 1,
+        company: "Tech Co",
+        title: "Software Engineer",
+        salary_min: 100000,
+        salary_max: 150000,
+        status: "Applied",
+      },
+    ];
+    api.getJobs.mockResolvedValueOnce({ data: { jobs: mockJobs } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(api.getJobs).toHaveBeenCalled();
+    });
+
+    const jobSelect = document.querySelector('select[name="job_id"]');
+    fireEvent.change(jobSelect, { target: { value: "1" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Use Min/i)).toBeInTheDocument();
+      expect(screen.getByText(/Use Max/i)).toBeInTheDocument();
+      expect(screen.getByText(/Use Mid/i)).toBeInTheDocument();
+    });
+  });
+
+  it("fills base salary when Use Min button is clicked", async () => {
+    const mockJobs = [
+      {
+        id: 1,
+        company: "Tech Co",
+        title: "Software Engineer",
+        salary_min: 100000,
+        salary_max: 150000,
+        status: "Applied",
+      },
+    ];
+    api.getJobs.mockResolvedValueOnce({ data: { jobs: mockJobs } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(api.getJobs).toHaveBeenCalled();
+    });
+
+    const jobSelect = document.querySelector('select[name="job_id"]');
+    fireEvent.change(jobSelect, { target: { value: "1" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Use Min/i)).toBeInTheDocument();
+    });
+
+    const useMinBtn = screen.getByText(/Use Min/i);
+    fireEvent.click(useMinBtn);
+
+    await waitFor(() => {
+      const salaryInput = screen.getByPlaceholderText(/Base Salary/i);
+      expect(salaryInput).toHaveValue(100000);
+    });
+  });
+
+  it("shows negotiation summary when improvement exists", () => {
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 110000,
+      initial_base_salary: 100000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Click to show negotiation section
+    const notesButton = screen.getByText("Add Negotiation Notes");
+    fireEvent.click(notesButton);
+
+    expect(screen.getByText(/Negotiated Salary:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Improvement:/i)).toBeInTheDocument();
+  });
+
+  it("shows tip when no improvement exists but offer has initial salary", () => {
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 100000,
+      initial_base_salary: 100000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    expect(
+      screen.getByText(/If you negotiate and get a higher salary/i)
+    ).toBeInTheDocument();
+  });
+
+  it("handles negotiation recording error gracefully", async () => {
+    api.updateOffer.mockResolvedValueOnce({ data: { offer: { id: 1 } } });
+    api.recordNegotiation.mockRejectedValueOnce(new Error("Network error"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 100000,
+      initial_base_salary: 90000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Fill negotiation notes
+    const notesButton = screen.getByText("Add Negotiation Notes");
+    fireEvent.click(notesButton);
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Record your negotiation strategy/i
+      );
+      fireEvent.change(textarea, {
+        target: { value: "Negotiation notes" },
+      });
+    });
+
+    // Submit
+    fireEvent.click(screen.getByRole("button", { name: /Update Offer/i }));
+
+    await waitFor(() => {
+      expect(api.updateOffer).toHaveBeenCalled();
+      expect(mockOnSave).toHaveBeenCalled(); // Should still call onSave even if negotiation recording fails
+    });
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Error recording negotiation:",
+        expect.any(Error)
+      );
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it("sets initial_base_salary for new offers when base_salary is provided", async () => {
+    api.createOffer.mockResolvedValueOnce({ data: { offer: { id: 1 } } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Company *"), {
+      target: { value: "Tech Co" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Role Title *"), {
+      target: { value: "Developer" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Base Salary *"), {
+      target: { value: "100000" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Create Offer/i }));
+
+    await waitFor(() => {
+      expect(api.createOffer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          base_salary: 100000,
+          initial_base_salary: 100000,
+        })
+      );
+    });
+  });
+
+  it("uses Use Max button to fill base salary", async () => {
+    const mockJobs = [
+      {
+        id: 1,
+        company: "Tech Co",
+        title: "Software Engineer",
+        salary_min: 100000,
+        salary_max: 150000,
+        status: "Applied",
+      },
+    ];
+    api.getJobs.mockResolvedValueOnce({ data: { jobs: mockJobs } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(api.getJobs).toHaveBeenCalled();
+    });
+
+    const jobSelect = document.querySelector('select[name="job_id"]');
+    fireEvent.change(jobSelect, { target: { value: "1" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Use Max/i)).toBeInTheDocument();
+    });
+
+    const useMaxBtn = screen.getByText(/Use Max/i);
+    fireEvent.click(useMaxBtn);
+
+    await waitFor(() => {
+      const salaryInput = screen.getByPlaceholderText(/Base Salary/i);
+      expect(salaryInput).toHaveValue(150000);
+    });
+  });
+
+  it("uses Use Mid button to fill base salary", async () => {
+    const mockJobs = [
+      {
+        id: 1,
+        company: "Tech Co",
+        title: "Software Engineer",
+        salary_min: 100000,
+        salary_max: 150000,
+        status: "Applied",
+      },
+    ];
+    api.getJobs.mockResolvedValueOnce({ data: { jobs: mockJobs } });
+
+    render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
+
+    await waitFor(() => {
+      expect(api.getJobs).toHaveBeenCalled();
+    });
+
+    const jobSelect = document.querySelector('select[name="job_id"]');
+    fireEvent.change(jobSelect, { target: { value: "1" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Use Mid/i)).toBeInTheDocument();
+    });
+
+    const useMidBtn = screen.getByText(/Use Mid/i);
+    fireEvent.click(useMidBtn);
+
+    await waitFor(() => {
+      const salaryInput = screen.getByPlaceholderText(/Base Salary/i);
+      expect(salaryInput).toHaveValue(125000); // (100000 + 150000) / 2
+    });
+  });
+
+  it("marks negotiation_attempted when notes are present", async () => {
+    api.updateOffer.mockResolvedValueOnce({ data: { offer: { id: 1 } } });
+
+    const existingOffer = {
+      id: 1,
+      company: "Tech Co",
+      role_title: "Developer",
+      base_salary: 100000,
+      initial_base_salary: 100000,
+    };
+
+    render(
+      <OfferForm
+        offer={existingOffer}
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    );
+
+    // Fill negotiation notes
+    const notesButton = screen.getByText("Add Negotiation Notes");
+    fireEvent.click(notesButton);
+
+    await waitFor(() => {
+      const textarea = screen.getByPlaceholderText(
+        /Record your negotiation strategy/i
+      );
+      fireEvent.change(textarea, {
+        target: { value: "Asked for increase" },
+      });
+    });
+
+    // Submit
+    fireEvent.click(screen.getByRole("button", { name: /Update Offer/i }));
+
+    await waitFor(() => {
+      expect(api.updateOffer).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          negotiation_attempted: true,
+        })
+      );
+    });
+  });
 });

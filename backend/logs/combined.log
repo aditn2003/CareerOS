@@ -203,3 +203,39 @@
 2025-12-18 12:48:16 [INFO]: Application starting {"nodeEnv":"development","port":4000}
 2025-12-18 12:48:16 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
 2025-12-18 12:48:18 [INFO]: Connected to PostgreSQL
+2025-12-18 00:59:10 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 00:59:11 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 00:59:11 [INFO]: Connected to PostgreSQL
+2025-12-18 00:59:50 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 00:59:50 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 00:59:51 [INFO]: Connected to PostgreSQL
+2025-12-18 01:00:00 [INFO]: Running GitHub repository sync
+2025-12-18 01:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-18 01:12:58 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:12:58 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:12:59 [INFO]: Connected to PostgreSQL
+2025-12-18 01:15:19 [ERROR]: Request completed with error {"requestId":"1766038519129-c8kefjelp","method":"POST","path":"/1321/analyze","route":"/:jobId/analyze","statusCode":500,"responseTime":"151ms","userId":3,"error":null}
+2025-12-18 01:15:49 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:15:49 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:15:50 [INFO]: Connected to PostgreSQL
+2025-12-18 01:16:13 [ERROR]: Request completed with error {"requestId":"1766038573377-mon6kxocz","method":"POST","path":"/1321/analyze","route":"/:jobId/analyze","statusCode":500,"responseTime":"138ms","userId":3,"error":null}
+2025-12-18 01:22:56 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:22:56 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:22:56 [INFO]: Connected to PostgreSQL
+2025-12-18 01:29:03 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 01:29:03 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 01:29:04 [INFO]: Connected to PostgreSQL
+2025-12-18 01:30:56 [ERROR]: Request completed with error {"requestId":"1766039456435-y2ctflarf","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"450ms","userId":3,"error":null}
+2025-12-18 01:31:04 [ERROR]: Request completed with error {"requestId":"1766039463821-6vxxgq2n4","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"426ms","userId":3,"error":null}
+2025-12-18 01:31:05 [ERROR]: Request completed with error {"requestId":"1766039465295-76bt0tj0q","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"414ms","userId":3,"error":null}
+2025-12-18 01:32:00 [ERROR]: Request completed with error {"requestId":"1766039520164-eygqv3cs8","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"142ms","userId":3,"error":null}
+2025-12-18 01:33:25 [ERROR]: Request completed with error {"requestId":"1766039605480-1l6d5v8g7","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"143ms","userId":3,"error":null}
+2025-12-18 01:33:29 [ERROR]: Request completed with error {"requestId":"1766039609191-pzaf8ze5r","method":"PUT","path":"/1322/materials","route":"/:id/materials","statusCode":500,"responseTime":"147ms","userId":3,"error":null}
+2025-12-18 02:00:00 [INFO]: Running GitHub repository sync
+2025-12-18 02:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-18 02:03:40 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 02:03:40 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 02:03:40 [INFO]: Connected to PostgreSQL
+2025-12-18 02:13:30 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-18 02:13:30 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-18 02:13:30 [INFO]: Connected to PostgreSQL

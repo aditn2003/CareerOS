@@ -5,10 +5,166 @@ import express from "express";
 import pool from "../db/pool.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import { Resend } from "resend";
 
 dotenv.config();
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+
+// Initialize Resend for email notifications
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Helper function to send schedule confirmation email
+async function sendScheduleConfirmationEmail(userEmail, jobTitle, company, scheduledDate, scheduledTime) {
+  try {
+    if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+      console.log('⚠️ Email not configured, skipping schedule confirmation email');
+      return { success: false, reason: 'Email not configured' };
+    }
+
+    // Format the date and time nicely
+    const dateObj = new Date(`${scheduledDate}T${scheduledTime}`);
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const formattedTime = dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: `CareerOS <${process.env.EMAIL_FROM}>`,
+      to: userEmail,
+      subject: `📅 Application Scheduled: ${jobTitle} at ${company}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">📅 Application Scheduled!</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #374151; font-size: 16px; margin-bottom: 20px;">
+              Your application submission has been scheduled:
+            </p>
+            
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+              <h2 style="color: #1f2937; margin: 0 0 10px 0; font-size: 18px;">${jobTitle}</h2>
+              <p style="color: #6b7280; margin: 0 0 15px 0;">at ${company}</p>
+              
+              <div style="border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                <p style="margin: 5px 0; color: #374151;">
+                  <strong>📆 Date:</strong> ${formattedDate}
+                </p>
+                <p style="margin: 5px 0; color: #374151;">
+                  <strong>🕐 Time:</strong> ${formattedTime} (EST)
+                </p>
+              </div>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 14px; margin-bottom: 20px;">
+              You will receive a reminder email 1 hour before your scheduled submission time.
+            </p>
+            
+            <div style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/job-match?tab=timing" 
+                 style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                View in CareerOS
+              </a>
+            </div>
+          </div>
+          
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 20px;">
+            This is an automated message from CareerOS. Please do not reply to this email.
+          </p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('❌ Failed to send schedule confirmation email:', error);
+      return { success: false, error };
+    }
+
+    console.log('✅ Schedule confirmation email sent to:', userEmail);
+    return { success: true, data };
+  } catch (err) {
+    console.error('❌ Error sending schedule confirmation email:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+// Helper function to send reminder email (1 hour before)
+async function sendScheduleReminderEmail(userEmail, jobTitle, company, scheduledDate, scheduledTime) {
+  try {
+    if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+      console.log('⚠️ Email not configured, skipping reminder email');
+      return { success: false, reason: 'Email not configured' };
+    }
+
+    const dateObj = new Date(`${scheduledDate}T${scheduledTime}`);
+    const formattedTime = dateObj.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const { data, error } = await resend.emails.send({
+      from: `CareerOS <${process.env.EMAIL_FROM}>`,
+      to: userEmail,
+      subject: `⏰ Reminder: Submit your application to ${company} in 1 hour!`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">⏰ 1 Hour Reminder!</h1>
+          </div>
+          
+          <div style="background: #fffbeb; padding: 30px; border: 1px solid #fcd34d; border-top: none; border-radius: 0 0 16px 16px;">
+            <p style="color: #92400e; font-size: 18px; font-weight: 600; margin-bottom: 20px; text-align: center;">
+              Your scheduled application submission is in 1 hour!
+            </p>
+            
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #fcd34d; margin-bottom: 20px;">
+              <h2 style="color: #1f2937; margin: 0 0 10px 0; font-size: 18px;">${jobTitle}</h2>
+              <p style="color: #6b7280; margin: 0 0 15px 0;">at ${company}</p>
+              
+              <div style="background: #fef3c7; padding: 15px; border-radius: 8px; text-align: center;">
+                <p style="margin: 0; color: #92400e; font-size: 20px; font-weight: 700;">
+                  🕐 ${formattedTime} (EST)
+                </p>
+              </div>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/job-match?tab=timing" 
+                 style="display: inline-block; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                Open CareerOS Now
+              </a>
+            </div>
+          </div>
+          
+          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin-top: 20px;">
+            This is an automated reminder from CareerOS.
+          </p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('❌ Failed to send reminder email:', error);
+      return { success: false, error };
+    }
+
+    console.log('✅ Reminder email sent to:', userEmail);
+    return { success: true, data };
+  } catch (err) {
+    console.error('❌ Error sending reminder email:', err);
+    return { success: false, error: err.message };
+  }
+}
 
 // ---------- AUTH MIDDLEWARE ----------
 function auth(req, res, next) {
@@ -156,7 +312,7 @@ async function calculateOptimalTiming(userId, jobId, jobData = null) {
             company: companyName,
             best_day: getDayName(bestCompanySlot.day_of_week),
             best_hour: formatHour(bestCompanySlot.hour_of_day),
-            best_date: companyRecommendedDate.toISOString().split('T')[0],
+            best_date: formatDateLocal(companyRecommendedDate),
             response_rate: Math.round(bestCompanySlot.response_rate * 100),
             confidence: bestCompanySlot.total_submissions >= 10 ? 'high' : bestCompanySlot.total_submissions >= 5 ? 'medium' : 'low',
             data_points: bestCompanySlot.total_submissions,
@@ -267,14 +423,14 @@ async function calculateOptimalTiming(userId, jobId, jobData = null) {
       
       // Generate alternative recommendations (good times)
       // Filter out the optimal slot AND any other slots on the same day to avoid overlap
-      const alternativeSlots = topSlots.filter(slot => 
+      const alternativeSlots = topSlots.filter(slot =>
         slot.day_of_week !== bestSlot.day_of_week // Must be a different day
       ).slice(0, 2); // Get up to 2 alternatives (excluding the optimal day)
-      
+
       const alternatives = alternativeSlots.map(slot => {
         const altDate = getNextOccurrence(slot.day_of_week, slot.hour_of_day, detectedTimezone);
         return {
-          recommended_date: altDate.toISOString().split('T')[0],
+          recommended_date: formatDateLocal(altDate),
           recommended_time: `${String(slot.hour_of_day).padStart(2, '0')}:00:00`,
           day_of_week: slot.day_of_week,
           hour_of_day: slot.hour_of_day,
@@ -304,7 +460,7 @@ async function calculateOptimalTiming(userId, jobId, jobData = null) {
       }
       
       return {
-        recommended_date: recommendedDate.toISOString().split('T')[0],
+        recommended_date: formatDateLocal(recommendedDate),
         recommended_time: `${String(bestSlot.hour_of_day).padStart(2, '0')}:00:00`,
         recommended_timezone: detectedTimezone,
         day_of_week: bestSlot.day_of_week,
@@ -332,7 +488,7 @@ function getDefaultOptimalTiming(timezone = 'America/New_York') {
   // Generate alternative good times (Tuesday 10 AM, Monday 9 AM)
   const alternatives = [
     {
-      recommended_date: getNextOccurrence(2, 10, timezone).toISOString().split('T')[0],
+      recommended_date: formatDateLocal(getNextOccurrence(2, 10, timezone)),
       recommended_time: '10:00:00',
       day_of_week: 2,
       hour_of_day: 10,
@@ -343,7 +499,7 @@ function getDefaultOptimalTiming(timezone = 'America/New_York') {
       reasoning: "Tuesday mornings are typically good for recruiter engagement"
     },
     {
-      recommended_date: getNextOccurrence(1, 9, timezone).toISOString().split('T')[0],
+      recommended_date: formatDateLocal(getNextOccurrence(1, 9, timezone)),
       recommended_time: '09:00:00',
       day_of_week: 1,
       hour_of_day: 9,
@@ -356,7 +512,7 @@ function getDefaultOptimalTiming(timezone = 'America/New_York') {
   ];
   
   return {
-    recommended_date: recommendedDate.toISOString().split('T')[0],
+    recommended_date: formatDateLocal(recommendedDate),
     recommended_time: '10:00:00',
     recommended_timezone: timezone,
     day_of_week: 1, // Monday
@@ -372,56 +528,33 @@ function getDefaultOptimalTiming(timezone = 'America/New_York') {
 function getNextOccurrence(targetDay, targetHour, timezone = 'America/New_York') {
   const now = new Date();
   
-  // Get current time components in EST
-  const nowESTStr = now.toLocaleString('en-US', { 
-    timeZone: 'America/New_York',
-    weekday: 'short',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false
-  });
-  
-  // Parse day of week from string (Sun, Mon, Tue, etc.)
-  const dayMap = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
-  const dayMatch = nowESTStr.match(/(\w{3})/);
-  const currentDay = dayMap[dayMatch ? dayMatch[1] : 'Sun'] || 0;
-  
-  // Parse date and hour from EST
-  const dateTimeMatch = nowESTStr.match(/(\w{3}), (\d{1,2})\/(\d{1,2})\/(\d{4}), (\d{1,2}):/);
-  if (!dateTimeMatch) {
-    // Fallback
-    const hourMatch = nowESTStr.match(/(\d{1,2}):/);
-    const currentHour = hourMatch ? parseInt(hourMatch[1]) : 0;
-    const result = new Date(now);
-    result.setDate(result.getDate() + ((targetDay - currentDay + 7) % 7));
-    if (result.getDay() === currentDay && currentHour >= targetHour) {
-      result.setDate(result.getDate() + 7);
-    }
-    return result;
-  }
-  
-  const currentMonth = parseInt(dateTimeMatch[2]) - 1; // Month is 0-indexed
-  const currentDate = parseInt(dateTimeMatch[3]);
-  const currentYear = parseInt(dateTimeMatch[4]);
-  const currentHour = parseInt(dateTimeMatch[5]);
-  const currentMinute = dateTimeMatch[6] ? parseInt(dateTimeMatch[6]) : 0;
+  // Get current day of week and hour
+  const currentDay = now.getDay();
+  const currentHour = now.getHours();
   
   // Calculate days until target day
   let daysUntil = (targetDay - currentDay + 7) % 7;
   
   // If it's the same day but past the target hour, move to next week
-  if (daysUntil === 0 && (currentHour > targetHour || (currentHour === targetHour && currentMinute >= 0))) {
+  if (daysUntil === 0 && currentHour >= targetHour) {
     daysUntil = 7;
   }
   
-  // Create the target date in EST (using local date constructor)
-  const targetDate = new Date(currentYear, currentMonth, currentDate);
+  // If daysUntil is 0 and we haven't passed the hour, keep it as today
+  // Otherwise add the days
+  const targetDate = new Date(now);
   targetDate.setDate(targetDate.getDate() + daysUntil);
   targetDate.setHours(targetHour, 0, 0, 0);
   
   return targetDate;
+}
+
+// Helper to format date as YYYY-MM-DD without timezone issues
+function formatDateLocal(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function getDayName(dayOfWeek) {
@@ -790,7 +923,7 @@ router.get("/recommendations/:jobId", auth, async (req, res) => {
     // Ensure dateStr is a string (handle Date objects from database)
     let dateStr = recommendation.recommended_date;
     if (dateStr instanceof Date) {
-      dateStr = dateStr.toISOString().split('T')[0]; // Convert to YYYY-MM-DD
+      dateStr = formatDateLocal(dateStr); // Convert to YYYY-MM-DD without timezone issues
     } else if (typeof dateStr !== 'string') {
       dateStr = String(dateStr);
     }
@@ -1150,9 +1283,37 @@ router.post("/schedule", auth, async (req, res) => {
       [jobId, req.userId, scheduledDate, scheduledTime, tz, notes || null]
     );
 
+    // Get job details for email
+    const jobDetails = await pool.query(
+      "SELECT title, company FROM jobs WHERE id = $1",
+      [jobId]
+    );
+    
+    // Get user email
+    const userResult = await pool.query(
+      "SELECT email FROM users WHERE id = $1",
+      [req.userId]
+    );
+
+    // Send confirmation email
+    if (userResult.rows.length > 0 && userResult.rows[0].email && jobDetails.rows.length > 0) {
+      const userEmail = userResult.rows[0].email;
+      const job = jobDetails.rows[0];
+      
+      // Send confirmation email (don't await - fire and forget)
+      sendScheduleConfirmationEmail(userEmail, job.title, job.company, scheduledDate, scheduledTime)
+        .then(result => {
+          if (result.success) {
+            console.log('📧 Confirmation email sent for scheduled submission');
+          }
+        })
+        .catch(err => console.error('Email sending failed:', err));
+    }
+
     res.json({
       success: true,
-      schedule: result.rows[0]
+      schedule: result.rows[0],
+      emailSent: true
     });
   } catch (error) {
     console.error("❌ Error scheduling submission:", error);
@@ -2216,6 +2377,74 @@ router.get("/ab-tests", auth, async (req, res) => {
   } catch (error) {
     console.error("❌ Error getting A/B tests:", error);
     res.status(500).json({ error: "Failed to get A/B tests" });
+  }
+});
+
+// ---------- POST /api/timing/process-reminders ----------
+// Process and send reminder emails for upcoming scheduled submissions
+// This should be called by a cron job every 5-10 minutes
+router.post("/process-reminders", async (req, res) => {
+  try {
+    console.log('⏰ Processing scheduled submission reminders...');
+    
+    // Find submissions scheduled within the next 65 minutes that haven't had a reminder sent
+    // 65 minutes gives a buffer for the cron job interval
+    const upcomingResult = await pool.query(
+      `SELECT 
+        ss.id,
+        ss.job_id,
+        ss.user_id,
+        ss.scheduled_date,
+        ss.scheduled_time,
+        ss.reminder_sent,
+        j.title as job_title,
+        j.company as job_company,
+        u.email as user_email
+      FROM scheduled_submissions ss
+      JOIN jobs j ON j.id = ss.job_id
+      JOIN users u ON u.id = ss.user_id
+      WHERE ss.status = 'pending'
+        AND ss.reminder_sent = false
+        AND (ss.scheduled_date::date + ss.scheduled_time::time) 
+            BETWEEN NOW() AND NOW() + INTERVAL '65 minutes'`
+    );
+
+    console.log(`📧 Found ${upcomingResult.rows.length} submissions needing reminders`);
+
+    const results = [];
+    
+    for (const submission of upcomingResult.rows) {
+      if (submission.user_email) {
+        // Send reminder email
+        const emailResult = await sendScheduleReminderEmail(
+          submission.user_email,
+          submission.job_title,
+          submission.job_company,
+          submission.scheduled_date,
+          submission.scheduled_time
+        );
+
+        if (emailResult.success) {
+          // Mark reminder as sent
+          await pool.query(
+            `UPDATE scheduled_submissions SET reminder_sent = true WHERE id = $1`,
+            [submission.id]
+          );
+          results.push({ id: submission.id, status: 'sent', job: submission.job_title });
+        } else {
+          results.push({ id: submission.id, status: 'failed', error: emailResult.error });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      processed: upcomingResult.rows.length,
+      results
+    });
+  } catch (error) {
+    console.error("❌ Error processing reminders:", error);
+    res.status(500).json({ error: "Failed to process reminders" });
   }
 });
 

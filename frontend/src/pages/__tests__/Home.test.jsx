@@ -1,79 +1,97 @@
 /**
- * Home Page Tests
+ * Home Page Tests - Target: 100% Coverage
  */
-import { describe, it, expect, beforeEach } from "vitest";
-import { screen } from "@testing-library/react";
-import { renderWithProviders } from "../../__tests__/helpers/test-utils";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import Home from "../Home";
 
-describe("Home Page", () => {
+// Mock AuthContext
+const mockUseAuth = vi.fn();
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+describe("Home", () => {
   beforeEach(() => {
-    localStorage.clear();
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({ authed: false });
   });
 
-  it("renders welcome heading", () => {
-    renderWithProviders(<Home />);
-    
-    expect(screen.getByText(/Welcome to/i)).toBeInTheDocument();
-    expect(screen.getByText(/ATS for Candidates/i)).toBeInTheDocument();
+  const renderHome = () => {
+    return render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    );
+  };
+
+  it("renders welcome title", () => {
+    renderHome();
+    expect(screen.getByText("Welcome to")).toBeInTheDocument();
+    expect(screen.getByText("ATS for Candidates")).toBeInTheDocument();
   });
 
-  it("renders description text", () => {
-    renderWithProviders(<Home />);
-    
-    expect(screen.getByText(/Manage job applications, resumes, and professional profiles/i)).toBeInTheDocument();
+  it("renders description", () => {
+    renderHome();
+    expect(
+      screen.getByText(/Manage job applications, resumes, and professional profiles/i)
+    ).toBeInTheDocument();
   });
 
   it("renders coming soon message", () => {
-    renderWithProviders(<Home />);
-    
-    expect(screen.getByText(/Exciting updates are coming soon!/i)).toBeInTheDocument();
+    renderHome();
+    expect(screen.getByText(/Exciting updates are coming soon/i)).toBeInTheDocument();
   });
 
-  it("shows login and register links when not authenticated", () => {
-    renderWithProviders(<Home />);
-    
+  it("renders rocket emoji", () => {
+    renderHome();
+    expect(screen.getByText(/🚀/)).toBeInTheDocument();
+  });
+
+  it("renders login link when not authenticated", () => {
+    mockUseAuth.mockReturnValue({ authed: false });
+    renderHome();
     expect(screen.getByRole("link", { name: /Login/i })).toBeInTheDocument();
+  });
+
+  it("renders register link when not authenticated", () => {
+    mockUseAuth.mockReturnValue({ authed: false });
+    renderHome();
     expect(screen.getByRole("link", { name: /Create an account/i })).toBeInTheDocument();
   });
 
-  it("hides login and register links when authenticated", () => {
-    // Set token to simulate authenticated state
-    localStorage.setItem("token", "test-token");
-    
-    renderWithProviders(<Home />, { token: "test-token" });
-    
-    // Links should not be present
+  it("login link points to /login", () => {
+    mockUseAuth.mockReturnValue({ authed: false });
+    renderHome();
+    expect(screen.getByRole("link", { name: /Login/i })).toHaveAttribute("href", "/login");
+  });
+
+  it("register link points to /register", () => {
+    mockUseAuth.mockReturnValue({ authed: false });
+    renderHome();
+    expect(screen.getByRole("link", { name: /Create an account/i })).toHaveAttribute("href", "/register");
+  });
+
+  it("hides login/register links when authenticated", () => {
+    mockUseAuth.mockReturnValue({ authed: true });
+    renderHome();
     expect(screen.queryByRole("link", { name: /Login/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Create an account/i })).not.toBeInTheDocument();
   });
 
-  it("login link navigates to /login", () => {
-    renderWithProviders(<Home />);
-    
-    const loginLink = screen.getByRole("link", { name: /Login/i });
-    expect(loginLink).toHaveAttribute("href", "/login");
+  it("renders home section container", () => {
+    renderHome();
+    expect(document.querySelector(".home-section")).toBeInTheDocument();
   });
 
-  it("register link navigates to /register", () => {
-    renderWithProviders(<Home />);
-    
-    const registerLink = screen.getByRole("link", { name: /Create an account/i });
-    expect(registerLink).toHaveAttribute("href", "/register");
+  it("renders home content container", () => {
+    renderHome();
+    expect(document.querySelector(".home-content")).toBeInTheDocument();
   });
 
-  it("renders with home-section class", () => {
-    renderWithProviders(<Home />);
-    
-    const section = document.querySelector(".home-section");
-    expect(section).toBeInTheDocument();
-  });
-
-  it("renders home-content container", () => {
-    renderWithProviders(<Home />);
-    
-    const content = document.querySelector(".home-content");
-    expect(content).toBeInTheDocument();
+  it("renders coming soon paragraph with class", () => {
+    renderHome();
+    expect(document.querySelector(".coming-soon")).toBeInTheDocument();
   });
 });
-

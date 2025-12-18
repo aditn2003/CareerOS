@@ -1,52 +1,64 @@
 /**
- * Spinner Component Tests
+ * Spinner Component Tests - Target: 100% Coverage
  */
 import { describe, it, expect } from "vitest";
-import { render, screen } from "../../__tests__/helpers/test-utils";
+import { render, screen } from "@testing-library/react";
 import Spinner from "../Spinner";
 
 describe("Spinner", () => {
-  it("renders without crashing", () => {
+  it("renders spinner container", () => {
     render(<Spinner />);
-    const spinnerContainer = document.querySelector(".spinner");
-    expect(spinnerContainer).toBeInTheDocument();
+    expect(document.querySelector(".spinner")).toBeInTheDocument();
   });
 
-  it("displays loading image with correct alt text", () => {
+  it("renders loading image", () => {
     render(<Spinner />);
-    const image = screen.getByAltText("Loading...");
-    expect(image).toBeInTheDocument();
+    const img = screen.getByRole("img");
+    expect(img).toBeInTheDocument();
   });
 
-  it("has correct image source", () => {
+  it("has correct src attribute", () => {
     render(<Spinner />);
-    const image = screen.getByAltText("Loading...");
-    expect(image).toHaveAttribute("src", "/logo.png");
+    const img = screen.getByRole("img");
+    expect(img).toHaveAttribute("src", "/logo.png");
+  });
+
+  it("has correct alt text", () => {
+    render(<Spinner />);
+    const img = screen.getByRole("img");
+    expect(img).toHaveAttribute("alt", "Loading...");
   });
 
   it("has correct dimensions", () => {
     render(<Spinner />);
-    const image = screen.getByAltText("Loading...");
-    expect(image).toHaveAttribute("width", "60");
-    expect(image).toHaveAttribute("height", "60");
+    const img = screen.getByRole("img");
+    expect(img).toHaveAttribute("width", "60");
+    expect(img).toHaveAttribute("height", "60");
   });
 
-  it("applies centering styles to container", () => {
+  it("has flex centering styles", () => {
     render(<Spinner />);
     const container = document.querySelector(".spinner");
-    expect(container).toHaveStyle({
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-    });
+    expect(container).toHaveStyle({ display: "flex" });
+    expect(container).toHaveStyle({ justifyContent: "center" });
+    expect(container).toHaveStyle({ alignItems: "center" });
   });
 
-  it("applies animation styles to image", () => {
+  it("has minimum height", () => {
     render(<Spinner />);
-    const image = screen.getByAltText("Loading...");
-    expect(image).toHaveStyle({
-      borderRadius: "8px",
-    });
+    const container = document.querySelector(".spinner");
+    expect(container).toHaveStyle({ minHeight: "100px" });
+  });
+
+  it("image has animation style", () => {
+    render(<Spinner />);
+    const img = screen.getByRole("img");
+    expect(img).toHaveStyle({ animation: "spin 1.2s linear infinite" });
+  });
+
+  it("image has border radius style", () => {
+    render(<Spinner />);
+    const img = screen.getByRole("img");
+    expect(img).toHaveStyle({ borderRadius: "8px" });
   });
 });
-

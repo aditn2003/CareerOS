@@ -5,74 +5,41 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { BrowserRouter, MemoryRouter } from "react-router-dom";
-import { AuthProvider } from "../../contexts/AuthContext";
-import { ProfileProvider } from "../../contexts/ProfileContext";
-import { TeamProvider } from "../../contexts/TeamContext";
 
 /**
- * Custom render function that wraps component with all providers
+ * Custom render function that wraps component with MemoryRouter for navigation
+ * Context providers are NOT included by default to avoid mock conflicts.
+ * Tests that need specific providers should mock them or wrap manually.
+ *
  * @param {React.ReactElement} ui - Component to render
  * @param {Object} options - Render options
  * @param {string} options.route - Initial route (default: "/")
  * @param {Array} options.initialEntries - Initial router entries for MemoryRouter
- * @param {boolean} options.withAuth - Include AuthProvider (default: true)
- * @param {boolean} options.withProfile - Include ProfileProvider (default: true)
- * @param {boolean} options.withTeam - Include TeamProvider (default: true)
  * @param {string} options.token - Initial auth token
  */
 export function renderWithProviders(
   ui,
-  {
-    route = "/",
-    initialEntries,
-    withAuth = true,
-    withProfile = true,
-    withTeam = true,
-    token = null,
-    ...renderOptions
-  } = {}
+  { route = "/", initialEntries, token = null, ...renderOptions } = {}
 ) {
   // Set token in localStorage if provided
   if (token) {
     localStorage.setItem("token", token);
   }
 
-  // Build wrapper with selected providers
+  // Build wrapper with just MemoryRouter
   function Wrapper({ children }) {
-    let wrappedChildren = children;
-
     // Wrap with MemoryRouter for testing navigation
-    const RouterWrapper = initialEntries ? (
-      <MemoryRouter initialEntries={initialEntries}>{wrappedChildren}</MemoryRouter>
+    return initialEntries ? (
+      <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
     ) : (
-      <MemoryRouter initialEntries={[route]}>{wrappedChildren}</MemoryRouter>
+      <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
     );
-
-    wrappedChildren = RouterWrapper;
-
-    // Wrap with ProfileProvider if needed
-    if (withProfile) {
-      wrappedChildren = <ProfileProvider>{wrappedChildren}</ProfileProvider>;
-    }
-
-    // Wrap with TeamProvider if needed
-    if (withTeam) {
-      wrappedChildren = <TeamProvider>{wrappedChildren}</TeamProvider>;
-    }
-
-    // Wrap with AuthProvider if needed
-    if (withAuth) {
-      wrappedChildren = <AuthProvider>{wrappedChildren}</AuthProvider>;
-    }
-
-    return wrappedChildren;
   }
 
   return {
     ...render(ui, { wrapper: Wrapper, ...renderOptions }),
     // Return useful utilities
-    rerender: (newUi) =>
-      render(newUi, { wrapper: Wrapper, ...renderOptions }),
+    rerender: (newUi) => render(newUi, { wrapper: Wrapper, ...renderOptions }),
   };
 }
 
@@ -80,9 +47,7 @@ export function renderWithProviders(
  * Simple render with just BrowserRouter (no context providers)
  */
 export function renderWithRouter(ui, { route = "/" } = {}) {
-  return render(
-    <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
-  );
+  return render(<MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>);
 }
 
 /**
@@ -115,27 +80,8 @@ export function createMockToken(payload = {}) {
   return `${header}.${data}.${signature}`;
 }
 
-/**
- * Wait for async operations
- */
-export function waitFor(callback, options = { timeout: 1000 }) {
-  return new Promise((resolve, reject) => {
-    const startTime = Date.now();
-    const check = () => {
-      try {
-        const result = callback();
-        resolve(result);
-      } catch (error) {
-        if (Date.now() - startTime > options.timeout) {
-          reject(error);
-        } else {
-          setTimeout(check, 50);
-        }
-      }
-    };
-    check();
-  });
-}
+// Note: Using waitFor from @testing-library/react (re-exported below)
+// Do not define a custom waitFor here as it conflicts with the testing library
 
 /**
  * Mock localStorage
@@ -160,7 +106,28 @@ export function mockLocalStorage(initialData = {}) {
   };
 }
 
-// Re-export everything from testing library
-export * from "@testing-library/react";
+// Re-export everything from testing library EXCEPT render
+// We override render with our custom one that includes Router
+export {
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+  act,
+  cleanup,
+  queries,
+  prettyDOM,
+  getDefaultNormalizer,
+  getRoles,
+  logRoles,
+  isInaccessible,
+  configure,
+  getQueriesForElement,
+  buildQueries,
+  queryByAttribute,
+  queryAllByAttribute,
+} from "@testing-library/react";
 export { default as userEvent } from "@testing-library/user-event";
 
+// Export our router-wrapped render as the default render
+export { renderWithProviders as render };
