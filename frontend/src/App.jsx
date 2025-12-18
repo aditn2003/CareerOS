@@ -19,59 +19,45 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ProfileLayout = lazy(() => import("./pages/Profile/ProfileLayout"));
 const Jobs = lazy(() => import("./pages/Jobs"));
 const StatisticsPage = lazy(() => import("./pages/StatisticsPage"));
-const CompanyResearch = lazy(
-  () => import("./pages/Interviews/CompanyResearch")
+const CompanyResearch = lazy(() =>
+  import("./pages/Interviews/CompanyResearch")
 ); // 🆕 Moved to Interviews folder
 const JobMatch = lazy(() => import("./pages/Match/JobMatch"));
 const MatchCompare = lazy(() => import("./pages/Match/MatchCompare.jsx"));
-const SkillsGapAnalysis = lazy(
-  () => import("./pages/SkillsGap/SkillsGapAnalysis")
+const SkillsGapAnalysis = lazy(() =>
+  import("./pages/SkillsGap/SkillsGapAnalysis")
 );
 const Interviews = lazy(() => import("./pages/Interviews/Interviews"));
 const CoverLetter = lazy(() => import("./pages/CoverLetter")); // ✅ ADDED (UC-55)
-const NetworkLayout = lazy(
-  () => import("./pages/Network/NetworkLayout")
-); // ✅ ADDED (Consolidated Network/Referrals/Networking)
-const InterviewsLayout = lazy(
-  () => import("./pages/Interviews/InterviewsLayout")
+const NetworkLayout = lazy(() => import("./pages/Network/NetworkLayout")); // ✅ ADDED (Consolidated Network/Referrals/Networking)
+const InterviewsLayout = lazy(() =>
+  import("./pages/Interviews/InterviewsLayout")
 ); // Layout wrapper
-const InterviewInsights = lazy(
-  () => import("./pages/Interviews/InterviewInsights")
+const InterviewInsights = lazy(() =>
+  import("./pages/Interviews/InterviewInsights")
 ); // ✅ UC-074
-const QuestionBank = lazy(
-  () => import("./pages/Interviews/QuestionBank")
-); // ✅ UC-075
-const ResponseCoaching = lazy(
-  () => import("./pages/Interviews/ResponseCoaching")
+const QuestionBank = lazy(() => import("./pages/Interviews/QuestionBank")); // ✅ UC-075
+const ResponseCoaching = lazy(() =>
+  import("./pages/Interviews/ResponseCoaching")
 ); // ✅ UC-076
-const MockInterview = lazy(
-  () => import("./pages/Interviews/MockInterview")
-); // ✅ UC-077
-const TechnicalPrep = lazy(
-  () => import("./pages/Interviews/TechnicalPrep")
-); // ✅ UC-078
-const FollowUpTemplates = lazy(
-  () => import("./pages/Interviews/FollowUpTemplates")
+const MockInterview = lazy(() => import("./pages/Interviews/MockInterview")); // ✅ UC-077
+const TechnicalPrep = lazy(() => import("./pages/Interviews/TechnicalPrep")); // ✅ UC-078
+const FollowUpTemplates = lazy(() =>
+  import("./pages/Interviews/FollowUpTemplates")
 ); // ✅ UC-082
-const SalaryResearch = lazy(
-  () => import("./pages/Interviews/SalaryResearch")
-); // 🆕 Moved to Interviews folder
-const SalaryNegotiation = lazy(
-  () => import("./pages/Interviews/SalaryNegotiation")
+const SalaryResearch = lazy(() => import("./pages/Interviews/SalaryResearch")); // 🆕 Moved to Interviews folder
+const SalaryNegotiation = lazy(() =>
+  import("./pages/Interviews/SalaryNegotiation")
 ); // ✅ UC-083
 const MentorLayout = lazy(() => import("./pages/Mentor/MentorLayout")); // ✅ Mentor layout with tabs
-const InterviewAnalytics = lazy(
-  () => import("./pages/Interviews/InterviewAnalytics")
+const InterviewAnalytics = lazy(() =>
+  import("./pages/Interviews/InterviewAnalytics")
 );
-const InterviewTracker = lazy(
-  () => import("./pages/Interviews/InterviewTracker")
+const InterviewTracker = lazy(() =>
+  import("./pages/Interviews/InterviewTracker")
 );
-const LinkedInAuthSuccess = lazy(
-  () => import("./pages/LinkedInAuthSuccess")
-); // LinkedIn OAuth callback handler
-const LinkedInCallback = lazy(
-  () => import("./pages/LinkedInCallback")
-); // LinkedIn OAuth callback (new)
+const LinkedInAuthSuccess = lazy(() => import("./pages/LinkedInAuthSuccess")); // LinkedIn OAuth callback handler
+const LinkedInCallback = lazy(() => import("./pages/LinkedInCallback")); // LinkedIn OAuth callback (new)
 const DocsManagement = lazy(() => import("./pages/DocsManagement"));
 
 // ---------- Help & Legal Pages (Lazy) ----------
@@ -96,13 +82,9 @@ const ResumeBuilder = lazy(() => import("./pages/Profile/ResumeBuilder"));
 const ResumeSetup = lazy(() => import("./pages/Profile/ResumeSetup"));
 const ResumeEditor = lazy(() => import("./components/ResumeEditor"));
 const ResumeOptimize = lazy(() => import("./components/ResumeOptimize"));
-const ResumeOptimizeRun = lazy(
-  () => import("./components/ResumeOptimizeRun")
-);
+const ResumeOptimizeRun = lazy(() => import("./components/ResumeOptimizeRun"));
 const ResumeCompare = lazy(() => import("./components/ResumeCompare"));
-const ResumeFinalReview = lazy(
-  () => import("./components/ResumeFinalReview")
-);
+const ResumeFinalReview = lazy(() => import("./components/ResumeFinalReview"));
 
 // ---------- Context Providers ----------
 import { AuthProvider } from "./contexts/AuthContext";
@@ -120,11 +102,11 @@ export default function App() {
   return (
     <AuthProvider>
       <TeamProvider>
-      <ProfileProvider>
-        <Router>
-          <MainLayout />
-        </Router>
-      </ProfileProvider>
+        <ProfileProvider>
+          <Router>
+            <MainLayout />
+          </Router>
+        </ProfileProvider>
       </TeamProvider>
     </AuthProvider>
   );
@@ -140,7 +122,7 @@ function MainLayout() {
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
-      
+
       <NavBar />
 
       <main id="main-content" className="app-container" role="main">
@@ -361,9 +343,6 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
-          {/* --- Cover Letter (UC-055)  --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
-          {/* ✅ NEW */}
           {/* --- Consolidated Network & Relationships (UC-10x, UC-087, UC-088) --- */}
           <Route
             path="/network"

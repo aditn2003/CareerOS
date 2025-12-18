@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getUserFriendlyErrorMessage, getErrorAdvice } from "../utils/apiErrorMessages";
+import { baseURL } from "../api";
 import "./ResumeOptimizeRun.css";
 
 export default function ResumeOptimizeRun() {
@@ -28,7 +29,7 @@ export default function ResumeOptimizeRun() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:4000/api/resumes/optimize", {
+      const res = await fetch(`${baseURL}/api/resumes/optimize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

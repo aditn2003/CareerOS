@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './LinkedInMessageTemplates.css';
 import { Copy, Download, Plus, Zap, MessageSquare } from 'lucide-react';
+import { baseURL } from '../api';
 
 const LinkedInMessageTemplates = ({ userProfile }) => {
   const [loading, setLoading] = useState(false);
@@ -11,7 +12,7 @@ const LinkedInMessageTemplates = ({ userProfile }) => {
   const [copiedId, setCopiedId] = useState(null);
   const [expandedTemplates, setExpandedTemplates] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('connection_request');
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+  const API_BASE = `${baseURL}/api`;
 
   // Function to randomly pick one variation per template name
   const selectRandomVariations = (categories) => {

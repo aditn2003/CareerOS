@@ -494,25 +494,26 @@ router.get('/compare', async (req, res) => {
       console.warn('Could not fetch jobs for filtering:', err.message);
     }
     
-    // Filter offers: Exclude offers linked to archived or rejected jobs
-    // Only include offers that are:
-    // 1. Standalone (no job_id), OR
-    // 2. Linked to active, non-archived, non-rejected jobs
+    // Filter offers: ONLY show offers linked to jobs in the pipeline (non-archived)
+    // - Exclude standalone offers (no job_id)
+    // - Exclude offers linked to deleted jobs
+    // - Exclude offers linked to archived jobs
+    // - Exclude offers linked to rejected/declined jobs
     console.log(`📊 [OFFER COMPARISON] Processing ${allOffers.length} offer(s), ${jobsMap.size} job(s) in lookup map`);
     
     const validOffers = allOffers.filter(offer => {
+      // MUST be linked to a job - exclude standalone offers
       if (!offer.job_id) {
-        // Standalone offer without job_id - include it
-        console.log(`✅ [OFFER COMPARISON] Including offer ${offer.id} (${offer.company}) - no job_id (standalone offer)`);
-        return true;
+        console.log(`⚠️ [OFFER COMPARISON] Skipping offer ${offer.id} (${offer.company}) - no job_id (not in pipeline)`);
+        return false;
       }
       
       const jobId = Number(offer.job_id);
       const job = jobsMap.get(jobId);
       
-      // Exclude if job doesn't exist
+      // Exclude if job doesn't exist (was deleted from pipeline)
       if (!job) {
-        console.log(`⚠️ [OFFER COMPARISON] Skipping offer ${offer.id} (${offer.company}) - linked job ${jobId} does not exist`);
+        console.log(`⚠️ [OFFER COMPARISON] Skipping offer ${offer.id} (${offer.company}) - linked job ${jobId} not found in pipeline`);
         return false;
       }
       
@@ -522,15 +523,15 @@ router.get('/compare', async (req, res) => {
         return false;
       }
       
-      // Exclude if job is rejected
+      // Exclude if job is rejected/declined/withdrawn
       const normalizedStatus = job.status ? job.status.toLowerCase().trim() : '';
       if (['rejected', 'declined', 'withdrawn', 'not interested'].includes(normalizedStatus)) {
-        console.log(`⚠️ [OFFER COMPARISON] Skipping offer ${offer.id} (${offer.company}) - linked job ${jobId} has status: ${normalizedStatus}`);
+        console.log(`⚠️ [OFFER COMPARISON] Skipping offer ${offer.id} (${offer.company}) - job status: ${normalizedStatus}`);
         return false;
       }
       
-      // Job is valid - include the offer
-      console.log(`✅ [OFFER COMPARISON] Including offer ${offer.id} (${offer.company}) - linked job ${jobId} is valid (status: ${normalizedStatus || 'none'})`);
+      // Job exists in pipeline and is not archived/rejected - include it
+      console.log(`✅ [OFFER COMPARISON] Including offer ${offer.id} (${offer.company}) - job ${jobId} is in pipeline (status: ${normalizedStatus || 'active'})`);
       return true;
     });
     
@@ -546,10 +547,39 @@ router.get('/compare', async (req, res) => {
       return res.json({ offers: [], comparison: null });
     }
     
-    // Process each offer
+    // Process each offer - if offer has no salary, try to get it from the linked job
     const processedOffers = await Promise.all(offers.map(async (offer) => {
-      const compensation = calculateTotalCompensation(offer);
-      const colIndex = await getCostOfLivingIndex(offer.location);
+      // If offer has no salary data but has a linked job, try to get salary from job
+      let enrichedOffer = { ...offer };
+      if ((!offer.base_salary || offer.base_salary === 0) && offer.job_id) {
+        try {
+          const jobResult = await pool.query(
+            `SELECT salary_min, salary_max, location FROM jobs WHERE id = $1`,
+            [offer.job_id]
+          );
+          if (jobResult.rows.length > 0) {
+            const job = jobResult.rows[0];
+            // Use salary_min as base salary if available
+            if (job.salary_min && job.salary_min > 0) {
+              enrichedOffer.base_salary = job.salary_min;
+              console.log(`📊 [OFFER COMPARISON] Using job salary_min (${job.salary_min}) for offer ${offer.id}`);
+            } else if (job.salary_max && job.salary_max > 0) {
+              // If only max is available, use 80% of max as estimate
+              enrichedOffer.base_salary = Math.round(job.salary_max * 0.8);
+              console.log(`📊 [OFFER COMPARISON] Using 80% of job salary_max (${job.salary_max}) for offer ${offer.id}`);
+            }
+            // Also use job location if offer location is missing
+            if (!offer.location && job.location) {
+              enrichedOffer.location = job.location;
+            }
+          }
+        } catch (err) {
+          console.warn(`Could not fetch job salary for offer ${offer.id}:`, err.message);
+        }
+      }
+      
+      const compensation = calculateTotalCompensation(enrichedOffer);
+      const colIndex = await getCostOfLivingIndex(enrichedOffer.location);
       const adjusted = adjustForCostOfLiving(compensation, colIndex);
       
       // Check if user has saved custom scores, otherwise use auto-calculation
@@ -599,7 +629,7 @@ router.get('/compare', async (req, res) => {
       }
       
       return {
-        ...offer,
+        ...enrichedOffer,
         compensation,
         colIndex,
         adjustedCompensation: adjusted,
@@ -799,6 +829,9 @@ router.put('/:id/financial', async (req, res) => {
     const { id } = req.params;
     const { base_salary, signing_bonus, annual_bonus_percent, equity_value, pto_days, health_insurance_value, retirement_match_percent, retirement_match_cap, other_benefits_value } = req.body;
 
+    console.log(`📝 [FINANCIAL UPDATE] Received request for offer ${id}, user ${userId}`);
+    console.log(`📝 [FINANCIAL UPDATE] Body:`, req.body);
+
     // Build update query dynamically based on provided fields
     const updates = [];
     const values = [];
@@ -873,12 +906,17 @@ router.put('/:id/financial', async (req, res) => {
       RETURNING *
     `;
 
+    console.log(`📝 [FINANCIAL UPDATE] Executing query:`, query);
+    console.log(`📝 [FINANCIAL UPDATE] Values:`, values);
+    
     const { rows } = await pool.query(query, values);
 
     if (rows.length === 0) {
+      console.log(`⚠️ [FINANCIAL UPDATE] No rows updated - offer ${id} not found for user ${userId}`);
       return res.status(404).json({ error: 'Offer not found' });
     }
 
+    console.log(`✅ [FINANCIAL UPDATE] Successfully updated offer ${id}:`, rows[0]);
     res.json({ message: 'Financial values updated successfully', offer: rows[0] });
   } catch (err) {
     console.error('Error updating financial values:', err);

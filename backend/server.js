@@ -206,7 +206,7 @@ const authLimiter = rateLimit({
 // General API rate limiter (more permissive)
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 300, // 300 requests per minute (increased for company logo fetching)
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -250,13 +250,20 @@ app.use(
   })
 );
 
+// Behind ngrok/Render, trust proxy so rate limiter & logging
+// can safely use X-Forwarded-For (avoids ERR_ERL_UNEXPECTED_X_FORWARDED_FOR)
+app.set("trust proxy", 1);
+
+// Special middleware for SendGrid inbound email (needs raw text)
+// MUST be BEFORE express.json() so it can handle raw email body
+app.use("/api/jobs/inbound-email", express.text({ type: "*/*", limit: "10mb" }));
+
 app.use(express.json({ limit: '10mb' })); // Limit body size
 
 // ✅ UC-135: Security middleware - input sanitization and audit logging
 app.use(inputSanitizer); // Sanitize all inputs to prevent XSS
 app.use(validateContentType); // Validate Content-Type headers
 app.use(securityAuditLog); // Log suspicious patterns
-
 // ✅ Production Monitoring and Logging
 app.use(requestLogger);
 

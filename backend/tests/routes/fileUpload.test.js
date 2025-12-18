@@ -21,22 +21,15 @@ vi.mock("../../db/pool.js", () => ({
   },
 }));
 
-// Mock pdfjs-dist
-vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => ({
-  getDocument: vi.fn(() => ({
-    promise: Promise.resolve({
-      numPages: 1,
-      getPage: vi.fn(() =>
-        Promise.resolve({
-          getTextContent: vi.fn(() =>
-            Promise.resolve({
-              items: [{ str: "Test PDF content" }],
-            })
-          ),
-        })
-      ),
-    }),
-  })),
+// Mock pdf-parse (pure JS PDF parser, no native binaries)
+vi.mock("pdf-parse", () => ({
+  default: vi.fn(() =>
+    Promise.resolve({
+      text: "Test PDF content",
+      numpages: 1,
+      info: {},
+    })
+  ),
 }));
 
 // Mock fs - use hoisted mock
@@ -472,13 +465,11 @@ describe("Multer Storage Configuration", () => {
 // Test text extraction functions (simulated)
 describe("Text Extraction Functions", () => {
   it("should extract text from PDF", async () => {
-    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    const result = await pdfjsLib.getDocument({ data: new Uint8Array([]) });
-    const doc = await result.promise;
-    const page = await doc.getPage(1);
-    const content = await page.getTextContent();
+    const pdfParse = (await import("pdf-parse")).default;
+    const result = await pdfParse(Buffer.from("test"));
 
-    expect(content.items[0].str).toBe("Test PDF content");
+    expect(result.text).toBe("Test PDF content");
+    expect(result.numpages).toBe(1);
   });
 
   it("should extract text from TXT files", () => {
@@ -624,7 +615,7 @@ describe("Text Extraction Functions", () => {
     it("should extract text from PDF buffer", async () => {
       const buffer = Buffer.from("test pdf content");
       const result = await extractPdfText(buffer);
-      // Mock returns "Test PDF content" from pdfjs-dist mock
+      // Mock returns "Test PDF content" from pdf-parse mock
       expect(result).toBe("Test PDF content");
     });
 
