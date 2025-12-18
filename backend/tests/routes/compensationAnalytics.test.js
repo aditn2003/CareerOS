@@ -30,7 +30,7 @@ describe('Compensation Analytics Routes', () => {
   let userId;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
     
     app = express();
     app.use(express.json());
@@ -39,7 +39,7 @@ describe('Compensation Analytics Routes', () => {
     user = await createTestUser();
     
     const jwtModule = await import('jsonwebtoken');
-    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'test-secret-key');
+    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'dev_secret_change_me');
     userId = Number(decoded.id);
     
     vi.clearAllMocks();
@@ -52,7 +52,7 @@ describe('Compensation Analytics Routes', () => {
         return res.status(401).json({ error: "NO_TOKEN" });
       }
       try {
-        const decoded = jwtModule.verify(token, process.env.JWT_SECRET || 'test-secret-key');
+        const decoded = jwtModule.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me');
         req.user = { id: Number(decoded.id), email: decoded.email };
         next();
       } catch (err) {

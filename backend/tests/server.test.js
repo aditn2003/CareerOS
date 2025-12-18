@@ -165,13 +165,17 @@ import jwt from "jsonwebtoken";
 import logger, { logError } from "../utils/logger.js";
 import { captureException } from "../utils/sentry.js";
 
+// Use consistent JWT secret for testing
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
+
 describe("Server Routes", () => {
   let app;
 
   beforeAll(async () => {
     // Set test environment
     process.env.NODE_ENV = "test";
-    process.env.JWT_SECRET = "test_secret_key";
+    // Ensure JWT_SECRET is set to the same value as the fallback in auth.js
+    process.env.JWT_SECRET = "dev_secret_change_me";
     process.env.GOOGLE_CLIENT_ID = "test_google_client_id";
     
     // Mock pool.connect for initialization
@@ -611,7 +615,7 @@ describe("Server Routes", () => {
 
   describe("GET /me - UC-008", () => {
     it("should return user data for authenticated user", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockResolvedValueOnce({
         rows: [{ id: 1, email: "test@example.com", firstname: "John", lastname: "Doe" }],
       });
@@ -630,7 +634,7 @@ describe("Server Routes", () => {
     });
 
     it("should return 404 for non-existent user", async () => {
-      const token = jwt.sign({ id: 999, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 999, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -642,7 +646,7 @@ describe("Server Routes", () => {
     });
 
     it("should handle database error", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockRejectedValueOnce(new Error("DB Error"));
 
       const response = await request(app)
@@ -656,7 +660,7 @@ describe("Server Routes", () => {
 
   describe("PUT /me - UC-008", () => {
     it("should update user profile", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockResolvedValueOnce();
 
       const response = await request(app)
@@ -669,7 +673,7 @@ describe("Server Routes", () => {
     });
 
     it("should handle database error", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockRejectedValueOnce(new Error("DB Error"));
 
       const response = await request(app)
@@ -684,7 +688,7 @@ describe("Server Routes", () => {
 
   describe("GET /api/test-token", () => {
     it("should verify valid token", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
 
       const response = await request(app)
         .get("/api/test-token")
@@ -712,7 +716,7 @@ describe("Server Routes", () => {
 
   describe("POST /delete - UC-009", () => {
     it("should delete account with correct password", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       const hashedPassword = await bcrypt.hash("Password123", 10);
       
       pool.query
@@ -729,7 +733,7 @@ describe("Server Routes", () => {
     });
 
     it("should reject incorrect password", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       const hashedPassword = await bcrypt.hash("CorrectPassword123", 10);
       
       pool.query.mockResolvedValueOnce({ rows: [{ id: 1, password_hash: hashedPassword }] });
@@ -744,7 +748,7 @@ describe("Server Routes", () => {
     });
 
     it("should return 404 for non-existent user", async () => {
-      const token = jwt.sign({ id: 999, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 999, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -757,7 +761,7 @@ describe("Server Routes", () => {
     });
 
     it("should handle database error", async () => {
-      const token = jwt.sign({ id: 1, email: "test@example.com" }, process.env.JWT_SECRET);
+      const token = jwt.sign({ id: 1, email: "test@example.com" }, JWT_SECRET);
       pool.query.mockRejectedValueOnce(new Error("DB Error"));
 
       const response = await request(app)

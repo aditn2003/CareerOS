@@ -19,8 +19,8 @@ describe('Networking Analysis Routes', () => {
     app.use(express.json());
     app.use('/api/networking-analysis', networkingAnalysisRoutes);
     
+    // Use unique email to avoid duplicate key violations
     user = await createTestUser({
-      email: 'networking@test.com',
       first_name: 'Networking',
       last_name: 'Test',
     });

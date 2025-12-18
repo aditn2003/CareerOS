@@ -258,9 +258,19 @@ describe("App Component", () => {
 
   it("renders home page on root route", async () => {
     render(<App />);
-    await waitFor(() => {
-      expect(screen.getByTestId("home-page")).toBeInTheDocument();
+
+    // Allow React to process lazy loading
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
+
+    // Wait for lazy-loaded Home component to resolve
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("home-page")).toBeInTheDocument();
+      },
+      { timeout: 2000 }
+    );
   });
 
   it("renders login page on /login route", async () => {

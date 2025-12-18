@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
-import { 
-  FaGraduationCap, 
-  FaUniversity, 
+import {
+  FaGraduationCap,
+  FaUniversity,
   FaCalendarAlt,
   FaAward,
   FaTrophy,
@@ -11,7 +11,7 @@ import {
   FaPlus,
   FaCheckCircle,
   FaChartLine,
-  FaStar
+  FaStar,
 } from "react-icons/fa";
 import "../pages/Profile/EducationTab.css";
 
@@ -26,14 +26,14 @@ function formatDate(dateString) {
 }
 
 // Helper to get duration
-function getDuration(startDate, endDate, currentlyEnrolled) {
+export function getDuration(startDate, endDate, currentlyEnrolled) {
   if (currentlyEnrolled) return "Present";
   if (!startDate || !endDate) return "";
-  
+
   const start = new Date(startDate);
   const end = new Date(endDate);
   const years = end.getFullYear() - start.getFullYear();
-  
+
   if (years === 1) return "1 year";
   if (years > 1) return `${years} years`;
   return "Less than 1 year";
@@ -75,20 +75,26 @@ export default function EducationSection({ token, onEdit }) {
     const handleUpdate = () => {
       loadEducation();
     };
-    window.addEventListener('educationUpdated', handleUpdate);
-    return () => window.removeEventListener('educationUpdated', handleUpdate);
+    window.addEventListener("educationUpdated", handleUpdate);
+    return () => window.removeEventListener("educationUpdated", handleUpdate);
   }, []);
 
   // Calculate statistics
   const totalEducation = education.length;
-  const currentlyEnrolled = education.filter(e => e.currently_enrolled).length;
-  const avgGPA = education.length > 0 && education.filter(e => e.gpa && !e.gpa_private).length > 0
-    ? (education
-        .filter(e => e.gpa && !e.gpa_private)
-        .reduce((acc, e) => acc + parseFloat(e.gpa || 0), 0) / 
-       education.filter(e => e.gpa && !e.gpa_private).length).toFixed(2)
-    : 0;
-  const hasHonors = education.filter(e => e.honors).length;
+  const currentlyEnrolled = education.filter(
+    (e) => e.currently_enrolled
+  ).length;
+  const avgGPA =
+    education.length > 0 &&
+    education.filter((e) => e.gpa && !e.gpa_private).length > 0
+      ? (
+          education
+            .filter((e) => e.gpa && !e.gpa_private)
+            .reduce((acc, e) => acc + parseFloat(e.gpa || 0), 0) /
+          education.filter((e) => e.gpa && !e.gpa_private).length
+        ).toFixed(2)
+      : 0;
+  const hasHonors = education.filter((e) => e.honors).length;
 
   return (
     <>
@@ -112,7 +118,9 @@ export default function EducationSection({ token, onEdit }) {
           <div className="education-stat-card">
             <FaChartLine className="education-stat-icon" />
             <div className="education-stat-content">
-              <div className="education-stat-value">{avgGPA > 0 ? avgGPA : "N/A"}</div>
+              <div className="education-stat-value">
+                {avgGPA > 0 ? avgGPA : "N/A"}
+              </div>
               <div className="education-stat-label">Avg GPA</div>
             </div>
           </div>
@@ -132,7 +140,8 @@ export default function EducationSection({ token, onEdit }) {
           <FaGraduationCap className="education-empty-icon" />
           <p>No education history yet.</p>
           <p className="education-empty-subtitle">
-            Add your first education entry to get started building your academic profile
+            Add your first education entry to get started building your academic
+            profile
           </p>
         </div>
       ) : (
@@ -142,10 +151,10 @@ export default function EducationSection({ token, onEdit }) {
               // Currently enrolled first, then sort by graduation date descending
               const aIsEnrolled = a.currently_enrolled;
               const bIsEnrolled = b.currently_enrolled;
-              
+
               if (aIsEnrolled && !bIsEnrolled) return -1;
               if (!aIsEnrolled && bIsEnrolled) return 1;
-              
+
               const dateA = new Date(a.graduation_date || "9999-12-31");
               const dateB = new Date(b.graduation_date || "9999-12-31");
               return dateB - dateA;
@@ -158,11 +167,16 @@ export default function EducationSection({ token, onEdit }) {
                     <div>
                       <span className="education-degree">{e.degree_type}</span>
                       {e.field_of_study && (
-                        <span className="education-field"> in {e.field_of_study}</span>
+                        <span className="education-field">
+                          {" "}
+                          in {e.field_of_study}
+                        </span>
                       )}
                       <div className="education-institution-row">
                         <FaUniversity className="education-institution-icon" />
-                        <span className="education-institution">{e.institution}</span>
+                        <span className="education-institution">
+                          {e.institution}
+                        </span>
                       </div>
                     </div>
                   </div>

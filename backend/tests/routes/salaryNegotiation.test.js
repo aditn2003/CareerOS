@@ -40,7 +40,7 @@ describe('Salary Negotiation Routes', () => {
   let mockSupabaseClient;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
     process.env.SUPABASE_URL = 'https://test.supabase.co';
     process.env.SUPABASE_ANON_KEY = 'test-key';
     process.env.OPENAI_API_KEY = 'test-openai-key';
@@ -60,7 +60,7 @@ describe('Salary Negotiation Routes', () => {
     
     // Decode JWT token to get the user ID
     const jwtModule = await import('jsonwebtoken');
-    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'test-secret-key');
+    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'dev_secret_change_me');
     userId = Number(decoded.id);
     
     vi.clearAllMocks();

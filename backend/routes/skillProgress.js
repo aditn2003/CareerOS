@@ -5,27 +5,26 @@ import dotenv from "dotenv";
 
 dotenv.config();
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 /* AUTH */
 function auth(req, res, next) {
-    const header = req.headers.authorization;
-  
-    if (!header) {
-      return res.status(401).json({ error: "No token" });
-    }
-  
-    try {
-      const token = header.split(" ")[1];
-      const decoded = jwt.verify(token, JWT_SECRET);
-      req.userId = decoded.id;
-      req.user = { id: decoded.id, email: decoded.email }; // Also set req.user for consistency
-      next();
-    } catch {
-      return res.status(401).json({ error: "Invalid token" });
-    }
+  const header = req.headers.authorization;
+
+  if (!header) {
+    return res.status(401).json({ error: "No token" });
   }
-  
+
+  try {
+    const token = header.split(" ")[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.id;
+    req.user = { id: decoded.id, email: decoded.email }; // Also set req.user for consistency
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
 
 /* =========================================
    GET all progress for the logged-in user
@@ -73,7 +72,10 @@ router.put("/:skill", auth, async (req, res) => {
     );
 
     if (updateResult.rows.length > 0) {
-      return res.json({ message: "Progress updated", entry: updateResult.rows[0] });
+      return res.json({
+        message: "Progress updated",
+        entry: updateResult.rows[0],
+      });
     }
 
     // If no update, insert new entry

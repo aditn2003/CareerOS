@@ -11,8 +11,11 @@ dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
 // Use shared pool in test mode for transaction isolation
-const pool = process.env.NODE_ENV === 'test' ? sharedPool : new Pool({ connectionString: process.env.DATABASE_URL });
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const pool =
+  process.env.NODE_ENV === "test"
+    ? sharedPool
+    : new Pool({ connectionString: process.env.DATABASE_URL });
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 /* AUTH MIDDLEWARE — same as other routes */
 function auth(req, res, next) {
@@ -60,10 +63,10 @@ router.get("/:jobId", auth, async (req, res) => {
 
     // Map proficiency strings to numeric levels
     const proficiencyMap = {
-      'Beginner': 1,
-      'Intermediate': 2,
-      'Advanced': 3,
-      'Expert': 4
+      Beginner: 1,
+      Intermediate: 2,
+      Advanced: 3,
+      Expert: 4,
     };
 
     const userSkills = userSkillQ.rows.map((s) => ({

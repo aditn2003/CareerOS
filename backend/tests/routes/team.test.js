@@ -32,7 +32,7 @@ describe('Team Routes', () => {
   let userId;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
     
     app = express();
     app.use(express.json());
@@ -42,7 +42,7 @@ describe('Team Routes', () => {
     
     // Decode JWT token to get the user ID
     const jwtModule = await import('jsonwebtoken');
-    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'test-secret-key');
+    const decoded = jwtModule.verify(user.token, process.env.JWT_SECRET || 'dev_secret_change_me');
     userId = Number(decoded.id);
     
     vi.clearAllMocks();
@@ -56,7 +56,7 @@ describe('Team Routes', () => {
         return res.status(401).json({ error: "NO_TOKEN" });
       }
       try {
-        const decoded = jwtModule.verify(token, process.env.JWT_SECRET || 'test-secret-key');
+        const decoded = jwtModule.verify(token, process.env.JWT_SECRET || 'dev_secret_change_me');
         req.user = { id: Number(decoded.id), email: decoded.email };
         next();
       } catch (err) {

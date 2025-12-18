@@ -44,7 +44,7 @@ describe('Geocoding Routes', () => {
   let userId = 1;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+    process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_change_me';
     
     // Create a test token (any string will work since jwt.verify is mocked)
     token = 'test-token';
@@ -108,6 +108,9 @@ describe('Geocoding Routes', () => {
     });
 
     it('should return cached result if available', async () => {
+      // First query: ensureTimezoneColumns checks for column existence
+      pool.query.mockResolvedValueOnce({ rows: [{ column_name: 'timezone' }] });
+      // Second query: cache lookup returns cached data
       pool.query.mockResolvedValueOnce({
         rows: [{
           latitude: 40.7128,
@@ -115,6 +118,8 @@ describe('Geocoding Routes', () => {
           display_name: 'New York, NY, USA',
           location_type: 'on_site',
           country_code: 'US',
+          timezone: 'America/New_York',
+          utc_offset: -300,
         }],
       });
 
@@ -601,6 +606,428 @@ describe('Geocoding Routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
+    });
+
+    it('should calculate commute for short distance (< 500km) - covers short flight branches', async () => {
+      // Short distance: Boston to New York (~300km)
+      // This should trigger: flightDistanceMultiplier = 1.15, avgPlaneSpeedKmh = 600, airportTimeMinutes = 180
+      pool.query.mockImplementation((query, params) => {
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'New York, NY',
+              latitude: 40.7128,
+              longitude: -74.0060,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        if (query.includes('SELECT home_latitude, home_longitude, location') && 
+            query.includes('FROM profiles') && 
+            query.includes('WHERE user_id = $1') &&
+            params && params[0] === userId) {
+          return Promise.resolve({
+            rows: [{
+              home_latitude: 42.3601, // Boston
+              home_longitude: -71.0589,
+              location: 'Boston, MA',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.planeTime).toBeDefined();
+      expect(response.body.data.planeTime.flightMinutes).toBeDefined();
+      // Short flights should have 180 minutes (3 hours) airport time
+      expect(response.body.data.planeTime.minutes).toBeGreaterThan(180);
+    });
+
+    it('should calculate commute for medium distance (500-2000km) - covers medium flight branches', async () => {
+      // Medium distance: New York to Chicago (~1200km)
+      // This should trigger: flightDistanceMultiplier = 1.10, avgPlaneSpeedKmh = 750, airportTimeMinutes = 150
+      pool.query.mockImplementation((query, params) => {
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'Chicago, IL',
+              latitude: 41.8781,
+              longitude: -87.6298,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        if (query.includes('SELECT home_latitude, home_longitude, location') && 
+            query.includes('FROM profiles') && 
+            query.includes('WHERE user_id = $1') &&
+            params && params[0] === userId) {
+          return Promise.resolve({
+            rows: [{
+              home_latitude: 40.7128, // New York
+              home_longitude: -74.0060,
+              location: 'New York, NY',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.planeTime).toBeDefined();
+      // Medium flights should have 150 minutes (2.5 hours) airport time
+      expect(response.body.data.planeTime.minutes).toBeGreaterThan(150);
+    });
+
+    it('should calculate commute for medium-long distance (500-1500km) - covers medium flight speed branch', async () => {
+      // Medium-long distance: San Francisco to Denver (~1300km)
+      // This should trigger: avgPlaneSpeedKmh = 750 (medium flights 500-1500km)
+      pool.query.mockImplementation((query, params) => {
+        if (query.includes('SELECT id, location, latitude, longitude, company, title') && 
+            query.includes('FROM jobs') && 
+            query.includes('WHERE id = $1 AND user_id = $2') &&
+            params && params[0] === 1 && params[1] === userId) {
+          return Promise.resolve({
+            rows: [{
+              id: 1,
+              location: 'Denver, CO',
+              latitude: 39.7392,
+              longitude: -104.9903,
+              company: 'Tech Corp',
+              title: 'Software Engineer',
+            }],
+          });
+        }
+        if (query.includes('SELECT home_latitude, home_longitude, location') && 
+            query.includes('FROM profiles') && 
+            query.includes('WHERE user_id = $1') &&
+            params && params[0] === userId) {
+          return Promise.resolve({
+            rows: [{
+              home_latitude: 37.7749, // San Francisco
+              home_longitude: -122.4194,
+              location: 'San Francisco, CA',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/commute')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ jobId: 1 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.planeTime).toBeDefined();
+    });
+
+    it('should handle timezone lookup failure gracefully', async () => {
+      // Mock ensureTimezoneColumns
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [{ column_name: 'timezone' }] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      // Mock geocoding API success
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'New York, NY, USA',
+          address: { city: 'New York', country_code: 'us' },
+        }],
+      });
+
+      // Mock timezone API failure
+      axios.get.mockRejectedValueOnce(new Error('Timezone API error'));
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      // Should still succeed even if timezone lookup fails
+    });
+
+    it('should handle timezone API returning invalid response', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [{ column_name: 'timezone' }] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'New York, NY, USA',
+          address: { city: 'New York', country_code: 'us' },
+        }],
+      });
+
+      // Timezone API returns invalid response (no status OK or zoneName)
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'FAIL', message: 'Invalid request' },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should handle cache query error when timezone columns missing (fallback query)', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [] }); // Columns don't exist
+        }
+        if (query.includes('ALTER TABLE geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // First cache query fails with column error
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          const error = new Error('column "timezone" does not exist');
+          error.code = '42703';
+          return Promise.reject(error);
+        }
+        // Fallback query succeeds
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code') && 
+            query.includes('FROM geocoding_cache') &&
+            !query.includes('timezone')) {
+          return Promise.resolve({
+            rows: [{
+              latitude: 40.7128,
+              longitude: -74.0060,
+              display_name: 'New York, NY, USA',
+              location_type: 'on_site',
+              country_code: 'US',
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should handle cache insert error when timezone columns missing (fallback insert)', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('ALTER TABLE geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Insert with timezone fails
+        if (query.includes('INSERT INTO geocoding_cache') && query.includes('timezone')) {
+          const error = new Error('column "timezone" does not exist');
+          error.code = '42703';
+          return Promise.reject(error);
+        }
+        // Fallback insert succeeds
+        if (query.includes('INSERT INTO geocoding_cache') && !query.includes('timezone')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'New York, NY, USA',
+          address: { city: 'New York', country_code: 'us' },
+        }],
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'OK', zoneName: 'America/New_York', gmtOffset: -18000 },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should handle ensureTimezoneColumns error and retry', async () => {
+      let callCount = 0;
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          callCount++;
+          if (callCount === 1) {
+            // First call fails
+            return Promise.reject(new Error('Database error'));
+          }
+          // Second call succeeds (columns exist)
+          return Promise.resolve({ rows: [{ column_name: 'timezone' }] });
+        }
+        if (query.includes('ALTER TABLE geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'New York, NY, USA',
+          address: { city: 'New York', country_code: 'us' },
+        }],
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'OK', zoneName: 'America/New_York', gmtOffset: -18000 },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'New York, NY' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it('should handle remote location (skips timezone lookup)', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [{ column_name: 'timezone' }] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'Remote',
+          address: { country_code: 'us' },
+        }],
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'Remote' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      // Timezone API should not be called for remote locations
+      expect(axios.get).toHaveBeenCalledTimes(1); // Only geocoding, not timezone
+    });
+
+    it('should handle hybrid location', async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes('SELECT column_name') && query.includes('timezone')) {
+          return Promise.resolve({ rows: [{ column_name: 'timezone' }] });
+        }
+        if (query.includes('SELECT latitude, longitude, display_name, location_type, country_code, timezone, utc_offset') && 
+            query.includes('FROM geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('INSERT INTO geocoding_cache')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: [{
+          lat: '40.7128',
+          lon: '-74.0060',
+          display_name: 'Hybrid',
+          address: { city: 'New York', country_code: 'us' },
+        }],
+      });
+
+      axios.get.mockResolvedValueOnce({
+        data: { status: 'OK', zoneName: 'America/New_York', gmtOffset: -18000 },
+      });
+
+      const response = await request(app)
+        .post('/api/geocoding/geocode')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ location: 'Hybrid' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.location_type).toBe('hybrid');
     });
   });
 

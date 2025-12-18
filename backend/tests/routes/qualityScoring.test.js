@@ -45,7 +45,7 @@ describe("Quality Scoring Routes", () => {
   let userId;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret-key";
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
     app = express();
     app.use(express.json());
@@ -56,7 +56,7 @@ describe("Quality Scoring Routes", () => {
     const jwtModule = await import("jsonwebtoken");
     const decoded = jwtModule.verify(
       user.token,
-      process.env.JWT_SECRET || "test-secret-key"
+      process.env.JWT_SECRET || "dev_secret_change_me"
     );
     userId = Number(decoded.id);
 
@@ -77,7 +77,7 @@ describe("Quality Scoring Routes", () => {
       try {
         const decoded = jwtModule.verify(
           token,
-          process.env.JWT_SECRET || "test-secret-key"
+          process.env.JWT_SECRET || "dev_secret_change_me"
         );
         req.user = { id: Number(decoded.id), email: decoded.email };
         next();

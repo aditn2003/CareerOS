@@ -3,11 +3,11 @@
  * Provides utilities for creating mock JWT tokens and authenticated requests
  */
 
-import jwt from 'jsonwebtoken';
-import { queryTestDb } from './db.js';
-import bcrypt from 'bcryptjs';
+import jwt from "jsonwebtoken";
+import { queryTestDb } from "./db.js";
+import bcrypt from "bcryptjs";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 /**
  * Creates a mock JWT token for a user
@@ -22,7 +22,7 @@ export function createMockToken(userData, expiresIn = 3600) {
     id: userData.id,
     email: userData.email || `test${userData.id}@example.com`,
   };
-  
+
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
@@ -34,15 +34,15 @@ export function createMockToken(userData, expiresIn = 3600) {
 export async function createTestUser(userData = {}) {
   const defaultUser = {
     email: `testuser${Date.now()}@example.com`,
-    password: 'TestPassword123!',
-    first_name: 'Test',
-    last_name: 'User',
-    provider: 'local',
+    password: "TestPassword123!",
+    first_name: "Test",
+    last_name: "User",
+    provider: "local",
     ...userData,
   };
 
   // Use minimal rounds in test mode for faster hashing (tests only, not production)
-  const saltRounds = process.env.NODE_ENV === 'test' ? 1 : 10;
+  const saltRounds = process.env.NODE_ENV === "test" ? 1 : 10;
   const password_hash = await bcrypt.hash(defaultUser.password, saltRounds);
 
   const result = await queryTestDb(
@@ -105,7 +105,7 @@ export function createAuthHeader(token) {
  */
 export function createAuthHeaderFromUser(user) {
   if (!user.token) {
-    throw new Error('User object must have a token property');
+    throw new Error("User object must have a token property");
   }
   return createAuthHeader(user.token);
 }
@@ -133,9 +133,9 @@ export function createExpiredToken(userData) {
     id: userData.id,
     email: userData.email || `test${userData.id}@example.com`,
   };
-  
+
   // Create token that expired 1 hour ago
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '-1h' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "-1h" });
 }
 
 /**
@@ -148,8 +148,8 @@ export function createInvalidToken(userData) {
     id: userData.id,
     email: userData.email || `test${userData.id}@example.com`,
   };
-  
-  return jwt.sign(payload, 'wrong-secret-key', { expiresIn: '1h' });
+
+  return jwt.sign(payload, "wrong-secret-key", { expiresIn: "1h" });
 }
 
 export default {
@@ -162,4 +162,3 @@ export default {
   createExpiredToken,
   createInvalidToken,
 };
-

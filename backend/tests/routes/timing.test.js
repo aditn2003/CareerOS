@@ -23,7 +23,7 @@ describe("Timing Routes", () => {
   let userId;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = process.env.JWT_SECRET || "test-secret-key";
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
     
     app = express();
     app.use(express.json());
@@ -34,7 +34,7 @@ describe("Timing Routes", () => {
     const jwtModule = await import("jsonwebtoken");
     const decoded = jwtModule.verify(
       user.token,
-      process.env.JWT_SECRET || "test-secret-key"
+      process.env.JWT_SECRET || "dev_secret_change_me"
     );
     userId = Number(decoded.id);
     

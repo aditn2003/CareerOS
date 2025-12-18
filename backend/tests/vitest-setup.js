@@ -336,9 +336,9 @@ beforeAll(async () => {
   // Set test environment
   process.env.NODE_ENV = "test";
 
-  // Ensure JWT_SECRET is set for all tests
+  // Ensure JWT_SECRET is set for all tests (must match routes' default)
   if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = "test-secret-key";
+    process.env.JWT_SECRET = "dev_secret_change_me";
   }
 
   // Setup test database connection with retry logic

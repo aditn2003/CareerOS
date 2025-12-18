@@ -98,7 +98,6 @@ import logger, { logInfo, logError, logHttp } from "./utils/logger.js";
 import monitoringRoutes from "./routes/monitoring.js";
 
 // ====== 📈 SCALABILITY AND RESOURCE MANAGEMENT (UC-136) ======
-import scalabilityRoutes from "./routes/scalability.js";
 import { metricsMiddleware } from "./utils/resourceMonitor.js";
 
 // ===== Initialize =====
@@ -1147,7 +1146,6 @@ app.use("/api/geocoding", geocodingRoutes); // ✅ UC-116: Location and Geo-codi
 app.use("/api/monitoring", monitoringRoutes);
 
 // ✅ Scalability and Resource Management Routes (UC-136)
-app.use("/api/scalability", scalabilityRoutes);
 
 app.use("/api/jobs", jobRoutes);
 const REMINDER_DAYS =

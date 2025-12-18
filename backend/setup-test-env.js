@@ -3,10 +3,10 @@
  * Copies DATABASE_URL from .env to .env.test and adds test-specific config
  */
 
-import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +16,7 @@ dotenv.config();
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  console.error('❌ DATABASE_URL not found in .env file');
+  console.error("❌ DATABASE_URL not found in .env file");
   process.exit(1);
 }
 
@@ -28,29 +28,36 @@ const envTestContent = `# Test Environment Variables
 DATABASE_URL=${databaseUrl}
 
 # JWT Secret for testing
-JWT_SECRET=${process.env.JWT_SECRET || 'test-secret-key-change-in-production'}
+JWT_SECRET=${process.env.JWT_SECRET || "dev_secret_change_me"}
 
 # Node Environment
 NODE_ENV=test
 
 # Optional: Other environment variables
-${process.env.GOOGLE_CLIENT_ID ? `GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID}` : ''}
-${process.env.RESEND_API_KEY ? `RESEND_API_KEY=${process.env.RESEND_API_KEY}` : ''}
-${process.env.EMAIL_FROM ? `EMAIL_FROM=${process.env.EMAIL_FROM}` : ''}
+${
+  process.env.GOOGLE_CLIENT_ID
+    ? `GOOGLE_CLIENT_ID=${process.env.GOOGLE_CLIENT_ID}`
+    : ""
+}
+${
+  process.env.RESEND_API_KEY
+    ? `RESEND_API_KEY=${process.env.RESEND_API_KEY}`
+    : ""
+}
+${process.env.EMAIL_FROM ? `EMAIL_FROM=${process.env.EMAIL_FROM}` : ""}
 `;
 
 // Write .env.test file
-const envTestPath = path.join(__dirname, '.env.test');
+const envTestPath = path.join(__dirname, ".env.test");
 fs.writeFileSync(envTestPath, envTestContent);
 
-console.log('✅ Created .env.test file');
+console.log("✅ Created .env.test file");
 console.log(`📝 DATABASE_URL: ${databaseUrl.substring(0, 30)}...`);
-console.log('');
+console.log("");
 console.log('⚠️  Make sure your database has a "test" schema with all tables!');
-console.log('   You can create it by running: CREATE SCHEMA IF NOT EXISTS test;');
-console.log('   Then copy all table structures from public schema to test schema.');
-
-
-
-
-
+console.log(
+  "   You can create it by running: CREATE SCHEMA IF NOT EXISTS test;"
+);
+console.log(
+  "   Then copy all table structures from public schema to test schema."
+);
