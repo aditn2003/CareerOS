@@ -150,3 +150,39 @@
 2025-12-17 11:55:39 [INFO]: Connected to PostgreSQL
 2025-12-17 12:00:00 [INFO]: Running GitHub repository sync
 2025-12-17 12:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 17:30:42 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 17:30:42 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 17:30:42 [INFO]: Connected to PostgreSQL
+2025-12-17 17:50:33 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 17:50:33 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 17:50:34 [INFO]: Connected to PostgreSQL
+2025-12-17 18:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 18:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
+2025-12-17 18:01:10 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:01:10 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:01:11 [INFO]: Connected to PostgreSQL
+2025-12-17 18:06:43 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:06:43 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:06:43 [INFO]: Connected to PostgreSQL
+2025-12-17 18:10:47 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:10:47 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:10:48 [INFO]: Connected to PostgreSQL
+2025-12-17 18:11:13 [ERROR]: Request completed with error {"requestId":"1766013073467-xwuyfzeyj","method":"PUT","path":"/26","route":"/:id","statusCode":500,"responseTime":"175ms","userId":3,"error":null}
+2025-12-17 18:11:20 [ERROR]: Request completed with error {"requestId":"1766013079929-vwaob05wo","method":"PUT","path":"/26","route":"/:id","statusCode":500,"responseTime":"87ms","userId":3,"error":null}
+2025-12-17 18:14:12 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:14:12 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:14:13 [INFO]: Connected to PostgreSQL
+2025-12-17 18:17:49 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:17:49 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:17:49 [INFO]: Connected to PostgreSQL
+2025-12-17 18:23:18 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:23:18 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:23:18 [INFO]: Connected to PostgreSQL
+2025-12-17 18:41:24 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:41:24 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:41:25 [INFO]: Connected to PostgreSQL
+2025-12-17 18:45:25 [INFO]: Application starting {"nodeEnv":"development","port":4000}
+2025-12-17 18:45:25 [INFO]: API server started {"port":4000,"nodeEnv":"development"}
+2025-12-17 18:45:26 [INFO]: Connected to PostgreSQL
+2025-12-17 19:00:00 [INFO]: Running GitHub repository sync
+2025-12-17 19:00:00 [INFO]: GitHub sync completed {"usersSynced":0,"usersSkipped":1}
