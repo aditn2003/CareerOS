@@ -71,18 +71,9 @@ export default function JobPipeline({ token, onApply }) {
         try {
           const res = await api.get(`/api/companies/${encodeURIComponent(company)}`);
           if (res.status === 200 && res.data.logo_url) {
-            newLogos[company] = `http://localhost:4000${res.data.logo_url}`;
+            newLogos[company] = `${baseURL}${res.data.logo_url}`;
           } else {
             newLogos[company] = null; // Mark as fetched but no logo
-    const logos = {};
-    for (const job of jobs) {
-      if (!job.company) continue;
-      try {
-        // Use the 'api' helper here for consistency
-        const res = await api.get(`/api/companies/${job.company}`);
-        if (res.status === 200) {
-          if (res.data.logo_url) {
-            logos[job.company] = `${baseURL}${res.data.logo_url}`;
           }
         } catch (err) {
           console.warn("⚠️ Could not fetch logo for", company);
