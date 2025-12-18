@@ -159,11 +159,11 @@ jobs:
 
       - name: Check Frontend (Vercel)
         run: |
-          echo "🔍 Checking frontend at https://atsos.com..."
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://atsos.com" || echo "000")
+          echo "🔍 Checking frontend at https://atscareeros.com..."
+          HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" "https://atscareeros.com" || echo "000")
           
-          if [ "$HTTP_STATUS" == "200" ]; then
-            echo "✅ Frontend is live!"
+          if [ "$HTTP_STATUS" == "200" ] || [ "$HTTP_STATUS" == "302" ] || [ "$HTTP_STATUS" == "301" ]; then
+            echo "✅ Frontend is live! (Status: $HTTP_STATUS)"
           else
             echo "⚠️ Frontend returned status: $HTTP_STATUS (might still be propagating)"
           fi
@@ -175,16 +175,14 @@ jobs:
           if [ -n "$PROD_API_URL" ]; then
             echo "🔍 Checking backend at $PROD_API_URL..."
             
-            RESPONSE=$(curl -s "$PROD_API_URL/api/health" 2>/dev/null || echo '{}')
-            echo "Health response: $RESPONSE"
-            
+            # Check root endpoint
             ROOT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_API_URL/" || echo "000")
             echo "Root endpoint status: $ROOT_STATUS"
             
             if [ "$ROOT_STATUS" == "200" ]; then
               echo "✅ Backend is responding!"
             else
-              echo "⚠️ Backend might still be deploying (Render can take 2-5 min)"
+              echo "⚠️ Backend returned status: $ROOT_STATUS (might still be deploying)"
             fi
           else
             echo "ℹ️ PROD_API_URL not configured, skipping backend health check"
@@ -196,7 +194,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Platform | URL |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|----------|-----|" >> $GITHUB_STEP_SUMMARY
-          echo "| Frontend | Vercel | https://atsos.com |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | Vercel | https://atscareeros.com |" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | Render | Auto-deployed |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Coverage:**" >> $GITHUB_STEP_SUMMARY
@@ -215,7 +213,7 @@ jobs:
                   {
                     "color": "good",
                     "fields": [
-                      {"title": "Frontend", "value": "https://atsos.com", "short": true},
+                      {"title": "Frontend", "value": "https://atscareeros.com", "short": true},
                       {"title": "Backend", "value": "Render (auto-deployed)", "short": true},
                       {"title": "Commit", "value": "${{ github.sha }}", "short": true},
                       {"title": "Author", "value": "${{ github.actor }}", "short": true}
@@ -241,7 +239,7 @@ jobs:
                   "title": "Deployment Successful",
                   "color": 65280,
                   "fields": [
-                    {"name": "Frontend", "value": "https://atsos.com", "inline": true},
+                    {"name": "Frontend", "value": "https://atscareeros.com", "inline": true},
                     {"name": "Backend", "value": "Auto-deployed", "inline": true},
                     {"name": "Author", "value": "${{ github.actor }}", "inline": true}
                   ]
