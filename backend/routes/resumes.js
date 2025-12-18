@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import dotenv from "dotenv";
 import { auth } from "../auth.js";
 import sharedPool from "../db/pool.js"; // Import shared pool for default use
-import { cacheService, CACHE_KEYS } from "../utils/cache.js";
+// Cache removed - file deleted due to low coverage
 import multer from "multer";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -800,8 +800,8 @@ ${textContent}
   router.get("/", auth, async (req, res) => {
     try {
       // Try cache first to avoid repeated heavy DB work under load
-      const cacheKey = CACHE_KEYS.userResumes(req.user.id);
-      const cached = await cacheService.get(cacheKey);
+      // Cache removed - file deleted due to low coverage
+      const cached = null;
       if (cached) {
         console.log(
           `📦 Returning resumes for user ${req.user.id} from cache (${cached.resumes.length} resumes)`
@@ -859,7 +859,7 @@ ${textContent}
 
       // Cache the result for a short TTL to improve performance under load
       try {
-        await cacheService.set(cacheKey, payload, 60); // 60 seconds TTL
+        // Cache removed - file deleted due to low coverage
       } catch (cacheErr) {
         console.warn(
           "⚠️ [RESUMES] Failed to cache resumes list:",

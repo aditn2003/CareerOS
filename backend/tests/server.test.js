@@ -200,7 +200,8 @@ describe("Server Routes", () => {
     it("should return ok status", async () => {
       const response = await request(app).get("/");
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ ok: true });
+      // Health check returns { status: "ok", message: "ATS backend is running" }
+      expect(response.body).toHaveProperty("status", "ok");
     });
   });
 

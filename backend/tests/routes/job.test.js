@@ -789,25 +789,37 @@ describe("Job Routes", () => {
 
     it("should handle error in timing submission update gracefully", async () => {
       // Test error handling for timing submission update (line 2000)
-      // First query: SELECT status FROM jobs (must return a row to avoid 404)
-      mockQuery.mockResolvedValueOnce({ 
-        rows: [{ status: "Applied" }] 
+      // Use implementation to ensure UPDATE query returns a row
+      mockQuery.mockImplementation((query, params) => {
+        // First query: SELECT status
+        if (query && query.includes('SELECT status FROM jobs') && query.includes('WHERE id = $1')) {
+          return Promise.resolve({ rows: [{ status: "Applied" }] });
+        }
+        // Second query: UPDATE jobs (main) - MUST return a row
+        if (query && query.includes('UPDATE jobs') && query.includes('SET status = $1') && query.includes('RETURNING *')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: "Interview", user_id: 1 }],
+          });
+        }
+        // Third query: Optional UPDATE interview_date (in test mode)
+        if (query && query.includes('UPDATE jobs SET interview_date')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Fourth query: INSERT into history
+        if (query && query.includes('INSERT INTO application_history')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Fifth query: SELECT submission
+        if (query && query.includes('SELECT id FROM application_submissions')) {
+          return Promise.resolve({ rows: [{ id: 123 }] });
+        }
+        // Sixth query: UPDATE application_submissions - throw error (caught)
+        if (query && query.includes('UPDATE application_submissions')) {
+          return Promise.reject(new Error("Timing update error"));
+        }
+        // Default fallback
+        return Promise.resolve({ rows: [] });
       });
-      // Second query: UPDATE job status (must return the updated job)
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, status: "Interview", user_id: 1 }], // updated job
-      });
-      // Third query: Optional UPDATE interview_date (in test mode, might be called)
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Fourth query: INSERT into history
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Fifth query: SELECT submission
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 123 }], // submission ID
-      });
-      // Sixth query: UPDATE application_submissions to throw error (this is caught and doesn't fail the request)
-      mockQuery.mockRejectedValueOnce(new Error("Timing update error"));
-      mockQuery.mockResolvedValue({ rows: [] });
 
       const response = await request(app)
         .put("/api/jobs/1/status")
@@ -1766,25 +1778,37 @@ describe("Job Routes", () => {
 
     it("should handle error in timing submission update gracefully", async () => {
       // Test error handling for timing submission update (line 2000)
-      // First query: SELECT status FROM jobs (must return a row to avoid 404)
-      mockQuery.mockResolvedValueOnce({ 
-        rows: [{ status: "Applied" }] 
+      // Use implementation to ensure UPDATE query returns a row
+      mockQuery.mockImplementation((query, params) => {
+        // First query: SELECT status
+        if (query && query.includes('SELECT status FROM jobs') && query.includes('WHERE id = $1')) {
+          return Promise.resolve({ rows: [{ status: "Applied" }] });
+        }
+        // Second query: UPDATE jobs (main) - MUST return a row
+        if (query && query.includes('UPDATE jobs') && query.includes('SET status = $1') && query.includes('RETURNING *')) {
+          return Promise.resolve({
+            rows: [{ id: 1, status: "Interview", user_id: 1 }],
+          });
+        }
+        // Third query: Optional UPDATE interview_date (in test mode)
+        if (query && query.includes('UPDATE jobs SET interview_date')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Fourth query: INSERT into history
+        if (query && query.includes('INSERT INTO application_history')) {
+          return Promise.resolve({ rows: [] });
+        }
+        // Fifth query: SELECT submission
+        if (query && query.includes('SELECT id FROM application_submissions')) {
+          return Promise.resolve({ rows: [{ id: 123 }] });
+        }
+        // Sixth query: UPDATE application_submissions - throw error (caught)
+        if (query && query.includes('UPDATE application_submissions')) {
+          return Promise.reject(new Error("Timing update error"));
+        }
+        // Default fallback
+        return Promise.resolve({ rows: [] });
       });
-      // Second query: UPDATE job status (must return the updated job)
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, status: "Interview", user_id: 1 }], // updated job
-      });
-      // Third query: Optional UPDATE interview_date (in test mode, might be called)
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Fourth query: INSERT into history
-      mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Fifth query: SELECT submission
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 123 }], // submission ID
-      });
-      // Sixth query: UPDATE application_submissions to throw error (this is caught and doesn't fail the request)
-      mockQuery.mockRejectedValueOnce(new Error("Timing update error"));
-      mockQuery.mockResolvedValue({ rows: [] });
 
       const response = await request(app)
         .put("/api/jobs/1/status")
@@ -2076,6 +2100,186 @@ describe("Job Routes", () => {
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBeDefined();
+    });
+
+    it("should handle non-string body and convert to string", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "test@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+        platform: "LinkedIn",
+        date: new Date(),
+        rawEmail: { subject: "Test" },
+      });
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: "test@example.com" }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // duplicate check
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 100, status: "Applied" }], // new job created
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // job_platforms insert
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // application_history insert
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // email_notifications insert
+
+      // Send as object that will be stringified
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .set("Content-Type", "application/json")
+        .send({ rawContent: "test email content" });
+
+      expect([200]).toContain(response.status);
+    });
+
+    it("should log available users when user not found", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "unknown@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+      });
+
+      // First query: user lookup fails
+      mockQuery.mockResolvedValueOnce({ rows: [] }); 
+      // Second query: available users query
+      mockQuery.mockResolvedValueOnce({ 
+        rows: [
+          { email: "user1@example.com" },
+          { email: "user2@example.com" },
+        ] 
+      });
+
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .send("test email");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(false);
+      expect(response.body.message).toContain("User not found");
+    });
+
+    it("should handle job_platforms table error on new job creation", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "test@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+        platform: "LinkedIn",
+        source_url: "https://linkedin.com/jobs/123",
+        date: new Date(),
+        rawEmail: { subject: "Test" },
+      });
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: "test@example.com" }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no duplicate
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 100, status: "Applied" }], // new job created
+      });
+      // job_platforms insert fails
+      mockQuery.mockRejectedValueOnce(new Error("relation \"job_platforms\" does not exist"));
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // application_history
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // email_notifications
+
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .send("test email");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it("should handle application_history table error on new job creation", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "test@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+        platform: "LinkedIn",
+        source_url: "https://linkedin.com/jobs/123",
+        date: new Date(),
+        rawEmail: { subject: "Test" },
+      });
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: "test@example.com" }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no duplicate
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 100, status: "Applied" }], // new job created
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // job_platforms
+      // application_history insert fails
+      mockQuery.mockRejectedValueOnce(new Error("relation \"application_history\" does not exist"));
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // email_notifications
+
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .send("test email");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it("should handle email_notifications table error on new job creation", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "test@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+        platform: "LinkedIn",
+        source_url: "https://linkedin.com/jobs/123",
+        date: new Date(),
+        rawEmail: { subject: "Test" },
+      });
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: "test@example.com" }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no duplicate
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 100, status: "Applied" }], // new job created
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // job_platforms
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // application_history
+      // email_notifications insert fails
+      mockQuery.mockRejectedValueOnce(new Error("relation \"email_notifications\" does not exist"));
+
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .send("test email");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+    });
+
+    it("should handle all optional table errors on new job creation", async () => {
+      mockParseJobEmail.mockResolvedValue({
+        emailFrom: "test@example.com",
+        title: "Software Engineer",
+        company: "Tech Corp",
+        platform: "LinkedIn",
+        source_url: "https://linkedin.com/jobs/123",
+        date: new Date(),
+        rawEmail: { subject: "Test" },
+      });
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, email: "test@example.com" }],
+      });
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no duplicate
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 100, status: "Applied" }], // new job created
+      });
+      // All optional tables fail
+      mockQuery.mockRejectedValueOnce(new Error("job_platforms error"));
+      mockQuery.mockRejectedValueOnce(new Error("application_history error"));
+      mockQuery.mockRejectedValueOnce(new Error("email_notifications error"));
+
+      const response = await request(emailApp)
+        .post("/api/jobs/inbound-email")
+        .send("test email");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
     });
   });
 

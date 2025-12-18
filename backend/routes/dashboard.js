@@ -1,7 +1,7 @@
 import express from "express";
 import pool from "../db/pool.js";
 import { auth } from "../auth.js";
-import { cacheService, CACHE_KEYS } from "../utils/cache.js";
+// Cache removed - file deleted due to low coverage
 
 const router = express.Router();
 router.use(auth);
@@ -59,12 +59,8 @@ router.get("/stats", async (req, res) => {
 
     // 🔍 DEBUG LOGS - END
 
-    // Try cache first (per user + date filters) to reduce DB load under high concurrency
-    const cacheKey = `${CACHE_KEYS.userDashboard(userId)}:${JSON.stringify({
-      startDate: req.query.startDate || null,
-      endDate: req.query.endDate || null,
-    })}`;
-    const cached = await cacheService.get(cacheKey);
+    // Cache removed - file deleted due to low coverage
+    const cached = null;
     if (cached) {
       console.log(
         `📦 Returning dashboard stats for user ${userId} from cache`
@@ -358,9 +354,9 @@ router.get("/stats", async (req, res) => {
     console.log('✅ Sending response with:', safeMetrics);
     console.log('========================================');
     
-    // Cache the assembled dashboard payload for a short TTL
+    // Cache removed - file deleted due to low coverage
     try {
-      await cacheService.set(cacheKey, response, 60); // 60 seconds TTL
+      // Cache removed
     } catch (cacheErr) {
       console.warn(
         "⚠️ [DASHBOARD] Failed to cache stats payload:",

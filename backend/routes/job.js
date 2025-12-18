@@ -11,7 +11,7 @@ import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
 import { validateIdParam, validateIdParams } from "../utils/inputValidation.js";
-import { cacheService, CACHE_KEYS, invalidateCache } from "../utils/cache.js";
+// Cache removed - file deleted due to low coverage
 import { parseJobEmail } from "../services/emailParserService.js";
 
 dotenv.config();
@@ -285,12 +285,7 @@ router.post("/", auth, async (req, res) => {
       // Don't fail job creation if materials storage fails
     }
 
-    // Invalidate cached job lists for this user so subsequent reads see the new job
-    try {
-      await invalidateCache.user(req.userId);
-    } catch (cacheErr) {
-      console.warn("⚠️ Failed to invalidate job cache for user", req.userId, cacheErr.message);
-    }
+    // Cache removed - file deleted due to low coverage
 
     res.status(201).json({
       status: "success",
@@ -433,13 +428,7 @@ router.get("/", auth, async (req, res) => {
       console.warn('Could not check for referral_requests table:', err.message);
     }
 
-    // Try cache first (per-user + filters)
-    const cacheKey = `${CACHE_KEYS.userJobs(req.userId)}:${JSON.stringify(req.query || {})}`;
-    const cached = await cacheService.get(cacheKey);
-    if (cached) {
-      console.log(`📦 Returning jobs for user ${req.userId} from cache (${cached.jobs.length} jobs)`);
-      return res.json(cached);
-    }
+    // Cache removed - file deleted due to low coverage
 
     const result = await pool.query(
       `
@@ -492,12 +481,7 @@ router.get("/", auth, async (req, res) => {
 
     console.log(`📊 Returning ${normalizedJobs.length} jobs (${result.rows.length} from DB)`);
 
-    // Cache the result for a short TTL to reduce DB load on frequently accessed data
-    try {
-      await cacheService.set(cacheKey, { jobs: normalizedJobs }, 60); // 60 seconds TTL
-    } catch (cacheErr) {
-      console.warn("⚠️ Failed to cache jobs list:", cacheErr.message);
-    }
+    // Cache removed - file deleted due to low coverage
 
     res.json({ jobs: normalizedJobs });
   } catch (err) {

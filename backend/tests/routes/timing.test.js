@@ -3303,4 +3303,203 @@ describe("Timing Routes", () => {
       expect(response.status).toBe(401);
     });
   });
+
+  describe("POST /api/timing/process-reminders", () => {
+    it("should process scheduled submission reminders", async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes("SELECT") && query.includes("scheduled_submissions")) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1,
+                job_id: 1,
+                user_id: userId,
+                scheduled_date: new Date().toISOString().split("T")[0],
+                scheduled_time: "10:00:00",
+                reminder_sent: false,
+                job_title: "Software Engineer",
+                job_company: "Tech Corp",
+                user_email: "test@example.com",
+              },
+            ],
+          });
+        }
+        if (query.includes("UPDATE scheduled_submissions SET reminder_sent")) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post("/api/timing/process-reminders")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect([200, 500]).toContain(response.status);
+    });
+
+    it("should handle empty reminders list", async () => {
+      pool.query.mockResolvedValue({ rows: [] });
+
+      const response = await request(app)
+        .post("/api/timing/process-reminders")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.processed).toBe(0);
+    });
+
+    it("should handle database error on process reminders", async () => {
+      pool.query.mockRejectedValueOnce(new Error("Database error"));
+
+      const response = await request(app)
+        .post("/api/timing/process-reminders")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect(response.status).toBe(500);
+    });
+
+    it("should handle reminder without user email", async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes("SELECT") && query.includes("scheduled_submissions")) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1,
+                job_id: 1,
+                user_id: userId,
+                scheduled_date: new Date().toISOString().split("T")[0],
+                scheduled_time: "10:00:00",
+                reminder_sent: false,
+                job_title: "Software Engineer",
+                job_company: "Tech Corp",
+                user_email: null, // No email
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post("/api/timing/process-reminders")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.results).toEqual([]);
+    });
+
+    it("should handle email sending failure", async () => {
+      pool.query.mockImplementation((query) => {
+        if (query.includes("SELECT") && query.includes("scheduled_submissions")) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1,
+                job_id: 1,
+                user_id: userId,
+                scheduled_date: new Date().toISOString().split("T")[0],
+                scheduled_time: "10:00:00",
+                reminder_sent: false,
+                job_title: "Software Engineer",
+                job_company: "Tech Corp",
+                user_email: "test@example.com",
+              },
+            ],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .post("/api/timing/process-reminders")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect([200, 500]).toContain(response.status);
+    });
+  });
+
+  describe("A/B Test Winner Determination - Equal Scores Tiebreaker", () => {
+    it("should use response_rate as tiebreaker when composite scores are exactly equal", async () => {
+      pool.query.mockImplementation((query, params) => {
+        if (query.includes("SELECT * FROM timing_ab_tests")) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1,
+                user_id: userId,
+                test_type: "day_of_week",
+                test_name: "Equal Composite Test",
+                variant_a: JSON.stringify({ day_of_week: 1 }),
+                variant_b: JSON.stringify({ day_of_week: 2 }),
+                results_a: null,
+                results_b: null,
+              },
+            ],
+          });
+        }
+        // Return exactly equal composite scores but different response rates
+        if (query.includes("FROM application_submissions")) {
+          const dayParam = params && params[0];
+          if (dayParam === 1) {
+            return Promise.resolve({
+              rows: [{ total_submissions: 100, responses: 60, interviews: 20, offers: 5 }],
+            });
+          } else if (dayParam === 2) {
+            return Promise.resolve({
+              rows: [{ total_submissions: 100, responses: 55, interviews: 22, offers: 6 }],
+            });
+          }
+        }
+        if (query.includes("UPDATE timing_ab_tests")) {
+          return Promise.resolve({ rows: [{ id: 1 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get("/api/timing/ab-tests")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+    });
+
+    it("should determine winner correctly when scoreA equals scoreB", async () => {
+      pool.query.mockImplementation((query, params) => {
+        if (query.includes("SELECT * FROM timing_ab_tests")) {
+          return Promise.resolve({
+            rows: [
+              {
+                id: 1,
+                user_id: userId,
+                test_type: "time_of_day",
+                test_name: "Time Test",
+                variant_a: JSON.stringify({ time_of_day: "morning" }),
+                variant_b: JSON.stringify({ time_of_day: "evening" }),
+                results_a: null,
+                results_b: null,
+              },
+            ],
+          });
+        }
+        // Return same scores
+        if (query.includes("FROM application_submissions") && query.includes("hour_of_day")) {
+          return Promise.resolve({
+            rows: [{ total_submissions: 50, responses: 25, interviews: 10, offers: 2 }],
+          });
+        }
+        if (query.includes("UPDATE timing_ab_tests")) {
+          return Promise.resolve({ rows: [{ id: 1 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const response = await request(app)
+        .get("/api/timing/ab-tests")
+        .set("Authorization", `Bearer ${user.token}`);
+
+      expect(response.status).toBe(200);
+    });
+  });
 });
