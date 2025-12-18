@@ -42,6 +42,7 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
     "openai": "^6.9.0",
+    "parseley": "^0.12.1",
     "pdf-parse": "^1.1.1",
     "pdf2json": "^4.0.0",
     "pdfkit": "^0.17.2",
