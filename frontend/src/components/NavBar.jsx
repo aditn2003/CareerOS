@@ -1,9 +1,10 @@
 // src/components/NavBar.jsx
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import "./navbar.css";
 import Logo from "./Logo";
 import DecryptedText from "./DecryptedText";
-import LightPillar from "./LightPillar";
+// Lazy load LightPillar (contains three.js - 52.4 KiB savings)
+const LightPillar = lazy(() => import("./LightPillar"));
 import {
   FaHome,
   FaUser,
@@ -140,21 +141,23 @@ export default function NavBar() {
   return (
     <div className="navbar-wrapper">
       <header className={`navbar ${isMenuOpen ? 'navbar-expanded' : ''}`}>
-        {/* Light Pillar Background - memoized to prevent re-renders */}
+        {/* Light Pillar Background - lazy loaded to reduce initial bundle */}
         <div className="navbar-light-pillar">
-          <LightPillar
-            key="navbar-light-pillar" // Stable key prevents re-mounting
-            topColor="#7c3aed"
-            bottomColor="#a78bfa"
-            intensity={0.8}
-            rotationSpeed={0.2}
-            glowAmount={0.003}
-            pillarWidth={2.8}
-            pillarHeight={0.45}
-            noiseIntensity={0.3}
-            mixBlendMode="normal"
-            pillarRotation={45}
-          />
+          <Suspense fallback={<div style={{ width: '100%', height: '100%', minHeight: '200px' }} />}>
+            <LightPillar
+              key="navbar-light-pillar" // Stable key prevents re-mounting
+              topColor="#7c3aed"
+              bottomColor="#a78bfa"
+              intensity={0.8}
+              rotationSpeed={0.2}
+              glowAmount={0.003}
+              pillarWidth={2.8}
+              pillarHeight={0.45}
+              noiseIntensity={0.3}
+              mixBlendMode="normal"
+              pillarRotation={45}
+            />
+          </Suspense>
         </div>
         {/* Logo */}
         <div className="navbar-logo" onClick={() => navigate("/")}>
