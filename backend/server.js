@@ -99,6 +99,7 @@ import monitoringRoutes from "./routes/monitoring.js";
 
 // ====== 📈 SCALABILITY AND RESOURCE MANAGEMENT (UC-136) ======
 import { metricsMiddleware } from "./utils/resourceMonitor.js";
+import "./utils/cache.js"; // Initialize Redis cache connection
 
 // ===== Initialize =====
 dotenv.config();
