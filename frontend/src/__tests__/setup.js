@@ -44,12 +44,15 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+// Mock ResizeObserver as a proper class
+global.ResizeObserver = class ResizeObserver {
+  constructor(callback) {
+    this.callback = callback;
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn().mockImplementation(() => ({
@@ -62,8 +65,8 @@ global.IntersectionObserver = vi.fn().mockImplementation(() => ({
 // Mock scrollTo
 window.scrollTo = vi.fn();
 
-// Mock fetch if not using MSW
-global.fetch = vi.fn();
+// Note: Don't mock global.fetch here as MSW needs the real fetch to work
+// MSW will intercept requests and provide mock responses
 
 // Suppress console errors/warnings in tests (optional, comment out for debugging)
 // vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -76,4 +79,3 @@ vi.stubGlobal("import.meta", {
     MODE: "test",
   },
 });
-
