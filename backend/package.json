@@ -10,7 +10,11 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=html",
-    "test:jest": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand --forceExit --testTimeout=30000"
+    "test:jest": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand --forceExit --testTimeout=30000",
+    "security:audit": "node scripts/security-audit.js",
+    "audit": "npm audit && npm run security:audit",
+    "load-test": "node scripts/load-test.js",
+    "load-test:heavy": "node scripts/load-test.js --users 50 --duration 60 --rps 5"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
