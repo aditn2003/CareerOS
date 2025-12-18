@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/817</span>
+                <span class='fraction'>0/815</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/737</span>
+                <span class='fraction'>0/733</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/182</span>
+                <span class='fraction'>0/181</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/784</span>
+                <span class='fraction'>0/782</span>
             </div>
         
             
@@ -2720,20 +2720,8 @@
 <a name='L2655'></a><a href='#L2655'>2655</a>
 <a name='L2656'></a><a href='#L2656'>2656</a>
 <a name='L2657'></a><a href='#L2657'>2657</a>
-<a name='L2658'></a><a href='#L2658'>2658</a>
-<a name='L2659'></a><a href='#L2659'>2659</a>
-<a name='L2660'></a><a href='#L2660'>2660</a>
-<a name='L2661'></a><a href='#L2661'>2661</a>
-<a name='L2662'></a><a href='#L2662'>2662</a>
-<a name='L2663'></a><a href='#L2663'>2663</a>
-<a name='L2664'></a><a href='#L2664'>2664</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2658'></a><a href='#L2658'>2658</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5392,13 +5380,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { api } from "../api";
-&nbsp;
-// Get API base URL for direct fetch calls
-const getApiBaseUrl = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >  return import.meta.env.VITE_API_URL || </span>
-    (window.location.hostname === "localhost" ? "http://localhost:4000" : "http://backend:4000");
-};
+import { api, baseURL } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
 import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown, FaMagic, FaCodeBranch, FaCopy, FaExchangeAlt, FaStar, FaArchive, FaTimes, FaCheck, FaPlus, FaExternalLinkAlt } from "react-icons/fa";
@@ -5714,7 +5696,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
       let viewerUrl = <span class="cstat-no" title="statement not covered" >null;</span>
       let title = <span class="cstat-no" title="statement not covered" >doc.title || doc.name || "Document";</span>
       
-      const apiBaseUrl = <span class="cstat-no" title="statement not covered" >getApiBaseUrl();</span>
+      const apiBaseUrl = <span class="cstat-no" title="statement not covered" >baseURL;</span>
       
 <span class="cstat-no" title="statement not covered" >      if (type === "resume") {</span>
 <span class="cstat-no" title="statement not covered" >        viewerUrl = `${apiBaseUrl}/api/resumes/${doc.id}/download`;</span>
@@ -5746,7 +5728,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
         // If singular route fails, try plural route for cover letters
 <span class="cstat-no" title="statement not covered" >        if (!response.ok &amp;&amp; type === "coverLetter") {</span>
 <span class="cstat-no" title="statement not covered" >          console.log('⚠️ Singular route failed, trying plural route...');</span>
-          const apiBaseUrl = <span class="cstat-no" title="statement not covered" >getApiBaseUrl();</span>
+          const apiBaseUrl = <span class="cstat-no" title="statement not covered" >baseURL;</span>
           const pluralUrl = <span class="cstat-no" title="statement not covered" >`${apiBaseUrl}/api/cover-letters/${doc.id}/download?view=true`;</span>
 <span class="cstat-no" title="statement not covered" >          response = await fetch(pluralUrl, {</span>
             headers: {
@@ -6063,7 +6045,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      if (docType === "coverLetter") {</span>
         // For cover letters, use the version view endpoint
-        const viewerUrl = <span class="cstat-no" title="statement not covered" >`${getApiBaseUrl()}/api/versions/cover-letters/${docId}/versions/${versionNumber}/view`;</span>
+        const viewerUrl = <span class="cstat-no" title="statement not covered" >`${baseURL}/api/versions/cover-letters/${docId}/versions/${versionNumber}/view`;</span>
         const response = <span class="cstat-no" title="statement not covered" >await fetch(viewerUrl, {</span>
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -6108,7 +6090,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      if (versionResume) {</span>
         // Use the resume download endpoint
-        const apiBaseUrl = <span class="cstat-no" title="statement not covered" >getApiBaseUrl();</span>
+        const apiBaseUrl = <span class="cstat-no" title="statement not covered" >baseURL;</span>
         const viewerUrl = <span class="cstat-no" title="statement not covered" >`${apiBaseUrl}/api/resumes/${versionResume.id}/download?format=pdf`;</span>
         
         const response = <span class="cstat-no" title="statement not covered" >await fetch(viewerUrl, {</span>
@@ -6134,7 +6116,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
         });
       } else {
         // Fallback to version endpoint if not found as resume
-        const apiBaseUrl = <span class="cstat-no" title="statement not covered" >getApiBaseUrl();</span>
+        const apiBaseUrl = <span class="cstat-no" title="statement not covered" >baseURL;</span>
         const viewerUrl = <span class="cstat-no" title="statement not covered" >`${apiBaseUrl}/api/versions/resumes/${docId}/versions/${versionNumber}/view`;</span>
         const response = <span class="cstat-no" title="statement not covered" >await fetch(viewerUrl, {</span>
           headers: { Authorization: `Bearer ${token}` },
@@ -6150,7 +6132,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
           // Backend returned redirect info, use the redirect URL
           const data = <span class="cstat-no" title="statement not covered" >await response.json();</span>
 <span class="cstat-no" title="statement not covered" >          if (data.redirect) {</span>
-            const apiBaseUrl = <span class="cstat-no" title="statement not covered" >getApiBaseUrl();</span>
+            const apiBaseUrl = <span class="cstat-no" title="statement not covered" >baseURL;</span>
             const redirectResponse = <span class="cstat-no" title="statement not covered" >await fetch(`${apiBaseUrl}${data.redirect}`, {</span>
               headers: { Authorization: `Bearer ${token}` },
             });
@@ -6432,7 +6414,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
 &nbsp;
   const handleDownload = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async (r</span>esumeId, format) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
-      const downloadUrl = <span class="cstat-no" title="statement not covered" >`http://localhost:4000/api/resumes/${resumeId}/download?format=${format}`;</span>
+      const downloadUrl = <span class="cstat-no" title="statement not covered" >`${baseURL}/api/resumes/${resumeId}/download?format=${format}`;</span>
       
       // Fetch the file with authentication
       const response = <span class="cstat-no" title="statement not covered" >await fetch(downloadUrl, {</span>
@@ -7049,7 +7031,7 @@ export default function <span class="fstat-no" title="function not covered" >Doc
 <span class="cstat-no" title="statement not covered" >                              handleView(resumes.find(<span class="fstat-no" title="function not covered" >r =&gt; <span class="cstat-no" title="statement not covered" >r</span>.id === version.resume_id)</span>, "resume");</span>
 <span class="cstat-no" title="statement not covered" >                            } else if (docType === "coverLetter") {</span>
                               // For cover letters, use the version view endpoint
-                              const viewerUrl = <span class="cstat-no" title="statement not covered" >`${getApiBaseUrl()}/api/versions/cover-letters/${versionControlModal.docId}/versions/${version.version_number}/view`;</span>
+                              const viewerUrl = <span class="cstat-no" title="statement not covered" >`${baseURL}/api/versions/cover-letters/${versionControlModal.docId}/versions/${version.version_number}/view`;</span>
 <span class="cstat-no" title="statement not covered" >                              fetch(viewerUrl, {</span>
                                 headers: { Authorization: `Bearer ${token}` },
                               })
@@ -8059,7 +8041,7 @@ function <span class="fstat-no" title="function not covered" >MergeVersionForm({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.520Z
+                at 2025-12-18T11:36:00.868Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
