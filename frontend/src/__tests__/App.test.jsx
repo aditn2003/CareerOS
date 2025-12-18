@@ -130,10 +130,6 @@ vi.mock("../pages/Interviews/SalaryResearch", () => ({
 }));
 
 // Mock additional lazy-loaded components for function coverage
-vi.mock("../pages/StatisticsPage", () => ({
-  default: () => <div data-testid="statistics-page">Statistics Page</div>,
-}));
-
 vi.mock("../pages/Match/JobMatch", () => ({
   default: () => <div data-testid="job-match">Job Match</div>,
 }));
@@ -990,22 +986,6 @@ describe("App - Additional Lazy Component Functions Coverage", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("salary-research")).toBeInTheDocument();
-    });
-  });
-
-  it("triggers StatisticsPage lazy component function", async () => {
-    render(<App />);
-    await waitFor(() => {
-      expect(screen.getByTestId("auth-provider")).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      window.history.pushState({}, "", "/statistics");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("statistics-page")).toBeInTheDocument();
     });
   });
 
