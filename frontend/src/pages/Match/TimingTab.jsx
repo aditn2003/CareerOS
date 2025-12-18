@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { api } from "../../api";
 import TimingAnalytics from "../../components/TimingAnalytics";
+import ScheduleCalendar from "../../components/ScheduleCalendar";
 
 export default function TimingTab({ jobId: jobIdProp }) {
   const [jobs, setJobs] = useState([]);
@@ -10,6 +11,7 @@ export default function TimingTab({ jobId: jobIdProp }) {
   const [error, setError] = useState(null);
   const [timingData, setTimingData] = useState(null);
   const [scheduledSubmissions, setScheduledSubmissions] = useState([]);
+  const [allScheduledSubmissions, setAllScheduledSubmissions] = useState([]); // For the global calendar
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     scheduledDate: '',
@@ -19,18 +21,55 @@ export default function TimingTab({ jobId: jobIdProp }) {
   const [scheduling, setScheduling] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
 
-  // Load all jobs
+  // Load all jobs with quality scores and all scheduled submissions on mount
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchJobsWithScores = async () => {
       try {
         const res = await api.get("/api/jobs");
-        setJobs(res.data.jobs || []);
+        const allJobs = res.data.jobs || [];
+        
+        // Fetch quality scores for each job
+        const jobsWithScores = await Promise.all(
+          allJobs.map(async (job) => {
+            try {
+              // Correct endpoint: /api/quality-scoring/:jobId
+              const scoreRes = await api.get(`/api/quality-scoring/${job.id}`);
+              // The API returns { score: { overall_score, resume_score, ... } }
+              const scoreData = scoreRes.data?.score;
+              const score = scoreData?.overall_score || 0;
+              const qualifies = score >= 70;
+              console.log(`📊 Job ${job.id} (${job.title}): score=${score}, qualifies=${qualifies}`);
+              return { ...job, qualityScore: Math.round(score), qualifies };
+            } catch (err) {
+              // 404 means no score yet (hasn't been analyzed)
+              if (err?.response?.status !== 404) {
+                console.log(`📊 Job ${job.id} (${job.title}): error fetching score`, err?.response?.status);
+              }
+              return { ...job, qualityScore: 0, qualifies: false };
+            }
+          })
+        );
+        
+        const qualifiedCount = jobsWithScores.filter(j => j.qualifies).length;
+        console.log(`📊 Timing Tab: ${qualifiedCount}/${allJobs.length} jobs qualify (score >= 70)`);
+        setJobs(jobsWithScores);
       } catch (err) {
         console.error("❌ Error loading jobs:", err);
       }
     };
-    fetchJobs();
+    fetchJobsWithScores();
+    loadAllScheduledSubmissions(); // Load global calendar data
   }, []);
+
+  // Load ALL scheduled submissions for the global calendar
+  const loadAllScheduledSubmissions = async () => {
+    try {
+      const res = await api.get('/api/timing/scheduled');
+      setAllScheduledSubmissions(res.data.schedules || []);
+    } catch (err) {
+      console.error("❌ Error loading all scheduled submissions:", err);
+    }
+  };
 
   // Set jobId from prop when component mounts or prop changes
   useEffect(() => {
@@ -105,6 +144,7 @@ export default function TimingTab({ jobId: jobIdProp }) {
       setShowScheduleForm(false);
       setScheduleForm({ scheduledDate: '', scheduledTime: '', notes: '' });
       await loadScheduledSubmissions();
+      await loadAllScheduledSubmissions(); // Refresh global calendar
     } catch (err) {
       console.error("❌ Error scheduling submission:", err);
       alert(err.response?.data?.error || "Failed to schedule submission. Please try again.");
@@ -123,6 +163,7 @@ export default function TimingTab({ jobId: jobIdProp }) {
         status: 'cancelled'
       });
       await loadScheduledSubmissions();
+      await loadAllScheduledSubmissions(); // Refresh global calendar
     } catch (err) {
       console.error("❌ Error cancelling schedule:", err);
       alert("Failed to cancel schedule. Please try again.");
@@ -137,6 +178,7 @@ export default function TimingTab({ jobId: jobIdProp }) {
     try {
       await api.delete(`/api/timing/schedule/${scheduleId}`);
       await loadScheduledSubmissions();
+      await loadAllScheduledSubmissions(); // Refresh global calendar
       alert("✅ Scheduled submission deleted successfully");
     } catch (err) {
       console.error("❌ Error deleting schedule:", err);
@@ -150,12 +192,13 @@ export default function TimingTab({ jobId: jobIdProp }) {
       const res = await api.put(`/api/timing/schedule/${scheduleId}`, {
         status: 'completed'
       });
-      
+
       if (res.data.success) {
         alert("✅ Application marked as completed and recorded!");
       }
-      
+
       await loadScheduledSubmissions();
+      await loadAllScheduledSubmissions(); // Refresh global calendar
       await loadTimingRecommendations();
     } catch (err) {
       console.error("❌ Error completing schedule:", err);
@@ -168,6 +211,17 @@ export default function TimingTab({ jobId: jobIdProp }) {
 
   return (
     <div className="timing-tab-content">
+      {/* Global Submissions Calendar - At the top */}
+      <div className="timing-global-calendar">
+        <div className="timing-calendar-header">
+          <h2>📅 Your Submission Calendar</h2>
+          <p className="timing-calendar-subtitle">
+            Track all your scheduled application submissions in one place
+          </p>
+        </div>
+        <ScheduleCalendar scheduledSubmissions={allScheduledSubmissions} />
+      </div>
+
       <div className="timing-header">
         <h2>Timing Recommendations</h2>
         <p className="timing-subtitle">
@@ -196,16 +250,31 @@ export default function TimingTab({ jobId: jobIdProp }) {
         <select
           id="timing-job-select"
           value={selectedJobId}
-          onChange={(e) => setSelectedJobId(e.target.value)}
+          onChange={(e) => {
+            const job = jobs.find(j => String(j.id) === e.target.value);
+            if (job && !job.qualifies) {
+              alert(`🔒 This job needs a quality score of 70% or higher to unlock timing recommendations.\n\nCurrent score: ${job.qualityScore}%\n\nGo to the Quality tab to improve your application materials.`);
+              return;
+            }
+            setSelectedJobId(e.target.value);
+          }}
           className="timing-job-select"
         >
           <option value="">-- Select a job --</option>
           {jobs.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.title} at {job.company}
+            <option 
+              key={job.id} 
+              value={job.id}
+              className={job.qualifies ? '' : 'timing-job-disabled'}
+              style={job.qualifies ? {} : { color: '#9ca3af' }}
+            >
+              {job.qualifies ? '✅' : '🔒'} {job.title} at {job.company} ({job.qualityScore}%)
             </option>
           ))}
         </select>
+        <p className="timing-job-hint">
+          🔒 = Needs 70%+ quality score to unlock
+        </p>
       </div>
 
       {loading && (
@@ -337,6 +406,56 @@ export default function TimingTab({ jobId: jobIdProp }) {
               <p>{timingData.recommendation.reasoning}</p>
             </div>
 
+            {/* Schedule for Optimal Time Button */}
+            <button
+              className="timing-alternative-schedule-btn timing-optimal-schedule-btn"
+              onClick={() => {
+                // Get the date - ensure it's in YYYY-MM-DD format
+                let scheduleDate = timingData.recommendation.recommended_date;
+                
+                // If recommended_date contains 'T' (full ISO format), extract just the date part
+                if (scheduleDate && scheduleDate.includes('T')) {
+                  scheduleDate = scheduleDate.split('T')[0];
+                }
+                
+                // If still no date, try parsing from formatted_date
+                if (!scheduleDate && timingData.recommendation.formatted_date) {
+                  const parsed = new Date(timingData.recommendation.formatted_date);
+                  if (!isNaN(parsed)) {
+                    scheduleDate = parsed.toISOString().split('T')[0];
+                  }
+                }
+                
+                // Get the time - try recommended_time first
+                let scheduleTime = timingData.recommendation.recommended_time;
+                
+                // If no time, parse from formatted_time (e.g., "2 PM" -> "14:00")
+                if (!scheduleTime && timingData.recommendation.formatted_time) {
+                  const timeStr = timingData.recommendation.formatted_time;
+                  const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
+                  if (match) {
+                    let hours = parseInt(match[1]);
+                    const minutes = match[2] ? parseInt(match[2]) : 0;
+                    const period = match[3].toUpperCase();
+                    if (period === 'PM' && hours !== 12) hours += 12;
+                    if (period === 'AM' && hours === 12) hours = 0;
+                    scheduleTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                  }
+                }
+                
+                console.log('📅 Scheduling optimal time:', { scheduleDate, scheduleTime, raw: timingData.recommendation });
+                
+                setScheduleForm({
+                  scheduledDate: scheduleDate || '',
+                  scheduledTime: scheduleTime || '10:00',
+                  notes: ''
+                });
+                setShowScheduleForm(true);
+              }}
+            >
+              📅 Schedule for This Time
+            </button>
+
             {/* Company-Specific Best Time */}
             {timingData.recommendation.company_analysis && (
               <div className="timing-company-analysis">
@@ -380,13 +499,17 @@ export default function TimingTab({ jobId: jobIdProp }) {
                         <span className="timing-alternative-badge">Good Option</span>
                       </div>
                       <div className="timing-alternative-date">
-                        {new Date(alt.recommended_date).toLocaleDateString('en-US', {
-                          weekday: 'long',
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          timeZone: 'America/New_York'
-                        })} (EST)
+                        {(() => {
+                          // Parse date parts to avoid timezone issues
+                          const [year, month, day] = alt.recommended_date.split('-').map(Number);
+                          const date = new Date(year, month - 1, day);
+                          return date.toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          });
+                        })()} (EST)
                       </div>
                       <div className="timing-alternative-stats">
                         <span>Response Rate: {Math.round(alt.response_rate * 100)}%</span>
@@ -410,32 +533,6 @@ export default function TimingTab({ jobId: jobIdProp }) {
                 </div>
               </div>
             )}
-            <div className="timing-rec-actions">
-              <button 
-                className="timing-schedule-manual-btn"
-                onClick={() => {
-                  // Pre-fill with recommended date/time if available
-                  if (timingData && timingData.recommendation) {
-                    setScheduleForm({
-                      scheduledDate: timingData.recommendation.recommended_date,
-                      scheduledTime: timingData.recommendation.recommended_time || '10:00:00',
-                      notes: ''
-                    });
-                  } else {
-                    const tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    setScheduleForm({
-                      scheduledDate: tomorrow.toISOString().split('T')[0],
-                      scheduledTime: '10:00:00',
-                      notes: ''
-                    });
-                  }
-                  setShowScheduleForm(true);
-                }}
-              >
-                📅 Schedule Application
-              </button>
-            </div>
           </div>
 
           {/* Schedule Form */}
@@ -545,6 +642,7 @@ export default function TimingTab({ jobId: jobIdProp }) {
               ))}
             </div>
           )}
+
         </div>
       )}
     </div>

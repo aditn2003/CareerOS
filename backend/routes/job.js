@@ -232,22 +232,35 @@ router.post("/", auth, async (req, res) => {
         }
       }
 
-      // Validate cover_letter_id exists if provided (check uploaded_cover_letters table)
+      // Validate cover_letter_id exists if provided (check both uploaded_cover_letters AND cover_letters tables)
       let validCoverLetterId = null;
       if (finalCoverLetterId) {
-        const coverCheck = await pool.query(
+        // First check uploaded_cover_letters table
+        let coverCheck = await pool.query(
           `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
           [finalCoverLetterId, req.userId]
         );
         if (coverCheck.rows.length > 0) {
           validCoverLetterId = finalCoverLetterId;
           console.log(
-            `✅ Cover letter ID ${finalCoverLetterId} validated for user ${req.userId}`
+            `✅ Cover letter ID ${finalCoverLetterId} validated (uploaded) for user ${req.userId}`
           );
         } else {
-          console.warn(
-            `⚠️ Cover letter ID ${finalCoverLetterId} not found for user ${req.userId}`
+          // Also check cover_letters table (AI-generated cover letters)
+          coverCheck = await pool.query(
+            `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+            [finalCoverLetterId, req.userId]
           );
+          if (coverCheck.rows.length > 0) {
+            validCoverLetterId = finalCoverLetterId;
+            console.log(
+              `✅ Cover letter ID ${finalCoverLetterId} validated (AI-generated) for user ${req.userId}`
+            );
+          } else {
+            console.warn(
+              `⚠️ Cover letter ID ${finalCoverLetterId} not found in any table for user ${req.userId}`
+            );
+          }
         }
       }
 
@@ -994,7 +1007,7 @@ router.get("/:id", auth, validateIdParam, async (req, res) => {
 
     const job = result.rows[0];
 
-    // Get materials from clean table with cover letter details (like mentor tab)
+    // Get materials from clean table with cover letter details (check all cover letter tables)
     try {
       const materialsResult = await pool.query(
         `SELECT 
@@ -1002,17 +1015,19 @@ router.get("/:id", auth, validateIdParam, async (req, res) => {
           jm.cover_letter_id,
           r.title AS resume_title,
           r.format AS resume_format,
-          COALESCE(cl.title, clt.name) AS cover_letter_title,
-          cl.format AS cover_letter_format,
-          cl.file_url AS cover_letter_file_url,
+          COALESCE(ucl.title, cl.name, clt.name) AS cover_letter_title,
+          COALESCE(ucl.format, 'pdf') AS cover_letter_format,
+          ucl.file_url AS cover_letter_file_url,
           CASE 
-            WHEN cl.id IS NOT NULL THEN 'uploaded_cover_letters'
+            WHEN ucl.id IS NOT NULL THEN 'uploaded_cover_letters'
+            WHEN cl.id IS NOT NULL THEN 'cover_letters'
             WHEN clt.id IS NOT NULL THEN 'cover_letter_templates'
             ELSE NULL
           END AS cover_letter_source
          FROM job_materials jm
          LEFT JOIN resumes r ON jm.resume_id = r.id AND r.user_id = jm.user_id
-         LEFT JOIN uploaded_cover_letters cl ON jm.cover_letter_id = cl.id AND cl.user_id = jm.user_id
+         LEFT JOIN uploaded_cover_letters ucl ON jm.cover_letter_id = ucl.id AND ucl.user_id = jm.user_id
+         LEFT JOIN cover_letters cl ON jm.cover_letter_id = cl.id AND cl.user_id = jm.user_id
          LEFT JOIN cover_letter_templates clt ON jm.cover_letter_id = clt.id
          WHERE jm.job_id = $1`,
         [id]
@@ -1377,14 +1392,21 @@ router.put("/:id", auth, validateIdParam, async (req, res) => {
           }
         }
 
-        // Validate cover_letter_id exists if provided (check uploaded_cover_letters table)
+        // Validate cover_letter_id exists if provided (check both uploaded_cover_letters AND cover_letters tables)
         if (coverLetterId) {
-          const coverCheck = await pool.query(
+          let coverCheck = await pool.query(
             `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
             [coverLetterId, req.userId]
           );
           if (coverCheck.rows.length === 0) {
-            coverLetterId = null;
+            // Also check cover_letters table (AI-generated cover letters)
+            coverCheck = await pool.query(
+              `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+              [coverLetterId, req.userId]
+            );
+            if (coverCheck.rows.length === 0) {
+              coverLetterId = null;
+            }
           }
         }
 
@@ -1660,28 +1682,43 @@ router.put("/:id/materials", auth, async (req, res) => {
 
     let validCoverLetterId = null;
     if (finalCoverLetterId) {
-      const coverCheck = await pool.query(
+      // First check uploaded_cover_letters table
+      let coverCheck = await pool.query(
         `SELECT id FROM uploaded_cover_letters WHERE id = $1 AND user_id = $2`,
         [finalCoverLetterId, req.userId]
       );
       if (coverCheck.rows.length > 0) {
         validCoverLetterId = finalCoverLetterId;
+        console.log(`✅ Cover letter ID ${finalCoverLetterId} validated (uploaded) for user ${req.userId}`);
+      } else {
+        // Also check cover_letters table (AI-generated cover letters)
+        coverCheck = await pool.query(
+          `SELECT id FROM cover_letters WHERE id = $1 AND user_id = $2`,
+          [finalCoverLetterId, req.userId]
+        );
+        if (coverCheck.rows.length > 0) {
+          validCoverLetterId = finalCoverLetterId;
+          console.log(`✅ Cover letter ID ${finalCoverLetterId} validated (AI-generated) for user ${req.userId}`);
+        } else {
+          console.warn(`⚠️ Cover letter ID ${finalCoverLetterId} not found in any table for user ${req.userId}`);
+        }
       }
     }
 
-    // Update job_materials table
-    if (validResumeId || validCoverLetterId) {
-      await pool.query(
-        `INSERT INTO job_materials (job_id, user_id, resume_id, cover_letter_id)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (job_id) 
-         DO UPDATE SET 
-           resume_id = COALESCE(EXCLUDED.resume_id, job_materials.resume_id),
-           cover_letter_id = COALESCE(EXCLUDED.cover_letter_id, job_materials.cover_letter_id),
-           updated_at = NOW()`,
-        [id, req.userId, validResumeId, validCoverLetterId]
-      );
-    }
+    // Update job_materials table - always update, allow null to clear values
+    // Use the actual values (including null) rather than COALESCE to allow clearing
+    await pool.query(
+      `INSERT INTO job_materials (job_id, user_id, resume_id, cover_letter_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (job_id) 
+       DO UPDATE SET 
+         resume_id = $3,
+         cover_letter_id = $4,
+         updated_at = NOW()`,
+      [id, req.userId, validResumeId, validCoverLetterId]
+    );
+    
+    console.log(`✅ [PUT MATERIALS] Updated job ${id}: resume_id=${validResumeId}, cover_letter_id=${validCoverLetterId}`);
 
     // Get updated job with materials
     const result = await pool.query(

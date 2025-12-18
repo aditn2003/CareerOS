@@ -1638,6 +1638,13 @@
     background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     transform: translateY(-1px);
   }
+
+  /* Optimal Time Schedule Button - stands out more */
+  .timing-optimal-schedule-btn {
+    margin-top: 20px;
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
   }
 
   /* Recommendation Details */
@@ -2193,5 +2200,49 @@
       flex-direction: column;
       gap: 4px;
     }
+  }
+
+  /* ================================
+     Global Submissions Calendar
+  ================================== */
+
+  .timing-global-calendar {
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .timing-calendar-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .timing-calendar-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+  }
+
+  .timing-calendar-subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .timing-global-calendar .schedule-calendar {
+    max-width: 100%;
+  }
+
+  /* Job Selector Hint */
+  .timing-job-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .timing-job-disabled {
+    color: #9ca3af !important;
   }
      

@@ -962,6 +962,29 @@ crons.schedule("0 9 * * *", async () => {
   }
 });
 
+// ====== 📅 SCHEDULED SUBMISSION REMINDER CRON JOB ======
+// Run every 5 minutes to check for upcoming scheduled submissions
+crons.schedule("*/5 * * * *", async () => {
+  console.log("⏰ Checking for scheduled submission reminders...");
+  try {
+    const port = process.env.PORT || 4000;
+    // Make internal API call to process reminders
+    const response = await fetch(`http://localhost:${port}/api/timing/process-reminders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.processed > 0) {
+        console.log(`📧 Processed ${result.processed} scheduled submission reminder(s)`);
+      }
+    }
+  } catch (err) {
+    console.error("❌ Scheduled submission reminder check failed:", err.message);
+  }
+});
+
 async function sendDeadlineReminders() {
   console.log("📬 Running job deadline reminder (manual/cron)...");
 
