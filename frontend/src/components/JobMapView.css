@@ -195,6 +195,39 @@
   font-size: 0.875rem;
 }
 
+.no-location-jobs {
+  padding: 1rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  margin-top: 1rem;
+}
+
+.no-location-jobs h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.no-location-jobs ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: #4b5563;
+  list-style-type: disc;
+}
+
+.no-location-jobs li {
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.job-status-badge {
+  color: #6b7280;
+  font-weight: 500;
+}
+
 .geocoding-status {
   padding: 0.5rem 1rem;
   background: #dbeafe;

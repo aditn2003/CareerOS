@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { baseURL } from '../api';
 
 const LinkedInOAuthButton = () => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const LinkedInOAuthButton = () => {
   const handleLinkedInLogin = () => {
     setLoading(true);
     // Redirect to backend OAuth endpoint
-    window.location.href = 'http://localhost:4000/api/auth/linkedin';
+    window.location.href = `${baseURL}/api/auth/linkedin`;
   };
 
   return (

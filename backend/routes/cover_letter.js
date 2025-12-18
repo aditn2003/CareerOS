@@ -64,7 +64,7 @@ router.get("/", auth, async (req, res) => {
         `
         SELECT 
           id,
-          title,
+          name AS title,
           'pdf' AS format,
           NULL AS file_url,
           content,
@@ -260,7 +260,7 @@ router.get("/:id", auth, async (req, res) => {
         result = await pool.query(
           `SELECT 
             id,
-            title,
+            name AS title,
             'pdf' AS format,
             NULL AS file_url,
             content,
@@ -322,7 +322,7 @@ router.get("/:id/download", auth, async (req, res) => {
     if (coverLetterResult.rows.length === 0) {
       try {
         coverLetterResult = await pool.query(
-          `SELECT id, title, 'pdf' AS format, NULL AS file_url, content, user_id
+          `SELECT id, name AS title, 'pdf' AS format, NULL AS file_url, content, user_id
            FROM cover_letters
            WHERE id = $1 AND user_id = $2`,
           [idNum, userId]

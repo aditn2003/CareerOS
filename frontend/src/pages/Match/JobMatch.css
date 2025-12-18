@@ -93,6 +93,36 @@
     background: #c4b5fd;
     cursor: not-allowed;
   }
+
+  .jobs-error-message {
+    text-align: center;
+    padding: 12px 20px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 10px;
+    color: #fca5a5;
+    margin-bottom: 20px;
+  }
+
+  .jobs-error-message button {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px;
+    font-weight: 600;
+  }
+
+  .jobs-error-message button:hover {
+    background: #dc2626;
+  }
+
+  .match-job-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   
   /* ================================
      Weight Controls (Preferences)
@@ -258,6 +288,361 @@
   .compare-link:hover {
     color: #5328d9;
     text-decoration: underline;
+  }
+
+  /* ================================
+     UC-123: Quick Actions
+  ================================== */
+
+  .match-quick-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .quick-action-btn {
+    padding: 12px 24px;
+    border: 2px solid rgba(124, 58, 237, 0.3);
+    border-radius: 12px;
+    background: rgba(30, 27, 75, 0.6);
+    color: #c4b5fd;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .quick-action-btn:hover:not(:disabled) {
+    background: rgba(124, 58, 237, 0.2);
+    border-color: rgba(124, 58, 237, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .quick-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: rgba(100, 100, 100, 0.3) !important;
+    border-color: rgba(100, 100, 100, 0.3) !important;
+    color: #6b7280 !important;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .quick-action-btn:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .select-job-hint {
+    text-align: center;
+    color: #f59e0b;
+    font-size: 0.9rem;
+    margin: -12px 0 16px 0;
+    padding: 10px 16px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: 8px;
+    border: 1px dashed rgba(245, 158, 11, 0.4);
+  }
+
+  .quick-action-btn.active {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border-color: #8b5cf6;
+    color: white;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+  }
+
+  .quick-action-btn.requirements-btn.active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-color: #10b981;
+  }
+
+  .quick-action-btn.ranking-btn.active {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-color: #f59e0b;
+  }
+
+  /* ================================
+     UC-123: Requirements Analysis Wrapper
+  ================================== */
+
+  .requirements-analysis-wrapper {
+    margin-bottom: 30px;
+  }
+
+  .requirements-analysis-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 24px;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+  }
+
+  .requirements-analysis-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  }
+
+  /* ================================
+     UC-123: Job Ranking Section
+  ================================== */
+
+  .job-ranking-section {
+    background: rgba(30, 27, 75, 0.6);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 30px;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .ranking-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .ranking-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #fbbf24;
+  }
+
+  .refresh-ranking-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .refresh-ranking-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+  }
+
+  .refresh-ranking-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .ranked-jobs-list h4,
+  .unanalyzed-jobs-section h4 {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+    margin-bottom: 16px;
+  }
+
+  /* Ranking Table */
+  .ranking-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 24px;
+  }
+
+  .ranking-table th {
+    background: rgba(55, 48, 107, 0.95);
+    color: #ffffff;
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ranking-table th:first-child {
+    border-radius: 10px 0 0 0;
+  }
+
+  .ranking-table th:last-child {
+    border-radius: 0 10px 0 0;
+  }
+
+  .ranking-table td {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 16px;
+    border-bottom: 1px solid rgba(100, 116, 139, 0.2);
+    color: #1f2937;
+    font-weight: 500;
+  }
+
+  .ranking-table tr:last-child td:first-child {
+    border-radius: 0 0 0 10px;
+  }
+
+  .ranking-table tr:last-child td:last-child {
+    border-radius: 0 0 10px 0;
+  }
+
+  .ranking-table tr.top-match td {
+    background: rgba(16, 185, 129, 0.15);
+  }
+
+  .ranking-table td:not(.rank-cell):not(.score-cell) {
+    color: #1f2937;
+  }
+
+  .rank-cell {
+    color: #374151 !important;
+  }
+
+  .rank-cell {
+    font-size: 1.2rem;
+    text-align: center;
+    width: 60px;
+  }
+
+  .job-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .job-cell strong {
+    color: #1f2937;
+    font-weight: 700;
+  }
+
+  .job-cell .company-name {
+    font-size: 0.85rem;
+    color: #4b5563;
+  }
+
+  .score-cell {
+    text-align: center;
+  }
+
+  .score-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .view-details-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .view-details-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  }
+
+  /* Unanalyzed Jobs */
+  .unanalyzed-jobs-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(100, 116, 139, 0.2);
+  }
+
+  .unanalyzed-jobs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .unanalyzed-job-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: rgba(15, 10, 31, 0.5);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+  }
+
+  .unanalyzed-job-card:hover {
+    border-color: rgba(139, 92, 246, 0.4);
+    background: rgba(30, 27, 75, 0.5);
+  }
+
+  .unanalyzed-job-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .unanalyzed-job-info strong {
+    color: #e2e8f0;
+    font-size: 0.95rem;
+  }
+
+  .unanalyzed-job-info span {
+    color: #94a3b8;
+    font-size: 0.85rem;
+  }
+
+  .analyze-job-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+
+  .analyze-job-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  }
+
+  .no-jobs-message {
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+  }
+
+  .no-jobs-message p {
+    font-size: 1.1rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .ranking-table {
+      display: block;
+      overflow-x: auto;
+    }
+
+    .unanalyzed-jobs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .unanalyzed-job-card {
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+    }
   }
 
   /* ================================
@@ -1253,6 +1638,13 @@
     background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
     transform: translateY(-1px);
   }
+
+  /* Optimal Time Schedule Button - stands out more */
+  .timing-optimal-schedule-btn {
+    margin-top: 20px;
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
   }
 
   /* Recommendation Details */
@@ -1808,5 +2200,49 @@
       flex-direction: column;
       gap: 4px;
     }
+  }
+
+  /* ================================
+     Global Submissions Calendar
+  ================================== */
+
+  .timing-global-calendar {
+    margin-bottom: 30px;
+    padding-bottom: 30px;
+    border-bottom: 2px solid #e5e7eb;
+  }
+
+  .timing-calendar-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .timing-calendar-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+  }
+
+  .timing-calendar-subtitle {
+    font-size: 1rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .timing-global-calendar .schedule-calendar {
+    max-width: 100%;
+  }
+
+  /* Job Selector Hint */
+  .timing-job-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .timing-job-disabled {
+    color: #9ca3af !important;
   }
      

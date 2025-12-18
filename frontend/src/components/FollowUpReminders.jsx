@@ -18,9 +18,10 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { baseURL } from '../api';
 import './FollowUpReminders.css';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = `${baseURL}/api`;
 
 const FollowUpReminders = () => {
   const [reminders, setReminders] = useState([]);

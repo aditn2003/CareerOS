@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { api } from "../../api";
+import { api, baseURL } from "../../api";
 import "./SavedResumes.css";
 
 export default function SavedResumes() {
@@ -51,7 +51,7 @@ export default function SavedResumes() {
 
   const handleDownload = (id, format) => {
     window.open(
-      `http://localhost:4000/api/resumes/${id}/download?format=${format}`,
+      `${baseURL}/api/resumes/${id}/download?format=${format}`,
       "_blank"
     );
     setOpenDropdown(null);

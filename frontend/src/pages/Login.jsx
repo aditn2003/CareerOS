@@ -124,7 +124,7 @@ export default function Login() {
     const left = window.innerWidth / 2 - width / 2;
     const top = window.innerHeight / 2 - height / 2;
     window.open(
-      "http://localhost:4000/api/linkedin/auth",
+      `${baseURL}/api/linkedin/auth`,
       "linkedin_login",
       `width=${width},height=${height},left=${left},top=${top}`
     );

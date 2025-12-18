@@ -56,6 +56,7 @@ function MapBoundsUpdater({ jobs, homeLocation, shouldUpdateBounds, onBoundsUpda
 
 export default function JobMapView({ token }) {
   const [jobs, setJobs] = useState([]);
+  const [jobsWithoutLocation, setJobsWithoutLocation] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState({
@@ -107,6 +108,7 @@ export default function JobMapView({ token }) {
         }
         
         setJobs(filteredJobs);
+        setJobsWithoutLocation(res.data.jobsWithoutLocation || []);
         // Only update bounds if we have jobs and it's requested
         if (filteredJobs.length > 0) {
           setShouldUpdateBounds(updateBounds);
@@ -668,6 +670,25 @@ export default function JobMapView({ token }) {
                   {job.company} - {job.title} ({job.location || "No location"})
                 </li>
               ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Jobs without location listed */}
+      {jobsWithoutLocation.length > 0 && (
+        <div className="no-location-jobs">
+          <h4>
+            Jobs without location listed ({jobsWithoutLocation.length})
+          </h4>
+          <ul>
+            {jobsWithoutLocation.map((job) => (
+              <li key={job.id}>
+                <strong>{job.company}</strong> - {job.title}
+                {job.status && (
+                  <span className="job-status-badge"> ({job.status})</span>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       )}

@@ -152,7 +152,10 @@ const OfferComparison = () => {
   const handleSaveFinancial = async (offerId, field) => {
     try {
       const value = tempFinancialValues[`${offerId}_${field}`];
+      console.log(`📝 [SAVE] Attempting to save ${field} for offer ${offerId}, value: ${value}`);
+      
       if (value === undefined || value === null || value === '') {
+        console.log(`⚠️ [SAVE] No value to save, closing editor`);
         setEditingFinancial(null);
         return;
       }
@@ -175,13 +178,17 @@ const OfferComparison = () => {
       }
 
       const updateData = { [backendField]: numValue };
+      console.log(`📤 [SAVE] Sending update to /api/offer-comparison/${offerId}/financial:`, updateData);
 
-      await api.put(`/api/offer-comparison/${offerId}/financial`, updateData);
+      const response = await api.put(`/api/offer-comparison/${offerId}/financial`, updateData);
+      console.log(`✅ [SAVE] Update successful:`, response.data);
+      
       await fetchOffers(); // Refresh to get updated compensation calculations
       setEditingFinancial(null);
       setTempFinancialValues({});
     } catch (err) {
-      console.error('Error updating financial value:', err);
+      console.error('❌ [SAVE] Error updating financial value:', err);
+      console.error('❌ [SAVE] Error details:', err.response?.data);
       alert('Failed to update financial value: ' + (err.response?.data?.error || err.message));
     }
   };
@@ -310,7 +317,7 @@ const OfferComparison = () => {
                                 onClick={() => handleEditFinancial(offer.id, 'base_salary', offer.base_salary || offer.compensation.base)}
                                 title="Edit Base Salary"
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                               </button>
                             </div>
                           )}
@@ -357,7 +364,7 @@ const OfferComparison = () => {
                                 onClick={() => handleEditFinancial(offer.id, 'signing_bonus', offer.signing_bonus || offer.compensation.signing)}
                                 title="Edit Signing Bonus"
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                               </button>
                             </div>
                           )}
@@ -407,7 +414,7 @@ const OfferComparison = () => {
                                 onClick={() => handleEditFinancial(offer.id, 'annual_bonus', bonusPercent)}
                                 title="Edit Annual Bonus %"
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                               </button>
                             </div>
                           )}
@@ -455,7 +462,7 @@ const OfferComparison = () => {
                                 onClick={() => handleEditFinancial(offer.id, 'equity', equityValue)}
                                 title="Edit Total Equity Value"
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                               </button>
                             </div>
                           )}
@@ -502,7 +509,7 @@ const OfferComparison = () => {
                                 onClick={() => handleEditFinancial(offer.id, 'benefits', offer.other_benefits_value || 0)}
                                 title="Edit Benefits Value"
                               >
-                                <Edit size={14} />
+                                <Edit size={16} />
                               </button>
                             </div>
                           )}
@@ -568,32 +575,49 @@ const OfferComparison = () => {
                     </td>
                   </tr>
                   <tr>
-                    <td>
-                      Culture Fit
-                      {displayOffers.some(o => o.scoreSource === 'ai') && (
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#10b981' }}>
-                          🤖 AI
-                        </span>
-                      )}
-                    </td>
+                    <td>Culture Fit</td>
                     {displayOffers.map(offer => (
-                      <td key={offer.id}>
+                      <td key={offer.id} className="editable-cell">
                         {editingScores === offer.id ? (
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={userScores[offer.id]?.cultureFit || offer.nonFinancialScore.cultureFit}
-                            onChange={(e) => setUserScores({
-                              ...userScores,
-                              [offer.id]: {
-                                ...userScores[offer.id],
-                                cultureFit: parseInt(e.target.value)
-                              }
-                            })}
-                          />
+                          <div className="edit-input-group">
+                            <input
+                              type="number"
+                              className="edit-input score-input"
+                              min="1"
+                              max="10"
+                              value={userScores[offer.id]?.cultureFit ?? offer.nonFinancialScore.cultureFit}
+                              onChange={(e) => setUserScores({
+                                ...userScores,
+                                [offer.id]: {
+                                  ...userScores[offer.id],
+                                  cultureFit: parseInt(e.target.value) || 1
+                                }
+                              })}
+                            />
+                            <span className="input-suffix">/10</span>
+                          </div>
                         ) : (
-                          <span className="score-badge">{offer.nonFinancialScore.cultureFit}/10</span>
+                          <div className="editable-value">
+                            <span className="score-badge">{offer.nonFinancialScore.cultureFit}/10</span>
+                            <button
+                              className="edit-icon-btn"
+                              onClick={() => {
+                                setEditingScores(offer.id);
+                                setUserScores({
+                                  ...userScores,
+                                  [offer.id]: {
+                                    cultureFit: offer.nonFinancialScore.cultureFit,
+                                    growthOpportunities: offer.nonFinancialScore.growthOpportunities,
+                                    workLifeBalance: offer.nonFinancialScore.workLifeBalance,
+                                    remoteFlexibility: offer.nonFinancialScore.remoteFlexibility
+                                  }
+                                });
+                              }}
+                              title="Edit Culture Fit Score"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     ))}
@@ -601,23 +625,47 @@ const OfferComparison = () => {
                   <tr>
                     <td>Growth Opportunities</td>
                     {displayOffers.map(offer => (
-                      <td key={offer.id}>
+                      <td key={offer.id} className="editable-cell">
                         {editingScores === offer.id ? (
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={userScores[offer.id]?.growthOpportunities || offer.nonFinancialScore.growthOpportunities}
-                            onChange={(e) => setUserScores({
-                              ...userScores,
-                              [offer.id]: {
-                                ...userScores[offer.id],
-                                growthOpportunities: parseInt(e.target.value)
-                              }
-                            })}
-                          />
+                          <div className="edit-input-group">
+                            <input
+                              type="number"
+                              className="edit-input score-input"
+                              min="1"
+                              max="10"
+                              value={userScores[offer.id]?.growthOpportunities ?? offer.nonFinancialScore.growthOpportunities}
+                              onChange={(e) => setUserScores({
+                                ...userScores,
+                                [offer.id]: {
+                                  ...userScores[offer.id],
+                                  growthOpportunities: parseInt(e.target.value) || 1
+                                }
+                              })}
+                            />
+                            <span className="input-suffix">/10</span>
+                          </div>
                         ) : (
-                          <span className="score-badge">{offer.nonFinancialScore.growthOpportunities}/10</span>
+                          <div className="editable-value">
+                            <span className="score-badge">{offer.nonFinancialScore.growthOpportunities}/10</span>
+                            <button
+                              className="edit-icon-btn"
+                              onClick={() => {
+                                setEditingScores(offer.id);
+                                setUserScores({
+                                  ...userScores,
+                                  [offer.id]: {
+                                    cultureFit: offer.nonFinancialScore.cultureFit,
+                                    growthOpportunities: offer.nonFinancialScore.growthOpportunities,
+                                    workLifeBalance: offer.nonFinancialScore.workLifeBalance,
+                                    remoteFlexibility: offer.nonFinancialScore.remoteFlexibility
+                                  }
+                                });
+                              }}
+                              title="Edit Growth Opportunities Score"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     ))}
@@ -625,23 +673,47 @@ const OfferComparison = () => {
                   <tr>
                     <td>Work-Life Balance</td>
                     {displayOffers.map(offer => (
-                      <td key={offer.id}>
+                      <td key={offer.id} className="editable-cell">
                         {editingScores === offer.id ? (
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={userScores[offer.id]?.workLifeBalance || offer.nonFinancialScore.workLifeBalance}
-                            onChange={(e) => setUserScores({
-                              ...userScores,
-                              [offer.id]: {
-                                ...userScores[offer.id],
-                                workLifeBalance: parseInt(e.target.value)
-                              }
-                            })}
-                          />
+                          <div className="edit-input-group">
+                            <input
+                              type="number"
+                              className="edit-input score-input"
+                              min="1"
+                              max="10"
+                              value={userScores[offer.id]?.workLifeBalance ?? offer.nonFinancialScore.workLifeBalance}
+                              onChange={(e) => setUserScores({
+                                ...userScores,
+                                [offer.id]: {
+                                  ...userScores[offer.id],
+                                  workLifeBalance: parseInt(e.target.value) || 1
+                                }
+                              })}
+                            />
+                            <span className="input-suffix">/10</span>
+                          </div>
                         ) : (
-                          <span className="score-badge">{offer.nonFinancialScore.workLifeBalance}/10</span>
+                          <div className="editable-value">
+                            <span className="score-badge">{offer.nonFinancialScore.workLifeBalance}/10</span>
+                            <button
+                              className="edit-icon-btn"
+                              onClick={() => {
+                                setEditingScores(offer.id);
+                                setUserScores({
+                                  ...userScores,
+                                  [offer.id]: {
+                                    cultureFit: offer.nonFinancialScore.cultureFit,
+                                    growthOpportunities: offer.nonFinancialScore.growthOpportunities,
+                                    workLifeBalance: offer.nonFinancialScore.workLifeBalance,
+                                    remoteFlexibility: offer.nonFinancialScore.remoteFlexibility
+                                  }
+                                });
+                              }}
+                              title="Edit Work-Life Balance Score"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     ))}
@@ -649,23 +721,47 @@ const OfferComparison = () => {
                   <tr>
                     <td>Remote Flexibility</td>
                     {displayOffers.map(offer => (
-                      <td key={offer.id}>
+                      <td key={offer.id} className="editable-cell">
                         {editingScores === offer.id ? (
-                          <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={userScores[offer.id]?.remoteFlexibility || offer.nonFinancialScore.remoteFlexibility}
-                            onChange={(e) => setUserScores({
-                              ...userScores,
-                              [offer.id]: {
-                                ...userScores[offer.id],
-                                remoteFlexibility: parseInt(e.target.value)
-                              }
-                            })}
-                          />
+                          <div className="edit-input-group">
+                            <input
+                              type="number"
+                              className="edit-input score-input"
+                              min="1"
+                              max="10"
+                              value={userScores[offer.id]?.remoteFlexibility ?? offer.nonFinancialScore.remoteFlexibility}
+                              onChange={(e) => setUserScores({
+                                ...userScores,
+                                [offer.id]: {
+                                  ...userScores[offer.id],
+                                  remoteFlexibility: parseInt(e.target.value) || 1
+                                }
+                              })}
+                            />
+                            <span className="input-suffix">/10</span>
+                          </div>
                         ) : (
-                          <span className="score-badge">{offer.nonFinancialScore.remoteFlexibility}/10</span>
+                          <div className="editable-value">
+                            <span className="score-badge">{offer.nonFinancialScore.remoteFlexibility}/10</span>
+                            <button
+                              className="edit-icon-btn"
+                              onClick={() => {
+                                setEditingScores(offer.id);
+                                setUserScores({
+                                  ...userScores,
+                                  [offer.id]: {
+                                    cultureFit: offer.nonFinancialScore.cultureFit,
+                                    growthOpportunities: offer.nonFinancialScore.growthOpportunities,
+                                    workLifeBalance: offer.nonFinancialScore.workLifeBalance,
+                                    remoteFlexibility: offer.nonFinancialScore.remoteFlexibility
+                                  }
+                                });
+                              }}
+                              title="Edit Remote Flexibility Score"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     ))}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { baseURL } from "../api";
 import "./ResumeOptimize.css";
 
 export default function ResumeOptimize() {
@@ -19,7 +20,7 @@ export default function ResumeOptimize() {
   useEffect(() => {
     async function loadJobs() {
       try {
-        const res = await fetch("http://localhost:4000/api/jobs", {
+        const res = await fetch(`${baseURL}/api/jobs`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getUserFriendlyErrorMessage, getErrorAdvice } from "../utils/apiErrorMessages";
+import { baseURL } from "../api";
 import "./ResumeCompare.css";
 
 export default function ResumeCompare() {
@@ -51,7 +52,7 @@ export default function ResumeCompare() {
   async function fetchProfileData() {
     try {
       setLoadingProfile(true);
-      const res = await fetch("http://localhost:4000/api/resumes/from-profile", {
+      const res = await fetch(`${baseURL}/api/resumes/from-profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -134,7 +135,7 @@ export default function ResumeCompare() {
   async function reconcileWithGemini() {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:4000/api/resumes/reconcile", {
+      const res = await fetch(`${baseURL}/api/resumes/reconcile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
