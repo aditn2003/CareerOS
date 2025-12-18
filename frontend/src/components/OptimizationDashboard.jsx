@@ -287,10 +287,10 @@ const OptimizationDashboard = () => {
           <div className="chart-card">
             <h3>Top Performing Industries</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={industryChartData} layout="vertical">
+              <BarChart data={industryChartData} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 100]} />
-                <YAxis type="category" dataKey="name" width={120} />
+                <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
                 <Legend />
                 <Bar dataKey="successRate" fill="#10b981" name="Success Rate (%)" />
@@ -304,10 +304,10 @@ const OptimizationDashboard = () => {
           <div className="chart-card">
             <h3>Application Approach Performance</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={approachChartData} layout="vertical">
+              <BarChart data={approachChartData} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" domain={[0, 100]} />
-                <YAxis type="category" dataKey="name" width={120} />
+                <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
                 <Tooltip 
                   formatter={(value, name, props) => [
                     `${value.toFixed(1)}% success rate`,

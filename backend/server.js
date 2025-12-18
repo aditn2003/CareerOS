@@ -152,7 +152,7 @@ const authLimiter = rateLimit({
 // General API rate limiter (more permissive)
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  max: 300, // 300 requests per minute (increased for company logo fetching)
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
