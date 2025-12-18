@@ -50,7 +50,8 @@ const metrics = {
   requests: 0,
   success: 0,
   errors: 0,
-  responseTimes: [],
+  responseTimes: [],            // all responses
+  successResponseTimes: [],     // only successful (status < 400)
   statusCodes: {},
   startTime: null,
   endTime: null,
@@ -151,6 +152,7 @@ function processResult(result) {
   
   if (result.success) {
     metrics.success++;
+    metrics.successResponseTimes.push(result.responseTime);
   } else {
     metrics.errors++;
   }
@@ -182,6 +184,9 @@ function calculateStats() {
   const sorted = [...metrics.responseTimes].sort((a, b) => a - b);
   const len = sorted.length;
   
+  const successSorted = [...metrics.successResponseTimes].sort((a, b) => a - b);
+  const successLen = successSorted.length;
+  
   return {
     total: metrics.requests,
     success: metrics.success,
@@ -196,6 +201,15 @@ function calculateStats() {
       median: sorted[Math.floor(len / 2)] || 0,
       p95: sorted[Math.floor(len * 0.95)] || 0,
       p99: sorted[Math.floor(len * 0.99)] || 0,
+      // Success-only timings (exclude 4xx/5xx and network errors)
+      successMin: successSorted[0] || 0,
+      successMax: successSorted[successLen - 1] || 0,
+      successAvg: successLen
+        ? (successSorted.reduce((a, b) => a + b, 0) / successLen).toFixed(2)
+        : 0,
+      successMedian: successSorted[Math.floor(successLen / 2)] || 0,
+      successP95: successSorted[Math.floor(successLen * 0.95)] || 0,
+      successP99: successSorted[Math.floor(successLen * 0.99)] || 0,
     },
     statusCodes: metrics.statusCodes,
     duration: config.duration + 's',
@@ -257,6 +271,13 @@ async function main() {
   console.log(`  Median:  ${stats.responseTime.median}ms`);
   console.log(`  P95:     ${stats.responseTime.p95}ms`);
   console.log(`  P99:     ${stats.responseTime.p99}ms`);
+  console.log('\nResponse Times (successful only, ms):');
+  console.log(`  Min:     ${stats.responseTime.successMin}ms`);
+  console.log(`  Max:     ${stats.responseTime.successMax}ms`);
+  console.log(`  Average: ${stats.responseTime.successAvg}ms`);
+  console.log(`  Median:  ${stats.responseTime.successMedian}ms`);
+  console.log(`  P95:     ${stats.responseTime.successP95}ms`);
+  console.log(`  P99:     ${stats.responseTime.successP99}ms`);
   
   console.log('\nStatus Codes:');
   for (const [code, count] of Object.entries(stats.statusCodes)) {
@@ -267,13 +288,15 @@ async function main() {
   
   // Performance assessment
   console.log('\n🎯 PERFORMANCE ASSESSMENT:\n');
-  
-  if (parseFloat(stats.responseTime.p95) < 200) {
-    console.log('✅ P95 response time is excellent (<200ms)');
-  } else if (parseFloat(stats.responseTime.p95) < 500) {
-    console.log('⚠️ P95 response time is acceptable (<500ms)');
+
+  // Use success-only P95 to assess "real" app latency under load
+  const p95Success = parseFloat(stats.responseTime.successP95 || stats.responseTime.p95);
+  if (p95Success < 200) {
+    console.log('✅ P95 response time (successful requests) is excellent (<200ms)');
+  } else if (p95Success < 500) {
+    console.log('⚠️ P95 response time (successful requests) is acceptable (<500ms)');
   } else {
-    console.log('❌ P95 response time needs improvement (>500ms)');
+    console.log('❌ P95 response time (successful requests) needs improvement (>500ms)');
   }
   
   if (parseFloat(stats.errorRate) < 1) {

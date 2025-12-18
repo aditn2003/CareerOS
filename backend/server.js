@@ -203,10 +203,13 @@ const authLimiter = rateLimit({
   skip: (req) => process.env.NODE_ENV === 'test', // Skip rate limiting in test environment
 });
 
-// General API rate limiter (more permissive)
+// General API rate limiter (more permissive).
+// In production we keep a conservative limit; in dev/local we allow
+// a much higher ceiling so that load tests (50–100 concurrent users)
+// don't get dominated by 429 responses.
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 300, // 300 requests per minute (increased for company logo fetching)
+  max: process.env.NODE_ENV === 'production' ? 300 : 5000,
   message: { error: 'Too many requests, please slow down' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -272,6 +275,11 @@ app.use(metricsMiddleware);
 
 // ✅ Rate limiting for API routes
 app.use('/api/', apiLimiter);
+
+// Lightweight health/root endpoint used by load testing script and uptime checks
+app.get("/", (req, res) => {
+  res.json({ status: "ok", message: "ATS backend is running" });
+});
 
 // ✅ Serve uploaded images with BOTH performance + cross-origin support
 app.use(

@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../db/pool.js";
 import { auth } from "../auth.js";
+import { cacheService, CACHE_KEYS } from "../utils/cache.js";
 
 const router = express.Router();
 router.use(auth);
@@ -57,6 +58,19 @@ router.get("/stats", async (req, res) => {
     console.log('🧪 Archive status:', archivedQuery.rows[0]);
 
     // 🔍 DEBUG LOGS - END
+
+    // Try cache first (per user + date filters) to reduce DB load under high concurrency
+    const cacheKey = `${CACHE_KEYS.userDashboard(userId)}:${JSON.stringify({
+      startDate: req.query.startDate || null,
+      endDate: req.query.endDate || null,
+    })}`;
+    const cached = await cacheService.get(cacheKey);
+    if (cached) {
+      console.log(
+        `📦 Returning dashboard stats for user ${userId} from cache`
+      );
+      return res.json(cached);
+    }
 
     // -----------------------------
     // 1️⃣ KEY METRICS
@@ -252,56 +266,55 @@ router.get("/stats", async (req, res) => {
     // -----------------------------
     const m = keyMetrics.rows[0];
     // -----------------------------
-// 7️⃣ REAL INDUSTRY BENCHMARKS (BASED ON USER DATA)
-// -----------------------------
-   
-  
-  // Real industry benchmarks (based on job search research)
-  const INDUSTRY_BENCHMARKS = {
-    interviewRate: 0.12,        // 12% - typical interview callback rate
-    offerRate: 0.03,            // 3% - typical offer rate from applications
-    avgResponseDays: 10,        // 10 days average response time
-  };
+    // 7️⃣ REAL INDUSTRY BENCHMARKS (BASED ON USER DATA)
+    // -----------------------------
 
-  // User's actual performance
-  const userPerformance = {
-    interviewRate: Number(benchmarkQuery.rows[0].interview_rate) || 0,
-    offerRate: Number(benchmarkQuery.rows[0].offer_rate) || 0,
-    avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0,
-  };
+    // Real industry benchmarks (based on job search research)
+    const INDUSTRY_BENCHMARKS = {
+      interviewRate: 0.12,        // 12% - typical interview callback rate
+      offerRate: 0.03,            // 3% - typical offer rate from applications
+      avgResponseDays: 10,        // 10 days average response time
+    };
 
-  // Calculate comparison (positive = better than industry)
-  const industryComparison = {
-    industry: INDUSTRY_BENCHMARKS,
-    user: userPerformance,
-    comparison: {
-      interviewRate: {
-        user: userPerformance.interviewRate,
-        industry: INDUSTRY_BENCHMARKS.interviewRate,
-        difference: userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate,
-        percentBetter: INDUSTRY_BENCHMARKS.interviewRate > 0 
-          ? ((userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate) / INDUSTRY_BENCHMARKS.interviewRate * 100)
-          : 0,
-        status: userPerformance.interviewRate >= INDUSTRY_BENCHMARKS.interviewRate ? 'above' : 'below'
-      },
-      offerRate: {
-        user: userPerformance.offerRate,
-        industry: INDUSTRY_BENCHMARKS.offerRate,
-        difference: userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate,
-        percentBetter: INDUSTRY_BENCHMARKS.offerRate > 0 
-          ? ((userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate) / INDUSTRY_BENCHMARKS.offerRate * 100)
-          : 0,
-        status: userPerformance.offerRate >= INDUSTRY_BENCHMARKS.offerRate ? 'above' : 'below'
-      },
-      responseTime: {
-        userHours: userPerformance.avgResponseHours,
-        userDays: userPerformance.avgResponseHours / 24,
-        industryDays: INDUSTRY_BENCHMARKS.avgResponseDays,
-        status: (userPerformance.avgResponseHours / 24) <= INDUSTRY_BENCHMARKS.avgResponseDays ? 'above' : 'below'
+    // User's actual performance
+    const userPerformance = {
+      interviewRate: Number(benchmarkQuery.rows[0].interview_rate) || 0,
+      offerRate: Number(benchmarkQuery.rows[0].offer_rate) || 0,
+      avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0,
+    };
+
+    // Calculate comparison (positive = better than industry)
+    const industryComparison = {
+      industry: INDUSTRY_BENCHMARKS,
+      user: userPerformance,
+      comparison: {
+        interviewRate: {
+          user: userPerformance.interviewRate,
+          industry: INDUSTRY_BENCHMARKS.interviewRate,
+          difference: userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate,
+          percentBetter: INDUSTRY_BENCHMARKS.interviewRate > 0 
+            ? ((userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate) / INDUSTRY_BENCHMARKS.interviewRate * 100)
+            : 0,
+          status: userPerformance.interviewRate >= INDUSTRY_BENCHMARKS.interviewRate ? 'above' : 'below'
+        },
+        offerRate: {
+          user: userPerformance.offerRate,
+          industry: INDUSTRY_BENCHMARKS.offerRate,
+          difference: userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate,
+          percentBetter: INDUSTRY_BENCHMARKS.offerRate > 0 
+            ? ((userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate) / INDUSTRY_BENCHMARKS.offerRate * 100)
+            : 0,
+          status: userPerformance.offerRate >= INDUSTRY_BENCHMARKS.offerRate ? 'above' : 'below'
+        },
+        responseTime: {
+          userHours: userPerformance.avgResponseHours,
+          userDays: userPerformance.avgResponseHours / 24,
+          industryDays: INDUSTRY_BENCHMARKS.avgResponseDays,
+          status: (userPerformance.avgResponseHours / 24) <= INDUSTRY_BENCHMARKS.avgResponseDays ? 'above' : 'below'
+        }
       }
-    }
-  };
-  
+    };
+    
     const safeMetrics = {
       total_applications: Number(m.total_applications) || 0,
       total_interviews: Number(m.total_interviews) || 0,
@@ -345,7 +358,16 @@ router.get("/stats", async (req, res) => {
     console.log('✅ Sending response with:', safeMetrics);
     console.log('========================================');
     
-  
+    // Cache the assembled dashboard payload for a short TTL
+    try {
+      await cacheService.set(cacheKey, response, 60); // 60 seconds TTL
+    } catch (cacheErr) {
+      console.warn(
+        "⚠️ [DASHBOARD] Failed to cache stats payload:",
+        cacheErr.message
+      );
+    }
+
     res.json(response);
   } catch (err) {
     console.error("❌ Dashboard Error:", err);

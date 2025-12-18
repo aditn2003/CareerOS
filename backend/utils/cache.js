@@ -1,12 +1,16 @@
 /**
  * UC-136: Caching Layer for Frequently Accessed Data
- * 
- * This module provides an in-memory caching layer with Redis-like API.
- * Falls back to in-memory Map when Redis is not available (free tier friendly).
- * 
+ *
+ * This module provides a caching layer with a Redis-like API.
+ *
+ * - If a real Redis instance is configured (e.g. free tier on Upstash, Redis Cloud)
+ *   via `REDIS_URL` or `UPSTASH_REDIS_URL`, it will be used as the primary cache.
+ * - If Redis is not available or connection fails, it gracefully falls back to
+ *   an in-memory Map-based cache.
+ *
  * Features:
  * - TTL-based expiration
- * - LRU eviction when max size reached
+ * - LRU eviction when using in-memory cache
  * - Cache statistics tracking
  * - Pattern-based cache invalidation
  */
@@ -21,7 +25,9 @@ const CONFIG = {
   cleanupInterval: 60000, // Clean expired entries every minute
 };
 
-// In-memory cache storage
+// ---------------------------------------------------------------------------
+// In-memory cache storage (fallback when Redis is not available)
+// ---------------------------------------------------------------------------
 const cache = new Map();
 const cacheMetadata = new Map(); // Stores TTL and access info
 
@@ -42,7 +48,7 @@ function now() {
 }
 
 /**
- * Check if entry is expired
+ * Check if entry is expired (in-memory cache only)
  */
 function isExpired(key) {
   const meta = cacheMetadata.get(key);
@@ -90,6 +96,49 @@ function cleanupExpired() {
 // Run cleanup periodically
 setInterval(cleanupExpired, CONFIG.cleanupInterval);
 
+// ---------------------------------------------------------------------------
+// Optional Redis client (used when REDIS_URL / UPSTASH_REDIS_URL is provided)
+// ---------------------------------------------------------------------------
+
+let redisClient = null;
+let redisReady = false;
+
+async function initRedis() {
+  const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
+  if (!redisUrl) {
+    return;
+  }
+
+  try {
+    // Dynamic import so that Redis is an optional dependency
+    const { createClient } = await import('redis');
+
+    const client = createClient({ url: redisUrl });
+
+    client.on('error', (err) => {
+      console.warn('⚠️ Redis cache error, falling back to in-memory cache:', err.message);
+    });
+
+    await client.connect();
+
+    redisClient = client;
+    redisReady = true;
+    console.log('✅ Redis cache connected');
+  } catch (err) {
+    console.warn(
+      '⚠️ Redis client not available or connection failed, using in-memory cache only:',
+      err.message
+    );
+  }
+}
+
+// Fire-and-forget initialization; cacheService will fall back to in-memory
+initRedis();
+
+function isRedisAvailable() {
+  return !!redisClient && redisReady;
+}
+
 /**
  * Cache API - Redis-compatible interface
  */
@@ -100,6 +149,22 @@ export const cacheService = {
    * @returns {any} Cached value or null
    */
   async get(key) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        const raw = await redisClient.get(key);
+        if (raw === null || raw === undefined) {
+          stats.misses++;
+          return null;
+        }
+        stats.hits++;
+        return JSON.parse(raw);
+      } catch (err) {
+        console.warn('⚠️ Redis GET failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
+    // In-memory fallback
     if (isExpired(key)) {
       cache.delete(key);
       cacheMetadata.delete(key);
@@ -130,6 +195,23 @@ export const cacheService = {
    * @param {number} ttl - Time to live in seconds (optional)
    */
   async set(key, value, ttl = CONFIG.defaultTTL) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        const serialized = JSON.stringify(value);
+        if (ttl > 0) {
+          await redisClient.set(key, serialized, { EX: ttl });
+        } else {
+          await redisClient.set(key, serialized);
+        }
+        stats.sets++;
+        return true;
+      } catch (err) {
+        console.warn('⚠️ Redis SET failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
+    // In-memory fallback
     // Evict if necessary
     evictLRU();
 
@@ -149,6 +231,17 @@ export const cacheService = {
    * @param {string} key - Cache key
    */
   async del(key) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        const res = await redisClient.del(key);
+        if (res > 0) stats.deletes++;
+        return res;
+      } catch (err) {
+        console.warn('⚠️ Redis DEL failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     const existed = cache.has(key);
     cache.delete(key);
     cacheMetadata.delete(key);
@@ -161,6 +254,24 @@ export const cacheService = {
    * @param {string} pattern - Pattern with * wildcard
    */
   async delPattern(pattern) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        const keys = await redisClient.keys(pattern);
+        let deleted = 0;
+        for (const key of keys) {
+          const res = await redisClient.del(key);
+          if (res > 0) {
+            deleted += res;
+            stats.deletes += res;
+          }
+        }
+        return deleted;
+      } catch (err) {
+        console.warn('⚠️ Redis DEL PATTERN failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
     let deleted = 0;
 
@@ -181,6 +292,16 @@ export const cacheService = {
    * @param {string} key - Cache key
    */
   async exists(key) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        const res = await redisClient.exists(key);
+        return res === 1;
+      } catch (err) {
+        console.warn('⚠️ Redis EXISTS failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     return !isExpired(key) && cache.has(key);
   },
 
@@ -190,6 +311,15 @@ export const cacheService = {
    * @returns {number} TTL in seconds, -1 if no TTL, -2 if not exists
    */
   async ttl(key) {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        return await redisClient.ttl(key);
+      } catch (err) {
+        console.warn('⚠️ Redis TTL failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     if (!cache.has(key)) return -2;
     const meta = cacheMetadata.get(key);
     if (!meta || !meta.expiresAt) return -1;
@@ -201,6 +331,16 @@ export const cacheService = {
    * Clear all cache entries
    */
   async flushAll() {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        await redisClient.flushAll();
+        return true;
+      } catch (err) {
+        console.warn('⚠️ Redis FLUSHALL failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     cache.clear();
     cacheMetadata.clear();
     return true;
@@ -226,6 +366,15 @@ export const cacheService = {
    * Get all keys (for debugging)
    */
   async keys(pattern = '*') {
+    // Prefer Redis when available
+    if (isRedisAvailable()) {
+      try {
+        return await redisClient.keys(pattern);
+      } catch (err) {
+        console.warn('⚠️ Redis KEYS failed, falling back to in-memory cache:', err.message);
+      }
+    }
+
     if (pattern === '*') {
       return Array.from(cache.keys());
     }
