@@ -124,65 +124,49 @@ jobs:
             deployment-metrics.md
           retention-days: 365
 
-      - name: Post metrics to PR/Issue
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const report = ${{ steps.metrics.outputs.report }};
-            
-            const body = `## 📊 Deployment Metrics Report
-            
-            **Period:** Last 30 days
-            **Generated:** ${new Date().toISOString()}
-            
-            ### Summary
-            | Metric | Value |
-            |--------|-------|
-            | Total Deployments | ${report.summary.totalDeployments} |
-            | Successful | ${report.summary.successfulDeployments} |
-            | Failed | ${report.summary.failedDeployments} |
-            | Success Rate | ${report.summary.successRate} |
-            | Avg Duration | ${report.summary.avgDurationMinutes} min |
-            
-            ### By Branch
-            | Branch | Deployments |
-            |--------|-------------|
-            | main (production) | ${report.byBranch.main} |
-            | develop (staging) | ${report.byBranch.develop} |
-            
-            ### Top Contributors
-            ${report.topContributors.map(([name, count]) => `- **${name}**: ${count} deployments`).join('\n')}
-            `;
-            
-            // Create an issue with the report
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `📊 Weekly Deployment Metrics - ${new Date().toISOString().split('T')[0]}`,
-              body,
-              labels: ['metrics', 'automated']
-            });
+      - name: Post metrics summary
+        run: |
+          echo "## 📊 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Period:** Last 30 days" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Deployments | ${{ steps.metrics.outputs.total_deployments }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Success Rate | ${{ steps.metrics.outputs.success_rate }}% |" >> $GITHUB_STEP_SUMMARY
 
       - name: Send Slack metrics summary
-        if: secrets.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: |
-            {
-              "text": "📊 Weekly Deployment Metrics",
-              "attachments": [
-                {
-                  "color": "${{ steps.metrics.outputs.success_rate >= 90 && 'good' || steps.metrics.outputs.success_rate >= 70 && 'warning' || 'danger' }}",
-                  "fields": [
-                    {"title": "Total Deployments", "value": "${{ steps.metrics.outputs.total_deployments }}", "short": true},
-                    {"title": "Success Rate", "value": "${{ steps.metrics.outputs.success_rate }}%", "short": true}
-                  ],
-                  "footer": "Last 30 days | ${{ github.repository }}"
-                }
-              ]
-            }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
-
+          SUCCESS_RATE: ${{ steps.metrics.outputs.success_rate }}
+          TOTAL_DEPLOYMENTS: ${{ steps.metrics.outputs.total_deployments }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            # Determine color based on success rate
+            if [ $(echo "$SUCCESS_RATE >= 90" | bc -l) -eq 1 ]; then
+              COLOR="good"
+            elif [ $(echo "$SUCCESS_RATE >= 70" | bc -l) -eq 1 ]; then
+              COLOR="warning"
+            else
+              COLOR="danger"
+            fi
+            
+            curl -X POST -H "Content-Type: application/json" \
+              -d "{
+                \"text\": \"📊 Weekly Deployment Metrics\",
+                \"attachments\": [
+                  {
+                    \"color\": \"$COLOR\",
+                    \"fields\": [
+                      {\"title\": \"Total Deployments\", \"value\": \"$TOTAL_DEPLOYMENTS\", \"short\": true},
+                      {\"title\": \"Success Rate\", \"value\": \"${SUCCESS_RATE}%\", \"short\": true}
+                    ],
+                    \"footer\": \"Last 30 days | ${{ github.repository }}\"
+                  }
+                ]
+              }" \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Slack notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi
