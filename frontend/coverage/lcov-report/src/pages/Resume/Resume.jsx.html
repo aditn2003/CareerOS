@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>5/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -144,45 +144,45 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -216,36 +216,36 @@ import ResumeTemplateChooser from "../../components/ResumeTemplateChooser";
 import FileUpload from "../../components/FileUpload";
 import { api } from "../../api";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >Resume() {</span>
-  const <span class="cstat-no" title="statement not covered" >navigate = useNavigate();</span>
-  const [showUpload, setShowUpload<span class="cstat-no" title="statement not covered" >] = useState(false);</span>
-  const [resumes, setResumes<span class="cstat-no" title="statement not covered" >] = useState([]);</span>
+export default function Resume() {
+  const navigate = useNavigate();
+  const [showUpload, setShowUpload] = useState(false);
+  const [resumes, setResumes] = useState([]);
 &nbsp;
   // When user selects a template, move to editor (if you pass template data)
-  function <span class="fstat-no" title="function not covered" >handleTemplateSelect(t</span>emplate) {
-<span class="cstat-no" title="statement not covered" >    navigate("/resume/editor", { state: { template } });</span>
+  function handleTemplateSelect(template) {
+    navigate("/resume/editor", { state: { template } });
   }
 &nbsp;
   // Load resumes on mount
-<span class="cstat-no" title="statement not covered" >  React.useEffect(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >    loadResumes();</span>
+  React.useEffect(() =&gt; {
+    loadResumes();
   }, []);
 &nbsp;
-  async function <span class="fstat-no" title="function not covered" >loadResumes() {</span>
-<span class="cstat-no" title="statement not covered" >    try {</span>
-      const res = <span class="cstat-no" title="statement not covered" >await api.get("/api/resumes");</span>
-<span class="cstat-no" title="statement not covered" >      setResumes(res.data.resumes || []);</span>
+  async function loadResumes() {
+    try {
+      const res = await api.get("/api/resumes");
+      setResumes(res.data.resumes || <span class="branch-1 cbranch-no" title="branch not covered" >[])</span>;
     } catch (err) {
-<span class="cstat-no" title="statement not covered" >      console.error("Failed to load resumes:", err);</span>
+      console.error("Failed to load resumes:", err);
     }
   }
 &nbsp;
-  function <span class="fstat-no" title="function not covered" >handleUploadSuccess(d</span>ata) {
-<span class="cstat-no" title="statement not covered" >    loadResumes(); // Reload list</span>
-<span class="cstat-no" title="statement not covered" >    setShowUpload(false);</span>
+  function handleUploadSuccess(data) {
+    loadResumes(); // Reload list
+    setShowUpload(false);
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="resume-page"&gt;
       &lt;div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}&gt;
         &lt;div&gt;
@@ -255,7 +255,7 @@ export default function <span class="fstat-no" title="function not covered" >Res
           &lt;/p&gt;
         &lt;/div&gt;
         &lt;button
-          onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etShowUpload(!showUpload)}</span>
+          onClick={() =&gt; setShowUpload(!showUpload)}
           style={{
             padding: "10px 20px",
             background: "#2563eb",
@@ -289,7 +289,7 @@ export default function <span class="fstat-no" title="function not covered" >Res
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.882Z
+                at 2025-12-18T16:14:16.501Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

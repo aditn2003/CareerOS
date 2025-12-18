@@ -76,12 +76,18 @@ export default function MentorTab() {
     return (
       <section className="profile-box mentor-invite-pending">
         <h3>Join Request Pending</h3>
-        <div className="invite-card" style={{ background: "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)" }}>
+        <div
+          className="invite-card"
+          style={{
+            background: "linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)",
+          }}
+        >
           <div className="invite-icon">⏳</div>
           <h4>Your join request is pending approval</h4>
           <p className="invite-team-name">{teamName}</p>
           <p className="invite-description">
-            A mentor or admin will review your request to join this team. You'll be notified once a decision is made.
+            A mentor or admin will review your request to join this team. You'll
+            be notified once a decision is made.
           </p>
         </div>
       </section>
@@ -122,7 +128,11 @@ function CandidateMentorView({ teamId, teamName }) {
     setError(null);
     try {
       const { data } = await api.get(`/api/team/${teamId}/feedback`);
-      console.log(`[Feedback] Candidate loaded ${data?.feedback?.length || 0} feedback entries for team ${teamId}`);
+      console.log(
+        `[Feedback] Candidate loaded ${
+          data?.feedback?.length || 0
+        } feedback entries for team ${teamId}`
+      );
       setFeedbackList(data?.feedback || []);
     } catch (err) {
       console.error("Failed to load feedback:", err);
@@ -148,9 +158,12 @@ function CandidateMentorView({ teamId, teamName }) {
 
   const getFeedbackTypeLabel = (type) => {
     switch (type) {
-      case "job": return "Job Feedback";
-      case "skill": return "Skill Feedback";
-      default: return "General Feedback";
+      case "job":
+        return "Job Feedback";
+      case "skill":
+        return "Skill Feedback";
+      default:
+        return "General Feedback";
     }
   };
 
@@ -244,11 +257,19 @@ function MentorDashboardView({ teamId, teamName }) {
       {members.length > 0 && (
         <div style={{ marginTop: "1.5rem", marginBottom: "1.5rem" }}>
           <h4>Add Feedback</h4>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+              marginTop: "0.5rem",
+            }}
+          >
             {members.map((member) => {
-              const fullName = [member.firstName, member.lastName]
-                .filter(Boolean)
-                .join(" ") || member.email || "Unnamed";
+              const fullName =
+                [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+                member.email ||
+                "Unnamed";
               return (
                 <button
                   key={member.userId}
@@ -303,4 +324,3 @@ function MentorDashboardView({ teamId, teamName }) {
     </section>
   );
 }
-

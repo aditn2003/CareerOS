@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/25</span>
+                <span class='fraction'>25/25</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">93.18% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/44</span>
+                <span class='fraction'>41/44</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -204,34 +204,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">45x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">29x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -337,35 +337,35 @@
 import React from "react";
 import "./QualityScoreCard.css";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >QualityScoreCard({</span> score, userStats }) {
-<span class="cstat-no" title="statement not covered" >  if (!score) <span class="cstat-no" title="statement not covered" >return null;</span></span>
+export default function QualityScoreCard({ score, userStats }) {
+  if (!score) return null;
 &nbsp;
-  const overallScore = <span class="cstat-no" title="statement not covered" >score.overall_score || 0;</span>
+  const overallScore = score.overall_score || <span class="branch-1 cbranch-no" title="branch not covered" >0;</span>
   // Get scores from score_breakdown if not at top level
-  const scoreBreakdown = <span class="cstat-no" title="statement not covered" >score.score_breakdown || {};</span>
-  const resumeScore = <span class="cstat-no" title="statement not covered" >score.resume_score || scoreBreakdown.resume_score || 0;</span>
-  const coverLetterScore = <span class="cstat-no" title="statement not covered" >score.cover_letter_score || scoreBreakdown.cover_letter_score || 0;</span>
-  const meetsThreshold = <span class="cstat-no" title="statement not covered" >score.meets_threshold || false;</span>
-  const minimumThreshold = <span class="cstat-no" title="statement not covered" >score.minimum_threshold || 70;</span>
+  const scoreBreakdown = score.score_breakdown || {};
+  const resumeScore = score.resume_score || scoreBreakdown.resume_score || 0;
+  const coverLetterScore = score.cover_letter_score || scoreBreakdown.cover_letter_score || 0;
+  const meetsThreshold = score.meets_threshold || false;
+  const minimumThreshold = score.minimum_threshold || 70;
 &nbsp;
   // Determine score color
-  const getScoreColor = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>core) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (score &gt;= 70) <span class="cstat-no" title="statement not covered" >return "#10b981"; // Green</span></span>
-<span class="cstat-no" title="statement not covered" >    if (score &gt;= 60) <span class="cstat-no" title="statement not covered" >return "#f59e0b"; // Yellow</span></span>
-<span class="cstat-no" title="statement not covered" >    return "#ef4444"; // Red</span>
+  const getScoreColor = (score) =&gt; {
+    if (score &gt;= 70) return "#10b981"; // Green
+    if (score &gt;= 60) return "#f59e0b"; // Yellow
+    return "#ef4444"; // Red
   };
 &nbsp;
-  const getScoreLabel = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>core) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (score &gt;= 70) <span class="cstat-no" title="statement not covered" >return "Excellent";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (score &gt;= 60) <span class="cstat-no" title="statement not covered" >return "Good";</span></span>
-<span class="cstat-no" title="statement not covered" >    if (score &gt;= 50) <span class="cstat-no" title="statement not covered" >return "Fair";</span></span>
-<span class="cstat-no" title="statement not covered" >    return "Needs Improvement";</span>
+  const getScoreLabel = (score) =&gt; {
+    if (score &gt;= 70) return "Excellent";
+    if (score &gt;= 60) return "Good";
+    if (score &gt;= 50) return "Fair";
+    return "Needs Improvement";
   };
 &nbsp;
-  const scoreColor = <span class="cstat-no" title="statement not covered" >getScoreColor(overallScore);</span>
-  const scoreLabel = <span class="cstat-no" title="statement not covered" >getScoreLabel(overallScore);</span>
+  const scoreColor = getScoreColor(overallScore);
+  const scoreLabel = getScoreLabel(overallScore);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="quality-score-card"&gt;
       {/* Main Score Display */}
       &lt;div className="quality-score-main"&gt;
@@ -450,10 +450,10 @@ export default function <span class="fstat-no" title="function not covered" >Qua
                 &lt;span className="quality-comparison-value"&gt;{userStats.top_score}&lt;/span&gt;
                 &lt;span
                   className={`quality-comparison-diff ${
-                    overallScore &gt;= userStats.top_score ? "positive" : "negative"
+                    overallScore &gt;= userStats.top_score ? <span class="branch-0 cbranch-no" title="branch not covered" >"positive" : "</span>negative"
                   }`}
                 &gt;
-                  {overallScore &gt;= userStats.top_score ? "=" : ""}
+                  {overallScore &gt;= userStats.top_score ? <span class="branch-0 cbranch-no" title="branch not covered" >"=" : "</span>"}
                   {(overallScore - userStats.top_score).toFixed(0)}
                 &lt;/span&gt;
               &lt;/div&gt;
@@ -472,7 +472,7 @@ export default function <span class="fstat-no" title="function not covered" >Qua
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.520Z
+                at 2025-12-18T16:14:16.377Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

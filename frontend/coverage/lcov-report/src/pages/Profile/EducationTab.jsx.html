@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/11</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -139,13 +139,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">32x</span>
+<span class="cline-any cline-yes">32x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">32x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -161,7 +159,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -175,22 +175,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -205,12 +205,12 @@ import EducationForm from "../../components/EducationForm";
 import { FaGraduationCap, FaPlus } from "react-icons/fa";
 import "./EducationTab.css";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >EducationTab() {</span>
-  const { token <span class="cstat-no" title="statement not covered" >} = useAuth();</span>
-  const [showForm, setShowForm<span class="cstat-no" title="statement not covered" >] = useState(false);</span>
-  const [editingEdu, setEditingEdu<span class="cstat-no" title="statement not covered" >] = useState(null);</span>
+export default function EducationTab() {
+  const { token } = useAuth();
+  const [showForm, setShowForm] = useState(false);
+  const [editingEdu, setEditingEdu] = useState(null);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="education-page"&gt;
       &lt;div className="education-container"&gt;
         &lt;div className="education-decoration education-decoration-1"&gt;&lt;/div&gt;
@@ -228,7 +228,7 @@ export default function <span class="fstat-no" title="function not covered" >Edu
           &lt;div className="education-add-btn-wrapper"&gt;
             &lt;button 
               className="education-add-btn" 
-              onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etShowForm(true)}</span>
+              onClick={() =&gt; setShowForm(true)}
             &gt;
               &lt;FaPlus /&gt;
               &lt;span&gt;Add Education&lt;/span&gt;
@@ -241,14 +241,14 @@ export default function <span class="fstat-no" title="function not covered" >Edu
           &lt;EducationForm 
             edu={editingEdu || {}}
             token={token} 
-            onCancel={<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >              setShowForm(false);</span>
-<span class="cstat-no" title="statement not covered" >              setEditingEdu(null);</span>
+            onCancel={() =&gt; {
+              setShowForm(false);
+              setEditingEdu(null);
             }}
-            onSaved={<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >              setShowForm(false);</span>
-<span class="cstat-no" title="statement not covered" >              setEditingEdu(null);</span>
-<span class="cstat-no" title="statement not covered" >              window.dispatchEvent(new Event('educationUpdated'));</span>
+            onSaved={() =&gt; {
+              setShowForm(false);
+              setEditingEdu(null);
+              window.dispatchEvent(new Event('educationUpdated'));
             }}
           /&gt;
         )}
@@ -257,7 +257,7 @@ export default function <span class="fstat-no" title="function not covered" >Edu
         {!showForm &amp;&amp; !editingEdu &amp;&amp; (
           &lt;EducationSection 
             token={token} 
-            onEdit={<span class="fstat-no" title="function not covered" >(e</span>du) =&gt; <span class="cstat-no" title="statement not covered" >setEditingEdu(edu)}</span>
+            onEdit={(edu) =&gt; setEditingEdu(edu)}
           /&gt;
         )}
       &lt;/div&gt;
@@ -271,7 +271,7 @@ export default function <span class="fstat-no" title="function not covered" >Edu
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.882Z
+                at 2025-12-18T16:14:16.501Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

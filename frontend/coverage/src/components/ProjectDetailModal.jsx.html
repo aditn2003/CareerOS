@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>14/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/34</span>
+                <span class='fraction'>34/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -235,24 +235,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">41x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -268,7 +268,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -330,7 +330,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">93x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -388,7 +388,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useEffect } from "react";
 import "./ProjectPortfolio.css";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >ProjectDetailModal({</span>
+export default function ProjectDetailModal({
   project,
   onClose,
   onEdit,
@@ -396,24 +396,24 @@ export default function <span class="fstat-no" title="function not covered" >Pro
   onShare,
   onPrint,
 }) {
-<span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-    const handleEscape = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(e</span>) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      if (e.key === "Escape") <span class="cstat-no" title="statement not covered" >onClose();</span></span>
+  useEffect(() =&gt; {
+    const handleEscape = (e) =&gt; {
+      if (e.key === "Escape") onClose();
     };
-<span class="cstat-no" title="statement not covered" >    document.addEventListener("keydown", handleEscape);</span>
+    document.addEventListener("keydown", handleEscape);
     
-<span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      document.removeEventListener("keydown", handleEscape);</span>
+    return () =&gt; {
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [onClose]);
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  if (!project) <span class="cstat-no" title="statement not covered" >return null;</span></span>
+  if (!project) return null;
 &nbsp;
-  const technologies = <span class="cstat-no" title="statement not covered" >Array.isArray(project.technologies)</span>
+  const technologies = Array.isArray(project.technologies)
     ? project.technologies
-    : project.technologies?.split(",").map(<span class="fstat-no" title="function not covered" >(t</span>) =&gt; <span class="cstat-no" title="statement not covered" >t.trim())</span> || [];
+    : project.technologies?.split(",").map((t) =&gt; t.trim()) || [];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="project-detail-inline"&gt;
       &lt;div className="project-detail-header-inline"&gt;
         &lt;h2&gt;{project.name}&lt;/h2&gt;
@@ -428,8 +428,8 @@ export default function <span class="fstat-no" title="function not covered" >Pro
               &lt;img
                 src={project.media_url}
                 alt={project.name}
-                onError={<span class="fstat-no" title="function not covered" >(e</span>) =&gt; {
-<span class="cstat-no" title="statement not covered" >                  e.target.style.display = "none";</span>
+                onError={(e) =&gt; {
+                  e.target.style.display = "none";
                 }}
               /&gt;
             &lt;/div&gt;
@@ -490,8 +490,8 @@ export default function <span class="fstat-no" title="function not covered" >Pro
             &lt;div className="project-detail-section"&gt;
               &lt;h3&gt;Technologies&lt;/h3&gt;
               &lt;div className="technologies-list"&gt;
-                {technologies.map(<span class="fstat-no" title="function not covered" >(t</span>ech, idx) =&gt; (
-<span class="cstat-no" title="statement not covered" >                  &lt;span key={idx} className="tech-tag large"&gt;</span>
+                {technologies.map((tech, idx) =&gt; (
+                  &lt;span key={idx} className="tech-tag large"&gt;
                     {tech}
                   &lt;/span&gt;
                 ))}
@@ -553,7 +553,7 @@ export default function <span class="fstat-no" title="function not covered" >Pro
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.520Z
+                at 2025-12-18T16:14:16.377Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

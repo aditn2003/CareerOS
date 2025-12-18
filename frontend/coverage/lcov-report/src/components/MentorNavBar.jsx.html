@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">87.5% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/8</span>
+                <span class='fraction'>7/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/10</span>
+                <span class='fraction'>10/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -150,18 +150,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -181,20 +178,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">30x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -222,16 +222,16 @@ import {
 } from "react-icons/fa";
 import "../pages/Mentor/MentorLayout.css";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >MentorNavBar() {</span>
-  const { teamState <span class="cstat-no" title="statement not covered" >} = useTeam() || {};</span>
-  const isMentor = <span class="cstat-no" title="statement not covered" >teamState?.isMentor;</span>
-  const isAdmin = <span class="cstat-no" title="statement not covered" >teamState?.isAdmin;</span>
+export default function MentorNavBar() {
+  const { teamState } = useTeam() || {};
+  const isMentor = teamState?.isMentor;
+  const isAdmin = teamState?.isAdmin;
   
   // Activity Feed is only for mentors and admins
-  const showActivityFeed = <span class="cstat-no" title="statement not covered" >isMentor || isAdmin;</span>
+  const showActivityFeed = isMentor || isAdmin;
   
   // Group tabs by category
-  const navGroups = <span class="cstat-no" title="statement not covered" >[</span>
+  const navGroups = [
     {
       label: "COMMUNICATION",
       tabs: [
@@ -254,20 +254,20 @@ export default function <span class="fstat-no" title="function not covered" >Men
     },
   ];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="mentor-nav-container"&gt;
-      {navGroups.map(<span class="fstat-no" title="function not covered" >(g</span>roup, groupIdx) =&gt; (
-<span class="cstat-no" title="statement not covered" >        &lt;div key={groupIdx} className="mentor-nav-group"&gt;</span>
+      {navGroups.map((group, groupIdx) =&gt; (
+        &lt;div key={groupIdx} className="mentor-nav-group"&gt;
           &lt;div className="mentor-nav-group-label"&gt;{group.label}&lt;/div&gt;
           &lt;div className="mentor-nav-group-tabs"&gt;
-            {group.tabs.map(<span class="fstat-no" title="function not covered" >(t</span>ab) =&gt; {
-              const IconComponent = <span class="cstat-no" title="statement not covered" >tab.icon;</span>
-<span class="cstat-no" title="statement not covered" >              return (</span>
+            {group.tabs.map((tab) =&gt; {
+              const IconComponent = tab.icon;
+              return (
                 &lt;NavLink
                   key={tab.key}
                   to={`/mentor/${tab.key}`}
-                  className={<span class="fstat-no" title="function not covered" >({</span> isActive }) =&gt;
-<span class="cstat-no" title="statement not covered" >                    `mentor-nav-tab ${tab.category} ${isActive ? "active" : ""}`</span>
+                  className={({ isActive }) =&gt;
+                    `mentor-nav-tab ${tab.category} ${isActive ? <span class="branch-0 cbranch-no" title="branch not covered" >"active" : "</span>"}`
                   }
                 &gt;
                   &lt;IconComponent className="mentor-tab-icon" /&gt;
@@ -289,7 +289,7 @@ export default function <span class="fstat-no" title="function not covered" >Men
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.882Z
+                at 2025-12-18T16:14:16.501Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

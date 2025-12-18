@@ -16,3 +16,5 @@ frontend/public/.DS_Store
 frontend/.env
 backend/.env
 backend/.env.test
+
+package.json
