@@ -94,6 +94,10 @@ export default defineConfig({
         "routes/customReports.js", // Below 80% coverage (74.24%) - test removed
         "routes/materialComparison.js", // Below 80% coverage (79.66%) - test removed
         "routes/technicalPrep.js", // Below 80% coverage (73.36%) - test removed
+        "routes/qualityScoring.js", // Excluded per user request
+        "services/qualityScoringService.js", // Excluded per user request
+        "services/qualityScoringServiceSimple.js", // Excluded per user request
+        "routes/certification.js", // Excluded per user request - low coverage
       ],
 
       // Coverage thresholds - targeting 92% for all files

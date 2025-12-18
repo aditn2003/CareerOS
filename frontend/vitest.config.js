@@ -71,6 +71,7 @@ export default defineConfig({
         "src/components/ComprehensiveCompensationAnalysis.jsx",
         "src/components/CustomReportGenerator.jsx",
         "src/components/DecryptedText.jsx",
+        "src/components/ElectricBorder.jsx", // Excluded per user request
         "src/components/EditableResumeForm.jsx",
         "src/components/EmploymentSection.jsx",
         "src/components/FeedbackModal.jsx",

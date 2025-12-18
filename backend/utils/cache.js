@@ -441,4 +441,36 @@ export const invalidateCache = {
   },
 };
 
+/**
+ * Testing utilities - DO NOT USE IN PRODUCTION
+ * These functions are exported for testing purposes only
+ */
+export const __testing__ = {
+  setRedisClient: (client, ready = true) => {
+    redisClient = client;
+    redisReady = ready;
+  },
+  resetRedisClient: () => {
+    redisClient = null;
+    redisReady = false;
+  },
+  getRedisState: () => ({ redisClient, redisReady }),
+  isRedisAvailable,
+  cleanupExpired,
+  evictLRU,
+  isExpired,
+  now,
+  getCache: () => cache,
+  getCacheMetadata: () => cacheMetadata,
+  getStats: () => stats,
+  resetStats: () => {
+    stats.hits = 0;
+    stats.misses = 0;
+    stats.sets = 0;
+    stats.deletes = 0;
+    stats.evictions = 0;
+  },
+  getConfig: () => CONFIG,
+};
+
 export default cacheService;
