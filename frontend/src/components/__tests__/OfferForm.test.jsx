@@ -401,13 +401,16 @@ describe("OfferForm", () => {
 
     render(<OfferForm onSave={mockOnSave} onCancel={mockOnCancel} />);
 
+    // Wait for jobs to load into the dropdown
     await waitFor(() => {
-      expect(api.getJobs).toHaveBeenCalled();
+      const jobSelect = document.querySelector('select[name="job_id"]');
+      expect(jobSelect).toBeInTheDocument();
+      // Check that the job option exists in the dropdown
+      expect(jobSelect.querySelector('option[value="1"]')).toBeInTheDocument();
     });
 
-    // Find the job select dropdown by finding select element
+    // Now select the job
     const jobSelect = document.querySelector('select[name="job_id"]');
-    expect(jobSelect).toBeInTheDocument();
     fireEvent.change(jobSelect, { target: { value: "1" } });
 
     await waitFor(() => {
