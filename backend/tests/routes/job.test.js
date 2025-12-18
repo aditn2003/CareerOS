@@ -789,21 +789,23 @@ describe("Job Routes", () => {
 
     it("should handle error in timing submission update gracefully", async () => {
       // Test error handling for timing submission update (line 2000)
-      // First query: Get current job status
+      // First query: SELECT status FROM jobs (must return a row to avoid 404)
       mockQuery.mockResolvedValueOnce({ 
-        rows: [{ id: 1, status: "Applied", user_id: 1 }] 
+        rows: [{ status: "Applied" }] 
       });
       // Second query: UPDATE job status (must return the updated job)
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 1, status: "Interview", user_id: 1 }], // updated job
       });
-      // Third query: INSERT into history
+      // Third query: Optional UPDATE interview_date (in test mode, might be called)
       mockQuery.mockResolvedValueOnce({ rows: [] });
-      // Fourth query: SELECT submission
+      // Fourth query: INSERT into history
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Fifth query: SELECT submission
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 123 }], // submission ID
       });
-      // Fifth query: UPDATE application_submissions to throw error (this is caught and doesn't fail the request)
+      // Sixth query: UPDATE application_submissions to throw error (this is caught and doesn't fail the request)
       mockQuery.mockRejectedValueOnce(new Error("Timing update error"));
       mockQuery.mockResolvedValue({ rows: [] });
 
@@ -1764,16 +1766,23 @@ describe("Job Routes", () => {
 
     it("should handle error in timing submission update gracefully", async () => {
       // Test error handling for timing submission update (line 2000)
-      mockQuery.mockResolvedValueOnce({ rows: [{ status: "Applied" }] }); // get current status
-      mockQuery.mockResolvedValueOnce({
-        rows: [{ id: 1, status: "Interview" }], // updated job
+      // First query: SELECT status FROM jobs (must return a row to avoid 404)
+      mockQuery.mockResolvedValueOnce({ 
+        rows: [{ status: "Applied" }] 
       });
-      mockQuery.mockResolvedValueOnce({ rows: [] }); // history insert
-      // Mock finding submission
+      // Second query: UPDATE job status (must return the updated job)
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, status: "Interview", user_id: 1 }], // updated job
+      });
+      // Third query: Optional UPDATE interview_date (in test mode, might be called)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Fourth query: INSERT into history
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // Fifth query: SELECT submission
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 123 }], // submission ID
       });
-      // Mock UPDATE application_submissions to throw error
+      // Sixth query: UPDATE application_submissions to throw error (this is caught and doesn't fail the request)
       mockQuery.mockRejectedValueOnce(new Error("Timing update error"));
       mockQuery.mockResolvedValue({ rows: [] });
 
@@ -1782,7 +1791,7 @@ describe("Job Routes", () => {
         .set("Authorization", `Bearer ${validToken}`)
         .send({ status: "Interview" });
 
-      // Should still succeed even if timing update fails
+      // Should still succeed even if timing update fails (error is caught in try-catch)
       expect(response.status).toBe(200);
     });
   });
@@ -1791,7 +1800,10 @@ describe("Job Routes", () => {
     let emailApp;
 
     beforeEach(() => {
+      vi.clearAllMocks();
       mockParseJobEmail.mockClear();
+      mockQuery.mockReset();
+      mockQuery.mockResolvedValue({ rows: [] });
       // Create separate app with express.text() middleware for inbound-email route
       emailApp = express();
       emailApp.use(express.text({ type: '*/*' })); // Accept any content type as text
