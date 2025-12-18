@@ -471,7 +471,7 @@ export default function GitHubSection({ token }) {
             className="btn-disconnect"
             title="Disconnect GitHub account"
             style={{
-              background: "transparent",
+              background: "#fff5f5",
               color: "#dc3545",
               border: "1px solid #dc3545",
               padding: "8px 16px",
@@ -480,6 +480,9 @@ export default function GitHubSection({ token }) {
               fontSize: "14px",
               fontWeight: "500",
               marginRight: "10px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
             }}
           >
             {disconnecting ? (
@@ -715,7 +718,7 @@ export default function GitHubSection({ token }) {
           </div>
           <div className="stat-card">
             <div className="stat-value">{stats.contributions.total_commits}</div>
-            <div className="stat-label">Total Commits</div>
+            <div className="stat-label">All-Time Commits</div>
           </div>
         </div>
       )}
@@ -753,23 +756,23 @@ export default function GitHubSection({ token }) {
             <>
               {/* Contribution Statistics */}
               {(() => {
-                const stats = calculateContributionStats();
+                const contribStats = calculateContributionStats();
                 return (
                   <div className="contribution-stats-grid">
                     <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">{stats.totalCommits}</div>
-                      <div className="contribution-stat-label">Total Commits</div>
+                      <div className="contribution-stat-value">{contribStats.totalCommits}</div>
+                      <div className="contribution-stat-label">Commits (Period)</div>
                     </div>
                     <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">{stats.activeDays}</div>
+                      <div className="contribution-stat-value">{contribStats.activeDays}</div>
                       <div className="contribution-stat-label">Active Days</div>
                     </div>
                     <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">{stats.averageCommits}</div>
+                      <div className="contribution-stat-value">{contribStats.averageCommits}</div>
                       <div className="contribution-stat-label">Avg Commits/Day</div>
                     </div>
                     <div className="contribution-stat-card">
-                      <div className="contribution-stat-value">{stats.longestStreak}</div>
+                      <div className="contribution-stat-value">{contribStats.longestStreak}</div>
                       <div className="contribution-stat-label">Longest Streak</div>
                     </div>
                   </div>
