@@ -184,8 +184,8 @@ const CustomReportGenerator = () => {
       if (format === 'pdf' || format === 'csv' || format === 'excel') {
         // For file downloads, use blob response
         const token = localStorage.getItem('token');
-        const baseURL = api.defaults.baseURL || 'http://localhost:4000';
-        const response = await fetch(`${baseURL}/api/custom-reports/generate`, {
+        const apiBaseURL = api.defaults.baseURL;
+        const response = await fetch(`${apiBaseURL}/api/custom-reports/generate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './LinkedInProfileOptimization.css';
 import { AlertCircle, CheckCircle, AlertTriangle, Lightbulb, TrendingUp } from 'lucide-react';
+import { baseURL } from '../api';
 
 const LinkedInProfileOptimization = ({ userProfile }) => {
   const [loading, setLoading] = useState(false);
   const [optimizationData, setOptimizationData] = useState(null);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000/api';
+  const API_BASE = `${baseURL}/api`;
 
   const fetchOptimization = async () => {
     try {

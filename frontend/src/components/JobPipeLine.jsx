@@ -7,7 +7,7 @@ import JobSearchFilter from "./JobSearchFilter";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import CompanyDetailsModal from "./CompanyDetailsModal";
 import { FaArchive } from "react-icons/fa"; // <-- ADDED
-import { api } from "../api"; // <-- ADDED
+import { api, baseURL } from "../api"; // <-- ADDED
 
 // 🟡 highlight helper
 function highlight(text, term) {
@@ -74,6 +74,15 @@ export default function JobPipeline({ token, onApply }) {
             newLogos[company] = `http://localhost:4000${res.data.logo_url}`;
           } else {
             newLogos[company] = null; // Mark as fetched but no logo
+    const logos = {};
+    for (const job of jobs) {
+      if (!job.company) continue;
+      try {
+        // Use the 'api' helper here for consistency
+        const res = await api.get(`/api/companies/${job.company}`);
+        if (res.status === 200) {
+          if (res.data.logo_url) {
+            logos[job.company] = `${baseURL}${res.data.logo_url}`;
           }
         } catch (err) {
           console.warn("⚠️ Could not fetch logo for", company);

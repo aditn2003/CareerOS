@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./JobEntryForm.css";
-import { api } from "../api";
+import { api, baseURL } from "../api";
 import FileUpload from "./FileUpload";
 import QualityScoreCard from "./QualityScoreCard";
 
@@ -55,8 +55,8 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [resResumes, resCovers] = await Promise.all([
-        fetch("http://localhost:4000/api/resumes", { headers }),
-        fetch("http://localhost:4000/api/cover-letters", { headers }),
+        fetch(`${baseURL}/api/resumes`, { headers }),
+        fetch(`${baseURL}/api/cover-letters`, { headers }),
       ]);
 
       if (resResumes.ok) {
@@ -119,7 +119,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       // Save job first (or use existing tempJobId)
       let jobId = tempJobId;
       if (!jobId) {
-        const saveRes = await fetch("http://localhost:4000/api/jobs", {
+        const saveRes = await fetch(`${baseURL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -134,7 +134,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         setTempJobId(jobId);
       } else {
         // Update existing job
-        await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        await fetch(`${baseURL}/api/jobs/${jobId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -228,7 +228,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       // If we have a tempJobId, update it; otherwise create new
       let jobId = tempJobId;
       if (jobId) {
-        const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -239,7 +239,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
         if (!res.ok) throw new Error("Failed to update job");
       } else {
-        const res = await fetch("http://localhost:4000/api/jobs", {
+        const res = await fetch(`${baseURL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -272,7 +272,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       setImporting(true);
       setImportStatus("Importing job details...");
 
-      const res = await fetch("http://localhost:4000/api/import-job", {
+      const res = await fetch(`${baseURL}/api/import-job`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

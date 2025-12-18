@@ -1,13 +1,7 @@
 // frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { api } from "../api";
-
-// Get API base URL for direct fetch calls
-const getApiBaseUrl = () => {
-  return import.meta.env.VITE_API_URL || 
-    (window.location.hostname === "localhost" ? "http://localhost:4000" : "http://backend:4000");
-};
+import { api, baseURL } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
 import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown, FaMagic, FaCodeBranch, FaCopy, FaExchangeAlt, FaStar, FaArchive, FaTimes, FaCheck, FaPlus, FaExternalLinkAlt } from "react-icons/fa";
@@ -1041,7 +1035,7 @@ export default function DocsManagement() {
 
   const handleDownload = async (resumeId, format) => {
     try {
-      const downloadUrl = `http://localhost:4000/api/resumes/${resumeId}/download?format=${format}`;
+      const downloadUrl = `${baseURL}/api/resumes/${resumeId}/download?format=${format}`;
       
       // Fetch the file with authentication
       const response = await fetch(downloadUrl, {

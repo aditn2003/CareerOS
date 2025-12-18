@@ -29,9 +29,10 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import { baseURL } from '../api';
 import './OptimizationDashboard.css';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = `${baseURL}/api`;
 
 const OptimizationDashboard = () => {
   const [data, setData] = useState(null);
