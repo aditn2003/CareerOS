@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/4</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/22</span>
+                <span class='fraction'>11/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>3/3</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -199,12 +199,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">198x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -329,13 +329,13 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 import "./InterviewsLayout.css";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >InterviewsLayout() {</span>
-  const <span class="cstat-no" title="statement not covered" >location = useLocation();</span>
+export default function InterviewsLayout() {
+  const location = useLocation();
 &nbsp;
   // Helper to check if path is active
-  const isActive = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(p</span>ath) =&gt; <span class="cstat-no" title="statement not covered" >location.pathname === path;</span></span>
+  const isActive = (path) =&gt; location.pathname === path;
   
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="interviews-layout"&gt;
       &lt;div className="interviews-header"&gt;
         &lt;h1 className="main-title"&gt;Interview Command Center&lt;/h1&gt;
@@ -350,14 +350,14 @@ export default function <span class="fstat-no" title="function not covered" >Int
           &lt;div className="nav-group-tabs"&gt;
             &lt;Link
               to="/interviews/company-research"
-              className={`nav-tab research ${isActive('/interviews/company-research') ? 'active' : ''}`}
+              className={`nav-tab research ${isActive('/interviews/company-research') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;🏢&lt;/span&gt;
               &lt;span className="tab-text"&gt;Company&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/insights"
-              className={`nav-tab research ${isActive('/interviews/insights') ? 'active' : ''}`}
+              className={`nav-tab research ${isActive('/interviews/insights') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;🔍&lt;/span&gt;
               &lt;span className="tab-text"&gt;Insights&lt;/span&gt;
@@ -371,28 +371,28 @@ export default function <span class="fstat-no" title="function not covered" >Int
           &lt;div className="nav-group-tabs"&gt;
             &lt;Link
               to="/interviews/question-bank"
-              className={`nav-tab practice ${isActive('/interviews/question-bank') ? 'active' : ''}`}
+              className={`nav-tab practice ${isActive('/interviews/question-bank') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;📝&lt;/span&gt;
               &lt;span className="tab-text"&gt;Questions&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/technical-prep"
-              className={`nav-tab practice ${isActive('/interviews/technical-prep') ? 'active' : ''}`}
+              className={`nav-tab practice ${isActive('/interviews/technical-prep') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;💻&lt;/span&gt;
               &lt;span className="tab-text"&gt;Technical&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/response-coaching"
-              className={`nav-tab practice ${isActive('/interviews/response-coaching') ? 'active' : ''}`}
+              className={`nav-tab practice ${isActive('/interviews/response-coaching') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;🤖&lt;/span&gt;
               &lt;span className="tab-text"&gt;AI Coach&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/mock-interview"
-              className={`nav-tab practice ${isActive('/interviews/mock-interview') ? 'active' : ''}`}
+              className={`nav-tab practice ${isActive('/interviews/mock-interview') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;🎭&lt;/span&gt;
               &lt;span className="tab-text"&gt;Mock&lt;/span&gt;
@@ -406,21 +406,21 @@ export default function <span class="fstat-no" title="function not covered" >Int
           &lt;div className="nav-group-tabs"&gt;
             &lt;Link
               to="/interviews/tracker"
-              className={`nav-tab track ${isActive('/interviews/tracker') ? 'active' : ''}`}
+              className={`nav-tab track ${isActive('/interviews/tracker') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;📋&lt;/span&gt;
               &lt;span className="tab-text"&gt;Interviews&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/follow-up"
-              className={`nav-tab track ${isActive('/interviews/follow-up') ? 'active' : ''}`}
+              className={`nav-tab track ${isActive('/interviews/follow-up') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;📧&lt;/span&gt;
               &lt;span className="tab-text"&gt;Follow-Up&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/analytics"
-              className={`nav-tab track ${isActive('/interviews/analytics') ? 'active' : ''}`}
+              className={`nav-tab track ${isActive('/interviews/analytics') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;📊&lt;/span&gt;
               &lt;span className="tab-text"&gt;Analytics&lt;/span&gt;
@@ -434,14 +434,14 @@ export default function <span class="fstat-no" title="function not covered" >Int
           &lt;div className="nav-group-tabs"&gt;
             &lt;Link
               to="/interviews/salary-research"
-              className={`nav-tab offer ${isActive('/interviews/salary-research') ? 'active' : ''}`}
+              className={`nav-tab offer ${isActive('/interviews/salary-research') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;💰&lt;/span&gt;
               &lt;span className="tab-text"&gt;Salary Data&lt;/span&gt;
             &lt;/Link&gt;
             &lt;Link
               to="/interviews/salary-negotiation"
-              className={`nav-tab offer ${isActive('/interviews/salary-negotiation') ? 'active' : ''}`}
+              className={`nav-tab offer ${isActive('/interviews/salary-negotiation') ? <span class="branch-0 cbranch-no" title="branch not covered" >'active' : '</span>'}`}
             &gt;
               &lt;span className="tab-icon"&gt;💵&lt;/span&gt;
               &lt;span className="tab-text"&gt;Negotiate&lt;/span&gt;
@@ -463,7 +463,7 @@ export default function <span class="fstat-no" title="function not covered" >Int
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.882Z
+                at 2025-12-18T11:20:10.033Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

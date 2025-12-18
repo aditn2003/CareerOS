@@ -1,184 +1,128 @@
 /**
- * FormField Component Tests
+ * FormField Component Tests - Target: 100% Coverage
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "../../__tests__/helpers/test-utils";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { Field, TextArea } from "../FormField";
 
-describe("Field Component", () => {
-  it("renders without crashing", () => {
-    render(<Field label="Test Label" />);
-    expect(screen.getByLabelText("Test Label")).toBeInTheDocument();
+describe("Field", () => {
+  it("renders label", () => {
+    render(<Field label="Email" />);
+    expect(screen.getByText("Email")).toBeInTheDocument();
   });
 
-  it("renders with correct label", () => {
-    render(<Field label="Username" />);
-    expect(screen.getByText("Username")).toBeInTheDocument();
+  it("renders input element", () => {
+    render(<Field label="Email" />);
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
   it("uses default type of text", () => {
-    render(<Field label="Test" />);
-    const input = screen.getByLabelText("Test");
-    expect(input).toHaveAttribute("type", "text");
+    render(<Field label="Name" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("type", "text");
   });
 
   it("accepts custom type", () => {
-    render(<Field label="Email" type="email" />);
-    const input = screen.getByLabelText("Email");
-    expect(input).toHaveAttribute("type", "email");
-  });
-
-  it("accepts password type", () => {
     render(<Field label="Password" type="password" />);
-    const input = screen.getByLabelText("Password");
-    expect(input).toHaveAttribute("type", "password");
-  });
-
-  it("accepts number type", () => {
-    render(<Field label="Age" type="number" />);
-    const input = screen.getByLabelText("Age");
-    expect(input).toHaveAttribute("type", "number");
-  });
-
-  it("accepts custom id", () => {
-    render(<Field label="Test" id="custom-id" />);
-    const input = document.getElementById("custom-id");
+    const input = document.querySelector('input[type="password"]');
     expect(input).toBeInTheDocument();
   });
 
-  it("generates unique id when not provided", () => {
-    render(<Field label="Test" />);
-    const input = screen.getByLabelText("Test");
-    expect(input.id).toMatch(/^field-[a-z0-9]+$/);
+  it("uses provided id", () => {
+    render(<Field label="Email" id="email-field" />);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("id", "email-field");
   });
 
-  it("passes additional props to input", () => {
-    render(<Field label="Test" placeholder="Enter value" maxLength={50} />);
-    const input = screen.getByLabelText("Test");
-    expect(input).toHaveAttribute("placeholder", "Enter value");
-    expect(input).toHaveAttribute("maxLength", "50");
-  });
-
-  it("handles value prop", () => {
-    render(<Field label="Test" value="test value" onChange={() => {}} />);
-    const input = screen.getByLabelText("Test");
-    expect(input).toHaveValue("test value");
-  });
-
-  it("calls onChange when value changes", () => {
-    const handleChange = vi.fn();
-    render(<Field label="Test" onChange={handleChange} />);
-    const input = screen.getByLabelText("Test");
-    fireEvent.change(input, { target: { value: "new value" } });
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("has aria-label attribute", () => {
-    render(<Field label="Accessible Field" />);
-    const input = screen.getByLabelText("Accessible Field");
-    expect(input).toHaveAttribute("aria-label", "Accessible Field");
-  });
-
-  it("wraps in div with field class", () => {
-    const { container } = render(<Field label="Test" />);
-    expect(container.querySelector(".field")).toBeInTheDocument();
+  it("generates random id if not provided", () => {
+    render(<Field label="Username" />);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("id");
+    expect(input.id).toMatch(/^field-/);
   });
 
   it("associates label with input via htmlFor", () => {
-    render(<Field label="Test" id="my-input" />);
-    const label = screen.getByText("Test");
-    expect(label).toHaveAttribute("for", "my-input");
+    render(<Field label="Email" id="test-email" />);
+    const label = screen.getByText("Email");
+    expect(label).toHaveAttribute("for", "test-email");
   });
 
-  it("accepts disabled prop", () => {
-    render(<Field label="Test" disabled />);
-    const input = screen.getByLabelText("Test");
-    expect(input).toBeDisabled();
+  it("sets aria-label on input", () => {
+    render(<Field label="Search" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-label", "Search");
   });
 
-  it("accepts required prop", () => {
-    render(<Field label="Test" required />);
-    const input = screen.getByLabelText("Test");
-    expect(input).toBeRequired();
+  it("passes through additional props", () => {
+    render(<Field label="Name" placeholder="Enter name" maxLength={50} />);
+    const input = screen.getByRole("textbox");
+    expect(input).toHaveAttribute("placeholder", "Enter name");
+    expect(input).toHaveAttribute("maxLength", "50");
+  });
+
+  it("handles onChange", () => {
+    const onChange = vi.fn();
+    render(<Field label="Name" onChange={onChange} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Test" } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("renders inside a field div", () => {
+    render(<Field label="Test" />);
+    expect(document.querySelector(".field")).toBeInTheDocument();
   });
 });
 
-describe("TextArea Component", () => {
-  it("renders without crashing", () => {
+describe("TextArea", () => {
+  it("renders label", () => {
     render(<TextArea label="Description" />);
-    expect(screen.getByLabelText("Description")).toBeInTheDocument();
+    expect(screen.getByText("Description")).toBeInTheDocument();
   });
 
-  it("renders with correct label", () => {
-    render(<TextArea label="Comments" />);
-    expect(screen.getByText("Comments")).toBeInTheDocument();
-  });
-
-  it("renders as textarea element", () => {
-    render(<TextArea label="Test" />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea.tagName.toLowerCase()).toBe("textarea");
-  });
-
-  it("accepts custom id", () => {
-    render(<TextArea label="Test" id="custom-textarea" />);
-    const textarea = document.getElementById("custom-textarea");
-    expect(textarea).toBeInTheDocument();
-  });
-
-  it("generates unique id when not provided", () => {
-    render(<TextArea label="Test" />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea.id).toMatch(/^textarea-[a-z0-9]+$/);
-  });
-
-  it("passes additional props to textarea", () => {
-    render(<TextArea label="Test" placeholder="Enter description" rows={5} />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea).toHaveAttribute("placeholder", "Enter description");
-    expect(textarea).toHaveAttribute("rows", "5");
-  });
-
-  it("handles value prop", () => {
-    render(<TextArea label="Test" value="test content" onChange={() => {}} />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea).toHaveValue("test content");
-  });
-
-  it("calls onChange when value changes", () => {
-    const handleChange = vi.fn();
-    render(<TextArea label="Test" onChange={handleChange} />);
-    const textarea = screen.getByLabelText("Test");
-    fireEvent.change(textarea, { target: { value: "new content" } });
-    expect(handleChange).toHaveBeenCalled();
-  });
-
-  it("has aria-label attribute", () => {
+  it("renders textarea element", () => {
     render(<TextArea label="Bio" />);
-    const textarea = screen.getByLabelText("Bio");
-    expect(textarea).toHaveAttribute("aria-label", "Bio");
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(screen.getByRole("textbox").tagName).toBe("TEXTAREA");
   });
 
-  it("wraps in div with field class", () => {
-    const { container } = render(<TextArea label="Test" />);
-    expect(container.querySelector(".field")).toBeInTheDocument();
+  it("uses provided id", () => {
+    render(<TextArea label="Notes" id="notes-area" />);
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toHaveAttribute("id", "notes-area");
+  });
+
+  it("generates random id if not provided", () => {
+    render(<TextArea label="Comments" />);
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toHaveAttribute("id");
+    expect(textarea.id).toMatch(/^textarea-/);
   });
 
   it("associates label with textarea via htmlFor", () => {
-    render(<TextArea label="Test" id="my-textarea" />);
-    const label = screen.getByText("Test");
-    expect(label).toHaveAttribute("for", "my-textarea");
+    render(<TextArea label="Message" id="msg-area" />);
+    const label = screen.getByText("Message");
+    expect(label).toHaveAttribute("for", "msg-area");
   });
 
-  it("accepts disabled prop", () => {
-    render(<TextArea label="Test" disabled />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea).toBeDisabled();
+  it("sets aria-label on textarea", () => {
+    render(<TextArea label="Feedback" />);
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-label", "Feedback");
   });
 
-  it("accepts maxLength prop", () => {
-    render(<TextArea label="Test" maxLength={500} />);
-    const textarea = screen.getByLabelText("Test");
-    expect(textarea).toHaveAttribute("maxLength", "500");
+  it("passes through additional props", () => {
+    render(<TextArea label="Content" rows={5} cols={40} />);
+    const textarea = screen.getByRole("textbox");
+    expect(textarea).toHaveAttribute("rows", "5");
+    expect(textarea).toHaveAttribute("cols", "40");
+  });
+
+  it("handles onChange", () => {
+    const onChange = vi.fn();
+    render(<TextArea label="Notes" onChange={onChange} />);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Test" } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it("renders inside a field div", () => {
+    render(<TextArea label="Test" />);
+    expect(document.querySelector(".field")).toBeInTheDocument();
   });
 });

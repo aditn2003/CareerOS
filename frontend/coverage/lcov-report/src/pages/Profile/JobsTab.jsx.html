@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>13/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -143,28 +143,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -174,10 +163,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -211,18 +211,18 @@ import UpcomingDeadlinesWidget from "../../components/UpcomingDeadlinesWidget";
 import JobsCalendar from "../../components/JobsCalendar";
 import JobTimeline from "../../components/JobTimeline";
 &nbsp;
-export default function <span class="fstat-no" title="function not covered" >JobsTab() {</span>
-  const { token <span class="cstat-no" title="statement not covered" >} = useAuth();</span>
-  const <span class="cstat-no" title="statement not covered" >navigate = useNavigate();</span>
-  const [showJobForm, setShowJobForm<span class="cstat-no" title="statement not covered" >] = useState(false);</span>
-  const [refreshKey, setRefreshKey<span class="cstat-no" title="statement not covered" >] = useState(Date.now());</span>
+export default function JobsTab() {
+  const { token } = useAuth();
+  const navigate = useNavigate();
+  const [showJobForm, setShowJobForm] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(Date.now());
 &nbsp;
-  const handleApply = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(j</span>obId) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (!jobId) <span class="cstat-no" title="statement not covered" >return;</span></span>
-<span class="cstat-no" title="statement not covered" >    navigate(`/job-match?jobId=${jobId}&amp;tab=quality`);</span>
+  const handleApply = (jobId) =&gt; {
+    if (!jobId) return;
+    navigate(`/job-match?jobId=${jobId}&amp;tab=quality`);
   };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return (</span>
+  return (
     &lt;div className="jobs-layout"&gt;
       {/* ─── Main Column ─── */}
       &lt;div className="jobs-main"&gt;
@@ -233,7 +233,7 @@ export default function <span class="fstat-no" title="function not covered" >Job
           {!showJobForm &amp;&amp; (
             &lt;button
               className="btn-success"
-              onClick={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etShowJobForm(true)}</span>
+              onClick={() =&gt; setShowJobForm(true)}
             &gt;
               ➕ Add New Job
             &lt;/button&gt;
@@ -242,11 +242,11 @@ export default function <span class="fstat-no" title="function not covered" >Job
           {showJobForm &amp;&amp; (
             &lt;JobEntryForm
               token={token}
-              onSaved={<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >                setShowJobForm(false);</span>
-<span class="cstat-no" title="statement not covered" >                setRefreshKey(Date.now()); // trigger pipeline refresh</span>
+              onSaved={() =&gt; {
+                setShowJobForm(false);
+                setRefreshKey(Date.now()); // trigger pipeline refresh
               }}
-              onCancel={<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >s</span>etShowJobForm(false)}</span>
+              onCancel={() =&gt; setShowJobForm(false)}
             /&gt;
           )}
         &lt;/div&gt;
@@ -277,7 +277,7 @@ export default function <span class="fstat-no" title="function not covered" >Job
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-17T06:39:56.882Z
+                at 2025-12-18T11:20:10.033Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
