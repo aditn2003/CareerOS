@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">98.3% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>59/59</span>
+                <span class='fraction'>58/59</span>
             </div>
         
             
@@ -470,7 +470,11 @@
 <a name='L405'></a><a href='#L405'>405</a>
 <a name='L406'></a><a href='#L406'>406</a>
 <a name='L407'></a><a href='#L407'>407</a>
-<a name='L408'></a><a href='#L408'>408</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -543,10 +547,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -588,6 +593,9 @@
 <span class="cline-any cline-yes">69x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">69x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -949,11 +957,12 @@ const PrivacyPolicy = lazy(() =&gt; import("./pages/Help/PrivacyPolicy"));
 const FollowUpReminders = lazy(() =&gt; import("./components/FollowUpReminders"));
 &nbsp;
 // ---------- Admin Pages (Lazy) ----------
-const ApiMonitoringDashboard = lazy(() =&gt;
-  import("./pages/Admin/ApiMonitoringDashboard")
-);
+const ApiMonitoringDashboard = lazy(() =&gt; import("./pages/Admin/ApiMonitoringDashboard"));
 &nbsp;
-const Networking = lazy(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>mport("./pages/Networking/Networking")); // Professional Networking Management</span>
+const Networking = lazy(
+<span class="fstat-no" title="function not covered" >  () =&gt; <span class="cstat-no" title="statement not covered" >i</span>mport("./pages/Networking/Networking")</span>
+); // Professional Networking Management
+&nbsp;
 &nbsp;
 // ---------- Resume Flow (Lazy) ----------
 const ResumeBuilder = lazy(() =&gt; import("./pages/Profile/ResumeBuilder"));
@@ -1008,274 +1017,277 @@ function MainLayout() {
 &nbsp;
         &lt;Suspense fallback={&lt;Spinner /&gt;}&gt;
           &lt;Routes&gt;
-            {/* --- Public Routes --- */}
-            &lt;Route path="/" element={&lt;Home /&gt;} /&gt;
-            &lt;Route path="/register" element={&lt;Register /&gt;} /&gt;
-            &lt;Route path="/login" element={&lt;Login /&gt;} /&gt;
-            &lt;Route path="/forgot" element={&lt;ForgotPassword /&gt;} /&gt;
-            &lt;Route path="/reset" element={&lt;ResetPassword /&gt;} /&gt;
-            {/* --- LinkedIn OAuth Callback Routes --- */}
-            &lt;Route
-              path="/auth/linkedin/success"
-              element={&lt;LinkedInAuthSuccess /&gt;}
-            /&gt;
-            &lt;Route
-              path="/auth/linkedin/callback"
-              element={&lt;LinkedInCallback /&gt;}
-            /&gt;
-            {/* --- Help &amp; Legal Pages (Public) --- */}
-            &lt;Route path="/getting-started" element={&lt;GettingStarted /&gt;} /&gt;
-            &lt;Route path="/faq" element={&lt;FAQ /&gt;} /&gt;
-            &lt;Route path="/terms" element={&lt;TermsOfService /&gt;} /&gt;
-            &lt;Route path="/privacy" element={&lt;PrivacyPolicy /&gt;} /&gt;
-            {/* --- Profile Routes (Protected) --- */}
-            &lt;Route
-              path="/profile/*"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ProfileLayout /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Resume Builder Pipeline (Protected) --- */}
-            &lt;Route
-              path="/resume"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeBuilder /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/setup"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeSetup /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/editor"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeEditor /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/optimize"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeOptimize /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/optimize/run"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeOptimizeRun /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/compare"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeCompare /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/resume/final-review"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ResumeFinalReview /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Jobs Dashboard (Protected) --- */}
-            &lt;Route
-              path="/jobs"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;Jobs /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Jobs Map View (Protected) --- */}
-            &lt;Route
-              path="/jobs/map"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;Jobs /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Statistics (Protected) --- */}
-            &lt;Route
-              path="/statistics"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;StatisticsPage /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
-            &lt;Route
-              path="/followup-reminders"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;FollowUpReminders /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Company Research (Redirect to Interviews) --- */}
-            &lt;Route
-              path="/company-research"
-              element={&lt;Navigate to="/interviews/company-research" replace /&gt;}
-            /&gt;
-            {/* --- Salary Research (Redirect to Interviews) --- */}
-            &lt;Route
-              path="/salary-research"
-              element={&lt;Navigate to="/interviews/salary-research" replace /&gt;}
-            /&gt;
-            {/* --- Job Match (Protected) --- */}
-            &lt;Route
-              path="/job-match"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;JobMatch /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Docs Management (Protected) --- */}
-            &lt;Route
-              path="/docs-management"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;DocsManagement /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Match Compare (Protected) --- */}
-            &lt;Route
-              path="/match/compare"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;MatchCompare /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Skills Gap (Protected) --- */}
-            &lt;Route
-              path="/skills-gap/:jobId"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;SkillsGapAnalysis /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Interview Preparation (Nested + Protected) --- */}
-            &lt;Route
-              path="/interviews"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;InterviewsLayout /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            &gt;
-              {/* Default redirect to insights */}
-              &lt;Route index element={&lt;Navigate to="insights" replace /&gt;} /&gt;
-              {/* Nested routes */}
-              &lt;Route path="insights" element={&lt;InterviewInsights /&gt;} /&gt;
-              &lt;Route path="question-bank" element={&lt;QuestionBank /&gt;} /&gt;
-              &lt;Route path="response-coaching" element={&lt;ResponseCoaching /&gt;} /&gt;
-              &lt;Route path="mock-interview" element={&lt;MockInterview /&gt;} /&gt;
-              &lt;Route path="technical-prep" element={&lt;TechnicalPrep /&gt;} /&gt;{" "}
-              {/* ✅ UC-078 */}
-              &lt;Route path="follow-up" element={&lt;FollowUpTemplates /&gt;} /&gt;
-              &lt;Route
-                path="company-research"
-                element={&lt;CompanyResearch /&gt;}
-              /&gt;{" "}
-              {/* 🆕 MOVED HERE */}
-              &lt;Route path="salary-research" element={&lt;SalaryResearch /&gt;} /&gt;{" "}
-              {/* 🆕 MOVED HERE */}
-              &lt;Route
-                path="salary-negotiation"
-                element={&lt;SalaryNegotiation /&gt;}
-              /&gt;{" "}
-              {/* ✅ UC-083 */}
-              &lt;Route path="tracker" element={&lt;InterviewTracker /&gt;} /&gt;
-              &lt;Route path="analytics" element={&lt;InterviewAnalytics /&gt;} /&gt;
-            &lt;/Route&gt;
-            {/* --- Cover Letter (UC-055, Protected) --- */}
-            &lt;Route
-              path="/cover-letter"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;CoverLetter /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Cover Letter (UC-055)  --- */}
-            &lt;Route path="/cover-letter" element={&lt;CoverLetter /&gt;} /&gt;{" "}
-            {/* ✅ NEW */}
-            {/* --- Consolidated Network &amp; Relationships (UC-10x, UC-087, UC-088) --- */}
-            &lt;Route
-              path="/network"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;NetworkLayout /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Legacy Routes (Redirect to /network) --- */}
-            &lt;Route
-              path="/referrals"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;Navigate to="/network" replace /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            &lt;Route
-              path="/networking"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;Navigate to="/network" replace /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* ✅ CONSOLIDATED */}
-            {/* --- Mentor Routes (Protected) --- */}
-            &lt;Route
-              path="/mentor/*"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;MentorLayout /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
-            &lt;Route
-              path="/admin/api-monitoring"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;ApiMonitoringDashboard /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
-            {/* --- Legacy / Alias --- */}
-            &lt;Route
-              path="/resume/templates"
-              element={
-                &lt;ProtectedRoute&gt;
-                  &lt;Navigate to="/resume" replace /&gt;
-                &lt;/ProtectedRoute&gt;
-              }
-            /&gt;
+          {/* --- Public Routes --- */}
+          &lt;Route path="/" element={&lt;Home /&gt;} /&gt;
+          &lt;Route path="/register" element={&lt;Register /&gt;} /&gt;
+          &lt;Route path="/login" element={&lt;Login /&gt;} /&gt;
+          &lt;Route path="/forgot" element={&lt;ForgotPassword /&gt;} /&gt;
+          &lt;Route path="/reset" element={&lt;ResetPassword /&gt;} /&gt;
+          
+          {/* --- LinkedIn OAuth Callback Routes --- */}
+          &lt;Route path="/auth/linkedin/success" element={&lt;LinkedInAuthSuccess /&gt;} /&gt;
+          &lt;Route path="/auth/linkedin/callback" element={&lt;LinkedInCallback /&gt;} /&gt;
+&nbsp;
+          {/* --- Help &amp; Legal Pages (Public) --- */}
+          &lt;Route path="/getting-started" element={&lt;GettingStarted /&gt;} /&gt;
+          &lt;Route path="/faq" element={&lt;FAQ /&gt;} /&gt;
+          &lt;Route path="/terms" element={&lt;TermsOfService /&gt;} /&gt;
+          &lt;Route path="/privacy" element={&lt;PrivacyPolicy /&gt;} /&gt;
+&nbsp;
+          {/* --- Profile Routes (Protected) --- */}
+          &lt;Route
+            path="/profile/*"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ProfileLayout /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Resume Builder Pipeline (Protected) --- */}
+          &lt;Route
+            path="/resume"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeBuilder /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/setup"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeSetup /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/editor"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeEditor /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/optimize"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeOptimize /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/optimize/run"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeOptimizeRun /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/compare"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeCompare /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/resume/final-review"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ResumeFinalReview /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Jobs Dashboard (Protected) --- */}
+          &lt;Route
+            path="/jobs"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;Jobs /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Jobs Map View (Protected) --- */}
+          &lt;Route
+            path="/jobs/map"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;Jobs /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Statistics (Protected) --- */}
+          &lt;Route
+            path="/statistics"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;StatisticsPage /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
+          &lt;Route
+            path="/followup-reminders"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;FollowUpReminders /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+&nbsp;
+          {/* --- Company Research (Redirect to Interviews) --- */}
+          &lt;Route
+            path="/company-research"
+            element={&lt;Navigate to="/interviews/company-research" replace /&gt;}
+          /&gt;
+&nbsp;
+          {/* --- Salary Research (Redirect to Interviews) --- */}
+          &lt;Route
+            path="/salary-research"
+            element={&lt;Navigate to="/interviews/salary-research" replace /&gt;}
+          /&gt;
+&nbsp;
+          {/* --- Job Match (Protected) --- */}
+          &lt;Route
+            path="/job-match"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;JobMatch /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Docs Management (Protected) --- */}
+          &lt;Route
+            path="/docs-management"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;DocsManagement /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Match Compare (Protected) --- */}
+          &lt;Route
+            path="/match/compare"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;MatchCompare /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Skills Gap (Protected) --- */}
+          &lt;Route
+            path="/skills-gap/:jobId"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;SkillsGapAnalysis /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Interview Preparation (Nested + Protected) --- */}
+          &lt;Route
+            path="/interviews"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;InterviewsLayout /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          &gt;
+            {/* Default redirect to insights */}
+            &lt;Route index element={&lt;Navigate to="insights" replace /&gt;} /&gt;
+&nbsp;
+            {/* Nested routes */}
+            &lt;Route path="insights" element={&lt;InterviewInsights /&gt;} /&gt;
+            &lt;Route path="question-bank" element={&lt;QuestionBank /&gt;} /&gt;
+            &lt;Route path="response-coaching" element={&lt;ResponseCoaching /&gt;} /&gt;
+            &lt;Route path="mock-interview" element={&lt;MockInterview /&gt;} /&gt;
+            &lt;Route path="technical-prep" element={&lt;TechnicalPrep /&gt;} /&gt; {/* ✅ UC-078 */}
+            &lt;Route path="follow-up" element={&lt;FollowUpTemplates /&gt;} /&gt;
+            &lt;Route path="company-research" element={&lt;CompanyResearch /&gt;} /&gt; {/* 🆕 MOVED HERE */}
+            &lt;Route path="salary-research" element={&lt;SalaryResearch /&gt;} /&gt; {/* 🆕 MOVED HERE */}
+            &lt;Route path="salary-negotiation" element={&lt;SalaryNegotiation /&gt;} /&gt; {/* ✅ UC-083 */}
+            &lt;Route path="tracker" element={&lt;InterviewTracker /&gt;} /&gt;
+            &lt;Route path="analytics" element={&lt;InterviewAnalytics /&gt;} /&gt;
+          &lt;/Route&gt;
+&nbsp;
+          {/* --- Cover Letter (UC-055, Protected) --- */}
+          &lt;Route
+            path="/cover-letter"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;CoverLetter /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          {/* --- Consolidated Network &amp; Relationships (UC-10x, UC-087, UC-088) --- */}
+          &lt;Route
+            path="/network"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;NetworkLayout /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          {/* --- Legacy Routes (Redirect to /network) --- */}
+          &lt;Route
+            path="/referrals"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;Navigate to="/network" replace /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          &lt;Route
+            path="/networking"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;Navigate to="/network" replace /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+          {/* ✅ CONSOLIDATED */}
+&nbsp;
+          {/* --- Mentor Routes (Protected) --- */}
+          &lt;Route
+            path="/mentor/*"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;MentorLayout /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
+          &lt;Route
+            path="/admin/api-monitoring"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;ApiMonitoringDashboard /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
+          {/* --- Legacy / Alias --- */}
+          &lt;Route
+            path="/resume/templates"
+            element={
+              &lt;ProtectedRoute&gt;
+                &lt;Navigate to="/resume" replace /&gt;
+              &lt;/ProtectedRoute&gt;
+            }
+          /&gt;
+&nbsp;
             {/* --- Fallback --- */}
             &lt;Route path="*" element={&lt;Navigate to="/" replace /&gt;} /&gt;
           &lt;/Routes&gt;
@@ -1291,7 +1303,7 @@ function MainLayout() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-18T11:20:10.033Z
+                at 2025-12-18T11:44:19.918Z
             </div>
         <script src="../prettify.js"></script>
         <script>

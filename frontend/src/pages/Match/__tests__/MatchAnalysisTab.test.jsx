@@ -419,7 +419,16 @@ describe("MatchAnalysisTab", () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText(/Select a job to analyze/i)).toBeInTheDocument();
+      // When there are no jobs, the dropdown shows a 'no jobs' message
+      expect(
+        screen.getByText(/No jobs found - add jobs first/i)
+      ).toBeInTheDocument();
+      // And the hint below explains how to enable requirements analysis
+      expect(
+        screen.getByText(
+          /Select a job from the dropdown above to enable Requirements Analysis/i
+        )
+      ).toBeInTheDocument();
     });
   });
 
@@ -429,7 +438,14 @@ describe("MatchAnalysisTab", () => {
     renderWithRouter();
 
     await waitFor(() => {
-      expect(screen.getByText(/Select a job to analyze/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/No jobs found - add jobs first/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Select a job from the dropdown above to enable Requirements Analysis/i
+        )
+      ).toBeInTheDocument();
     });
   });
 
@@ -510,4 +526,3 @@ describe("MatchAnalysisTab", () => {
     expect(link).toHaveAttribute("href", "/match/compare");
   });
 });
-

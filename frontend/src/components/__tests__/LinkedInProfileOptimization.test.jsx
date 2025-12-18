@@ -6,8 +6,35 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import LinkedInProfileOptimization from "../LinkedInProfileOptimization";
 import axios from "axios";
 
-// Mock axios
-vi.mock("axios");
+// Mock axios with a create() that returns an instance
+// compatible with api.js (has interceptors, etc.)
+vi.mock("axios", () => {
+  const instance = {
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+    defaults: {},
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  };
+
+  const mockAxios = {
+    create: vi.fn(() => instance),
+    // Allow direct axios.post(...) usage as well
+    post: instance.post,
+    get: instance.get,
+    put: instance.put,
+    delete: instance.delete,
+  };
+
+  return {
+    default: mockAxios,
+    ...mockAxios,
+  };
+});
 
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
@@ -480,7 +507,3 @@ describe("LinkedInProfileOptimization", () => {
     });
   });
 });
-
-
-
-
