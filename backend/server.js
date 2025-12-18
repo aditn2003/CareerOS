@@ -143,9 +143,11 @@ import {
 } from './middleware/security.js';
 
 // Helmet adds security headers (removes X-Powered-By, adds CSP, HSTS, etc.)
+// For demo and local development we enable CSP and HSTS as well so headers
+// are always visible in browser dev tools.
 app.use(helmet({
   // Content Security Policy
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+  contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com"],
@@ -157,14 +159,15 @@ app.use(helmet({
       objectSrc: ["'none'"],
       upgradeInsecureRequests: [],
     },
-  } : false, // Disable CSP in development to avoid breaking hot reload
+  },
   
-  // HTTP Strict Transport Security (only in production)
-  hsts: process.env.NODE_ENV === 'production' ? {
+  // HTTP Strict Transport Security
+  // (Browsers only enforce this over HTTPS, but the header is still sent in dev)
+  hsts: {
     maxAge: 31536000, // 1 year
     includeSubDomains: true,
-    preload: true
-  } : false,
+    preload: true,
+  },
   
   // Prevent MIME type sniffing
   noSniff: true,
