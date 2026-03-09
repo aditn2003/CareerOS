@@ -117,7 +117,7 @@ Level 4: Course Instructor / Advisor
 ### Incident Acknowledged
 
 ```
-🔴 INCIDENT ACKNOWLEDGED
+INCIDENT ACKNOWLEDGED [P1/P2/P3/P4]
 Severity: P[X]
 Issue: [Brief description]
 Status: Investigating
@@ -128,7 +128,7 @@ Updates: Every [15/30/60] minutes
 ### Status Update
 
 ```
-🟡 INCIDENT UPDATE
+INCIDENT UPDATE
 Issue: [Brief description]
 Status: [Investigating/Mitigating/Resolved]
 Impact: [Who is affected]
@@ -138,7 +138,7 @@ Next Update: [Time]
 ### Incident Resolved
 
 ```
-🟢 INCIDENT RESOLVED
+INCIDENT RESOLVED
 Issue: [Brief description]
 Duration: [Start time] - [End time]
 Root Cause: [Brief explanation]

@@ -109,10 +109,17 @@ Copy and configure environment variables for both `backend` and `frontend`. See 
 ## Project Structure
 
 ```
-├── frontend/          # React + Vite SPA
-├── backend/            # Express API
-├── documentation/      # Production docs, runbooks, guides
-└── scripts/            # Merge coverage, etc.
+├── frontend/              # React + Vite SPA
+├── backend/               # Express API
+│   ├── db/                 # SQL migrations and schema
+│   ├── routes/             # API route handlers
+│   ├── scripts/            # Backend scripts (migrations, load-test, debug)
+│   └── ...
+├── documentation/         # Production docs, runbooks, guides
+│   ├── development/       # Dev-only docs (coverage, test status)
+│   └── ...
+├── scripts/               # Root-level dev scripts (merge-coverage, ngrok, health checks)
+└── .github/               # CI/CD workflows
 ```
 
 ---
@@ -135,4 +142,4 @@ Copy and configure environment variables for both `backend` and `frontend`. See 
 - [Environment Variables](documentation/ENVIRONMENT_VARIABLES.md) — Configuration reference
 - [Deployment Runbook](documentation/DEPLOYMENT_RUNBOOK.md) — Deployment procedures
 - [Troubleshooting](documentation/TROUBLESHOOTING_GUIDE.md) — Common issues
-- [Security Demo](UC145_SECURITY_DEMO_GUIDE.md) — Security testing guide
+- [Security Demo](documentation/UC145_SECURITY_DEMO_GUIDE.md) — Security testing guide

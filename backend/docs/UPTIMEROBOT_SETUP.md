@@ -165,9 +165,9 @@ Before setting up UptimeRobot, make sure your health endpoint is working:
    - Go to your UptimeRobot dashboard
    - You should see your monitor in the list
    - Status should show:
-     - **🟢 Up** - If your application is running
-     - **🔴 Down** - If your application is down
-     - **🟡 Paused** - If monitoring is paused
+     - **Up** - If your application is running
+     - **Down** - If your application is down
+     - **Paused** - If monitoring is paused
 
 2. **Wait for first check**
    - UptimeRobot will check your endpoint within 5 minutes
@@ -240,10 +240,10 @@ Before setting up UptimeRobot, make sure your health endpoint is working:
 
 ### Status Indicators
 
-- **🟢 Up (Paused)**: Monitor is paused (not checking)
-- **🟢 Up**: Application is responding correctly
-- **🟡 Unknown**: Monitor hasn't checked yet or there's an issue
-- **🔴 Down**: Application is not responding or returning errors
+- **Up (Paused)**: Monitor is paused (not checking)
+- **Up**: Application is responding correctly
+- **Unknown**: Monitor hasn't checked yet or there's an issue
+- **Down**: Application is not responding or returning errors
 
 ### Response Codes
 
@@ -255,12 +255,12 @@ Before setting up UptimeRobot, make sure your health endpoint is working:
 ## Free Tier Limits
 
 UptimeRobot's free tier includes:
-- ✅ 50 monitors
-- ✅ 5-minute check intervals
-- ✅ Email alerts
-- ✅ SMS alerts (limited)
-- ✅ 2 months of log history
-- ✅ Basic status pages
+-  50 monitors
+-  5-minute check intervals
+-  Email alerts
+-  SMS alerts (limited)
+-  2 months of log history
+-  Basic status pages
 
 For most applications, this is sufficient.
 

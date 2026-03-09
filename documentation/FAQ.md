@@ -206,11 +206,11 @@ Not currently. However, the website is fully responsive and works great on mobil
 
 | Browser | Supported |
 |---------|-----------|
-| Chrome | ✅ Yes |
-| Firefox | ✅ Yes |
-| Safari | ✅ Yes |
-| Edge | ✅ Yes |
-| Internet Explorer | ❌ No |
+| Chrome | Yes |
+| Firefox | Yes |
+| Safari | Yes |
+| Edge | Yes |
+| Internet Explorer | No |
 
 ### Does it work offline?
 

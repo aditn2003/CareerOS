@@ -120,17 +120,17 @@ FRONTEND_URL="https://your-app.vercel.app"
 # Check backend
 BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/health")
 if [ "$BACKEND_STATUS" != "200" ]; then
-    echo "❌ Backend unhealthy: HTTP $BACKEND_STATUS"
+    echo "Backend unhealthy: HTTP $BACKEND_STATUS"
 else
-    echo "✅ Backend healthy"
+    echo "Backend healthy"
 fi
 
 # Check frontend
 FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_URL")
 if [ "$FRONTEND_STATUS" != "200" ]; then
-    echo "❌ Frontend unhealthy: HTTP $FRONTEND_STATUS"
+    echo "Frontend unhealthy: HTTP $FRONTEND_STATUS"
 else
-    echo "✅ Frontend healthy"
+    echo "Frontend healthy"
 fi
 ```
 
@@ -208,14 +208,14 @@ Schedule regular checks:
 
 ### What to Log
 
-✅ **Do Log:**
+**Do Log:**
 - Authentication attempts (success/failure)
 - API errors with stack traces
 - Database connection issues
 - External API failures
 - Performance anomalies
 
-❌ **Don't Log:**
+**Don't Log:**
 - Passwords or tokens
 - Full credit card numbers
 - Personal health information

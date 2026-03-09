@@ -18,6 +18,13 @@ This folder contains all production documentation for the ATS (Applicant Trackin
 | [Change Log](./CHANGELOG.md) | Production update history |
 | [On-Call Procedures](./ON_CALL_PROCEDURES.md) | Escalation paths and incident response |
 | [Monitoring & Alerting](./MONITORING_ALERTING.md) | Monitoring setup and dashboards |
+| [Security Demo (UC-145)](./UC145_SECURITY_DEMO_GUIDE.md) | Security testing and demo guide |
+| [Testing Plan](./TESTING_PLAN.txt) | Test planning document |
+
+### Development-Only (Internal)
+| Document | Description |
+|----------|-------------|
+| [development/](./development/) | Coverage reports, test optimization summaries |
 
 ### User-Facing
 | Document | Description |
@@ -58,13 +65,13 @@ This folder contains all production documentation for the ATS (Applicant Trackin
 ## Verification Checklist
 
 ```
-✅ Production architecture documented with diagrams
-✅ Deployment runbooks with step-by-step procedures
-✅ Environment variables documented
-✅ Troubleshooting guides created
-✅ Change log maintained
-✅ On-call procedures defined
-✅ Monitoring and alerting documented
+[x] Production architecture documented with diagrams
+[x] Deployment runbooks with step-by-step procedures
+[x] Environment variables documented
+[x] Troubleshooting guides created
+[x] Change log maintained
+[x] On-call procedures defined
+[x] Monitoring and alerting documented
 ```
 
 ---

@@ -14,7 +14,7 @@ Welcome to **CareerOS ATS** — your personal job search companion! This guide w
    - **Email/Password**: Enter your email and create a password
    - **Google Sign-In**: Click "Continue with Google" for quick signup
 4. Verify your email (check spam folder if needed)
-5. You're in! 🎉
+5. You're ready to start.
 
 ### Step 2: Complete Your Profile
 
@@ -43,13 +43,13 @@ Welcome to **CareerOS ATS** — your personal job search companion! This guide w
    - **Status**: Select "Wishlist" or "Applied"
 3. Click **Save**
 
-Congratulations! You've set up your CareerOS account! 🚀
+Congratulations. You have set up your CareerOS account.
 
 ---
 
 ## Core Features
 
-### 📋 Job Tracking
+### Job Tracking
 
 Keep all your job applications organized in one place.
 
@@ -68,7 +68,7 @@ Keep all your job applications organized in one place.
 
 ---
 
-### 📄 AI Resume Tailoring
+### AI Resume Tailoring
 
 Let AI customize your resume for each job posting.
 
@@ -86,7 +86,7 @@ Let AI customize your resume for each job posting.
 
 ---
 
-### ✉️ AI Cover Letter Generator
+### AI Cover Letter Generator
 
 Create personalized cover letters in seconds.
 
@@ -104,7 +104,7 @@ Create personalized cover letters in seconds.
 
 ---
 
-### 🎤 Interview Preparation
+### Interview Preparation
 
 Practice with AI-powered mock interviews.
 
@@ -119,7 +119,7 @@ Practice with AI-powered mock interviews.
 
 ---
 
-### 📊 Analytics Dashboard
+### Analytics Dashboard
 
 Track your job search progress with visual insights.
 
@@ -136,7 +136,7 @@ Track your job search progress with visual insights.
 
 ---
 
-### 👥 Networking Contacts
+### Networking Contacts
 
 Manage professional connections related to your job search.
 
@@ -190,6 +190,6 @@ CareerOS is fully responsive! Access your dashboard from any device:
 
 ---
 
-*Welcome to CareerOS — Good luck with your job search! 🍀*
+*Welcome to CareerOS. Good luck with your job search.*
 
 

@@ -12,50 +12,50 @@ This document lists all environment variables required for the ATS application t
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | ✅ Yes | `postgresql://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres` |
+| `DATABASE_URL` | PostgreSQL connection string | Yes | `postgresql://postgres.[ref]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres` |
 
 ### Supabase Configuration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `SUPABASE_URL` | Supabase project URL | ✅ Yes | `https://xxxxxxxxxxxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase anonymous/public key | ✅ Yes | `eyJhbGciOiJIUzI1NiIs...` |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key | ✅ Yes | `eyJhbGciOiJIUzI1NiIs...` |
+| `SUPABASE_URL` | Supabase project URL | Yes | `https://xxxxxxxxxxxx.supabase.co` |
+| `SUPABASE_ANON_KEY` | Supabase anonymous/public key | Yes | `eyJhbGciOiJIUzI1NiIs...` |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key | Yes | `eyJhbGciOiJIUzI1NiIs...` |
 
 ### Backend Application Configuration
 
 | Variable | Description | Required | Default | Example |
 |----------|-------------|----------|---------|---------|
-| `NODE_ENV` | Environment mode | ✅ Yes | `development` | `production` |
-| `JWT_SECRET` | Secret key for JWT signing | ✅ Yes | None | `your-super-secret-key-change-in-production` |
-| `FRONTEND_URL` | Frontend application URL | ✅ Yes | None | `https://your-app.vercel.app` |
-| `REMINDER_DAYS_BEFORE` | Days before interview to send reminder | ❌ No | `3` | `3` |
+| `NODE_ENV` | Environment mode | Yes | `development` | `production` |
+| `JWT_SECRET` | Secret key for JWT signing | Yes | None | `your-super-secret-key-change-in-production` |
+| `FRONTEND_URL` | Frontend application URL | Yes | None | `https://your-app.vercel.app` |
+| `REMINDER_DAYS_BEFORE` | Days before interview to send reminder | No | `3` | `3` |
 
 ### Email Configuration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `EMAIL_USER` | Email sender address | ✅ Yes | `njit_job_alerts@example.com` |
-| `EMAIL_FROM` | Email "From" field | ✅ Yes | `njit_job_alerts@example.com` |
-| `RESEND_API_KEY` | Resend.com API key | ✅ Yes | `re_xxxxxxxxxx` |
+| `EMAIL_USER` | Email sender address | Yes | `njit_job_alerts@example.com` |
+| `EMAIL_FROM` | Email "From" field | Yes | `njit_job_alerts@example.com` |
+| `RESEND_API_KEY` | Resend.com API key | Yes | `re_xxxxxxxxxx` |
 
 ### API Keys
 
 | Variable | Description | Required | Service |
 |----------|-------------|----------|---------|
-| `GOOGLE_API_KEY` | Google API key (Gemini AI) | ✅ Yes | Google Cloud |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | ✅ Yes | Google Cloud |
-| `OPENAI_API_KEY` | OpenAI API key | ✅ Yes | OpenAI |
-| `NEWS_API_KEY` | News API key | ❌ No | NewsAPI.org |
-| `SERP_API_KEY` | SERP API key for search | ❌ No | SerpAPI |
+| `GOOGLE_API_KEY` | Google API key (Gemini AI) | Yes | Google Cloud |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Yes | Google Cloud |
+| `OPENAI_API_KEY` | OpenAI API key | Yes | OpenAI |
+| `NEWS_API_KEY` | News API key | No | NewsAPI.org |
+| `SERP_API_KEY` | SERP API key for search | No | SerpAPI |
 
 ### LinkedIn Integration
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `LINKEDIN_CLIENT_ID` | LinkedIn OAuth client ID | ❌ No | `783jafycr8xxxx` |
-| `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth client secret | ❌ No | `WPL_AP1.xxxxxxxx` |
-| `LINKEDIN_CALLBACK_URL` | OAuth callback URL | ❌ No | `http://localhost:5000/api/linkedin/callback` |
+| `LINKEDIN_CLIENT_ID` | LinkedIn OAuth client ID | No | `783jafycr8xxxx` |
+| `LINKEDIN_CLIENT_SECRET` | LinkedIn OAuth client secret | No | `WPL_AP1.xxxxxxxx` |
+| `LINKEDIN_CALLBACK_URL` | OAuth callback URL | No | `http://localhost:5000/api/linkedin/callback` |
 
 ---
 
@@ -63,8 +63,8 @@ This document lists all environment variables required for the ATS application t
 
 | Variable | Description | Required | Example |
 |----------|-------------|----------|---------|
-| `VITE_API_URL` | Backend API URL | ✅ Yes | `https://your-api.onrender.com` |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID | ✅ Yes | `285454xxxxxx.apps.googleusercontent.com` |
+| `VITE_API_URL` | Backend API URL | Yes | `https://your-api.onrender.com` |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID | Yes | `285454xxxxxx.apps.googleusercontent.com` |
 
 ---
 
@@ -115,7 +115,7 @@ VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
 
 ## Security Notes
 
-⚠️ **CRITICAL SECURITY REQUIREMENTS:**
+**CRITICAL SECURITY REQUIREMENTS:**
 
 1. **Never commit `.env` files to git**
    ```bash

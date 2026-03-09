@@ -1,30 +1,25 @@
-// Script to add original_resume_id columns to resumes table
-// Run from backend directory: node run_add_original_resume_id_migration.js
-
+// Script to run compensation tracking migration
+// Run from backend directory: node run_compensation_migration.js
 import dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { join } from "path";
-import pool from "./db/pool.js";
+import pool from "../../db/pool.js";
 
 dotenv.config();
 
 async function runMigration() {
   try {
-    console.log("📦 Running add_original_resume_id migration...");
+    console.log("📦 Running compensation tracking migration...");
     
     // Read the SQL file
-    const sqlPath = join(process.cwd(), "db", "add_original_resume_id.sql");
+    const sqlPath = join(process.cwd(), "db/add_compensation_tracking.sql");
     const sql = readFileSync(sqlPath, "utf8");
     
     // Execute the migration
     await pool.query(sql);
     
     console.log("✅ Migration completed successfully!");
-    console.log("Added columns to resumes table:");
-    console.log("  - original_resume_id (INTEGER)");
-    console.log("  - version_number (INTEGER)");
-    console.log("  - is_version (BOOLEAN)");
-    console.log("Created indexes");
+    console.log("Created tables: offers, compensation_history, negotiation_history, market_benchmarks, cost_of_living_index");
     
     await pool.end();
     process.exit(0);

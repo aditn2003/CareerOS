@@ -74,12 +74,12 @@ You should now see the ngrok interface with a forwarding URL!
 ## Free Tier Limits
 
 ngrok free tier includes:
-- ✅ 1 ngrok agent
-- ✅ 1 online ngrok agent
-- ✅ 4 tunnels per agent
-- ✅ 40 connections per minute
-- ✅ Random subdomain (changes on restart)
-- ✅ HTTP inspection
+-  1 ngrok agent
+-  1 online ngrok agent
+-  4 tunnels per agent
+-  40 connections per minute
+-  Random subdomain (changes on restart)
+-  HTTP inspection
 
 This is sufficient for testing and UptimeRobot monitoring!
 

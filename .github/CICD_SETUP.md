@@ -2,7 +2,7 @@
 
 This guide explains how to set up the CI/CD pipeline for the ATS project using **Vercel** (frontend) and **Render** (backend).
 
-## 📋 Overview
+## Overview
 
 | Component | Platform | URL |
 |-----------|----------|-----|
@@ -175,23 +175,23 @@ Add these secrets:
 
 ---
 
-## 🚀 How It Works
+## How It Works
 
 ### On Pull Request:
-- ✅ Runs all tests (backend + frontend)
-- ✅ Reports coverage
-- ❌ Does NOT deploy
+- Runs all tests (backend + frontend)
+- Reports coverage
+- Does NOT deploy
 
 ### On Push to `develop`:
-- ✅ Runs all tests
-- ✅ Deploys to **Staging** (if configured)
-- ✅ Sends notification
+- Runs all tests
+- Deploys to **Staging** (if configured)
+- Sends notification
 
 ### On Push to `main`:
-- ✅ Runs all tests
-- ✅ Deploys to **Production**
-- ✅ Runs health checks
-- ✅ Sends notification
+- Runs all tests
+- Deploys to **Production**
+- Runs health checks
+- Sends notification
 
 ---
 
@@ -215,7 +215,7 @@ Add these secrets:
 
 ---
 
-## 📊 Deployment Metrics
+## Deployment Metrics
 
 View deployment history:
 1. Go to **Actions** tab
@@ -225,7 +225,7 @@ View deployment history:
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Tests Failing
 ```bash
@@ -254,7 +254,7 @@ cd frontend && npm run test:coverage
 
 ---
 
-## 📁 Files Created
+## Files Created
 
 ```
 .github/
@@ -267,7 +267,7 @@ cd frontend && npm run test:coverage
 
 ---
 
-## ✅ Checklist
+## Checklist
 
 - [ ] `VERCEL_TOKEN` added
 - [ ] `VERCEL_ORG_ID` added (optional - Vercel auto-detects)

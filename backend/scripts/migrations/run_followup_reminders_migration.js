@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import pool from './db/pool.js';
+import pool from '../../db/pool.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -15,7 +15,7 @@ async function runMigration() {
     console.log("📦 Running Follow-Up Reminders schema migration...");
     
     // Read the SQL file
-    const sqlPath = join(__dirname, "db", "add_followup_reminders_schema.sql");
+    const sqlPath = join(__dirname, "..", "..", "db", "add_followup_reminders_schema.sql");
     const sql = readFileSync(sqlPath, "utf8");
     
     // Execute the migration

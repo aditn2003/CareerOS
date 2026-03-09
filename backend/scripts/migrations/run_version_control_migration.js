@@ -4,7 +4,7 @@
 import dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { join } from "path";
-import pool from "./db/pool.js";
+import pool from "../../db/pool.js";
 
 dotenv.config();
 

@@ -66,7 +66,7 @@ This guide walks you through setting up Sentry error tracking for the ATS applic
    - Click the **"Show"** or **"Copy"** button to reveal/copy the DSN
 
 3. **Copy the DSN**
-   - Click the copy icon (📋) next to the DSN
+   - Click the copy icon next to the DSN
    - Or manually select and copy the entire DSN string
    - **Important**: Copy the entire DSN including `https://` at the beginning
 
@@ -104,8 +104,8 @@ This guide walks you through setting up Sentry error tracking for the ATS applic
      ```
 
 2. **Check the console output**
-   - You should see: `✅ Sentry initialized for error tracking`
-   - If you see: `⚠️ SENTRY_DSN not configured. Error tracking disabled.`
+   - You should see: `Sentry initialized for error tracking`
+   - If you see: `SENTRY_DSN not configured. Error tracking disabled.`
      - Check that your `.env` file has the correct DSN
      - Make sure there are no extra spaces or quotes around the DSN
 
@@ -145,7 +145,7 @@ This guide walks you through setting up Sentry error tracking for the ATS applic
 - [ ] DSN copied from Sentry dashboard
 - [ ] `SENTRY_DSN` added to `.env` file
 - [ ] Application restarted
-- [ ] Console shows "✅ Sentry initialized for error tracking"
+- [ ] Console shows "Sentry initialized for error tracking"
 - [ ] Test error appears in Sentry dashboard
 
 ## What Sentry Will Track
@@ -251,12 +251,12 @@ Sentry.init({
 ## Free Tier Limits
 
 Sentry's free tier includes:
-- ✅ 5,000 errors per month
-- ✅ 10,000 performance units per month
-- ✅ 1 project
-- ✅ 1 team member
-- ✅ 30 days of error history
-- ✅ Basic alerting
+-  5,000 errors per month
+-  10,000 performance units per month
+-  1 project
+-  1 team member
+-  30 days of error history
+-  Basic alerting
 
 For most development and small production deployments, this is sufficient.
 
