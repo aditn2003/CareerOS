@@ -93,24 +93,30 @@ export default function StatisticsDashboard({ token: incomingToken }) {
       {/* Date Filters */}
       <div className="flex gap-4 mb-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Start Date</label>
+          <label htmlFor="startDate" className="block text-sm font-medium mb-1">Start Date</label>
           <input
             type="date"
+            id="startDate"
+            name="startDate"
             value={filters.startDate}
             onChange={(e) =>
               setFilters({ ...filters, startDate: e.target.value })
             }
             className="border p-2 rounded"
+            aria-label="Start date for statistics"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">End Date</label>
+          <label htmlFor="endDate" className="block text-sm font-medium mb-1">End Date</label>
           <input
             type="date"
+            id="endDate"
+            name="endDate"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
             className="border p-2 rounded"
+            aria-label="End date for statistics"
           />
         </div>
 

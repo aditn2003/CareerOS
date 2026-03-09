@@ -2,6 +2,7 @@ import express from "express";
 import axios from "axios";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import { trackApiCall } from "../utils/apiTrackingService.js";
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ const supabase = createClient(
 /* -------------------------
    Helper: Generate Interview Scenario
 ------------------------- */
-async function generateInterviewScenario(company, role, interviewType) {
+async function generateInterviewScenario(company, role, interviewType, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackScenario(company, role, interviewType);
   }
@@ -109,7 +110,9 @@ Make questions specific to ${company} and ${role}.
 `;
 
   try {
-    const { data } = await axios.post(
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4o-mini",
@@ -124,6 +127,14 @@ Make questions specific to ${company} and ${role}.
         temperature: 0.6,
       },
       { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'mock_interview_scenario', company, role, interviewType },
+        estimateCost: 0.001
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -197,7 +208,7 @@ function getFallbackScenario(company, role, interviewType) {
    Helper: Evaluate Response Quality
    Actually analyzes the response content, not just word count
 ------------------------- */
-async function evaluateResponseQuality(questionText, responseText, questionType, wordCount) {
+async function evaluateResponseQuality(questionText, responseText, questionType, wordCount, userId = null) {
   // Basic validation: reject obviously bad responses
   const trimmedResponse = responseText.trim();
   
@@ -252,7 +263,9 @@ Return ONLY a JSON object with this exact format:
   "issues": ["issue1", "issue2"] or []
 }`;
 
-      const { data } = await axios.post(
+      const { data } = await trackApiCall(
+        'openai',
+        () => axios.post(
         "https://api.openai.com/v1/chat/completions",
         {
           model: "gpt-4o-mini",
@@ -274,6 +287,14 @@ Return ONLY a JSON object with this exact format:
             "Authorization": `Bearer ${OPENAI_KEY}`,
             "Content-Type": "application/json"
           }
+          }
+        ),
+        {
+          endpoint: '/v1/chat/completions',
+          method: 'POST',
+          userId,
+          requestPayload: { model: 'gpt-4o-mini', purpose: 'mock_interview_evaluation', questionType },
+          estimateCost: 0.0005
         }
       );
 
@@ -334,7 +355,7 @@ Return ONLY a JSON object with this exact format:
 /* -------------------------
    Helper: Generate Follow-up Question
 ------------------------- */
-async function generateFollowUpQuestion(originalQuestion, userResponse, questionType) {
+async function generateFollowUpQuestion(originalQuestion, userResponse, questionType, userId = null) {
   if (!OPENAI_KEY) {
     return {
       question_text: "Can you tell me more about that?",
@@ -363,7 +384,9 @@ Make the follow-up feel natural and dig deeper into their response.
 `;
 
   try {
-    const { data } = await axios.post(
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4o-mini",
@@ -375,6 +398,14 @@ Make the follow-up feel natural and dig deeper into their response.
         temperature: 0.7,
       },
       { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'mock_interview_followup', questionType },
+        estimateCost: 0.0005
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -390,7 +421,7 @@ Make the follow-up feel natural and dig deeper into their response.
 /* -------------------------
    Helper: Generate Performance Summary
 ------------------------- */
-async function generatePerformanceSummary(sessionData, responses) {
+async function generatePerformanceSummary(sessionData, responses, userId = null) {
   if (!OPENAI_KEY) {
     return getFallbackSummary(responses);
   }
@@ -465,7 +496,9 @@ Be encouraging but honest. Provide specific, actionable feedback.
 `;
 
   try {
-    const { data } = await axios.post(
+    const { data } = await trackApiCall(
+      'openai',
+      () => axios.post(
       "https://api.openai.com/v1/chat/completions",
       {
         model: "gpt-4o-mini",
@@ -480,6 +513,14 @@ Be encouraging but honest. Provide specific, actionable feedback.
         temperature: 0.4,
       },
       { headers: { Authorization: `Bearer ${OPENAI_KEY}` } }
+      ),
+      {
+        endpoint: '/v1/chat/completions',
+        method: 'POST',
+        userId,
+        requestPayload: { model: 'gpt-4o-mini', purpose: 'mock_interview_summary', company: sessionData.company, role: sessionData.role },
+        estimateCost: 0.002
+      }
     );
 
     return JSON.parse(data.choices[0].message.content);
@@ -552,7 +593,7 @@ router.post("/start", async (req, res) => {
     console.log(`🎭 Starting mock interview: ${company} - ${role} (${interviewType})`);
 
     // Generate interview scenario
-    const scenario = await generateInterviewScenario(company, role, interviewType);
+    const scenario = await generateInterviewScenario(company, role, interviewType, userIdInt);
 
     // Create session in database
     const { data: session, error: sessionError } = await supabase
@@ -648,12 +689,21 @@ router.post("/respond", async (req, res) => {
     const wordCount = responseText.trim().split(/\s+/).length;
     const estimatedTime = Math.round((wordCount / 150) * 60);
     
+    // Get userId from session
+    const { data: session } = await supabase
+      .from("mock_interview_sessions")
+      .select("user_id")
+      .eq("id", sessionId)
+      .single();
+    const userId = session?.user_id || null;
+    
     // ✅ Evaluate response quality (not just word count!)
     const responseScore = await evaluateResponseQuality(
       question.question_text,
       responseText,
       question.question_type,
-      wordCount
+      wordCount,
+      userId
     );
 
     // Update response in database
@@ -695,7 +745,8 @@ router.post("/respond", async (req, res) => {
       const followUp = await generateFollowUpQuestion(
         question.question_text,
         responseText,
-        question.question_type
+        question.question_type,
+        userId
       );
 
       // Save follow-up question
@@ -833,7 +884,8 @@ router.post("/:sessionId/complete", async (req, res) => {
     }
 
     // Generate performance summary
-    const summary = await generatePerformanceSummary(session, responses);
+    const userId = session.user_id || null;
+    const summary = await generatePerformanceSummary(session, responses, userId);
 
     // Save summary to database
     const { data: savedSummary, error: summaryError } = await supabase

@@ -5,12 +5,17 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import sharedPool from "../db/pool.js";
 
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+// Use shared pool in test mode for transaction isolation
+const pool =
+  process.env.NODE_ENV === "test"
+    ? sharedPool
+    : new Pool({ connectionString: process.env.DATABASE_URL });
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 /* AUTH MIDDLEWARE — same as other routes */
 function auth(req, res, next) {
@@ -56,16 +61,24 @@ router.get("/:jobId", auth, async (req, res) => {
       [userId]
     );
 
+    // Map proficiency strings to numeric levels
+    const proficiencyMap = {
+      Beginner: 1,
+      Intermediate: 2,
+      Advanced: 3,
+      Expert: 4,
+    };
+
     const userSkills = userSkillQ.rows.map((s) => ({
       // ⭐ normalize: lowercase + trim
       name: s.name.toLowerCase().trim(),
-      level: s.proficiency || 0,
+      level: proficiencyMap[s.proficiency] || 0,
     }));
 
     /** 2️⃣ Load job required skills */
     const jobQ = await pool.query(
-      "SELECT required_skills FROM jobs WHERE id=$1",
-      [jobId]
+      "SELECT required_skills FROM jobs WHERE id=$1 AND user_id=$2",
+      [jobId, userId]
     );
 
     if (!jobQ.rows.length)
@@ -171,8 +184,8 @@ router.get("/:jobId", auth, async (req, res) => {
 
     /** 5️⃣ Final response */
     res.json({
-      jobId,
-      userId,
+      jobId: Number(jobId),
+      userId: Number(userId),
       matchedSkills: matched,
       weakSkills: weak,
       missingSkills: missing,

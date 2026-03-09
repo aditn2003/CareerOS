@@ -1,7 +1,32 @@
 {
+  "name": "aandsz-forces-ats",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Application Tracking System",
+  "scripts": {
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:coverage": "npm run test:coverage:backend && npm run test:coverage:frontend && npm run coverage:merge",
+    "test:coverage:backend": "cd backend && npm run test:coverage",
+    "test:coverage:frontend": "cd frontend && npm run test:coverage",
+    "coverage:merge": "node scripts/merge-coverage.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
   "dependencies": {
+    "@vitest/coverage-v8": "^4.0.15",
+    "@sentry/node": "^10.30.0",
     "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
-    "node-fetch": "^3.3.2"
+    "express-rate-limit": "^8.2.1",
+    "node-fetch": "^3.3.2",
+    "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nyc": "^15.1.0"
   }
 }

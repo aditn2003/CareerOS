@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./JobEntryForm.css";
-import { api } from "../api";
+import { api, baseURL } from "../api";
 import FileUpload from "./FileUpload";
 import QualityScoreCard from "./QualityScoreCard";
 
@@ -11,6 +11,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
     title: "",
     company: "",
     location: "",
+    location_type: "",
     salary_min: "",
     salary_max: "",
     url: "",
@@ -54,8 +55,8 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       const headers = { Authorization: `Bearer ${token}` };
 
       const [resResumes, resCovers] = await Promise.all([
-        fetch("http://localhost:4000/api/resumes", { headers }),
-        fetch("http://localhost:4000/api/cover-letters", { headers }),
+        fetch(`${baseURL}/api/resumes`, { headers }),
+        fetch(`${baseURL}/api/cover-letters`, { headers }),
       ]);
 
       if (resResumes.ok) {
@@ -118,7 +119,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       // Save job first (or use existing tempJobId)
       let jobId = tempJobId;
       if (!jobId) {
-        const saveRes = await fetch("http://localhost:4000/api/jobs", {
+        const saveRes = await fetch(`${baseURL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -133,7 +134,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         setTempJobId(jobId);
       } else {
         // Update existing job
-        await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        await fetch(`${baseURL}/api/jobs/${jobId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -227,7 +228,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       // If we have a tempJobId, update it; otherwise create new
       let jobId = tempJobId;
       if (jobId) {
-        const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -238,7 +239,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
 
         if (!res.ok) throw new Error("Failed to update job");
       } else {
-        const res = await fetch("http://localhost:4000/api/jobs", {
+        const res = await fetch(`${baseURL}/api/jobs`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -271,7 +272,7 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       setImporting(true);
       setImportStatus("Importing job details...");
 
-      const res = await fetch("http://localhost:4000/api/import-job", {
+      const res = await fetch(`${baseURL}/api/import-job`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -324,19 +325,22 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       <h3>Add Job Opportunity</h3>
 
       {/* URL + Import Button */}
-      <label>Job Posting URL</label>
+      <label htmlFor="job-url">Job Posting URL</label>
       <div className="import-row">
         <input
           type="url"
+          id="job-url"
           value={form.url}
           onChange={(e) => setForm({ ...form, url: e.target.value })}
           placeholder="https://www.linkedin.com/jobs/view/..."
+          aria-label="Job posting URL"
         />
         <button
           type="button"
           className="import-btn"
           disabled={importing}
           onClick={importJobDetails}
+          aria-label="Import job details from URL"
         >
           {importing ? "Importing..." : "Import"}
         </button>
@@ -344,28 +348,52 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       {importStatus && <p className="import-status">{importStatus}</p>}
 
       {/* MAIN FIELDS */}
-      <label>Job Title *</label>
+      <label htmlFor="job-title">Job Title *</label>
       <input
+        id="job-title"
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
+        aria-label="Job title"
+        aria-required="true"
       />
 
-      <label>Company *</label>
+      <label htmlFor="job-company">Company *</label>
       <input
+        id="job-company"
         value={form.company}
         onChange={(e) => setForm({ ...form, company: e.target.value })}
+        aria-label="Company name"
+        aria-required="true"
       />
 
-      <label>Location</label>
+      <label htmlFor="job-location">Location</label>
       <input
+        id="job-location"
         value={form.location}
         onChange={(e) => setForm({ ...form, location: e.target.value })}
+        aria-label="Job location"
       />
+
+      <label htmlFor="job-location-type">Location Type</label>
+      <select
+        id="job-location-type"
+        value={form.location_type || ""}
+        onChange={(e) => setForm({ ...form, location_type: e.target.value })}
+        aria-label="Location type"
+      >
+        <option value="">Select location type</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="on_site">On-Site</option>
+        <option value="flexible">Flexible</option>
+      </select>
 
       <div className="salary-group">
         <div>
-          <label>Salary Min ($)</label>
+          <label htmlFor="job-salary-min">Salary Min ($)</label>
           <input
+            id="job-salary-min"
+            type="number"
             value={form.salary_min}
             onChange={(e) =>
               setForm({
@@ -373,11 +401,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
                 salary_min: e.target.value.replace(/[^\d]/g, ""),
               })
             }
+            aria-label="Minimum salary in dollars"
           />
         </div>
         <div>
-          <label>Salary Max ($)</label>
+          <label htmlFor="job-salary-max">Salary Max ($)</label>
           <input
+            id="job-salary-max"
+            type="number"
             value={form.salary_max}
             onChange={(e) =>
               setForm({
@@ -385,35 +416,47 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
                 salary_max: e.target.value.replace(/[^\d]/g, ""),
               })
             }
+            aria-label="Maximum salary in dollars"
           />
         </div>
       </div>
 
-      <label>Date Applied</label>
+      <label htmlFor="job-applied-on">Date Applied</label>
       <input
         type="date"
+        id="job-applied-on"
         value={form.applied_on}
         onChange={(e) => setForm({ ...form, applied_on: e.target.value })}
+        aria-label="Date applied"
       />
 
-      <label>Application Deadline *</label>
+      <label htmlFor="job-deadline">Application Deadline *</label>
       <input
         type="date"
+        id="job-deadline"
         value={form.deadline}
         onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+        aria-label="Application deadline"
+        aria-required="true"
       />
 
-      <label>Job Description</label>
+      <label htmlFor="job-description">Job Description</label>
       <textarea
+        id="job-description"
         maxLength={2000}
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
+        aria-label="Job description"
+        aria-describedby="job-description-hint"
       />
+      <span id="job-description-hint" className="visually-hidden">Maximum 2000 characters</span>
 
-      <label>Industry</label>
+      <label htmlFor="job-industry">Industry</label>
       <select
+        id="job-industry"
         value={form.industry}
         onChange={(e) => setForm({ ...form, industry: e.target.value })}
+        aria-label="Industry"
       >
         <option value="">Select industry</option>
         <option value="tech">Technology</option>
@@ -423,10 +466,12 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="manufacturing">Manufacturing</option>
       </select>
 
-      <label>Job Type</label>
+      <label htmlFor="job-type">Job Type</label>
       <select
+        id="job-type"
         value={form.type}
         onChange={(e) => setForm({ ...form, type: e.target.value })}
+        aria-label="Job type"
       >
         <option value="">Select job type</option>
         <option value="full_time">Full Time</option>
@@ -435,10 +480,12 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
         <option value="contract">Contract</option>
       </select>
 
-      <label>Role Level</label>
+      <label htmlFor="job-role-level">Role Level</label>
       <select
+        id="job-role-level"
         value={form.role_level}
         onChange={(e) => setForm({ ...form, role_level: e.target.value })}
+        aria-label="Role level"
       >
         <option value="">Select role level</option>
         <option value="intern">Intern</option>
@@ -455,23 +502,27 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
       </select>
 
       {/* ⭐ REQUIRED SKILLS */}
-      <label>Required Skills (comma-separated)</label>
+      <label htmlFor="job-required-skills">Required Skills (comma-separated)</label>
       <input
+        id="job-required-skills"
         value={form.required_skills}
         onChange={(e) => setForm({ ...form, required_skills: e.target.value })}
         placeholder="e.g., Python, React, SQL"
+        aria-label="Required skills, comma-separated"
       />
 
       {/* ⭐ Material Linking */}
       <div style={{ marginTop: "20px", padding: "16px", background: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
         <h3 style={{ margin: "0 0 16px 0", fontSize: "1rem", fontWeight: 600 }}>Application Materials</h3>
         
-        <label>Resume Used</label>
+        <label htmlFor="job-resume-id">Resume Used</label>
         <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
           <select
+            id="job-resume-id"
             value={form.resume_id}
             onChange={(e) => setForm({ ...form, resume_id: e.target.value })}
             style={{ flex: 1 }}
+            aria-label="Select resume to use"
           >
             <option value="">Select a Resume</option>
             {resumes.map((r) => (
@@ -514,12 +565,14 @@ export default function JobEntryForm({ token, onSaved, onCancel }) {
           </div>
         )}
 
-        <label>Cover Letter Used</label>
+        <label htmlFor="job-cover-letter-id">Cover Letter Used</label>
         <div style={{ display: "flex", gap: "8px" }}>
           <select
+            id="job-cover-letter-id"
             value={form.cover_letter_id}
             onChange={(e) => setForm({ ...form, cover_letter_id: e.target.value })}
             style={{ flex: 1 }}
+            aria-label="Select cover letter to use"
           >
             <option value="">Select a Cover Letter</option>
             {coverLetters.map((c) => (

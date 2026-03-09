@@ -7,7 +7,7 @@ import JobSearchFilter from "./JobSearchFilter";
 import UpcomingDeadlinesWidget from "./UpcomingDeadlinesWidget";
 import CompanyDetailsModal from "./CompanyDetailsModal";
 import { FaArchive } from "react-icons/fa"; // <-- ADDED
-import { api } from "../api"; // <-- ADDED
+import { api, baseURL } from "../api"; // <-- ADDED
 
 // 🟡 highlight helper
 function highlight(text, term) {
@@ -41,29 +41,59 @@ export default function JobPipeline({ token, onApply }) {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [hoveredLogo, setHoveredLogo] = useState(null);
   const [companyLogos, setCompanyLogos] = useState({}); // 🟣 dynamic logos
+  const [logoCache, setLogoCache] = useState({}); // 🟣 cache to avoid re-fetching
 
-  // Add this temporarily near the top of your component, right after the state declarations
-  //console.log("Pipeline Render: jobs =", jobs);
-  //console.log("FULL JOBS =", JSON.stringify(jobs, null, 2));
-
-  // 🔄 Function to fetch company logos
+  // 🔄 Function to fetch company logos with caching and rate limiting
   async function loadCompanyLogos() {
-    const logos = {};
-    for (const job of jobs) {
-      if (!job.company) continue;
-      try {
-        // Use the 'api' helper here for consistency
-        const res = await api.get(`/api/companies/${job.company}`);
-        if (res.status === 200) {
-          if (res.data.logo_url) {
-            logos[job.company] = `http://localhost:4000${res.data.logo_url}`;
+    // Get unique company names that we haven't fetched yet
+    const uniqueCompanies = [...new Set(jobs.map(j => j.company).filter(Boolean))];
+    const companiesToFetch = uniqueCompanies.filter(company => !logoCache[company]);
+    
+    if (companiesToFetch.length === 0) {
+      // All logos already in cache, just use cache
+      const logos = {};
+      uniqueCompanies.forEach(company => {
+        if (logoCache[company]) logos[company] = logoCache[company];
+      });
+      setCompanyLogos(logos);
+      return;
+    }
+
+    const newLogos = { ...logoCache };
+    
+    // Fetch in smaller batches with delay to avoid rate limiting
+    const batchSize = 5;
+    for (let i = 0; i < companiesToFetch.length; i += batchSize) {
+      const batch = companiesToFetch.slice(i, i + batchSize);
+      
+      // Fetch batch in parallel
+      await Promise.all(batch.map(async (company) => {
+        try {
+          const res = await api.get(`/api/companies/${encodeURIComponent(company)}`);
+          if (res.status === 200 && res.data.logo_url) {
+            newLogos[company] = `${baseURL}${res.data.logo_url}`;
+          } else {
+            newLogos[company] = null; // Mark as fetched but no logo
           }
+        } catch (err) {
+          console.warn("⚠️ Could not fetch logo for", company);
+          newLogos[company] = null; // Mark as fetched to avoid retry
         }
-      } catch (err) {
-        console.warn("⚠️ Could not fetch logo for", job.company);
+      }));
+      
+      // Small delay between batches to respect rate limit
+      if (i + batchSize < companiesToFetch.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
-    setCompanyLogos(logos);
+    
+    // Update cache and logos
+    setLogoCache(newLogos);
+    const displayLogos = {};
+    uniqueCompanies.forEach(company => {
+      if (newLogos[company]) displayLogos[company] = newLogos[company];
+    });
+    setCompanyLogos(displayLogos);
   }
 
   // 🔄 load jobs
@@ -244,8 +274,13 @@ async function loadJobs(currentFilters = filters) {
       {/* === Toolbar === */}
       <div className="pipeline-toolbar">
         <div className="toolbar-left">
-          <label>Stage Filter:</label>
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <label htmlFor="stageFilter">Stage Filter:</label>
+          <select 
+            id="stageFilter"
+            value={filter} 
+            onChange={(e) => setFilter(e.target.value)}
+            aria-label="Filter jobs by stage"
+          >
             <option>All</option>
             {STAGES.map((s) => (
               <option key={s.name}>{s.name}</option>
@@ -254,10 +289,12 @@ async function loadJobs(currentFilters = filters) {
         </div>
 
         <div className="toolbar-right">
-          <label>Bulk Update:</label>
+          <label htmlFor="bulkStageSelect">Bulk Update:</label>
           <select
+            id="bulkStageSelect"
             value={bulkStage}
             onChange={(e) => setBulkStage(e.target.value)}
+            aria-label="Select stage for bulk update"
           >
             <option value="">Select stage</option>
             {STAGES.map((s) => (
@@ -270,10 +307,12 @@ async function loadJobs(currentFilters = filters) {
         </div>
 
         <div className="toolbar-right">
-          <label>Extend Deadline:</label>
+          <label htmlFor="extendDeadlineSelect">Extend Deadline:</label>
           <select
+            id="extendDeadlineSelect"
             value={bulkDays || ""}
             onChange={(e) => setBulkDays(Number(e.target.value))}
+            aria-label="Select number of days to extend deadline"
           >
             <option value="">Select</option>
             <option value="1">+1 days</option>
@@ -326,6 +365,7 @@ async function loadJobs(currentFilters = filters) {
             : [...prev, job.id]
         );
       }}
+      aria-label={`Select ${job.title || 'job'} at ${job.company || 'company'}`}
     />
 
     {/* ============================
@@ -334,7 +374,7 @@ async function loadJobs(currentFilters = filters) {
     <div
       className={`job-card ${
         selectedJobs.includes(job.id) ? "selected" : ""
-      }`}
+      } ${job.is_referral ? "referral-job" : ""}`}
       draggable
       onDragStart={() => setDragged(job)}
       onClick={(e) => {
@@ -386,6 +426,27 @@ async function loadJobs(currentFilters = filters) {
               job.status_updated_at || job.created_at
             )}
           </small>
+          
+          {/* LinkedIn Badge for imported jobs */}
+          {(job.platform === 'linkedin' && job.is_imported) && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.25rem",
+              marginTop: "0.5rem",
+              padding: "0.25rem 0.5rem",
+              backgroundColor: "#0077b5",
+              color: "white",
+              borderRadius: "4px",
+              fontSize: "0.75rem",
+              fontWeight: 600
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: "0.125rem" }}>
+                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+              </svg>
+              LinkedIn
+            </div>
+          )}
         </div>
 
         {/* 🏢 Logo */}
@@ -472,7 +533,7 @@ async function loadJobs(currentFilters = filters) {
                 onDrop={() => dragged && updateJobStage(dragged.id, "Interested")}
               >
                 <h3 style={{ color: "#9ca3af" }}>
-                  Other ({otherJobs.length})
+                  Other Platforms ({otherJobs.length})
                 </h3>
                 <div className="column-content">
                   {otherJobs.map((job) => (
@@ -490,6 +551,7 @@ async function loadJobs(currentFilters = filters) {
                               : [...prev, job.id]
                           );
                         }}
+                        aria-label={`Select ${job.title || 'job'} at ${job.company || 'company'}`}
                       />
                       <div
                         className={`job-card ${
@@ -522,9 +584,30 @@ async function loadJobs(currentFilters = filters) {
                                 __html: highlight(job.company, filters.search),
                               }}
                             />
-                            <small style={{ color: "#ef4444", fontWeight: 600 }}>
-                              Status: {job.status}
-                            </small>
+                            {/* LinkedIn Badge for imported jobs instead of status */}
+                            {(job.platform === 'linkedin' && job.is_imported) ? (
+                              <div style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                marginTop: "0.5rem",
+                                padding: "0.25rem 0.5rem",
+                                backgroundColor: "#0077b5",
+                                color: "white",
+                                borderRadius: "4px",
+                                fontSize: "0.75rem",
+                                fontWeight: 600
+                              }}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ marginRight: "0.125rem" }}>
+                                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                                </svg>
+                                LinkedIn
+                              </div>
+                            ) : (
+                              <small style={{ color: "#ef4444", fontWeight: 600 }}>
+                                Status: {job.status}
+                              </small>
+                            )}
                             {job.deadline && (
                               <small
                                 style={{

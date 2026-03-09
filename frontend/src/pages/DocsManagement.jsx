@@ -1,7 +1,7 @@
 // frontend/src/pages/DocsManagement.jsx
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { api } from "../api";
+import { useNavigate, useLocation } from "react-router-dom";
+import { api, baseURL } from "../api";
 import { useAuth } from "../contexts/AuthContext";
 import FileUpload from "../components/FileUpload";
 import { FaFilePdf, FaFileWord, FaFileAlt, FaTrash, FaEye, FaLink, FaCertificate, FaClock, FaDownload, FaChevronDown, FaMagic, FaCodeBranch, FaCopy, FaExchangeAlt, FaStar, FaArchive, FaTimes, FaCheck, FaPlus, FaExternalLinkAlt } from "react-icons/fa";
@@ -146,6 +146,7 @@ function CertificateUploadForm({ onSuccess, onCancel }) {
 export default function DocsManagement() {
   const { token } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [resumes, setResumes] = useState([]);
   const [coverLetters, setCoverLetters] = useState([]);
   const [certificates, setCertificates] = useState([]);
@@ -162,16 +163,26 @@ export default function DocsManagement() {
   const [optimizingResume, setOptimizingResume] = useState(null);
   
   // Version Control Modals
-  const [versionControlModal, setVersionControlModal] = useState({ open: false, resumeId: null, resumeTitle: null });
-  const [createVersionModal, setCreateVersionModal] = useState({ open: false, resumeId: null, editingVersion: null, versionData: null });
-  const [compareVersionsModal, setCompareVersionsModal] = useState({ open: false, resumeId: null, version1: null, version2: null });
-  const [mergeVersionsModal, setMergeVersionsModal] = useState({ open: false, resumeId: null, sourceVersion: null, targetVersion: null });
-  const [linkJobModal, setLinkJobModal] = useState({ open: false, resumeId: null, versionNumber: null });
+  const [versionControlModal, setVersionControlModal] = useState({ open: false, docId: null, docTitle: null, docType: null });
+  const [createVersionModal, setCreateVersionModal] = useState({ open: false, docId: null, docType: null, editingVersion: null, versionData: null });
+  const [compareVersionsModal, setCompareVersionsModal] = useState({ open: false, docId: null, docType: null, version1: null, version2: null });
+  const [mergeVersionsModal, setMergeVersionsModal] = useState({ open: false, docId: null, docType: null, sourceVersion: null, targetVersion: null });
+  const [linkJobModal, setLinkJobModal] = useState({ open: false, docId: null, docType: null, versionNumber: null });
 
   // Fetch all data
   useEffect(() => {
     fetchAllData();
   }, [token]);
+
+  // Refresh data when navigating back from optimize flow
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('refresh') === 'true' || location.state?.refresh) {
+      fetchAllData();
+      // Clean up URL
+      navigate('/docs-management', { replace: true });
+    }
+  }, [location.search, location.state]);
 
   const fetchAllData = async () => {
     try {
@@ -306,10 +317,14 @@ export default function DocsManagement() {
       let viewerUrl = null;
       let title = doc.title || doc.name || "Document";
       
+      const apiBaseUrl = baseURL;
+      
       if (type === "resume") {
-        viewerUrl = `http://localhost:4000/api/resumes/${doc.id}/download`;
+        viewerUrl = `${apiBaseUrl}/api/resumes/${doc.id}/download`;
       } else if (type === "coverLetter") {
-        viewerUrl = `http://localhost:4000/api/cover-letters/${doc.id}/download`;
+        // Use view=true query parameter to get inline content instead of download
+        // Try singular route first (both routes are registered in backend)
+        viewerUrl = `${apiBaseUrl}/api/cover-letter/${doc.id}/download?view=true`;
       } else if (type === "certificate" && doc.document_url) {
         // For certificates, use the document_url directly
         setViewerModal({
@@ -322,19 +337,44 @@ export default function DocsManagement() {
       }
 
       if (viewerUrl) {
+        console.log('🔍 Fetching document:', viewerUrl);
+        
         // Fetch the document with authentication
-        const response = await fetch(viewerUrl, {
+        let response = await fetch(viewerUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
+        // If singular route fails, try plural route for cover letters
+        if (!response.ok && type === "coverLetter") {
+          console.log('⚠️ Singular route failed, trying plural route...');
+          const apiBaseUrl = baseURL;
+          const pluralUrl = `${apiBaseUrl}/api/cover-letters/${doc.id}/download?view=true`;
+          response = await fetch(pluralUrl, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
         if (!response.ok) {
-          throw new Error("Failed to load document");
+          const errorText = await response.text();
+          console.error('❌ Failed to fetch document:', response.status, errorText);
+          throw new Error(`Failed to load document: ${response.status} ${response.statusText}`);
         }
 
         // Get content type from response
         const contentType = response.headers.get('content-type') || '';
+        const format = doc.format?.toLowerCase() || '';
+        
+        console.log('📄 Document response:', {
+          contentType,
+          format,
+          status: response.status,
+          docFormat: doc.format,
+          headers: Object.fromEntries(response.headers.entries())
+        });
         
         // Create blob with explicit type to ensure correct MIME type
         const blob = await response.blob();
@@ -349,8 +389,14 @@ export default function DocsManagement() {
           blobType: blob.type,
           typedBlobType: typedBlob.type,
           blobSize: blob.size,
-          url: blobUrl
+          url: blobUrl,
+          format
         });
+        
+        // All files should proceed to viewer - backend will convert DOCX to PDF if needed
+        // The backend handles DOCX to PDF conversion when view=true is used
+        
+        // PDFs and other viewable files should proceed to viewer
         
         setViewerModal({
           open: true,
@@ -361,8 +407,8 @@ export default function DocsManagement() {
         });
       }
     } catch (err) {
-      console.error("Failed to view document:", err);
-      alert("Failed to load document. Please try again.");
+      console.error("❌ Failed to view document:", err);
+      alert(`Failed to load document: ${err.message || 'Please try again.'}`);
     }
   };
 
@@ -480,48 +526,63 @@ export default function DocsManagement() {
       });
 
       // Get versions as resume records from local state (for additional data like resume_id)
-      const versionResumes = resumes.filter(r => r.original_resume_id === docId && r.is_version);
+      // Only for resumes, not cover letters
+      let versionResumes = [];
+      if (docType === "resume") {
+        versionResumes = resumes.filter(r => r.original_resume_id === docId && r.is_version);
+      }
       
       // Merge API versions with resume records to get full data
       const apiVersions = data.versions || [];
-      const mergedVersions = apiVersions.map(version => {
-        // Find matching resume record if it exists
-        const matchingResume = versionResumes.find(r => r.version_number === version.version_number);
-        if (matchingResume) {
-          return {
-            ...version,
-            resume_id: matchingResume.id, // The actual resume ID
-            sections: matchingResume.sections || version.sections,
-            file_url: matchingResume.file_url || version.file_url,
-            format: matchingResume.format || version.format,
-            title: matchingResume.title || version.title,
-            created_at: matchingResume.created_at || version.created_at
-          };
+      
+      // Filter out version 0 or null (original document should not be in versions list)
+      const filteredApiVersions = apiVersions.filter(v => v.version_number != null && v.version_number !== 0);
+      
+      const mergedVersions = filteredApiVersions.map(version => {
+        // Find matching resume record if it exists (only for resumes)
+        if (docType === "resume") {
+          const matchingResume = versionResumes.find(r => r.version_number === version.version_number);
+          if (matchingResume) {
+            return {
+              ...version,
+              resume_id: matchingResume.id, // The actual resume ID
+              sections: matchingResume.sections || version.sections,
+              file_url: matchingResume.file_url || version.file_url,
+              format: matchingResume.format || version.format,
+              title: matchingResume.title || version.title,
+              created_at: matchingResume.created_at || version.created_at
+            };
+          }
         }
         return version;
       }).sort((a, b) => (a.version_number || 0) - (b.version_number || 0));
 
-      // Also include any versions from resumes table that might not be in API response
-      versionResumes.forEach(resume => {
-        const exists = mergedVersions.find(v => v.version_number === resume.version_number);
-        if (!exists) {
-          mergedVersions.push({
-            id: resume.id,
-            resume_id: resume.id,
-            version_number: resume.version_number,
-            title: resume.title,
-            sections: resume.sections,
-            format: resume.format,
-            file_url: resume.file_url,
-            is_default: resume.is_default,
-            created_at: resume.created_at,
-            description: null,
-            change_summary: null,
-            job_id: null,
-            is_archived: false
-          });
-        }
-      });
+      // Also include any versions from resumes table that might not be in API response (only for resumes)
+      if (docType === "resume") {
+        versionResumes.forEach(resume => {
+          // Skip version 0 or null
+          if (!resume.version_number || resume.version_number === 0) return;
+          
+          const exists = mergedVersions.find(v => v.version_number === resume.version_number);
+          if (!exists) {
+            mergedVersions.push({
+              id: resume.id,
+              resume_id: resume.id,
+              version_number: resume.version_number,
+              title: resume.title,
+              sections: resume.sections,
+              format: resume.format,
+              file_url: resume.file_url,
+              is_default: resume.is_default,
+              created_at: resume.created_at,
+              description: null,
+              change_summary: null,
+              job_id: null,
+              is_archived: false
+            });
+          }
+        });
+      }
 
       // Sort again after adding any missing versions
       mergedVersions.sort((a, b) => (a.version_number || 0) - (b.version_number || 0));
@@ -536,50 +597,63 @@ export default function DocsManagement() {
       setVersionHistoryModal(prev => ({ ...prev, versions: mergedVersions, loading: false }));
     } catch (err) {
       console.error("Failed to fetch version history:", err);
-      // Try to get versions from resume records
-      try {
-        const versionResumes = resumes.filter(r => r.original_resume_id === docId && r.is_version);
-        const mergedVersions = versionResumes.map(resume => ({
-          ...resume,
-          resume_id: resume.id,
-          version_number: resume.version_number,
-          title: resume.title,
-          sections: resume.sections,
-          created_at: resume.created_at
-        })).sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
-        setVersionHistoryModal(prev => ({ ...prev, versions: mergedVersions, loading: false }));
-      } catch (fallbackErr) {
+      // Try to get versions from resume records (only for resumes)
+      if (docType === "resume") {
+        try {
+          const versionResumes = resumes.filter(r => r.original_resume_id === docId && r.is_version);
+          // Filter out version 0 or null
+          const filteredVersions = versionResumes
+            .filter(r => r.version_number != null && r.version_number !== 0)
+            .map(resume => ({
+              ...resume,
+              resume_id: resume.id,
+              version_number: resume.version_number,
+              title: resume.title,
+              sections: resume.sections,
+              created_at: resume.created_at
+            }))
+            .sort((a, b) => (b.version_number || 0) - (a.version_number || 0));
+          setVersionHistoryModal(prev => ({ ...prev, versions: filteredVersions, loading: false }));
+        } catch (fallbackErr) {
+          console.error("Fallback version fetch failed:", fallbackErr);
+        }
+      } else {
+        setVersionHistoryModal(prev => ({ ...prev, versions: [], loading: false }));
+      }
+      
+      // For demo purposes, show hardcoded versions if API fails (only for resumes)
+      if (docType === "resume") {
         // For demo purposes, show hardcoded versions if API fails
-      const demoVersions = [
-        {
-          id: 1,
-          version_number: 3,
-          title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
-          change_summary: docType === "resume" 
-            ? "Added skills section and updated summary with passion statement"
-            : "Added CI/CD achievement and company-specific interest statement",
-          created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 2,
-          version_number: 2,
-          title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
-          change_summary: docType === "resume"
-            ? "Added detailed achievements and expanded summary"
-            : "Expanded with specific achievements and technologies",
-          created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-        {
-          id: 3,
-          version_number: 1,
-          title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
-          change_summary: docType === "resume"
-            ? "Initial version - Basic resume structure"
-            : "Initial version - Basic cover letter",
-          created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
-      setVersionHistoryModal(prev => ({ ...prev, versions: demoVersions, loading: false }));
+        const demoVersions = [
+          {
+            id: 1,
+            version_number: 3,
+            title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
+            change_summary: docType === "resume" 
+              ? "Added skills section and updated summary with passion statement"
+              : "Added CI/CD achievement and company-specific interest statement",
+            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            id: 2,
+            version_number: 2,
+            title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
+            change_summary: docType === "resume"
+              ? "Added detailed achievements and expanded summary"
+              : "Expanded with specific achievements and technologies",
+            created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+          {
+            id: 3,
+            version_number: 1,
+            title: docType === "resume" ? "Software Engineer Resume" : "Software Engineer Cover Letter",
+            change_summary: docType === "resume"
+              ? "Initial version - Basic resume structure"
+              : "Initial version - Basic cover letter",
+            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+          },
+        ];
+        setVersionHistoryModal(prev => ({ ...prev, versions: demoVersions, loading: false }));
       }
     }
   };
@@ -588,12 +662,37 @@ export default function DocsManagement() {
     setVersionHistoryModal({ open: false, docId: null, docType: null, versions: [], loading: false });
   };
 
-  const handleViewVersion = async (resumeId, versionNumber) => {
+  const handleViewVersion = async (docId, versionNumber, docType = "resume") => {
     try {
+      if (docType === "coverLetter") {
+        // For cover letters, use the version view endpoint
+        const viewerUrl = `${baseURL}/api/versions/cover-letters/${docId}/versions/${versionNumber}/view`;
+        const response = await fetch(viewerUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load document");
+        }
+
+        const contentType = response.headers.get('content-type') || 'application/pdf';
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        setViewerModal({
+          open: true,
+          url: blobUrl,
+          title: `Version ${versionNumber}`,
+          type: "coverLetter",
+          contentType: contentType,
+        });
+        return;
+      }
+
       // Find the resume record for this version
       // Versions are now actual resume records, so we need to find the resume with this version_number and original_resume_id
       let versionResume = resumes.find(r => 
-        r.original_resume_id === resumeId && r.version_number === versionNumber
+        r.original_resume_id === docId && r.version_number === versionNumber
       );
 
       // If not found locally, try to fetch it from the API
@@ -603,7 +702,7 @@ export default function DocsManagement() {
             headers: { Authorization: `Bearer ${token}` },
           });
           versionResume = (data.resumes || []).find(r => 
-            r.original_resume_id === resumeId && r.version_number === versionNumber
+            r.original_resume_id === docId && r.version_number === versionNumber
           );
         } catch (err) {
           console.warn("Could not fetch resumes to find version:", err);
@@ -612,7 +711,8 @@ export default function DocsManagement() {
 
       if (versionResume) {
         // Use the resume download endpoint
-        const viewerUrl = `http://localhost:4000/api/resumes/${versionResume.id}/download?format=pdf`;
+        const apiBaseUrl = baseURL;
+        const viewerUrl = `${apiBaseUrl}/api/resumes/${versionResume.id}/download?format=pdf`;
         
         const response = await fetch(viewerUrl, {
           headers: {
@@ -637,7 +737,8 @@ export default function DocsManagement() {
         });
       } else {
         // Fallback to version endpoint if not found as resume
-        const viewerUrl = `http://localhost:4000/api/versions/resumes/${resumeId}/versions/${versionNumber}/view`;
+        const apiBaseUrl = baseURL;
+        const viewerUrl = `${apiBaseUrl}/api/versions/resumes/${docId}/versions/${versionNumber}/view`;
         const response = await fetch(viewerUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -652,7 +753,8 @@ export default function DocsManagement() {
           // Backend returned redirect info, use the redirect URL
           const data = await response.json();
           if (data.redirect) {
-            const redirectResponse = await fetch(`http://localhost:4000${data.redirect}`, {
+            const apiBaseUrl = baseURL;
+            const redirectResponse = await fetch(`${apiBaseUrl}${data.redirect}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (!redirectResponse.ok) {
@@ -715,19 +817,24 @@ export default function DocsManagement() {
     }
   };
 
-  const handleOpenVersionControl = async (resumeId, resumeTitle) => {
-    setVersionControlModal({ open: true, resumeId, resumeTitle });
-    await handleViewVersionHistory(resumeId, "resume");
+  const handleOpenVersionControl = async (docId, docTitle, docType = "resume") => {
+    setVersionControlModal({ open: true, docId, docTitle, docType });
+    await handleViewVersionHistory(docId, docType);
   };
 
-  const handleEditVersion = async (resumeId, versionNumber) => {
+  const handleEditVersion = async (docId, docType, versionNumber) => {
     try {
-      const { data } = await api.get(`/api/versions/resumes/${resumeId}/versions/${versionNumber}`, {
+      const endpoint = docType === "resume" 
+        ? `/api/versions/resumes/${docId}/versions/${versionNumber}`
+        : `/api/versions/cover-letters/${docId}/versions/${versionNumber}`;
+      
+      const { data } = await api.get(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCreateVersionModal({ 
         open: true, 
-        resumeId, 
+        docId,
+        docType,
         editingVersion: versionNumber,
         versionData: data.version 
       });
@@ -737,24 +844,34 @@ export default function DocsManagement() {
     }
   };
 
-  const handleCreateVersion = async (resumeId, versionData) => {
+  const handleCreateVersion = async (docId, docType, versionData) => {
     try {
-      const endpoint = createVersionModal.editingVersion 
-        ? `/api/versions/resumes/${resumeId}/versions/${createVersionModal.editingVersion}/update`
-        : `/api/versions/resumes/${resumeId}/create`;
+      let endpoint;
+      if (docType === "resume") {
+        endpoint = createVersionModal.editingVersion 
+          ? `/api/versions/resumes/${docId}/versions/${createVersionModal.editingVersion}/update`
+          : `/api/versions/resumes/${docId}/create`;
+      } else {
+        // Cover letter - for now only support creating, not editing
+        endpoint = `/api/versions/cover-letters/${docId}/create`;
+      }
       
-      const method = createVersionModal.editingVersion ? 'put' : 'post';
+      const method = (createVersionModal.editingVersion && docType === "resume") ? 'put' : 'post';
       
       const { data } = await api[method](endpoint, versionData, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       alert(`✅ Version ${createVersionModal.editingVersion ? 'updated' : 'created'} successfully!`);
-      setCreateVersionModal({ open: false, resumeId: null, editingVersion: null, versionData: null });
+      setCreateVersionModal({ open: false, docId: null, docType: null, editingVersion: null, versionData: null });
       
-      // Refresh resumes list and version history
-      await fetchResumes();
-      await handleViewVersionHistory(resumeId, "resume");
+      // Refresh data and version history
+      if (docType === "resume") {
+        await fetchResumes();
+      } else {
+        await fetchCoverLetters();
+      }
+      await handleViewVersionHistory(docId, docType);
     } catch (err) {
       console.error(`Failed to ${createVersionModal.editingVersion ? 'update' : 'create'} version:`, err);
       alert(`Failed to ${createVersionModal.editingVersion ? 'update' : 'create'} version. Please try again.`);
@@ -790,17 +907,17 @@ export default function DocsManagement() {
     }
   };
 
-  const handleSetDefaultVersion = async (resumeId, versionNumber) => {
+  const handleSetDefaultVersion = async (docId, versionNumber) => {
     try {
       await api.put(
-        `/api/versions/resumes/${resumeId}/versions/${versionNumber}/set-default`,
+        `/api/versions/resumes/${docId}/versions/${versionNumber}/set-default`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert("✅ Version set as default!");
       // Refresh resumes to show the default version
       await fetchResumes();
-      await handleViewVersionHistory(resumeId, "resume");
+      await handleViewVersionHistory(docId, "resume");
     } catch (err) {
       console.error("Failed to set default version:", err);
       alert("Failed to set default version. Please try again.");
@@ -822,72 +939,103 @@ export default function DocsManagement() {
     }
   };
 
-  const handleDeleteVersion = async (resumeId, versionNumber) => {
+  const handleDeleteVersion = async (docId, docType, versionNumber) => {
     if (!window.confirm(`Are you sure you want to permanently delete version ${versionNumber}? This cannot be undone.`)) {
       return;
     }
 
     try {
-      await api.delete(
-        `/api/versions/resumes/${resumeId}/versions/${versionNumber}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const endpoint = docType === "resume"
+        ? `/api/versions/resumes/${docId}/versions/${versionNumber}`
+        : `/api/versions/cover-letters/${docId}/versions/${versionNumber}`;
+      
+      await api.delete(endpoint, { headers: { Authorization: `Bearer ${token}` } });
       alert("✅ Version deleted!");
-      await handleViewVersionHistory(resumeId, "resume");
+      await handleViewVersionHistory(docId, docType);
     } catch (err) {
       console.error("Failed to delete version:", err);
       alert("Failed to delete version. Please try again.");
     }
   };
 
-  const handleLinkVersionToJob = async (resumeId, versionNumber, jobId) => {
+  const handleLinkVersionToJob = async (docId, docType, versionNumber, jobId) => {
     try {
+      const endpoint = docType === "resume"
+        ? `/api/versions/resumes/${docId}/versions/${versionNumber}/link-job`
+        : null; // Cover letters don't have link-job endpoint yet
+      
+      if (!endpoint) {
+        alert("Linking cover letter versions to jobs is not yet supported.");
+        return;
+      }
+      
       await api.put(
-        `/api/versions/resumes/${resumeId}/versions/${versionNumber}/link-job`,
+        endpoint,
         { job_id: jobId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert("✅ Version linked to job!");
-      setLinkJobModal({ open: false, resumeId: null, versionNumber: null });
-      await handleViewVersionHistory(resumeId, "resume");
+      setLinkJobModal({ open: false, docId: null, docType: null, versionNumber: null });
+      await handleViewVersionHistory(docId, docType);
     } catch (err) {
       console.error("Failed to link version to job:", err);
       alert("Failed to link version to job. Please try again.");
     }
   };
 
-  const handlePublishVersion = async (resumeId, versionNumber) => {
-    if (!window.confirm(`Publish this version as a standalone resume? It will be saved as a new resume in the Resumes tab, preserving job links and version history.`)) {
+  const handlePublishVersion = async (docId, docType, versionNumber) => {
+    const docTypeName = docType === "resume" ? "resume" : "cover letter";
+    
+    // Debug logging
+    console.log('🔍 [PUBLISH] Publishing version:', { docId, docType, versionNumber });
+    
+    if (!window.confirm(`Publish this version as a standalone ${docTypeName}? It will be saved as a new ${docTypeName} in the ${docType === "resume" ? "Resumes" : "Cover Letters"} tab, preserving job links and version history.`)) {
       return;
     }
 
     try {
+      const endpoint = docType === "resume"
+        ? `/api/versions/resumes/${docId}/versions/${versionNumber}/publish`
+        : `/api/versions/cover-letters/${docId}/versions/${versionNumber}/publish`;
+      
+      console.log('🔍 [PUBLISH] Calling endpoint:', endpoint);
+      
       const response = await api.post(
-        `/api/versions/resumes/${resumeId}/versions/${versionNumber}/publish`,
+        endpoint,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      alert(`✅ Version published! New resume "${response.data.resume.title}" has been created.`);
+      console.log('🔍 [PUBLISH] Response:', response.data);
       
-      // Refresh both resumes and jobs to show job links
+      const newDoc = docType === "resume" ? response.data.resume : response.data.cover_letter;
+      
+      if (!newDoc) {
+        console.error('❌ [PUBLISH] No document returned in response:', response.data);
+        alert(`Failed to publish version: No ${docTypeName} returned from server.`);
+        return;
+      }
+      
+      alert(`✅ Version published! New ${docTypeName} "${newDoc.title}" has been created.`);
+      
+      // Refresh data
       await Promise.all([
-        fetchResumes(),
+        docType === "resume" ? fetchResumes() : fetchCoverLetters(),
         fetchJobs()
       ]);
       
       // Keep the version control modal open so user can see it's still in the list
-      // Optionally refresh version history
-      await handleViewVersionHistory(resumeId, "resume");
+      await handleViewVersionHistory(docId, docType);
     } catch (err) {
-      console.error("Failed to publish version:", err);
-      alert("Failed to publish version. Please try again.");
+      console.error("❌ [PUBLISH] Failed to publish version:", err);
+      console.error("❌ [PUBLISH] Error details:", err.response?.data);
+      alert(`Failed to publish version: ${err.response?.data?.error || err.message || 'Please try again.'}`);
     }
   };
 
   const handleDownload = async (resumeId, format) => {
     try {
-      const downloadUrl = `http://localhost:4000/api/resumes/${resumeId}/download?format=${format}`;
+      const downloadUrl = `${baseURL}/api/resumes/${resumeId}/download?format=${format}`;
       
       // Fetch the file with authentication
       const response = await fetch(downloadUrl, {
@@ -1020,19 +1168,31 @@ export default function DocsManagement() {
                   const isVersion = resume.is_version || resume.original_resume_id;
                   const originalResume = isVersion ? resumes.find(r => r.id === resume.original_resume_id) : null;
                   
-                  // Check if this is a published resume (title contains "Published from")
-                  const isPublished = resume.title && resume.title.includes("Published from");
+                  // Check if this is a published resume (description or title contains "Published from")
+                  const isPublished = (resume.description && resume.description.includes("Published from")) || 
+                                     (resume.title && resume.title.includes("Published from"));
                   let publishedSource = null;
                   let publishedVersionNum = null;
                   if (isPublished) {
-                    // Extract source from title: "Resume Title (Published from Original Resume - Version X)"
-                    const match = resume.title.match(/Published from (.+?) - Version (\d+)\)/);
-                    if (match) {
-                      publishedSource = match[1];
-                      publishedVersionNum = match[2];
+                    // Try to extract from description first (new format)
+                    if (resume.description) {
+                      const descMatch = resume.description.match(/Published from "(.+?)" - Version (\d+)/);
+                      if (descMatch) {
+                        publishedSource = descMatch[1];
+                        publishedVersionNum = descMatch[2];
+                      }
                     }
-                    // Debug logging for published resumes
-                    console.log(`📋 [PUBLISHED RESUME] ID: ${resume.id}, Title: ${resume.title}, Linked Jobs: ${linkedJobs.length}`);
+                    // Fallback to title parsing (old format)
+                    if (!publishedSource && resume.title) {
+                      const titleMatch = resume.title.match(/Published from (.+?) - Version (\d+)\)/);
+                      if (titleMatch) {
+                        publishedSource = titleMatch[1];
+                        publishedVersionNum = titleMatch[2];
+                      }
+                    }
+                    // Debug logging for published resumes (only log once per resume, not on every render)
+                    // Removed excessive logging - uncomment if needed for debugging
+                    // console.log(`📋 [PUBLISHED RESUME] ID: ${resume.id}, Description: ${resume.description}, Title: ${resume.title}, Linked Jobs: ${linkedJobs.length}`);
                   }
                   
                   return (
@@ -1099,7 +1259,7 @@ export default function DocsManagement() {
                         </button>
                         <button
                           className="btn-version-control"
-                          onClick={() => handleOpenVersionControl(resume.id, resume.title)}
+                          onClick={() => handleOpenVersionControl(resume.id, resume.title, "resume")}
                           title="Version Control"
                         >
                           <FaCodeBranch /> Versions
@@ -1191,8 +1351,24 @@ export default function DocsManagement() {
                   if (linkedJobs.length > 0) {
                     console.log(`✅ Cover Letter ${coverLetter.id} linked to jobs:`, linkedJobs.map(j => `${j.title} at ${j.company}`));
                   }
+                  
+                  // Check if this is a published cover letter (description contains "Published from")
+                  const isPublished = coverLetter.description && coverLetter.description.includes("Published from");
+                  let publishedSource = null;
+                  let publishedVersionNum = null;
+                  if (isPublished) {
+                    // Extract source from description: "Published from Original Title - Version X"
+                    const match = coverLetter.description.match(/Published from "(.+?)" - Version (\d+)/);
+                    if (match) {
+                      publishedSource = match[1];
+                      publishedVersionNum = match[2];
+                    }
+                    // Debug logging for published cover letters
+                    console.log(`📋 [PUBLISHED COVER LETTER] ID: ${coverLetter.id}, Description: ${coverLetter.description}, Linked Jobs: ${linkedJobs.length}`);
+                  }
+                  
                   return (
-                    <div key={coverLetter.id} className="doc-card">
+                    <div key={coverLetter.id} className={`doc-card ${isPublished ? 'published-card' : ''}`}>
                       <div className="doc-card-header">
                         {getFormatIcon(coverLetter.format)}
                         <div className="doc-card-title">
@@ -1202,6 +1378,12 @@ export default function DocsManagement() {
                       </div>
 
                       <div className="doc-card-body">
+                        {isPublished && publishedSource && (
+                          <div className="published-info">
+                            <FaExternalLinkAlt className="published-icon" />
+                            <span>Published from <strong>{publishedSource}</strong> - Version {publishedVersionNum}</span>
+                          </div>
+                        )}
                         {linkedJobs.length > 0 && (
                           <div className="doc-linked-jobs">
                             <FaLink className="link-icon" />
@@ -1229,6 +1411,13 @@ export default function DocsManagement() {
                           title="View Cover Letter"
                         >
                           <FaEye /> View
+                        </button>
+                        <button
+                          className="btn-version-control"
+                          onClick={() => handleOpenVersionControl(coverLetter.id, coverLetter.title, "coverLetter")}
+                          title="Version Control"
+                        >
+                          <FaCodeBranch /> Versions
                         </button>
                         <button
                           className="btn-delete"
@@ -1348,17 +1537,38 @@ export default function DocsManagement() {
                   type="application/pdf"
                   className="viewer-iframe"
                   title={viewerModal.title}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
                 >
                   <p>Your browser does not support PDF viewing. 
                     <a href={viewerModal.url} download>Download the PDF</a> instead.
                   </p>
                 </object>
-              ) : (
+              ) : viewerModal.contentType && viewerModal.contentType.includes('text/plain') ? (
                 <iframe
                   src={viewerModal.url}
                   className="viewer-iframe"
                   title={viewerModal.title}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
                 />
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center' }}>
+                  <p>Preview not available for this file type.</p>
+                  <a 
+                    href={viewerModal.url} 
+                    download 
+                    style={{ 
+                      display: 'inline-block', 
+                      marginTop: '1rem', 
+                      padding: '0.5rem 1rem', 
+                      backgroundColor: '#007bff', 
+                      color: 'white', 
+                      textDecoration: 'none', 
+                      borderRadius: '4px' 
+                    }}
+                  >
+                    Download File
+                  </a>
+                </div>
               )}
             </div>
           </div>
@@ -1367,11 +1577,11 @@ export default function DocsManagement() {
 
       {/* Comprehensive Version Control Modal */}
       {versionControlModal.open && (
-        <div className="viewer-modal-overlay" onClick={() => setVersionControlModal({ open: false, resumeId: null, resumeTitle: null })}>
+        <div className="viewer-modal-overlay" onClick={() => setVersionControlModal({ open: false, docId: null, docTitle: null, docType: null })}>
           <div className="viewer-modal-content version-control-modal" onClick={(e) => e.stopPropagation()}>
             <div className="viewer-modal-header">
-              <h2>Version Control - {versionControlModal.resumeTitle}</h2>
-              <button className="viewer-modal-close" onClick={() => setVersionControlModal({ open: false, resumeId: null, resumeTitle: null })}>
+              <h2>Version Control - {versionControlModal.docTitle}</h2>
+              <button className="viewer-modal-close" onClick={() => setVersionControlModal({ open: false, docId: null, docTitle: null, docType: null })}>
                 ×
               </button>
             </div>
@@ -1379,7 +1589,7 @@ export default function DocsManagement() {
               <div className="version-control-actions-header">
                 <button
                   className="btn-primary"
-                  onClick={() => setCreateVersionModal({ open: true, resumeId: versionControlModal.resumeId })}
+                  onClick={() => setCreateVersionModal({ open: true, docId: versionControlModal.docId, docType: versionControlModal.docType })}
                 >
                   <FaPlus /> Create New Version
                 </button>
@@ -1411,7 +1621,12 @@ export default function DocsManagement() {
                       </div>
                       <div className="version-title">{version.title}</div>
                       <div className="version-original-info">
-                        <FaCodeBranch /> Version of <strong>{resumes.find(r => r.id === versionControlModal.resumeId)?.title || 'Original Resume'}</strong>
+                        <FaCodeBranch /> Version of <strong>
+                          {versionControlModal.docType === "resume" 
+                            ? (resumes.find(r => r.id === versionControlModal.docId)?.title || 'Original Resume')
+                            : (coverLetters.find(cl => cl.id === versionControlModal.docId)?.title || 'Original Cover Letter')
+                          }
+                        </strong>
                       </div>
                       {version.description && (
                         <div className="version-description">{version.description}</div>
@@ -1432,59 +1647,102 @@ export default function DocsManagement() {
                         <button
                           className="btn-view-version"
                           onClick={() => {
-                            // Use the resume_id if available (new system), otherwise use version endpoint
-                            if (version.resume_id) {
+                            const docType = versionControlModal.docType;
+                            if (docType === "resume" && version.resume_id) {
                               handleView(resumes.find(r => r.id === version.resume_id), "resume");
+                            } else if (docType === "coverLetter") {
+                              // For cover letters, use the version view endpoint
+                              const viewerUrl = `${baseURL}/api/versions/cover-letters/${versionControlModal.docId}/versions/${version.version_number}/view`;
+                              fetch(viewerUrl, {
+                                headers: { Authorization: `Bearer ${token}` },
+                              })
+                                .then(response => response.blob())
+                                .then(blob => {
+                                  const blobUrl = window.URL.createObjectURL(blob);
+                                  setViewerModal({
+                                    open: true,
+                                    url: blobUrl,
+                                    title: version.title,
+                                    type: "coverLetter",
+                                    contentType: 'application/pdf',
+                                  });
+                                })
+                                .catch(err => {
+                                  console.error("Failed to view version:", err);
+                                  alert("Failed to view version. Please try again.");
+                                });
                             } else {
-                              handleViewVersion(versionControlModal.resumeId, version.version_number);
+                              handleViewVersion(versionControlModal.docId, version.version_number);
                             }
                           }}
                           title="View this version"
                         >
                           <FaEye /> View
                         </button>
-                        <button
-                          className="btn-edit-version"
-                          onClick={() => {
-                            if (version.resume_id) {
-                              // Edit the actual resume record
-                              handleEditVersion(versionControlModal.resumeId, version.version_number);
-                            } else {
-                              handleEditVersion(versionControlModal.resumeId, version.version_number);
-                            }
-                          }}
-                          title="Edit this version"
-                        >
-                          <FaCopy /> Edit
-                        </button>
-                        {!version.is_default && (
+                        {versionControlModal.docType === "resume" && (
+                          <button
+                            className="btn-edit-version"
+                            onClick={() => handleEditVersion(versionControlModal.docId, versionControlModal.docType, version.version_number)}
+                            title="Edit this version"
+                          >
+                            <FaCopy /> Edit
+                          </button>
+                        )}
+                        {!version.is_default && versionControlModal.docType === "resume" && (
                           <button
                             className="btn-set-default"
-                            onClick={() => handleSetDefaultVersion(versionControlModal.resumeId, version.version_number)}
+                            onClick={() => handleSetDefaultVersion(versionControlModal.docId, version.version_number)}
                             title="Set as default"
                           >
                             <FaStar /> Set Default
                           </button>
                         )}
-                        <button
-                          className="btn-link-job"
-                          onClick={() => setLinkJobModal({ open: true, resumeId: versionControlModal.resumeId, versionNumber: version.version_number })}
-                          title="Link to job application"
-                        >
-                          <FaLink /> Link Job
-                        </button>
+                        {versionControlModal.docType === "resume" && (
+                          <button
+                            className="btn-link-job"
+                            onClick={() => setLinkJobModal({ open: true, docId: versionControlModal.docId, docType: versionControlModal.docType, versionNumber: version.version_number })}
+                            title="Link to job application"
+                          >
+                            <FaLink /> Link Job
+                          </button>
+                        )}
                         <button
                           className="btn-publish-version"
-                          onClick={() => handlePublishVersion(versionControlModal.resumeId, version.version_number)}
-                          title="Publish as standalone resume (keeps job links and version history)"
+                          onClick={() => {
+                            // Validate docType and version number
+                            const docType = versionControlModal.docType;
+                            const versionNum = version.version_number;
+                            
+                            console.log('🔍 [PUBLISH BUTTON] Clicked:', { 
+                              docId: versionControlModal.docId, 
+                              docType, 
+                              versionNumber: versionNum,
+                              version: version 
+                            });
+                            
+                            // Don't allow publishing version 0 or null (original document)
+                            if (!versionNum || versionNum === 0) {
+                              alert('Cannot publish the original document. Please publish a specific version.');
+                              return;
+                            }
+                            
+                            if (!docType) {
+                              console.error('❌ [PUBLISH] docType is missing!');
+                              alert('Error: Document type is missing. Please try again.');
+                              return;
+                            }
+                            
+                            handlePublishVersion(versionControlModal.docId, docType, versionNum);
+                          }}
+                          title={`Publish as standalone ${versionControlModal.docType === "resume" ? "resume" : "cover letter"} (keeps job links and version history)`}
                         >
                           <FaExternalLinkAlt /> Publish
                         </button>
                         <button
                           className="btn-delete-version"
                           onClick={async () => {
-                            // Delete the actual resume record if it exists
-                            if (version.resume_id) {
+                            const docType = versionControlModal.docType;
+                            if (docType === "resume" && version.resume_id) {
                               if (window.confirm(`Are you sure you want to delete this version? This will permanently delete the resume.`)) {
                                 try {
                                   await api.delete(`/api/resumes/${version.resume_id}`, {
@@ -1492,14 +1750,14 @@ export default function DocsManagement() {
                                   });
                                   alert("✅ Version deleted!");
                                   await fetchResumes();
-                                  await handleViewVersionHistory(versionControlModal.resumeId, "resume");
+                                  await handleViewVersionHistory(versionControlModal.docId, docType);
                                 } catch (err) {
                                   console.error("Failed to delete version resume:", err);
                                   alert("Failed to delete version. Please try again.");
                                 }
                               }
                             } else {
-                              handleDeleteVersion(versionControlModal.resumeId, version.version_number);
+                              handleDeleteVersion(versionControlModal.docId, docType, version.version_number);
                             }
                           }}
                           title="Delete permanently"
@@ -1518,23 +1776,33 @@ export default function DocsManagement() {
 
       {/* Create Version Modal */}
       {createVersionModal.open && (
-        <div className="viewer-modal-overlay" onClick={() => setCreateVersionModal({ open: false, resumeId: null })}>
+        <div className="viewer-modal-overlay" onClick={() => setCreateVersionModal({ open: false, docId: null, docType: null })}>
           <div className="viewer-modal-content create-version-modal" onClick={(e) => e.stopPropagation()}>
             <div className="viewer-modal-header">
               <h2>{createVersionModal.editingVersion ? `Edit Version ${createVersionModal.editingVersion}` : "Create New Version"}</h2>
-              <button className="viewer-modal-close" onClick={() => setCreateVersionModal({ open: false, resumeId: null, editingVersion: null, versionData: null })}>
+              <button className="viewer-modal-close" onClick={() => setCreateVersionModal({ open: false, docId: null, docType: null, editingVersion: null, versionData: null })}>
                 ×
               </button>
             </div>
-            <CreateVersionForm
-              resumeId={createVersionModal.resumeId}
-              jobs={jobs}
-              token={token}
-              editingVersion={createVersionModal.editingVersion}
-              versionData={createVersionModal.versionData}
-              onSubmit={(data) => handleCreateVersion(createVersionModal.resumeId, data)}
-              onCancel={() => setCreateVersionModal({ open: false, resumeId: null, editingVersion: null, versionData: null })}
-            />
+            {createVersionModal.docType === "resume" ? (
+              <CreateVersionForm
+                resumeId={createVersionModal.docId}
+                jobs={jobs}
+                token={token}
+                editingVersion={createVersionModal.editingVersion}
+                versionData={createVersionModal.versionData}
+                onSubmit={(data) => handleCreateVersion(createVersionModal.docId, createVersionModal.docType, data)}
+                onCancel={() => setCreateVersionModal({ open: false, docId: null, docType: null, editingVersion: null, versionData: null })}
+              />
+            ) : (
+              <CreateCoverLetterVersionForm
+                coverLetterId={createVersionModal.docId}
+                jobs={jobs}
+                token={token}
+                onSubmit={(data) => handleCreateVersion(createVersionModal.docId, createVersionModal.docType, data)}
+                onCancel={() => setCreateVersionModal({ open: false, docId: null, docType: null, editingVersion: null, versionData: null })}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1611,11 +1879,11 @@ export default function DocsManagement() {
 
       {/* Link Job Modal */}
       {linkJobModal.open && (
-        <div className="viewer-modal-overlay" onClick={() => setLinkJobModal({ open: false, resumeId: null, versionNumber: null })}>
+        <div className="viewer-modal-overlay" onClick={() => setLinkJobModal({ open: false, docId: null, docType: null, versionNumber: null })}>
           <div className="viewer-modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="viewer-modal-header">
               <h2>Link Version to Job</h2>
-              <button className="viewer-modal-close" onClick={() => setLinkJobModal({ open: false, resumeId: null, versionNumber: null })}>
+              <button className="viewer-modal-close" onClick={() => setLinkJobModal({ open: false, docId: null, docType: null, versionNumber: null })}>
                 ×
               </button>
             </div>
@@ -1625,7 +1893,7 @@ export default function DocsManagement() {
                 onChange={(e) => {
                   const jobId = e.target.value ? parseInt(e.target.value) : null;
                   if (jobId) {
-                    handleLinkVersionToJob(linkJobModal.resumeId, linkJobModal.versionNumber, jobId);
+                    handleLinkVersionToJob(linkJobModal.docId, linkJobModal.docType, linkJobModal.versionNumber, jobId);
                   }
                 }}
               >
@@ -2079,6 +2347,251 @@ function CreateVersionForm({ resumeId, jobs, token, editingVersion, versionData,
               <button type="button" onClick={onCancel}>Cancel</button>
               <button type="submit" className="btn-primary">
                 {editingVersion ? "Update Version" : "Create Version"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Create Cover Letter Version Form Component with Side-by-Side Comparison
+function CreateCoverLetterVersionForm({ coverLetterId, jobs, token, onSubmit, onCancel }) {
+  const [formData, setFormData] = useState({
+    title: "",
+    change_summary: "",
+    job_id: "",
+  });
+  const [masterContent, setMasterContent] = useState("");
+  const [editableContent, setEditableContent] = useState("");
+  const [masterCoverLetter, setMasterCoverLetter] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const leftScrollRef = useRef(null);
+  const rightScrollRef = useRef(null);
+  const isScrollingRef = useRef(false);
+
+  useEffect(() => {
+    const fetchMasterCoverLetter = async () => {
+      if (!coverLetterId || !token) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        // Fetch the current cover letter
+        const { data: coverLetterData } = await api.get(`/api/cover-letter/${coverLetterId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        const coverLetter = coverLetterData.cover_letter;
+        const content = coverLetter.content || "";
+        
+        // Set master cover letter
+        setMasterCoverLetter({
+          ...coverLetter,
+          content: content
+        });
+        setMasterContent(content);
+        setEditableContent(content); // Copy to editable side
+        
+      } catch (err) {
+        console.error("Failed to fetch master cover letter:", err);
+        // Try to get from local state if available
+        try {
+          const { data } = await api.get(`/api/cover-letter/${coverLetterId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const content = data.cover_letter?.content || "";
+          setMasterCoverLetter({
+            ...data.cover_letter,
+            content: content
+          });
+          setMasterContent(content);
+          setEditableContent(content);
+        } catch (err2) {
+          console.error("Failed to fetch current cover letter:", err2);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMasterCoverLetter();
+  }, [coverLetterId, token]);
+
+  // Synchronize scrolling between left and right columns
+  useEffect(() => {
+    const leftEl = leftScrollRef.current;
+    const rightEl = rightScrollRef.current;
+
+    if (!leftEl || !rightEl) return;
+
+    const handleLeftScroll = (e) => {
+      if (isScrollingRef.current) return;
+      isScrollingRef.current = true;
+      const scrollRatio = leftEl.scrollTop / (leftEl.scrollHeight - leftEl.clientHeight);
+      const maxRightScroll = rightEl.scrollHeight - rightEl.clientHeight;
+      const adjustedRatio = Math.min(scrollRatio * 0.85, 1);
+      rightEl.scrollTop = adjustedRatio * maxRightScroll;
+      requestAnimationFrame(() => {
+        isScrollingRef.current = false;
+      });
+    };
+
+    const handleRightScroll = (e) => {
+      if (isScrollingRef.current) return;
+      isScrollingRef.current = true;
+      const scrollRatio = rightEl.scrollTop / (rightEl.scrollHeight - rightEl.clientHeight);
+      const maxLeftScroll = leftEl.scrollHeight - leftEl.clientHeight;
+      const adjustedRatio = Math.min(scrollRatio / 0.85, 1);
+      leftEl.scrollTop = adjustedRatio * maxLeftScroll;
+      requestAnimationFrame(() => {
+        isScrollingRef.current = false;
+      });
+    };
+
+    leftEl.addEventListener('scroll', handleLeftScroll, { passive: true });
+    rightEl.addEventListener('scroll', handleRightScroll, { passive: true });
+
+    return () => {
+      leftEl.removeEventListener('scroll', handleLeftScroll);
+      rightEl.removeEventListener('scroll', handleRightScroll);
+    };
+  }, [loading, masterContent, editableContent]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({
+      ...formData,
+      content: editableContent, // Include edited content
+      job_id: formData.job_id ? parseInt(formData.job_id) : null,
+    });
+  };
+
+  if (loading) {
+    return <div className="create-version-loading">Loading current cover letter...</div>;
+  }
+
+  return (
+    <div className="create-version-with-comparison">
+      <div className="create-version-layout">
+        {/* Left Side: Master Version Preview */}
+        <div className="comparison-column" ref={leftScrollRef}>
+          <h3>{masterCoverLetter?.title || "Current Cover Letter"}</h3>
+          <div className="resume-preview">
+            {masterCoverLetter ? (
+              <>
+                <div className="resume-preview-header">
+                  <p><strong>Title:</strong> {masterCoverLetter.title}</p>
+                  <p><strong>Format:</strong> {masterCoverLetter.format || 'PDF'}</p>
+                </div>
+                <div className="cover-letter-preview-content">
+                  {masterContent ? (
+                    <div className="cover-letter-text" style={{ 
+                      whiteSpace: 'pre-wrap', 
+                      fontFamily: 'Arial, sans-serif',
+                      lineHeight: '1.6',
+                      padding: '1rem',
+                      backgroundColor: '#ffffff',
+                      borderRadius: '4px',
+                      minHeight: '400px',
+                      color: '#333333',
+                      border: '1px solid #e0e0e0'
+                    }}>
+                      {masterContent}
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      padding: '2rem', 
+                      textAlign: 'center', 
+                      color: '#666',
+                      fontStyle: 'italic' 
+                    }}>
+                      <p>No text content available.</p>
+                      <p style={{ fontSize: '0.9em', marginTop: '0.5rem' }}>
+                        This cover letter may have been uploaded as a file. The text content will be extracted when you create a version.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="no-content">Unable to load cover letter</p>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side: Editable Cover Letter Form */}
+        <div className="form-column" ref={rightScrollRef}>
+          <h3>New Version - Edit Content</h3>
+          <p className="version-info-note">
+            Edit the cover letter content below. This will create a new version with your changes.
+          </p>
+          <form onSubmit={handleSubmit} className="create-version-form">
+            <div className="form-group">
+              <label>Version Title *</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                required
+                placeholder="e.g., Software Engineer Cover Letter - Google Tailored"
+              />
+            </div>
+            
+            {/* Editable Cover Letter Content */}
+            <div className="form-group">
+              <label>Cover Letter Content *</label>
+              <textarea
+                value={editableContent}
+                onChange={(e) => setEditableContent(e.target.value)}
+                required
+                placeholder="Enter your cover letter content here..."
+                rows={20}
+                style={{
+                  width: '100%',
+                  minHeight: '400px',
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  padding: '1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+            
+            <div className="form-group">
+              <label>Change Summary</label>
+              <input
+                type="text"
+                value={formData.change_summary}
+                onChange={(e) => setFormData({ ...formData, change_summary: e.target.value })}
+                placeholder="Brief one-line summary of changes"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label>Link to Job Application</label>
+              <select
+                value={formData.job_id}
+                onChange={(e) => setFormData({ ...formData, job_id: e.target.value })}
+              >
+                <option value="">None</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.title} at {job.company}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="form-actions">
+              <button type="button" onClick={onCancel}>Cancel</button>
+              <button type="submit" className="btn-primary">
+                Create Version
               </button>
             </div>
           </form>

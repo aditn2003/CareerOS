@@ -1,0 +1,58 @@
+{
+  "backend": null,
+  "frontend": {
+    "lines": {
+      "total": 1868,
+      "covered": 1755,
+      "skipped": 0,
+      "pct": 93.95
+    },
+    "statements": {
+      "total": 2074,
+      "covered": 1931,
+      "skipped": 0,
+      "pct": 93.1
+    },
+    "functions": {
+      "total": 646,
+      "covered": 594,
+      "skipped": 0,
+      "pct": 91.95
+    },
+    "branches": {
+      "total": 1850,
+      "covered": 1612,
+      "skipped": 0,
+      "pct": 87.13
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": 100
+    }
+  },
+  "combined": {
+    "statements": {
+      "total": 2074,
+      "covered": 1931,
+      "pct": 93.10511089681775
+    },
+    "branches": {
+      "total": 1850,
+      "covered": 1612,
+      "pct": 87.13513513513513
+    },
+    "functions": {
+      "total": 646,
+      "covered": 594,
+      "pct": 91.95046439628483
+    },
+    "lines": {
+      "total": 1868,
+      "covered": 1755,
+      "pct": 93.95074946466809
+    }
+  },
+  "generatedAt": "2025-12-18T23:18:24.149Z"
+}

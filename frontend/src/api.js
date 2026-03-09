@@ -1,10 +1,10 @@
 import axios from "axios";
 
-const baseURL =
-  import.meta.env.VITE_API_URL ||
+export const baseURL =
+  import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === "localhost"
     ? "http://localhost:4000"
-    : "http://backend:4000");
+    : "https://aandsz-forces-ats-cs490-civg.onrender.com");
 
 export const api = axios.create({
   baseURL,
@@ -109,14 +109,12 @@ export const duplicateTemplate = (id) =>
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
     
-      const res = await fetch(
-        `http://localhost:4000/api/dashboard/stats?${params.toString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`${api.defaults.baseURL}/api/dashboard/stats?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
     
       if (!res.ok) throw new Error("Failed to load stats");
       const data = await res.json();

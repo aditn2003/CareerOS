@@ -19,9 +19,10 @@ import {
   Info,
   ChevronDown,
 } from 'lucide-react';
+import { baseURL } from '../api';
 import './ReferralRequests.css';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = `${baseURL}/api`;
 
 const ReferralRequests = () => {
   // State management

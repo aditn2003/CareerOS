@@ -24,18 +24,29 @@ if (isSupabase) {
 }
 
 // Supabase Session mode has strict connection limits (typically 4-5 concurrent connections)
-// Use very small pool size for Supabase to avoid "MaxClientsInSessionMode" errors
-const poolSize = isSupabase ? 2 : 20; // Very conservative: 2 connections max for Supabase
+// For local performance testing we can safely use up to 4 connections; in production
+// you may want to tune this based on your Supabase plan/limits.
+const poolSize = isSupabase ? 4 : 20;
 const minPoolSize = isSupabase ? 0 : 2; // No minimum for Supabase
 
 const pool = new Pool({
   ...poolConfig,
-  max: poolSize, // Maximum connections (2 for Supabase Session mode)
+  max: poolSize, // Maximum connections (4 for Supabase Session mode)
   min: minPoolSize, // Minimum connections (0 for Supabase)
-  idleTimeoutMillis: 60000, // Close idle clients after 1 minute (aggressive to free connections)
-  connectionTimeoutMillis: 5000, // Return error after 5 seconds
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 30000, // Increased to 30 seconds for Render cold starts
   allowExitOnIdle: isSupabase ? true : false, // Allow pool to close when idle for Supabase
+  // Keep connections alive
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 });
+
+// In test mode, set search_path to test schema for all connections
+if (process.env.NODE_ENV === 'test') {
+  pool.on('connect', async (client) => {
+    await client.query('SET search_path TO test, public');
+  });
+}
 
 // Handle pool errors gracefully
 pool.on('error', (err) => {
@@ -45,20 +56,25 @@ pool.on('error', (err) => {
   const errorCode = err.code || 'UNKNOWN';
   const errorStr = String(err);
   
-  // Check for connection termination errors (common with Supabase)
+  // Check for connection termination/timeout errors (common with Supabase and Render)
   // Handle various formats including Elixir/Erlang tuple format {:shutdown, :db_termination}
   if (errorCode === 'XX000' || 
+      errorCode === 'ETIMEDOUT' ||
+      errorCode === 'ECONNRESET' ||
+      errorCode === 'ECONNREFUSED' ||
       errorMessage.includes('shutdown') || 
       errorMessage.includes('termination') ||
       errorMessage.includes('terminate_received') ||
       errorMessage.includes('db_termination') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('Connection terminated') ||
       errorStr.includes('shutdown') ||
       errorStr.includes('termination') ||
-      errorStr.includes('db_termination')) {
-    // These are expected with Supabase connection limits - just log quietly
-    // Suppress the log to reduce noise - the pool will reconnect automatically
-    // Uncomment the line below if you want to see these warnings:
-    // console.warn('⚠️ Database connection terminated (expected). Pool will reconnect automatically.');
+      errorStr.includes('db_termination') ||
+      errorStr.includes('timeout')) {
+    // These are expected with Supabase connection limits or Render cold starts
+    // Log once then suppress to reduce noise - the pool will reconnect automatically
+    console.warn('⚠️ DB connection error:', errorMessage.substring(0, 100), '- Pool will reconnect.');
   } else {
     // For other errors, log more details
     console.error('⚠️ Unexpected error on idle client in shared pool:', errorMessage);

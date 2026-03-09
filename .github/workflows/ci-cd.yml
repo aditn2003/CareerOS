@@ -1,0 +1,287 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # JOB 1: Run Tests (Backend + Frontend)
+  # ============================================
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    outputs:
+      backend-coverage: ${{ steps.coverage.outputs.backend }}
+      frontend-coverage: ${{ steps.coverage.outputs.frontend }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Backend Tests
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Run backend tests with coverage
+        working-directory: ./backend
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'test_secret_key_for_ci_cd' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'mock_key' }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY || 'mock_key' }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY || 'mock_key' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'mock_key' }}
+        run: npm run test:coverage
+
+      # Frontend Tests
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run frontend tests with coverage
+        working-directory: ./frontend
+        run: npm run test:coverage
+
+      # Coverage Reports
+      - name: Extract coverage percentages
+        id: coverage
+        run: |
+          if [ -f backend/coverage/coverage-summary.json ]; then
+            BACKEND_COV=$(node -e "const d = require('./backend/coverage/coverage-summary.json'); console.log(d.total.lines.pct)")
+            echo "backend=$BACKEND_COV" >> $GITHUB_OUTPUT
+          else
+            echo "backend=0" >> $GITHUB_OUTPUT
+          fi
+          if [ -f frontend/coverage/coverage-summary.json ]; then
+            FRONTEND_COV=$(node -e "const d = require('./frontend/coverage/coverage-summary.json'); console.log(d.total.lines.pct)")
+            echo "frontend=$FRONTEND_COV" >> $GITHUB_OUTPUT
+          else
+            echo "frontend=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./backend/coverage/lcov.info,./frontend/coverage/lcov.info
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Coverage Summary
+        run: |
+          echo "## 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Project | Coverage |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ steps.coverage.outputs.backend }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ steps.coverage.outputs.frontend }}% |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # JOB 2: Deploy Frontend to Vercel
+  # ============================================
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Pull Vercel Environment
+        working-directory: ./frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build with Vercel
+        working-directory: ./frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel Production
+        id: deploy
+        working-directory: ./frontend
+        run: |
+          DEPLOY_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          echo "✅ Deployed to: $DEPLOY_URL"
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🎨 Frontend Deployed to Vercel" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================
+  # JOB 3: Verify & Notify
+  # ============================================
+  verify-and-notify:
+    name: Verify & Notify
+    runs-on: ubuntu-latest
+    needs: [test, deploy-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Wait for deployments
+        run: |
+          echo "⏳ Waiting for Render to deploy backend..."
+          echo "Render auto-deploys from GitHub - no webhook needed!"
+          sleep 60
+
+      - name: Check Frontend (Vercel)
+        run: |
+          echo "🔍 Checking frontend at https://atscareeros.com..."
+          HTTP_STATUS=$(curl -sL -o /dev/null -w "%{http_code}" "https://atscareeros.com" || echo "000")
+          
+          if [ "$HTTP_STATUS" == "200" ] || [ "$HTTP_STATUS" == "302" ] || [ "$HTTP_STATUS" == "301" ]; then
+            echo "✅ Frontend is live! (Status: $HTTP_STATUS)"
+          else
+            echo "⚠️ Frontend returned status: $HTTP_STATUS (might still be propagating)"
+          fi
+
+      - name: Check Backend (Render)
+        env:
+          PROD_API_URL: ${{ secrets.PROD_API_URL }}
+        run: |
+          if [ -n "$PROD_API_URL" ]; then
+            echo "🔍 Checking backend at $PROD_API_URL..."
+            
+            # Check root endpoint
+            ROOT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROD_API_URL/" || echo "000")
+            echo "Root endpoint status: $ROOT_STATUS"
+            
+            if [ "$ROOT_STATUS" == "200" ]; then
+              echo "✅ Backend is responding!"
+            else
+              echo "⚠️ Backend returned status: $ROOT_STATUS (might still be deploying)"
+            fi
+          else
+            echo "ℹ️ PROD_API_URL not configured, skipping backend health check"
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "## ✅ Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Platform | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|----------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | Vercel | https://atscareeros.com |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | Render | Auto-deployed |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend: ${{ needs.test.outputs.backend-coverage }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- Frontend: ${{ needs.test.outputs.frontend-coverage }}%" >> $GITHUB_STEP_SUMMARY
+
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "✅ Deployed to Production",
+                "attachments": [
+                  {
+                    "color": "good",
+                    "fields": [
+                      {"title": "Frontend", "value": "https://atscareeros.com", "short": true},
+                      {"title": "Backend", "value": "Render (auto-deployed)", "short": true},
+                      {"title": "Commit", "value": "${{ github.sha }}", "short": true},
+                      {"title": "Author", "value": "${{ github.actor }}", "short": true}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Slack notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "content": "✅ **Production Deployed!**",
+                "embeds": [{
+                  "title": "Deployment Successful",
+                  "color": 65280,
+                  "fields": [
+                    {"name": "Frontend", "value": "https://atscareeros.com", "inline": true},
+                    {"name": "Backend", "value": "Auto-deployed", "inline": true},
+                    {"name": "Author", "value": "${{ github.actor }}", "inline": true}
+                  ]
+                }]
+              }' \
+              "$DISCORD_WEBHOOK_URL"
+            echo "✅ Discord notification sent"
+          else
+            echo "ℹ️ Discord webhook not configured, skipping notification"
+          fi
+
+  # ============================================
+  # Notify on Test Failure
+  # ============================================
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: test
+    if: failure() && github.event_name == 'push'
+
+    steps:
+      - name: Send failure notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "❌ Tests Failed - Deployment Blocked",
+                "attachments": [
+                  {
+                    "color": "danger",
+                    "fields": [
+                      {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                      {"title": "Author", "value": "${{ github.actor }}", "short": true},
+                      {"title": "View Logs", "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Failure notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi

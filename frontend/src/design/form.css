@@ -54,4 +54,53 @@ button:hover {
   }
 }
 
+/* Auth Page Footer Links */
+.auth-legal-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.8rem;
+  color: #888;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.auth-legal-footer a {
+  color: #a78bfa;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-legal-footer a:hover {
+  color: #c4b5fd;
+  text-decoration: underline;
+}
+
+.auth-help-links {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.auth-help-links a {
+  color: #a78bfa;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+
+.auth-help-links a:hover {
+  color: #c4b5fd;
+  text-decoration: underline;
+}
+
+/* Legal links (styled as plain text links) */
+.legal-link {
+  color: #3b82f6 !important;
+  cursor: pointer !important;
+  text-decoration: underline !important;
+}
+
+.legal-link:hover {
+  color: #1d4ed8 !important;
+}
 

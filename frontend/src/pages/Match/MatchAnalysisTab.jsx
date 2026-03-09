@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
 import { Link, useLocation } from "react-router-dom";
+import RequirementsMatchAnalysis from "../../components/RequirementsMatchAnalysis";
 
 export default function MatchAnalysisTab() {
   // ---------- Decode userId ----------
@@ -24,6 +25,15 @@ export default function MatchAnalysisTab() {
   const [activeJobId, setActiveJobId] = useState(jobParam || "");
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState(null);
+  
+  // UC-123: New state for requirements analysis and job ranking
+  const [showRequirementsAnalysis, setShowRequirementsAnalysis] = useState(false);
+  const [rankedJobs, setRankedJobs] = useState([]);
+  const [unanalyzedJobs, setUnanalyzedJobs] = useState([]);
+  const [showRanking, setShowRanking] = useState(false);
+  const [rankingLoading, setRankingLoading] = useState(false);
 
   const [weights, setWeights] = useState({
     skillsWeight: 50,
@@ -34,11 +44,20 @@ export default function MatchAnalysisTab() {
   // ---------- Load all jobs ----------
   useEffect(() => {
     const fetchJobs = async () => {
+      setJobsLoading(true);
+      setJobsError(null);
       try {
+        console.log("🔄 Fetching jobs...");
         const res = await api.get("/api/jobs");
-        setJobs(res.data.jobs || []);
+        console.log("✅ Jobs response:", res.data);
+        const jobsList = res.data.jobs || res.data || [];
+        setJobs(Array.isArray(jobsList) ? jobsList : []);
+        console.log(`📊 Loaded ${jobsList.length} jobs`);
       } catch (err) {
         console.error("❌ Error loading jobs:", err);
+        setJobsError(err.response?.data?.error || err.message || "Failed to load jobs");
+      } finally {
+        setJobsLoading(false);
       }
     };
     fetchJobs();
@@ -51,6 +70,21 @@ export default function MatchAnalysisTab() {
       runMatch(jobParam);
     }
   }, [jobParam]);
+
+  // ---------- Fetch ranked jobs (UC-123) ----------
+  const fetchRankedJobs = async () => {
+    if (!userId) return;
+    setRankingLoading(true);
+    try {
+      const res = await api.get(`/api/match/rank-jobs/${userId}`);
+      setRankedJobs(res.data.rankedJobs || []);
+      setUnanalyzedJobs(res.data.unanalyzedJobs || []);
+    } catch (err) {
+      console.error("❌ Error fetching ranked jobs:", err);
+    } finally {
+      setRankingLoading(false);
+    }
+  };
 
   // ---------- Run match ----------
   const runMatch = async (overrideJobId) => {
@@ -117,6 +151,17 @@ export default function MatchAnalysisTab() {
     URL.revokeObjectURL(url);
   };
 
+  // Get score color for ranking
+  const getScoreColor = (score) => {
+    if (score >= 80) return "#10b981";
+    if (score >= 60) return "#f59e0b";
+    if (score >= 40) return "#f97316";
+    return "#ef4444";
+  };
+
+  // Get selected job info
+  const selectedJob = jobs.find(j => j.id === Number(activeJobId));
+
   return (
     <div className="match-tab-content">
       {/* Job Selector */}
@@ -124,47 +169,208 @@ export default function MatchAnalysisTab() {
         <select
           className="match-job-select"
           value={activeJobId}
-          onChange={(e) => setActiveJobId(e.target.value)}
+          onChange={(e) => {
+            setActiveJobId(e.target.value);
+            setShowRequirementsAnalysis(false);
+          }}
+          disabled={jobsLoading}
         >
-          <option value="">Select a job to analyze</option>
-          {jobs.map((job) => (
-            <option key={job.id} value={job.id}>
-              {job.title} — {job.company}
-            </option>
-          ))}
+          {jobsLoading ? (
+            <option value="">Loading jobs...</option>
+          ) : jobsError ? (
+            <option value="">Error loading jobs</option>
+          ) : jobs.length === 0 ? (
+            <option value="">No jobs found - add jobs first</option>
+          ) : (
+            <>
+              <option value="">Select a job to analyze ({jobs.length} available)</option>
+              {jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.title} — {job.company}
+                </option>
+              ))}
+            </>
+          )}
         </select>
 
         <button
           className="match-run-btn"
           onClick={() => runMatch()}
-          disabled={!activeJobId || loading}
+          disabled={!activeJobId || loading || jobsLoading}
         >
           {loading ? "Analyzing…" : "Run Match"}
         </button>
       </div>
 
-      {/* Weight Inputs */}
-      <div className="weight-controls">
-        <h3>Matching Weights</h3>
-        {["skillsWeight", "experienceWeight", "educationWeight"].map((k) => (
-          <div key={k} className="weight-row">
-            <label>{k.replace("Weight", "")}:</label>
-            <input
-              type="number"
-              value={weights[k]}
-              onChange={(e) =>
-                setWeights({ ...weights, [k]: Number(e.target.value) })
-              }
-            />
-          </div>
-        ))}
+      {/* Error message */}
+      {jobsError && (
+        <div className="jobs-error-message">
+          ⚠️ {jobsError} - <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      )}
+
+      {/* UC-123: Quick Actions */}
+      <div className="match-quick-actions">
+        <button 
+          className={`quick-action-btn requirements-btn ${showRequirementsAnalysis ? 'active' : ''}`}
+          onClick={() => setShowRequirementsAnalysis(!showRequirementsAnalysis)}
+          disabled={!activeJobId}
+          title={!activeJobId ? "Please select a job first" : "View detailed requirements analysis"}
+        >
+          🎯 Requirements Analysis
+        </button>
+        <button 
+          className={`quick-action-btn ranking-btn ${showRanking ? 'active' : ''}`}
+          onClick={() => {
+            setShowRanking(!showRanking);
+            if (!showRanking) fetchRankedJobs();
+          }}
+        >
+          📊 Rank All Jobs
+        </button>
       </div>
+      {!activeJobId && (
+        <p className="select-job-hint">👆 Select a job from the dropdown above to enable Requirements Analysis</p>
+      )}
+
+      {/* UC-123: Requirements Match Analysis */}
+      {showRequirementsAnalysis && activeJobId && (
+        <div className="requirements-analysis-wrapper">
+          <RequirementsMatchAnalysis 
+            jobId={activeJobId}
+            jobTitle={selectedJob?.title}
+            company={selectedJob?.company}
+            onClose={() => setShowRequirementsAnalysis(false)}
+          />
+        </div>
+      )}
+
+      {/* UC-123: Job Ranking View */}
+      {showRanking && (
+        <div className="job-ranking-section">
+          <div className="ranking-header">
+            <h3>📊 Jobs Ranked by Match Score</h3>
+            <button onClick={fetchRankedJobs} className="refresh-ranking-btn" disabled={rankingLoading}>
+              {rankingLoading ? '🔄 Loading...' : '🔄 Refresh'}
+            </button>
+          </div>
+          
+          {rankedJobs.length > 0 && (
+            <div className="ranked-jobs-list">
+              <h4>✅ Analyzed Jobs ({rankedJobs.length})</h4>
+              <table className="ranking-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Job</th>
+                    <th>Match Score</th>
+                    <th>Skills</th>
+                    <th>Experience</th>
+                    <th>Education</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rankedJobs.map((job, idx) => (
+                    <tr key={job.job_id} className={idx < 3 ? 'top-match' : ''}>
+                      <td className="rank-cell">
+                        {idx === 0 && '🥇'}
+                        {idx === 1 && '🥈'}
+                        {idx === 2 && '🥉'}
+                        {idx > 2 && `#${idx + 1}`}
+                      </td>
+                      <td className="job-cell">
+                        <strong>{job.title}</strong>
+                        <span className="company-name">{job.company}</span>
+                      </td>
+                      <td className="score-cell">
+                        <span 
+                          className="score-badge"
+                          style={{ backgroundColor: getScoreColor(job.match_score) }}
+                        >
+                          {job.match_score}%
+                        </span>
+                      </td>
+                      <td>{job.skills_score || '-'}%</td>
+                      <td>{job.experience_score || '-'}%</td>
+                      <td>{job.education_score || '-'}%</td>
+                      <td>
+                        <button 
+                          className="view-details-btn"
+                          onClick={() => {
+                            setActiveJobId(String(job.job_id));
+                            setShowRequirementsAnalysis(true);
+                            setShowRanking(false);
+                          }}
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {unanalyzedJobs.length > 0 && (
+            <div className="unanalyzed-jobs-section">
+              <h4>⏳ Not Yet Analyzed ({unanalyzedJobs.length})</h4>
+              <div className="unanalyzed-jobs-grid">
+                {unanalyzedJobs.map(job => (
+                  <div key={job.job_id} className="unanalyzed-job-card">
+                    <div className="unanalyzed-job-info">
+                      <strong>{job.title}</strong>
+                      <span>{job.company}</span>
+                    </div>
+                    <button 
+                      className="analyze-job-btn"
+                      onClick={() => {
+                        setActiveJobId(String(job.job_id));
+                        setShowRanking(false);
+                        runMatch(job.job_id);
+                      }}
+                    >
+                      Analyze Now
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {rankedJobs.length === 0 && unanalyzedJobs.length === 0 && !rankingLoading && (
+            <div className="no-jobs-message">
+              <p>No jobs found. Add some jobs to your tracker to see rankings!</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Weight Inputs */}
+      {!showRequirementsAnalysis && !showRanking && (
+        <div className="weight-controls">
+          <h3>Matching Weights</h3>
+          {["skillsWeight", "experienceWeight", "educationWeight"].map((k) => (
+            <div key={k} className="weight-row">
+              <label>{k.replace("Weight", "")}:</label>
+              <input
+                type="number"
+                value={weights[k]}
+                onChange={(e) =>
+                  setWeights({ ...weights, [k]: Number(e.target.value) })
+                }
+              />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Loading */}
       {loading && <p className="match-loading">Analyzing match using AI…</p>}
 
       {/* Match Result */}
-      {analysis && (
+      {analysis && !showRequirementsAnalysis && !showRanking && (
         <div className="match-results">
           <h2>Match Score: {analysis.matchScore}%</h2>
 
@@ -189,6 +395,14 @@ export default function MatchAnalysisTab() {
             {analysis.improvements.map((im, i) => <li key={i}>{im}</li>)}
           </ul>
 
+          {/* UC-123: Button to see detailed requirements analysis */}
+          <button 
+            className="requirements-analysis-btn"
+            onClick={() => setShowRequirementsAnalysis(true)}
+          >
+            🎯 View Detailed Requirements Analysis
+          </button>
+
           <button className="export-btn" onClick={exportCSV}>
             Download Report (CSV)
           </button>
@@ -196,16 +410,18 @@ export default function MatchAnalysisTab() {
       )}
 
       {/* Comparison Section */}
-      <div className="compare-section">
-        <h2 className="compare-title">Compare Match Scores</h2>
-        <p className="compare-desc">
-          View all your analyzed jobs and compare them side-by-side.
-        </p>
+      {!showRequirementsAnalysis && !showRanking && (
+        <div className="compare-section">
+          <h2 className="compare-title">Compare Match Scores</h2>
+          <p className="compare-desc">
+            View all your analyzed jobs and compare them side-by-side.
+          </p>
 
-        <Link className="compare-link" to="/match/compare">
-          View Comparison Table →
-        </Link>
-      </div>
+          <Link className="compare-link" to="/match/compare">
+            View Comparison Table →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { baseURL } from "../api";
 import "./CompanyDetails.css";
 
 export default function CompanyDetailsModal({ token, companyName, onClose }) {
@@ -11,7 +12,7 @@ export default function CompanyDetailsModal({ token, companyName, onClose }) {
   async function fetchCompany() {
     try {
       const res = await fetch(
-        `http://localhost:4000/api/companies/${companyName}`,
+        `${baseURL}/api/companies/${companyName}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.status === 404) {
@@ -46,7 +47,7 @@ export default function CompanyDetailsModal({ token, companyName, onClose }) {
   async function saveEdits() {
     try {
       const res = await fetch(
-        `http://localhost:4000/api/companies/${companyName}`,
+        `${baseURL}/api/companies/${companyName}`,
         {
           method: "PUT",
           headers: {
@@ -78,7 +79,7 @@ export default function CompanyDetailsModal({ token, companyName, onClose }) {
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/companies/${companyName}/logo`,
+        `${baseURL}/api/companies/${companyName}/logo`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
@@ -113,7 +114,7 @@ export default function CompanyDetailsModal({ token, companyName, onClose }) {
   const resolvedLogo =
     previewLogo ||
     (company.logo_url
-      ? `http://localhost:4000${company.logo_url}?t=${Date.now()}`
+      ? `${baseURL}${company.logo_url}?t=${Date.now()}`
       : "/company-placeholder.png");
 
   return (

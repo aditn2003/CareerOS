@@ -5,21 +5,28 @@ import { auth } from "../auth.js";
 const router = express.Router();
 router.use(auth);
 
+// Helper: Sanitize numeric value to prevent database overflow
+function sanitizeNumeric(value, maxValue = 999999999.99) {
+  const num = Number(value);
+  if (!isFinite(num) || isNaN(num)) return 0;
+  return Math.max(-maxValue, Math.min(maxValue, num));
+}
+
 // Helper: Calculate total compensation
 function calculateTotalComp(offer) {
-  const base = Number(offer.base_salary) || 0;
-  const signing = Number(offer.signing_bonus) || 0;
+  const base = sanitizeNumeric(offer.base_salary);
+  const signing = sanitizeNumeric(offer.signing_bonus);
   const bonus = offer.annual_bonus_guaranteed 
-    ? base * (Number(offer.annual_bonus_percent) || 0) / 100
-    : base * (Number(offer.annual_bonus_percent) || 0) / 100 * 0.7; // Assume 70% of target
-  const equity = Number(offer.equity_value) || 0;
-  const benefits = (Number(offer.health_insurance_value) || 0) + 
-                   (Number(offer.other_benefits_value) || 0);
+    ? base * (sanitizeNumeric(offer.annual_bonus_percent)) / 100
+    : base * (sanitizeNumeric(offer.annual_bonus_percent)) / 100 * 0.7; // Assume 70% of target
+  const equity = sanitizeNumeric(offer.equity_value);
+  const benefits = sanitizeNumeric(offer.health_insurance_value) + 
+                   sanitizeNumeric(offer.other_benefits_value);
   
   const year1 = base + signing + bonus + (equity / 4) + benefits; // Equity vests over 4 years
   const year4 = (base * 4) + signing + (bonus * 4) + equity + (benefits * 4);
   
-  return { year1: Math.round(year1), year4: Math.round(year4) };
+  return { year1: Math.round(sanitizeNumeric(year1)), year4: Math.round(sanitizeNumeric(year4)) };
 }
 
 // Helper: Find competing offers (within $5,000 salary difference)
@@ -245,16 +252,18 @@ router.put("/:id", async (req, res) => {
     let negotiationSuccessful = offerData.negotiation_successful;
     let negotiationImprovementPercent = offerData.negotiation_improvement_percent;
     
-    if (newBase && initialBase && Number(newBase) > Number(initialBase)) {
+    if (newBase && initialBase && Number(newBase) > Number(initialBase) && Number(initialBase) > 0) {
       negotiationAttempted = offerData.negotiation_attempted !== undefined 
         ? offerData.negotiation_attempted 
         : true;
       negotiationSuccessful = offerData.negotiation_successful !== undefined 
         ? offerData.negotiation_successful 
         : true;
+      // Guard against division by zero and ensure finite result
+      const improvement = ((Number(newBase) - Number(initialBase)) / Number(initialBase)) * 100;
       negotiationImprovementPercent = offerData.negotiation_improvement_percent !== undefined
         ? offerData.negotiation_improvement_percent
-        : ((Number(newBase) - Number(initialBase)) / Number(initialBase)) * 100;
+        : (isFinite(improvement) ? Math.min(improvement, 999.99) : 0); // Cap at 999.99 to fit precision(5,2)
     }
     
     // Automatically detect competing offers if salary changed and not explicitly set
@@ -351,7 +360,7 @@ router.put("/:id", async (req, res) => {
         competingOffers.ids.length > 0 ? competingOffers.ids : null,
         negotiationAttempted,
         negotiationSuccessful,
-        negotiationImprovementPercent,
+        sanitizeNumeric(negotiationImprovementPercent, 999.99), // precision(5,2) max is 999.99
         offerData.negotiation_notes
       ]
     );

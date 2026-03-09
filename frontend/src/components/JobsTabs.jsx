@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { baseURL } from "../api";
 
 export default function JobsTab({ token }) {
   const [jobs, setJobs] = useState([]);
@@ -7,7 +8,7 @@ export default function JobsTab({ token }) {
   useEffect(() => {
     async function loadJobs() {
       try {
-        const res = await fetch("http://localhost:4000/api/jobs", {
+        const res = await fetch(`${baseURL}/api/jobs`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

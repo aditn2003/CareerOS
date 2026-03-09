@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getUserFriendlyErrorMessage, getErrorAdvice } from "../utils/apiErrorMessages";
+import { baseURL } from "../api";
 import "./ResumeOptimizeRun.css";
 
 export default function ResumeOptimizeRun() {
@@ -27,7 +29,7 @@ export default function ResumeOptimizeRun() {
       setLoading(true);
       setError("");
 
-      const res = await fetch("http://localhost:4000/api/resumes/optimize", {
+      const res = await fetch(`${baseURL}/api/resumes/optimize`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -40,12 +42,17 @@ export default function ResumeOptimizeRun() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Optimization failed");
+      if (!res.ok) {
+        // Create error object that matches axios error format for our utility
+        const errorObj = { response: { status: res.status, data } };
+        throw errorObj;
+      }
 
       setResult(data.optimizedSections || data);
     } catch (err) {
       console.error("❌ AI optimize failed:", err);
-      setError(err.message || "Failed to optimize resume");
+      const friendlyMessage = getUserFriendlyErrorMessage(err, 'AI Resume Optimization');
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -65,6 +72,7 @@ export default function ResumeOptimizeRun() {
         resumeTitle,
         selectedTemplate,
         job,
+        fromOptimize: true, // Flag to track that we came from optimize flow
       },
     });
   }
@@ -102,7 +110,14 @@ export default function ResumeOptimizeRun() {
       {error && (
         <div className="error-box">
           <span className="error-icon">⚠️</span>
-          {error}
+          <div>
+            <div>{error}</div>
+            {getErrorAdvice(error) && (
+              <div style={{ marginTop: '8px', fontSize: '0.9em', opacity: 0.9 }}>
+                {getErrorAdvice(error)}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

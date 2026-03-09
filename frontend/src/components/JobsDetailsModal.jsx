@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./JobDetails.css";
-import { api, createOffer, getOffers, updateOffer } from "../api";
+import { api, baseURL, createOffer, getOffers, updateOffer } from "../api";
 import FileUpload from "./FileUpload";
 import QualityScoreCard from "./QualityScoreCard";
 import ScoreBreakdown from "./ScoreBreakdown";
@@ -169,7 +169,7 @@ export default function JobDetailsModal({
   useEffect(() => {
     async function loadJob() {
       try {
-        const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to fetch job details");
@@ -244,7 +244,7 @@ export default function JobDetailsModal({
       async function loadCoverLetter() {
         try {
           const res = await fetch(
-            `http://localhost:4000/api/cover-letters/${job.cover_letter_id}`,
+            `${baseURL}/api/cover-letters/${job.cover_letter_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -301,7 +301,7 @@ export default function JobDetailsModal({
 
       try {
         const res = await fetch(
-          `http://localhost:4000/api/resumes/${job.resume_id}`,
+          `${baseURL}/api/resumes/${job.resume_id}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -333,7 +333,7 @@ export default function JobDetailsModal({
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/resumes/${job.resume_id}/download`,
+        `${baseURL}/api/resumes/${job.resume_id}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -363,7 +363,7 @@ export default function JobDetailsModal({
 
     try {
       const res = await fetch(
-        `http://localhost:4000/api/cover-letters/${job.cover_letter_id}/download`,
+        `${baseURL}/api/cover-letters/${job.cover_letter_id}/download`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -409,7 +409,7 @@ export default function JobDetailsModal({
       if (updatedJob.resume_id) {
         try {
           const resumeRes = await fetch(
-            `http://localhost:4000/api/resumes/${updatedJob.resume_id}`,
+            `${baseURL}/api/resumes/${updatedJob.resume_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -428,7 +428,7 @@ export default function JobDetailsModal({
       if (updatedJob.cover_letter_id) {
         try {
           const coverRes = await fetch(
-            `http://localhost:4000/api/cover-letters/${updatedJob.cover_letter_id}`,
+            `${baseURL}/api/cover-letters/${updatedJob.cover_letter_id}`,
             {
               headers: { Authorization: `Bearer ${token}` },
             }
@@ -471,7 +471,7 @@ export default function JobDetailsModal({
         alert("✅ Cover letter generated and linked successfully!");
         
         // Reload job to get updated cover_letter_id
-        const jobRes = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+        const jobRes = await fetch(`${baseURL}/api/jobs/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (jobRes.ok) {
@@ -482,7 +482,7 @@ export default function JobDetailsModal({
           if (jobData.job.cover_letter_id) {
             try {
               const clRes = await fetch(
-                `http://localhost:4000/api/cover-letter/${jobData.job.cover_letter_id}`,
+                `${baseURL}/api/cover-letter/${jobData.job.cover_letter_id}`,
                 {
                   headers: { Authorization: `Bearer ${token}` },
                 }
@@ -527,7 +527,7 @@ export default function JobDetailsModal({
 
     try {
       setSaving(true);
-      const res = await fetch(`http://localhost:4000/api/jobs/${jobId}`, {
+      const res = await fetch(`${baseURL}/api/jobs/${jobId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -539,11 +539,23 @@ export default function JobDetailsModal({
       if (!res.ok) throw new Error("Failed to update job");
       const data = await res.json();
       const previousStatus = job.status;
+      const locationChanged = job.location !== data.job.location;
       setJob(data.job);
       
       // If status changed to "Offer", auto-create offer if it doesn't exist
       if (data.job.status === "Offer" && previousStatus !== "Offer" && !existingOffer) {
         await createOfferFromJob(data.job);
+      }
+      
+      // Dispatch event to notify map view to refresh if location changed
+      if (locationChanged) {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId, locationChanged: true } 
+        }));
+      } else {
+        window.dispatchEvent(new CustomEvent('jobUpdated', { 
+          detail: { jobId } 
+        }));
       }
       
       alert("✅ Job updated successfully!");
@@ -666,6 +678,138 @@ export default function JobDetailsModal({
           onChange={(e) => setJob({ ...job, location: e.target.value })}
           placeholder="e.g., New York, NY"
         />
+
+        <label>Location Type</label>
+        <select
+          value={job.location_type || ""}
+          onChange={(e) => setJob({ ...job, location_type: e.target.value })}
+        >
+          <option value="">Select location type</option>
+          <option value="remote">Remote</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="on_site">On-Site</option>
+          <option value="flexible">Flexible</option>
+        </select>
+
+        {/* PLATFORM ACTIVITY SECTION (UC-125) */}
+        {(job.is_imported || job.platform || (job.platform_activity && job.platform_activity.length > 0)) && (
+          <div style={{
+            marginTop: "16px",
+            marginBottom: "16px",
+            padding: "12px 16px",
+            backgroundColor: "#f0f9ff",
+            borderRadius: "8px",
+            border: "1px solid #bae6fd"
+          }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "8px",
+              marginBottom: "12px",
+              color: "#0369a1",
+              fontWeight: 600,
+              fontSize: "0.9rem"
+            }}>
+              📧 Platform Activity
+              {job.platform === 'linkedin' && (
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "2px 8px",
+                  backgroundColor: "#0077b5",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                  </svg>
+                  LinkedIn
+                </span>
+              )}
+              {job.platform === 'indeed' && (
+                <span style={{
+                  padding: "2px 8px",
+                  backgroundColor: "#2164f3",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  Indeed
+                </span>
+              )}
+              {job.platform === 'glassdoor' && (
+                <span style={{
+                  padding: "2px 8px",
+                  backgroundColor: "#0caa41",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600
+                }}>
+                  Glassdoor
+                </span>
+              )}
+            </div>
+            
+            {job.is_imported && (
+              <div style={{ 
+                fontSize: "0.8rem", 
+                color: "#075985",
+                marginBottom: "8px"
+              }}>
+                ✅ Imported from email on {job.imported_at ? new Date(job.imported_at).toLocaleDateString() : new Date(job.created_at).toLocaleDateString()}
+              </div>
+            )}
+            
+            {job.platform_activity && job.platform_activity.length > 0 && (
+              <div style={{ borderTop: "1px solid #bae6fd", paddingTop: "8px", marginTop: "8px" }}>
+                {job.platform_activity.map((activity, idx) => (
+                  <div key={idx} style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "6px 0",
+                    fontSize: "0.8rem",
+                    color: "#0369a1",
+                    borderBottom: idx < job.platform_activity.length - 1 ? "1px dashed #bae6fd" : "none"
+                  }}>
+                    <span style={{ color: "#0077b5" }}>•</span>
+                    <div>
+                      <div style={{ fontWeight: 500 }}>
+                        {activity.platform.charAt(0).toUpperCase() + activity.platform.slice(1)}
+                        {activity.applied_at && (
+                          <span style={{ fontWeight: 400, marginLeft: "8px" }}>
+                            — {new Date(activity.applied_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      {activity.metadata?.email_subject && (
+                        <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                          "{activity.metadata.email_subject}"
+                        </div>
+                      )}
+                      {activity.status && activity.status !== job.status && (
+                        <div style={{ fontSize: "0.75rem", color: "#059669", marginTop: "2px" }}>
+                          Platform status: {activity.status}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {(!job.platform_activity || job.platform_activity.length === 0) && !job.is_imported && (
+              <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                No additional platform updates
+              </div>
+            )}
+          </div>
+        )}
 
         {/* STAGE */}
         <label>Status</label>
@@ -1056,10 +1200,6 @@ export default function JobDetailsModal({
               <>
                 <p>{coverLetter?.title || "Cover Letter"}</p>
 
-                <a
-                  href={`http://localhost:4000/api/cover-letter/${job.cover_letter_id}/download`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 <button
                   onClick={handleCoverLetterDownload}
                   style={{

@@ -1,6 +1,7 @@
 import express from "express";
 import pool from "../db/pool.js";
 import { auth } from "../auth.js";
+// Cache removed - file deleted due to low coverage
 
 const router = express.Router();
 router.use(auth);
@@ -48,8 +49,8 @@ router.get("/stats", async (req, res) => {
     // Test query 3: Check archived flag
     const archivedQuery = await pool.query(
       `SELECT COUNT(*) as total, 
-              COUNT(*) FILTER (WHERE "isarchived" = true) as archived,
-              COUNT(*) FILTER (WHERE "isarchived" = false OR "isarchived" IS NULL) as not_archived
+              COUNT(*) FILTER (WHERE "isArchived" = true) as archived,
+              COUNT(*) FILTER (WHERE "isArchived" = false OR "isArchived" IS NULL) as not_archived
        FROM jobs 
        WHERE user_id = $1`,
       [userId]
@@ -57,6 +58,15 @@ router.get("/stats", async (req, res) => {
     console.log('🧪 Archive status:', archivedQuery.rows[0]);
 
     // 🔍 DEBUG LOGS - END
+
+    // Cache removed - file deleted due to low coverage
+    const cached = null;
+    if (cached) {
+      console.log(
+        `📦 Returning dashboard stats for user ${userId} from cache`
+      );
+      return res.json(cached);
+    }
 
     // -----------------------------
     // 1️⃣ KEY METRICS
@@ -69,7 +79,7 @@ router.get("/stats", async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'Offer') AS total_offers
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
@@ -92,7 +102,7 @@ router.get("/stats", async (req, res) => {
     
         FROM jobs
         WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
         `,
         [userId, startDate, endDate]
@@ -128,7 +138,7 @@ router.get("/stats", async (req, res) => {
               COUNT(*) AS applications
             FROM jobs
             WHERE user_id = $1
-              AND COALESCE("isarchived", false) = false
+              AND COALESCE("isArchived", false) = false
               AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
             GROUP BY week_start
           ),
@@ -185,7 +195,7 @@ router.get("/stats", async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'Offer') AS offer
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       `,
       [userId, startDate, endDate]
@@ -208,7 +218,7 @@ router.get("/stats", async (req, res) => {
         ) AS avg_days
       FROM jobs
       WHERE user_id = $1 
-        AND COALESCE("isarchived", false) = false
+        AND COALESCE("isArchived", false) = false
         AND COALESCE("applicationDate"::timestamp, created_at) BETWEEN $2::timestamp AND $3::timestamp
       GROUP BY status
       `,
@@ -252,56 +262,55 @@ router.get("/stats", async (req, res) => {
     // -----------------------------
     const m = keyMetrics.rows[0];
     // -----------------------------
-// 7️⃣ REAL INDUSTRY BENCHMARKS (BASED ON USER DATA)
-// -----------------------------
-   
-  
-  // Real industry benchmarks (based on job search research)
-  const INDUSTRY_BENCHMARKS = {
-    interviewRate: 0.12,        // 12% - typical interview callback rate
-    offerRate: 0.03,            // 3% - typical offer rate from applications
-    avgResponseDays: 10,        // 10 days average response time
-  };
+    // 7️⃣ REAL INDUSTRY BENCHMARKS (BASED ON USER DATA)
+    // -----------------------------
 
-  // User's actual performance
-  const userPerformance = {
-    interviewRate: Number(benchmarkQuery.rows[0].interview_rate) || 0,
-    offerRate: Number(benchmarkQuery.rows[0].offer_rate) || 0,
-    avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0,
-  };
+    // Real industry benchmarks (based on job search research)
+    const INDUSTRY_BENCHMARKS = {
+      interviewRate: 0.12,        // 12% - typical interview callback rate
+      offerRate: 0.03,            // 3% - typical offer rate from applications
+      avgResponseDays: 10,        // 10 days average response time
+    };
 
-  // Calculate comparison (positive = better than industry)
-  const industryComparison = {
-    industry: INDUSTRY_BENCHMARKS,
-    user: userPerformance,
-    comparison: {
-      interviewRate: {
-        user: userPerformance.interviewRate,
-        industry: INDUSTRY_BENCHMARKS.interviewRate,
-        difference: userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate,
-        percentBetter: INDUSTRY_BENCHMARKS.interviewRate > 0 
-          ? ((userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate) / INDUSTRY_BENCHMARKS.interviewRate * 100)
-          : 0,
-        status: userPerformance.interviewRate >= INDUSTRY_BENCHMARKS.interviewRate ? 'above' : 'below'
-      },
-      offerRate: {
-        user: userPerformance.offerRate,
-        industry: INDUSTRY_BENCHMARKS.offerRate,
-        difference: userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate,
-        percentBetter: INDUSTRY_BENCHMARKS.offerRate > 0 
-          ? ((userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate) / INDUSTRY_BENCHMARKS.offerRate * 100)
-          : 0,
-        status: userPerformance.offerRate >= INDUSTRY_BENCHMARKS.offerRate ? 'above' : 'below'
-      },
-      responseTime: {
-        userHours: userPerformance.avgResponseHours,
-        userDays: userPerformance.avgResponseHours / 24,
-        industryDays: INDUSTRY_BENCHMARKS.avgResponseDays,
-        status: (userPerformance.avgResponseHours / 24) <= INDUSTRY_BENCHMARKS.avgResponseDays ? 'above' : 'below'
+    // User's actual performance
+    const userPerformance = {
+      interviewRate: Number(benchmarkQuery.rows[0].interview_rate) || 0,
+      offerRate: Number(benchmarkQuery.rows[0].offer_rate) || 0,
+      avgResponseHours: Number(benchmarkQuery.rows[0].avg_response_hours) || 0,
+    };
+
+    // Calculate comparison (positive = better than industry)
+    const industryComparison = {
+      industry: INDUSTRY_BENCHMARKS,
+      user: userPerformance,
+      comparison: {
+        interviewRate: {
+          user: userPerformance.interviewRate,
+          industry: INDUSTRY_BENCHMARKS.interviewRate,
+          difference: userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate,
+          percentBetter: INDUSTRY_BENCHMARKS.interviewRate > 0 
+            ? ((userPerformance.interviewRate - INDUSTRY_BENCHMARKS.interviewRate) / INDUSTRY_BENCHMARKS.interviewRate * 100)
+            : 0,
+          status: userPerformance.interviewRate >= INDUSTRY_BENCHMARKS.interviewRate ? 'above' : 'below'
+        },
+        offerRate: {
+          user: userPerformance.offerRate,
+          industry: INDUSTRY_BENCHMARKS.offerRate,
+          difference: userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate,
+          percentBetter: INDUSTRY_BENCHMARKS.offerRate > 0 
+            ? ((userPerformance.offerRate - INDUSTRY_BENCHMARKS.offerRate) / INDUSTRY_BENCHMARKS.offerRate * 100)
+            : 0,
+          status: userPerformance.offerRate >= INDUSTRY_BENCHMARKS.offerRate ? 'above' : 'below'
+        },
+        responseTime: {
+          userHours: userPerformance.avgResponseHours,
+          userDays: userPerformance.avgResponseHours / 24,
+          industryDays: INDUSTRY_BENCHMARKS.avgResponseDays,
+          status: (userPerformance.avgResponseHours / 24) <= INDUSTRY_BENCHMARKS.avgResponseDays ? 'above' : 'below'
+        }
       }
-    }
-  };
-  
+    };
+    
     const safeMetrics = {
       total_applications: Number(m.total_applications) || 0,
       total_interviews: Number(m.total_interviews) || 0,
@@ -345,7 +354,16 @@ router.get("/stats", async (req, res) => {
     console.log('✅ Sending response with:', safeMetrics);
     console.log('========================================');
     
-  
+    // Cache removed - file deleted due to low coverage
+    try {
+      // Cache removed
+    } catch (cacheErr) {
+      console.warn(
+        "⚠️ [DASHBOARD] Failed to cache stats payload:",
+        cacheErr.message
+      );
+    }
+
     res.json(response);
   } catch (err) {
     console.error("❌ Dashboard Error:", err);

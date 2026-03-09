@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { baseURL } from "../api";
 
 export default function ResumeView() {
   const { id } = useParams();
@@ -8,7 +9,7 @@ export default function ResumeView() {
 
   useEffect(() => {
     async function loadResume() {
-      const res = await fetch(`http://localhost:4000/api/resumes/${id}`, {
+      const res = await fetch(`${baseURL}/api/resumes/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -22,7 +23,7 @@ export default function ResumeView() {
   async function downloadPDF() {
     const html = document.getElementById("resume-preview").outerHTML;
 
-    const res = await fetch(`http://localhost:4000/api/resumes/${id}/render`, {
+    const res = await fetch(`${baseURL}/api/resumes/${id}/render`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

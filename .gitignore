@@ -1,18 +1,35 @@
-#rm - Node dependencies
+# Dependencies
 node_modules/
 frontend/node_modules/
 
-# Vite build artifacts
+# Build artifacts
 .vite/
 frontend/.vite/
 frontend/.vite-temp/
+frontend/dist/
+coverage/
+backend/coverage/
+frontend/coverage/
+
+# Runtime / generated
+backend/exports/
+backend/logs/
+backend/uploads/
+
+# Test artifacts
+*.log
+backend/coverage*.txt
+backend/test-*.txt
+backend/test-output*.txt
+backend/test-results*.txt
 
 # macOS
 .DS_Store
 frontend/.DS_Store
 frontend/public/.DS_Store
 
+# Environment
 .env
 frontend/.env
 backend/.env
-.env
+backend/.env.test

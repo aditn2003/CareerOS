@@ -6,9 +6,13 @@ import dotenv from "dotenv";
 dotenv.config();
 const { Pool } = pkg;
 const router = express.Router();
+import sharedPool from "../db/pool.js"; // Import shared pool for test mode
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+const pool =
+  process.env.NODE_ENV === "test"
+    ? sharedPool
+    : new Pool({ connectionString: process.env.DATABASE_URL });
+const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
 // ---------- AUTH ----------
 function auth(req, res, next) {
@@ -120,7 +124,8 @@ router.put("/education/:id", auth, async (req, res) => {
       ]
     );
 
-    if (!rows.length) return res.status(404).json({ error: "Education not found" });
+    if (!rows.length)
+      return res.status(404).json({ error: "Education not found" });
     res.json({ message: "Education updated successfully", education: rows[0] });
   } catch (err) {
     console.error("Update education error:", err);

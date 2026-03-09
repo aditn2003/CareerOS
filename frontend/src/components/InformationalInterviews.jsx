@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { baseURL } from "../api";
 import "../styles/InformationalInterviews.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:4000/api";
+const API_BASE = `${baseURL}/api`;
 
 const InformationalInterviews = () => {
   const [activeTab, setActiveTab] = useState("candidates");

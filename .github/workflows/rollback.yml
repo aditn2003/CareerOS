@@ -1,0 +1,127 @@
+name: Manual Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to rollback'
+        required: true
+        type: choice
+        options:
+          - backend-staging
+          - backend-production
+          - frontend-staging
+          - frontend-production
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: Rollback ${{ github.event.inputs.service }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔄 Initiating rollback..."
+          echo "Service: ${{ github.event.inputs.service }}"
+          echo "Reason: ${{ github.event.inputs.reason }}"
+          echo "Initiated by: ${{ github.actor }}"
+
+      - name: Rollback Render Backend
+        if: contains(github.event.inputs.service, 'backend')
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID_PROD: ${{ secrets.RENDER_SERVICE_ID_PROD }}
+          RENDER_SERVICE_ID_STAGING: ${{ secrets.RENDER_SERVICE_ID_STAGING }}
+        run: |
+          SERVICE="${{ github.event.inputs.service }}"
+          
+          if [[ "$SERVICE" == *"production"* ]]; then
+            SERVICE_ID="$RENDER_SERVICE_ID_PROD"
+          else
+            SERVICE_ID="$RENDER_SERVICE_ID_STAGING"
+          fi
+          
+          if [ -z "$SERVICE_ID" ] || [ -z "$RENDER_API_KEY" ]; then
+            echo "ℹ️ Render API credentials not configured"
+            echo ""
+            echo "To rollback Render manually:"
+            echo "1. Go to https://dashboard.render.com"
+            echo "2. Select your service"
+            echo "3. Go to 'Events' tab"
+            echo "4. Click 'Rollback' on a previous successful deploy"
+            exit 0
+          fi
+          
+          echo "📋 Getting recent deployments..."
+          DEPLOYS=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys?limit=5")
+          
+          echo "Recent deployments:"
+          echo "$DEPLOYS" | jq -r '.[] | "- \(.id): \(.commit.message // "No message") (\(.status))"'
+          
+          # Get the previous successful deployment
+          PREV_DEPLOY=$(echo "$DEPLOYS" | jq -r '[.[] | select(.status == "live")] | .[1].id // empty')
+          
+          if [ -z "$PREV_DEPLOY" ]; then
+            echo "❌ No previous successful deployment found to rollback to"
+            exit 1
+          fi
+          
+          echo "🔄 Rolling back to deployment: $PREV_DEPLOY"
+          
+          curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services/$SERVICE_ID/deploys/$PREV_DEPLOY/rollback"
+          
+          echo "✅ Rollback initiated!"
+
+      - name: Rollback Vercel Frontend
+        if: contains(github.event.inputs.service, 'frontend')
+        run: |
+          echo "ℹ️ Vercel rollback instructions:"
+          echo ""
+          echo "1. Go to https://vercel.com/dashboard"
+          echo "2. Select your project"
+          echo "3. Go to 'Deployments' tab"
+          echo "4. Find the deployment you want to rollback to"
+          echo "5. Click the three dots (...) menu"
+          echo "6. Select 'Promote to Production' (or 'Redeploy')"
+          echo ""
+          echo "Alternatively, revert the commit in git and push."
+
+      - name: Record rollback
+        run: |
+          echo "## ⚠️ Rollback Initiated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service:** ${{ github.event.inputs.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Initiated by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify team
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            curl -X POST -H "Content-Type: application/json" \
+              -d '{
+                "text": "⚠️ Manual Rollback Initiated",
+                "attachments": [
+                  {
+                    "color": "warning",
+                    "fields": [
+                      {"title": "Service", "value": "${{ github.event.inputs.service }}", "short": true},
+                      {"title": "Initiated by", "value": "${{ github.actor }}", "short": true},
+                      {"title": "Reason", "value": "${{ github.event.inputs.reason }}", "short": false}
+                    ]
+                  }
+                ]
+              }' \
+              "$SLACK_WEBHOOK_URL"
+            echo "✅ Slack notification sent"
+          else
+            echo "ℹ️ Slack webhook not configured, skipping notification"
+          fi

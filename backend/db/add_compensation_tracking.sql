@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS offers (
     
     -- Metadata
     years_of_experience DECIMAL(4,1),
+    
+    -- Career Growth Tracking
+    career_milestones JSONB, -- Array of {year, title, salary} objects
+    career_notes TEXT, -- Notes about non-financial career goals
+    
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

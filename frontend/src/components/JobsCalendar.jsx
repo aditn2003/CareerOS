@@ -3,6 +3,7 @@ import { Calendar, dateFnsLocalizer } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import enUS from "date-fns/locale/en-US";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { baseURL } from "../api";
 import "./JobsCalendar.css";
 
 const locales = { "en-US": enUS };
@@ -21,7 +22,7 @@ export default function JobsCalendar({ token }) {
   useEffect(() => {
     async function loadJobs() {
       try {
-        const res = await fetch("http://localhost:4000/api/jobs", {
+        const res = await fetch(`${baseURL}/api/jobs`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

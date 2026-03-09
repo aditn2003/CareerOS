@@ -234,7 +234,14 @@ export default function QualityScoringTab({ jobId: jobIdProp }) {
       setUserStats(statsRes.data.stats);
     } catch (err) {
       console.error("❌ Error analyzing quality:", err);
-      setError(err.response?.data?.message || "Failed to analyze application quality");
+      const errorData = err.response?.data;
+      
+      // Handle missing job description
+      if (errorData?.missing_job_description) {
+        setError(errorData.error || "Job description is missing. Please add a job description to analyze your application.");
+      } else {
+        setError(errorData?.error || errorData?.message || "Failed to analyze application quality");
+      }
     } finally {
       setLoading(false);
     }

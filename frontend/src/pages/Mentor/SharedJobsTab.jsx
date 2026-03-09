@@ -1,7 +1,7 @@
 // src/pages/Mentor/SharedJobsTab.jsx
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { api } from "../../api";
+import { api, baseURL } from "../../api";
 import { useTeam } from "../../contexts/TeamContext";
 import { useAuth } from "../../contexts/AuthContext";
 import TeamDropdown from "../../components/TeamDropdown";
@@ -626,7 +626,7 @@ function ApplicationMaterials({ materials, loading, onRefresh, isCandidate = fal
 
     try {
       const token = localStorage.getItem("token");
-      let downloadUrl = `http://localhost:4000/api/team/${teamId}/resume/${resumeId}/download`;
+      let downloadUrl = `${baseURL}/api/team/${teamId}/resume/${resumeId}/download`;
       if (jobId) {
         downloadUrl += `?jobId=${jobId}`;
       }
@@ -660,7 +660,7 @@ function ApplicationMaterials({ materials, loading, onRefresh, isCandidate = fal
 
     try {
       const token = localStorage.getItem("token");
-      let downloadUrl = `http://localhost:4000/api/team/${teamId}/cover-letter/${coverLetterId}/download`;
+      let downloadUrl = `${baseURL}/api/team/${teamId}/cover-letter/${coverLetterId}/download`;
       if (jobId) {
         downloadUrl += `?jobId=${jobId}`;
       }

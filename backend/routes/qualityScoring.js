@@ -6,14 +6,14 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import pool from "../db/pool.js";
 import { auth } from "../auth.js";
-import { createQualityScoringService } from "../services/qualityScoringService.js";
+import { createSimpleQualityScoringService } from "../services/qualityScoringServiceSimple.js";
 
 dotenv.config();
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 
-// Initialize quality scoring service with the shared database pool
-const qualityScoringService = createQualityScoringService(null, pool);
+// Initialize simplified quality scoring service
+const qualityScoringService = createSimpleQualityScoringService(null, pool);
 
 // ============================================================
 // POST /api/quality-scoring/:jobId/analyze
@@ -35,9 +35,13 @@ router.post("/:jobId/analyze", auth, async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
+    // TEMPORARILY: Always force refresh since we updated the scoring algorithm
+    // TODO: Remove this after old scores are cleared
+    const alwaysRefresh = true;
+    
     // Check if score exists and is recent (< 24 hours old)
     // BUT: Always refresh if forceRefresh is true, or if materials have changed recently
-    if (!forceRefresh) {
+    if (!forceRefresh && !alwaysRefresh) {
       // Check if job materials were updated recently (within last hour)
       const materialsCheck = await pool.query(
         `SELECT updated_at FROM job_materials WHERE job_id = $1`,
@@ -92,6 +96,15 @@ router.post("/:jobId/analyze", auth, async (req, res) => {
       userId,
       minimumThreshold
     );
+
+    // Check if job description is missing
+    if (qualityScore.missing_job_description) {
+      return res.status(400).json({
+        error: qualityScore.error,
+        missing_job_description: true,
+        score: null
+      });
+    }
 
     // Calculate user statistics for comparison
     const userStats = await pool.query(

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "./UpcomingDeadlinesWidget.css";
 import { FaCalendarAlt, FaTimes } from "react-icons/fa";
 import JobsCalendar from "./JobsCalendar";
+import { baseURL } from "../api";
 
 function daysUntil(deadline) {
   if (!deadline) return null;
@@ -29,7 +30,7 @@ export default function UpcomingDeadlinesWidget({ token }) {
     async function load() {
       try {
         const res = await fetch(
-          "http://localhost:4000/api/jobs?sortBy=deadline",
+          `${baseURL}/api/jobs?sortBy=deadline`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }

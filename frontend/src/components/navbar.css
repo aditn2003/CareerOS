@@ -1,9 +1,19 @@
 /* ===============================================
+   NAVBAR WRAPPER
+   =============================================== */
+
+.navbar-wrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* ===============================================
    NAVBAR - PREMIUM GLASMORPHISM DESIGN
    =============================================== */
 
 .navbar {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4c1d95 60%, #5b21b6 100%);
+  background: transparent;
   color: #fff;
   text-align: center;
   padding: 2rem 3rem;
@@ -17,7 +27,11 @@
   box-sizing: border-box;
   overflow: hidden;
   position: relative;
-  z-index: 1;
+  z-index: 100;
+  padding-right: 5rem;
+  margin-bottom: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: auto;
   
   /* Premium Shadow */
   box-shadow: 
@@ -27,6 +41,56 @@
   
   /* Animated Border */
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Light Pillar Background */
+.navbar-light-pillar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.navbar-expanded .navbar-light-pillar {
+  border-radius: 24px 24px 18px 18px;
+}
+
+/* Ensure navbar content is above LightPillar */
+.navbar-logo,
+.navbar-title-container,
+.navbar-menu-toggle,
+.navbar-menu-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* Ensure title is always visible */
+.navbar-title-container {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.navbar-expanded {
+  padding-bottom: 2.5rem;
+  overflow: visible;
+  border-radius: 24px 24px 18px 18px;
+  box-shadow: 
+    0 20px 60px rgba(91, 33, 182, 0.5),
+    0 8px 25px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.navbar-expanded .navbar-light-pillar {
+  border-radius: 24px 24px 18px 18px;
+  height: 100%;
+  min-height: 100%;
 }
 
 /* Animated Gradient Overlay */
@@ -193,16 +257,78 @@
    =============================================== */
 
 .navbar-right {
+  display: none;
+}
+
+/* ===============================================
+   NAV SECTIONS
+   =============================================== */
+
+.nav-section {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.8rem;
-  width: 100%;
-  max-width: 1100px;
+  justify-content: flex-end;
+  gap: 0;
+  padding: 0 0.5rem;
+  position: relative;
+  min-height: 60px;
+}
+
+.nav-section-single {
+  justify-content: flex-end;
+  min-height: 60px;
+  align-items: center;
+}
+
+.nav-section-lower {
+  margin-top: 1.2rem;
+  padding-top: 0.5rem;
+}
+
+.nav-section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-bottom: 0.5rem;
+  text-align: center;
   position: relative;
   z-index: 2;
-  padding: 0.5rem;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-section-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-self: stretch;
+}
+
+.nav-section-divider {
+  width: 1px;
+  height: 50px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.15) 15%,
+    rgba(167, 139, 250, 0.3) 50%,
+    rgba(255, 255, 255, 0.15) 85%,
+    transparent 100%
+  );
+  margin: 0 0.5rem;
+  flex-shrink: 0;
+  border-radius: 1px;
+  align-self: flex-end;
+  margin-bottom: 5px;
 }
 
 /* ===============================================
@@ -392,13 +518,43 @@
   }
   
   .navbar-right {
-    gap: 0.7rem;
+    gap: 0;
   }
   
   .navbar-right a,
   .navbar-right button {
     padding: 0.7rem 1.2rem;
     font-size: 0.9rem;
+  }
+
+  .nav-section {
+    padding: 0 0.4rem;
+    min-height: 55px;
+  }
+
+  .nav-section-single {
+    min-height: 55px;
+  }
+
+  .nav-section-lower {
+    margin-top: 1rem;
+    padding-top: 0.4rem;
+  }
+
+  .nav-section-buttons {
+    gap: 0.5rem;
+  }
+
+  .nav-section-divider {
+    height: 40px;
+    margin: 0 0.2rem;
+    margin-bottom: 5px;
+  }
+
+  .nav-section-label {
+    font-size: 0.6rem;
+    height: 14px;
+    margin-bottom: 0.4rem;
   }
 }
 
@@ -435,6 +591,42 @@
     font-size: 0.85rem;
     padding: 0.65rem 1rem;
   }
+
+  .nav-section {
+    width: 100%;
+    padding: 0.5rem 0;
+    min-height: auto;
+    justify-content: center;
+  }
+
+  .nav-section-single {
+    min-height: auto;
+    justify-content: center;
+  }
+
+  .nav-section-divider {
+    margin-bottom: 0;
+  }
+
+  .nav-section-lower {
+    margin-top: 0.8rem;
+    padding-top: 0.3rem;
+  }
+
+  .nav-section-buttons {
+    width: 100%;
+    gap: 0.6rem;
+  }
+
+  .nav-section-divider {
+    display: none;
+  }
+
+  .nav-section-label {
+    font-size: 0.65rem;
+    margin-bottom: 0.5rem;
+    height: auto;
+  }
   
   /* Hide floating orb on mobile */
   .navbar::after {
@@ -460,6 +652,19 @@
   .navbar-right button {
     flex: 1 1 100%;
     padding: 0.8rem 1rem;
+  }
+
+  .nav-section {
+    width: 100%;
+  }
+
+  .nav-section-buttons {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .nav-section-label {
+    font-size: 0.6rem;
   }
 }
 
@@ -549,5 +754,342 @@ body.dark .navbar-right button.active {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* ===============================================
+   MENU TOGGLE BUTTON
+   =============================================== */
+
+.navbar-menu-toggle {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #5b21b6;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 100;
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.2),
+    0 0 20px rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+  padding: 0;
+}
+
+.navbar-menu-toggle svg {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  font-size: 20px !important;
+  display: block !important;
+}
+
+.navbar-menu-toggle:hover {
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 
+    0 6px 25px rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(255, 255, 255, 0.4);
+}
+
+.navbar-menu-toggle:active {
+  transform: scale(0.95);
+}
+
+/* ===============================================
+   EXPANDABLE MENU INSIDE NAVBAR
+   =============================================== */
+
+@keyframes menuSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Navigation Cards */
+.navbar-overlay-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1rem;
+  padding: 0;
+  margin: 0 auto;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.navbar-overlay-cards .electric-border:nth-child(1) { animation-delay: 0.25s; }
+.navbar-overlay-cards .electric-border:nth-child(2) { animation-delay: 0.35s; }
+.navbar-overlay-cards .electric-border:nth-child(3) { animation-delay: 0.45s; }
+.navbar-overlay-cards .electric-border:nth-child(4) { animation-delay: 0.55s; }
+
+.navbar-overlay-cards .electric-border {
+  animation: cardSlideIn 0.4s ease-out backwards;
+}
+
+.navbar-overlay-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 0.75rem;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 140px;
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Spotlight hover effect on cards */
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.22), transparent 60%);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+.spotlight-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.35),
+    0 0 30px rgba(167, 139, 250, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.navbar-overlay-cards .electric-border:hover .navbar-overlay-card {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.navbar-overlay-card-title {
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  opacity: 0.9;
+  text-align: center;
+  width: 100%;
+}
+
+.navbar-overlay-card-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.navbar-overlay-card-links li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.navbar-overlay-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.95);
+  text-decoration: none;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  font-family: inherit;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.navbar-overlay-link button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.navbar-overlay-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.4s ease;
+}
+
+.navbar-overlay-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.navbar-overlay-link:hover::before {
+  left: 100%;
+}
+
+.navbar-overlay-link-icon {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+}
+
+.navbar-overlay-link:hover .navbar-overlay-link-icon {
+  opacity: 0.9;
+  transform: translate(2px, -2px);
+}
+
+.navbar-overlay-link.active {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.navbar-overlay-link.active::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+}
+
+.navbar-overlay-link.active .navbar-overlay-link-icon {
+  opacity: 1;
+  color: #ffffff;
+}
+
+.navbar-overlay-logout {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+  color: #fca5a5 !important;
+}
+
+.navbar-overlay-logout:hover {
+  background: rgba(239, 68, 68, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateX(3px) !important;
+}
+
+/* Responsive Menu */
+@media (max-width: 1200px) {
+  .navbar-overlay-cards {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .navbar-overlay-card {
+    padding: 0.875rem 1rem;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar-menu-content {
+    padding: 0 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .navbar-overlay-cards {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+
+  .navbar-overlay-card {
+    padding: 1rem;
+    min-width: calc(50% - 0.5rem);
+    flex: 1 1 calc(50% - 0.5rem);
+  }
+
+  .navbar-overlay-card-title {
+    font-size: 0.7rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .navbar-overlay-link {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .navbar-expanded {
+    padding-bottom: 2rem;
   }
 }

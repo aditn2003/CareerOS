@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -8,49 +8,83 @@ import {
 } from "react-router-dom";
 import NavBar from "./components/NavBar";
 import Spinner from "./components/Spinner";
+import "./App.css";
 
-// ---------- Pages ----------
-import Home from "./pages/Home";
-import Register from "./pages/Register";
-import Login from "./pages/Login";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import ProfileLayout from "./pages/Profile/ProfileLayout";
-import Jobs from "./pages/Jobs";
-import StatisticsPage from "./pages/StatisticsPage";
-import CompanyResearch from "./pages/Interviews/CompanyResearch"; // 🆕 Moved to Interviews folder
-import JobMatch from "./pages/Match/JobMatch";
-import MatchCompare from "./pages/Match/MatchCompare.jsx";
-import SkillsGapAnalysis from "./pages/SkillsGap/SkillsGapAnalysis";
-import Interviews from "./pages/Interviews/Interviews";
-import CoverLetter from "./pages/CoverLetter"; // ✅ ADDED (UC-55)
-import NetworkLayout from "./pages/Network/NetworkLayout"; // ✅ ADDED (Consolidated Network/Referrals/Networking)
-import InterviewsLayout from "./pages/Interviews/InterviewsLayout"; // Layout wrapper
-import InterviewInsights from "./pages/Interviews/InterviewInsights"; // ✅ UC-074
-import QuestionBank from "./pages/Interviews/QuestionBank"; // ✅ UC-075
-import ResponseCoaching from "./pages/Interviews/ResponseCoaching"; // ✅ UC-076
-import MockInterview from "./pages/Interviews/MockInterview"; // ✅ UC-077
-import TechnicalPrep from "./pages/Interviews/TechnicalPrep"; // ✅ UC-078
-import FollowUpTemplates from "./pages/Interviews/FollowUpTemplates"; // ✅ UC-082
-import SalaryResearch from "./pages/Interviews/SalaryResearch"; // 🆕 Moved to Interviews folder
-import SalaryNegotiation from "./pages/Interviews/SalaryNegotiation"; // ✅ UC-083
-import MentorLayout from "./pages/Mentor/MentorLayout"; // ✅ Mentor layout with tabs
-import InterviewAnalytics from './pages/Interviews/InterviewAnalytics';
-import InterviewTracker from './pages/Interviews/InterviewTracker';
-import LinkedInAuthSuccess from "./pages/LinkedInAuthSuccess"; // LinkedIn OAuth callback handler
-import LinkedInCallback from "./pages/LinkedInCallback"; // LinkedIn OAuth callback (new)
-import DocsManagement from "./pages/DocsManagement";
+// ---------- Pages (Lazy Loaded for Code Splitting) ----------
+const Home = lazy(() => import("./pages/Home"));
+const Register = lazy(() => import("./pages/Register"));
+const Login = lazy(() => import("./pages/Login"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ProfileLayout = lazy(() => import("./pages/Profile/ProfileLayout"));
+const Jobs = lazy(() => import("./pages/Jobs"));
+const StatisticsPage = lazy(() => import("./pages/StatisticsPage"));
+const CompanyResearch = lazy(() =>
+  import("./pages/Interviews/CompanyResearch")
+); // 🆕 Moved to Interviews folder
+const JobMatch = lazy(() => import("./pages/Match/JobMatch"));
+const MatchCompare = lazy(() => import("./pages/Match/MatchCompare.jsx"));
+const SkillsGapAnalysis = lazy(() =>
+  import("./pages/SkillsGap/SkillsGapAnalysis")
+);
+const Interviews = lazy(() => import("./pages/Interviews/Interviews"));
+const CoverLetter = lazy(() => import("./pages/CoverLetter")); // ✅ ADDED (UC-55)
+const NetworkLayout = lazy(() => import("./pages/Network/NetworkLayout")); // ✅ ADDED (Consolidated Network/Referrals/Networking)
+const InterviewsLayout = lazy(() =>
+  import("./pages/Interviews/InterviewsLayout")
+); // Layout wrapper
+const InterviewInsights = lazy(() =>
+  import("./pages/Interviews/InterviewInsights")
+); // ✅ UC-074
+const QuestionBank = lazy(() => import("./pages/Interviews/QuestionBank")); // ✅ UC-075
+const ResponseCoaching = lazy(() =>
+  import("./pages/Interviews/ResponseCoaching")
+); // ✅ UC-076
+const MockInterview = lazy(() => import("./pages/Interviews/MockInterview")); // ✅ UC-077
+const TechnicalPrep = lazy(() => import("./pages/Interviews/TechnicalPrep")); // ✅ UC-078
+const FollowUpTemplates = lazy(() =>
+  import("./pages/Interviews/FollowUpTemplates")
+); // ✅ UC-082
+const SalaryResearch = lazy(() => import("./pages/Interviews/SalaryResearch")); // 🆕 Moved to Interviews folder
+const SalaryNegotiation = lazy(() =>
+  import("./pages/Interviews/SalaryNegotiation")
+); // ✅ UC-083
+const MentorLayout = lazy(() => import("./pages/Mentor/MentorLayout")); // ✅ Mentor layout with tabs
+const InterviewAnalytics = lazy(() =>
+  import("./pages/Interviews/InterviewAnalytics")
+);
+const InterviewTracker = lazy(() =>
+  import("./pages/Interviews/InterviewTracker")
+);
+const LinkedInAuthSuccess = lazy(() => import("./pages/LinkedInAuthSuccess")); // LinkedIn OAuth callback handler
+const LinkedInCallback = lazy(() => import("./pages/LinkedInCallback")); // LinkedIn OAuth callback (new)
+const DocsManagement = lazy(() => import("./pages/DocsManagement"));
 
-import Networking from "./pages/Networking/Networking"; // Professional Networking Management
+// ---------- Help & Legal Pages (Lazy) ----------
+const GettingStarted = lazy(() => import("./pages/Help/GettingStarted"));
+const FAQ = lazy(() => import("./pages/Help/FAQ"));
+const TermsOfService = lazy(() => import("./pages/Help/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("./pages/Help/PrivacyPolicy"));
 
-// ---------- Resume Flow ----------
-import ResumeBuilder from "./pages/Profile/ResumeBuilder";
-import ResumeSetup from "./pages/Profile/ResumeSetup";
-import ResumeEditor from "./components/ResumeEditor";
-import ResumeOptimize from "./components/ResumeOptimize";
-import ResumeOptimizeRun from "./components/ResumeOptimizeRun";
-import ResumeCompare from "./components/ResumeCompare";
-import ResumeFinalReview from "./components/ResumeFinalReview";
+// ---------- Components (Lazy) ----------
+const FollowUpReminders = lazy(() => import("./components/FollowUpReminders"));
+
+// ---------- Admin Pages (Lazy) ----------
+const ApiMonitoringDashboard = lazy(() => import("./pages/Admin/ApiMonitoringDashboard"));
+
+const Networking = lazy(
+  () => import("./pages/Networking/Networking")
+); // Professional Networking Management
+
+
+// ---------- Resume Flow (Lazy) ----------
+const ResumeBuilder = lazy(() => import("./pages/Profile/ResumeBuilder"));
+const ResumeSetup = lazy(() => import("./pages/Profile/ResumeSetup"));
+const ResumeEditor = lazy(() => import("./components/ResumeEditor"));
+const ResumeOptimize = lazy(() => import("./components/ResumeOptimize"));
+const ResumeOptimizeRun = lazy(() => import("./components/ResumeOptimizeRun"));
+const ResumeCompare = lazy(() => import("./components/ResumeCompare"));
+const ResumeFinalReview = lazy(() => import("./components/ResumeFinalReview"));
 
 // ---------- Context Providers ----------
 import { AuthProvider } from "./contexts/AuthContext";
@@ -68,11 +102,11 @@ export default function App() {
   return (
     <AuthProvider>
       <TeamProvider>
-      <ProfileProvider>
-        <Router>
-          <MainLayout />
-        </Router>
-      </ProfileProvider>
+        <ProfileProvider>
+          <Router>
+            <MainLayout />
+          </Router>
+        </ProfileProvider>
       </TeamProvider>
     </AuthProvider>
   );
@@ -84,12 +118,18 @@ function MainLayout() {
 
   return (
     <div className="app-wrapper">
+      {/* Skip to main content link for keyboard navigation */}
+      <a href="#main-content" className="skip-to-main">
+        Skip to main content
+      </a>
+
       <NavBar />
 
-      <main className="app-container">
+      <main id="main-content" className="app-container" role="main">
         {loading && <Spinner />}
 
-        <Routes>
+        <Suspense fallback={<Spinner />}>
+          <Routes>
           {/* --- Public Routes --- */}
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
@@ -100,6 +140,12 @@ function MainLayout() {
           {/* --- LinkedIn OAuth Callback Routes --- */}
           <Route path="/auth/linkedin/success" element={<LinkedInAuthSuccess />} />
           <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
+
+          {/* --- Help & Legal Pages (Public) --- */}
+          <Route path="/getting-started" element={<GettingStarted />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
 
           {/* --- Profile Routes (Protected) --- */}
           <Route
@@ -179,12 +225,32 @@ function MainLayout() {
             }
           />
 
+          {/* --- Jobs Map View (Protected) --- */}
+          <Route
+            path="/jobs/map"
+            element={
+              <ProtectedRoute>
+                <Jobs />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Statistics (Protected) --- */}
           <Route
             path="/statistics"
             element={
               <ProtectedRoute>
                 <StatisticsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* --- Follow-Up Reminders (UC-118, Protected) --- */}
+          <Route
+            path="/followup-reminders"
+            element={
+              <ProtectedRoute>
+                <FollowUpReminders />
               </ProtectedRoute>
             }
           />
@@ -277,9 +343,6 @@ function MainLayout() {
               </ProtectedRoute>
             }
           />
-          {/* --- Cover Letter (UC-055)  --- */}
-          <Route path="/cover-letter" element={<CoverLetter />} />{" "}
-          {/* ✅ NEW */}
           {/* --- Consolidated Network & Relationships (UC-10x, UC-087, UC-088) --- */}
           <Route
             path="/network"
@@ -318,6 +381,16 @@ function MainLayout() {
             }
           />
 
+          {/* --- Admin Dashboard (Protected, Mentor/Admin Only) --- */}
+          <Route
+            path="/admin/api-monitoring"
+            element={
+              <ProtectedRoute>
+                <ApiMonitoringDashboard />
+              </ProtectedRoute>
+            }
+          />
+
           {/* --- Legacy / Alias --- */}
           <Route
             path="/resume/templates"
@@ -328,9 +401,10 @@ function MainLayout() {
             }
           />
 
-          {/* --- Fallback --- */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* --- Fallback --- */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   );
